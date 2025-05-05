@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "module": "ESNext",
+    // "target": "ES2020",
+    // "moduleResolution": "bundler", // Vite
+    "moduleResolution": "node",
+    "outDir": "./dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "baseUrl": "./", // Base directory for resolving non-relative module imports
+    "paths": {
+      "@routes/*": ["routes/*"],
+      "@controllers/*": ["controllers/*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.js", "dist/controllers/summariesController.js"],
+  "exclude": ["node_modules"]
+}

@@ -1,0 +1,46 @@
+{
+  // "files": [],
+  // "references": [
+  //   { "path": "./tsconfig.app.json" },
+  //   { "path": "./tsconfig.node.json" }
+  // ]
+    "compilerOptions": {
+      "baseUrl": "./",
+      "paths": {       
+        // "@/*": ["src/*"],
+        "@components/*": ["src/components/*"],
+        "@context/*": ["src/context/*"],
+        "@lib/*": ["src/lib/*"],
+        "@utils/*": ["src/utils/*"],
+        "@hooks/*": ["src/hooks/*"],
+        // "@dist/*": ["src/dist/*"],
+        // "@server/*": ["server/*"],
+        // "@routes/*": ["src/routes/*"],
+      },
+      "target": "ES2022",
+      "lib": ["ES2023", "DOM", "DOM.Iterable"],
+      "useDefineForClassFields": true,
+      "module": "ESNext",
+      "skipLibCheck": true,
+      
+      /* Bundler mode */
+      // "moduleResolution": "bundler",
+      "moduleResolution": "node",
+      "allowImportingTsExtensions": true,
+      // "allowSyntheticDefaultImports": false,
+      "esModuleInterop": true,
+      "isolatedModules": true,
+      "moduleDetection": "force",
+      "noEmit": true,
+      "outDir": "./dist",
+      "jsx": "react-jsx",
+  
+      /* Linting */
+      "strict": true,
+      "noUnusedLocals": true,
+      "noUnusedParameters": true,
+      "noFallthroughCasesInSwitch": true
+    },
+    "include": [ "src/**/*", "vite.config.ts", "src/hooks", "src/lib", "backend/server.ts", "server", "src/components/Auth.tsx", "vite-env.d.ts", "Archive/WeeklyReview.tsx", "Archive/WeeklySummary.tsx"],
+    "exclude": ["node_modules"]
+  }
