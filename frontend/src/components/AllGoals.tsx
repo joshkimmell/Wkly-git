@@ -21,6 +21,7 @@ const AllGoals = () => {
     week_start: '',
   });
   const [filter, setFilter] = useState<string>(''); // For filtering goals
+  const [error, setError] = useState<string | null>(null); // For error handling
 
   // Fetch all goals for the logged-in user
   const fetchGoals = async () => {
@@ -267,9 +268,9 @@ export default AllGoals;
 
 
 
-function setError(message: any) {
-  throw new Error('Function not implemented.');
-}
+// function setError(_message: any) {
+//   throw new Error('Function not implemented.');
+// }
 // import React, { useState, useEffect, useCallback } from 'react';
 // import Modal from 'react-modal';
 // import useAuth from '@hooks/useAuth';
