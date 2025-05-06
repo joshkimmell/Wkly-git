@@ -96,7 +96,7 @@ const GoalCard: React.FC<GoalCardProps> = ({ goal, handleDelete, handleEdit }) =
   return (
     <div key={goal.id} className="bg-white shadow-sm border rounded-lg p-4">
       <div className="flex flex-col justify-between">
-        <div className='flex flex-row w-full justify-right align-right'>
+        <div className='goal-header flex flex-row w-full justify-right align-right'>
           <button
             onClick={() => handleDelete(goal.id)}
             className="text-red-600 hover:text-red-800"
@@ -110,6 +110,7 @@ const GoalCard: React.FC<GoalCardProps> = ({ goal, handleDelete, handleEdit }) =
             <Edit className="w-5 h-5" />
           </button>
         </div>
+        <div className="goal-content flex flex-col mt-2">
           <h4 className="text-lg font-medium text-gray-900">{goal.title || 'Untitled Goal'}</h4>
           <p className="text-gray-600 mt-1">{goal.description || 'No description provided.'}</p>
           <span className="flex flex-col w-auto items-left px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 mt-2">
@@ -136,7 +137,7 @@ const GoalCard: React.FC<GoalCardProps> = ({ goal, handleDelete, handleEdit }) =
         </footer>
 
       {isExpanded && (
-        <div className="mt-4">
+        <div className="goal-accomplishments mt-4">
           {/* <h4 className="text-sm font-semibold text-gray-900">Accomplishments</h4> */}
           <ul className="list-none list-inside text-gray-700 mt-2 space-y-1">
             {accomplishments.map((accomplishment) => (
@@ -218,7 +219,8 @@ const GoalCard: React.FC<GoalCardProps> = ({ goal, handleDelete, handleEdit }) =
         </div>
       )}
     </div>
-    );
+    </div>
+  );
   };
       
       export default GoalCard;
