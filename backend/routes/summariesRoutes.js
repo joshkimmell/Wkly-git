@@ -121,6 +121,7 @@ router.post('/', function (req, res, next) { return __awaiter(void 0, void 0, vo
     });
 }); });
 // Route to update a summary by ID
+// router.put('/:summary_id', updateSummary);
 router.put('/:summary_id', function (req, res, next) { return __awaiter(void 0, void 0, void 0, function () {
     var error_5;
     return __generator(this, function (_a) {
@@ -172,6 +173,24 @@ router.post('/generate', function (req, res, next) { return __awaiter(void 0, vo
             case 2:
                 error_7 = _a.sent();
                 next(error_7);
+                return [3 /*break*/, 3];
+            case 3: return [2 /*return*/];
+        }
+    });
+}); });
+router.post('/generate', function (req, res, next) { return __awaiter(void 0, void 0, void 0, function () {
+    var error_8;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                _a.trys.push([0, 2, , 3]);
+                return [4 /*yield*/, (0, summariesController_js_1.generateSummary)(req, res)];
+            case 1:
+                _a.sent();
+                return [3 /*break*/, 3];
+            case 2:
+                error_8 = _a.sent();
+                next(error_8);
                 return [3 /*break*/, 3];
             case 3: return [2 /*return*/];
         }

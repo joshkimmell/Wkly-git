@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 // import useAuth from '@hooks/useAuth'; // Adjust the path if necessary
-import { supabase } from '@lib/supabase'; // Import supabase client
+import supabase from '@lib/supabase'; // Import supabase client
 // import { Auth } from '@supabase/auth-ui-react'
 
 
@@ -119,7 +119,7 @@ export default Login;
 // export default AuthComponent;
 
 // import React, { useState } from 'react';
-// import { supabase } from '@lib/supabase';
+// import supabase from '@lib/supabase';
 // // import { useAuth  } from '@hooks';
 
 // const Login = () => {

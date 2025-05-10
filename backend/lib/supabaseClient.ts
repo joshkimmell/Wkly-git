@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
+import * as dotenv from 'dotenv';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -16,4 +16,5 @@ if (!supabaseUrl || !supabaseRoleKey) {
 }
 
 // Create and export the Supabase client
-export const supabase = createClient(supabaseUrl, supabaseRoleKey);
+const supabase = createClient(supabaseUrl, supabaseRoleKey);
+export default supabase;

@@ -1,5 +1,5 @@
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
-import { supabase } from '@lib/supabase.ts';
+import supabase from '@lib/supabase.ts';
 
 
 import React from 'react';

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Modal from 'react-modal';
-import { supabase } from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
+import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 
 Modal.setAppElement('#root');
 

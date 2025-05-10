@@ -1,0 +1,1 @@
+{"root":["../server.ts","../archive/summariesroutes.ts","../archive/weeklysummarycontroller.ts","../archive/weeklysummaryroutes.ts","../controllers/summariescontroller.ts","../lib/supabaseclient.ts","../routes/summariesroutes.ts","../services/summaryservice.ts"],"version":"5.8.3"}

@@ -36,8 +36,13 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateWeeklySummary = exports.deleteSummary = exports.updateSummary = exports.createSummary = exports.getSummaries = exports.createGoal = exports.getGoals = void 0;
+exports.generateSummary = exports.generateWeeklySummary = exports.deleteSummary = exports.updateSummary = exports.createSummary = exports.getSummaries = exports.createGoal = exports.getGoals = void 0;
 var supabaseClient_js_1 = require("../lib/supabaseClient.js");
+var openai_1 = require("openai");
+var openai = new openai_1.OpenAI({
+    apiKey: process.env.OPENAI_API_KEY, // Ensure you set this environment variable
+});
+// const openai = new OpenAI(openAIConfig);
 // Fetch all goals for a specific user
 var getGoals = function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
     var user_id, _a, data, error, error_1;
@@ -143,12 +148,12 @@ var getSummaries = function (req, res) { return __awaiter(void 0, void 0, void 0
 exports.getSummaries = getSummaries;
 // Create a new summary
 var createSummary = function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var _a, user_id, summary_text, goal_id, accomplishment_id, _b, data, error, error_4;
+    var _a, user_id, title, content, goal_id, accomplishment_id, _b, data, error, error_4;
     return __generator(this, function (_c) {
         switch (_c.label) {
             case 0:
-                _a = req.body, user_id = _a.user_id, summary_text = _a.summary_text, goal_id = _a.goal_id, accomplishment_id = _a.accomplishment_id;
-                if (!user_id || !summary_text) {
+                _a = req.body, user_id = _a.user_id, title = _a.title, content = _a.content, goal_id = _a.goal_id, accomplishment_id = _a.accomplishment_id;
+                if (!user_id || !content) {
                     return [2 /*return*/, res.status(400).json({ error: 'User ID and summary_text are required.' })];
                 }
                 _c.label = 1;
@@ -159,7 +164,8 @@ var createSummary = function (req, res) { return __awaiter(void 0, void 0, void 
                         .insert([
                         {
                             user_id: user_id,
-                            summary_text: summary_text,
+                            // summary_text,
+                            title: title,
                             goal_id: goal_id || null, // Optional goal reference
                             accomplishment_id: accomplishment_id || null, // Optional accomplishment reference
                         },
@@ -182,12 +188,13 @@ var createSummary = function (req, res) { return __awaiter(void 0, void 0, void 
 exports.createSummary = createSummary;
 // Update an existing summary
 var updateSummary = function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var summary_id, summary_text, _a, data, error, error_5;
+    var summary_id, summary_text, title, _a, data, error, error_5;
     return __generator(this, function (_b) {
         switch (_b.label) {
             case 0:
                 summary_id = req.params.summary_id;
                 summary_text = req.body.summary_text;
+                title = req.body.title;
                 if (!summary_id || !summary_text) {
                     return [2 /*return*/, res.status(400).json({ error: 'Summary ID and summary_text are required.' })];
                 }
@@ -196,7 +203,7 @@ var updateSummary = function (req, res) { return __awaiter(void 0, void 0, void 
                 _b.trys.push([1, 3, , 4]);
                 return [4 /*yield*/, supabaseClient_js_1.supabase
                         .from('summaries')
-                        .update({ summary_text: summary_text })
+                        .update({ summary_text: summary_text, title: title })
                         .eq('summary_id', summary_id)];
             case 2:
                 _a = _b.sent(), data = _a.data, error = _a.error;
@@ -214,6 +221,21 @@ var updateSummary = function (req, res) { return __awaiter(void 0, void 0, void 
     });
 }); };
 exports.updateSummary = updateSummary;
+//   if (!summary_id || !summary_text) {
+//     return res.status(400).json({ error: 'Summary ID and summary_text are required.' });
+//   }
+//   try {
+//     const { data, error } = await supabase
+//       .from('summaries')
+//       .update({ summary_text })
+//       .eq('summary_id', summary_id);
+//     if (error) throw error;
+//     res.status(200).json(data);
+//   } catch (error) {
+//     console.error('Error updating summary:', error);
+//     res.status(500).json({ error: 'Failed to update summary.' });
+//   }
+// };
 // Delete a summary
 var deleteSummary = function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
     var summary_id, _a, data, error, error_6;
@@ -267,3 +289,83 @@ var generateWeeklySummary = function (req, res) { return __awaiter(void 0, void 
     });
 }); };
 exports.generateWeeklySummary = generateWeeklySummary;
+var generateSummary = function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var _a, user_id, week_start, _b, goals, goalsError, _c, accomplishments, accomplishmentsError, goalsList, accomplishmentsList, prompt_1, response, summary, _d, summaryData, summaryError, error_7;
+    var _e, _f, _g;
+    return __generator(this, function (_h) {
+        switch (_h.label) {
+            case 0:
+                _a = req.body, user_id = _a.user_id, week_start = _a.week_start;
+                if (!user_id || !week_start) {
+                    return [2 /*return*/, res.status(400).json({ error: 'User ID and week_start are required.' })];
+                }
+                _h.label = 1;
+            case 1:
+                _h.trys.push([1, 6, , 7]);
+                return [4 /*yield*/, supabaseClient_js_1.supabase
+                        .from('goals')
+                        .select('id, title, description, category')
+                        .eq('user_id', user_id)
+                        .eq('week_start', week_start)];
+            case 2:
+                _b = _h.sent(), goals = _b.data, goalsError = _b.error;
+                if (goalsError) {
+                    console.error('Error fetching goals from Supabase:', goalsError);
+                    return [2 /*return*/, res.status(500).json({ error: 'Failed to fetch goals.' })];
+                }
+                return [4 /*yield*/, supabaseClient_js_1.supabase
+                        .from('accomplishments')
+                        .select('id, title, description, impact')
+                        .eq('user_id', user_id)
+                        .eq('week_start', week_start)];
+            case 3:
+                _c = _h.sent(), accomplishments = _c.data, accomplishmentsError = _c.error;
+                if (accomplishmentsError) {
+                    console.error('Error fetching accomplishments from Supabase:', accomplishmentsError);
+                    return [2 /*return*/, res.status(500).json({ error: 'Failed to fetch accomplishments.' })];
+                }
+                goalsList = goals.map(function (goal) { return "Title: ".concat(goal.title, ", Description: ").concat(goal.description, ", Category: ").concat(goal.category); }).join('\n');
+                accomplishmentsList = accomplishments.map(function (accomplishment) { return "Title: ".concat(accomplishment.title, ", Description: ").concat(accomplishment.description, ", Impact: ").concat(accomplishment.impact); }).join('\n');
+                prompt_1 = "\n        Summarize the following goals and accomplishments into a concise, friendly report:\n\n        Goals:\n        ".concat(goalsList, "\n\n        Accomplishments:\n        ").concat(accomplishmentsList, "\n    ");
+                return [4 /*yield*/, openai.chat.completions.create({
+                        model: 'gpt-3.5-turbo',
+                        messages: [
+                            { role: 'system', content: 'You are a helpful assistant.' },
+                            { role: 'user', content: prompt_1 },
+                        ],
+                        max_tokens: 150,
+                        temperature: 0.7,
+                    })];
+            case 4:
+                response = _h.sent();
+                summary = ((_g = (_f = (_e = response.choices[0]) === null || _e === void 0 ? void 0 : _e.message) === null || _f === void 0 ? void 0 : _f.content) === null || _g === void 0 ? void 0 : _g.trim()) || 'No summary available.';
+                return [4 /*yield*/, supabaseClient_js_1.supabase
+                        .from('summaries')
+                        .insert([
+                        {
+                            user_id: user_id,
+                            week_start: week_start,
+                            title: "Weekly Summary for ".concat(week_start),
+                            content: summary,
+                            goals: goals.map(function (goal) { return goal.id; }), // Store goal IDs for reference
+                            accomplishments: accomplishments.map(function (accomplishment) { return accomplishment.id; }), // Store accomplishment IDs for reference
+                        },
+                    ])];
+            case 5:
+                _d = _h.sent(), summaryData = _d.data, summaryError = _d.error;
+                if (summaryError) {
+                    console.error('Error storing summary in Supabase:', summaryError);
+                    return [2 /*return*/, res.status(500).json({ error: 'Failed to store summary.' })];
+                }
+                res.status(200).json({ summary: summary, summaryData: summaryData });
+                return [3 /*break*/, 7];
+            case 6:
+                error_7 = _h.sent();
+                console.error('Error generating summary with OpenAI:', error_7);
+                res.status(500).json({ error: 'Failed to generate summary.' });
+                return [3 /*break*/, 7];
+            case 7: return [2 /*return*/];
+        }
+    });
+}); };
+exports.generateSummary = generateSummary;

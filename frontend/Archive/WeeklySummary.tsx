@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSession } from '@supabase/auth-helpers-react';
-import { groupAccomplishmentsByCategory } from '../src/utils/groupAccomplishmentsByCategory'; // Adjust the import path
+import { groupAccomplishmentsByCategory } from './groupAccomplishmentsByCategory'; // Adjust the import path
 
 // Define the Accomplishment type
 export interface Accomplishment {

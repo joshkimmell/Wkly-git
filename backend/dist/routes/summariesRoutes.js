@@ -1,13 +1,21 @@
-import express from 'express';
-import { getSummaries, createSummary, updateSummary, deleteSummary, getGoals, createGoal, generateWeeklySummary, } from '../controllers/summariesController.js';
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const summariesController_js_1 = require("../controllers/summariesController.js");
+// import { Request, Response } from 'express';
+// import { ParsedQs } from 'qs';
+// import supabase from '../lib/supabaseClient.js';
 // Initialize Supabase client
 // const supabase = createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_SERVICE_ROLE_KEY || '');
-const router = express.Router();
+const router = express_1.default.Router();
 // Route to fetch goals
 router.get('/goals', async (req, res, next) => {
     console.log('Request Query:', req.query); // Log the request query
     try {
-        await getGoals(req, res);
+        await (0, summariesController_js_1.getGoals)(req, res);
     }
     catch (error) {
         next(error);
@@ -16,7 +24,7 @@ router.get('/goals', async (req, res, next) => {
 // Route to create a new goal
 router.post('/goals', async (req, res, next) => {
     try {
-        await createGoal(req, res);
+        await (0, summariesController_js_1.createGoal)(req, res);
     }
     catch (error) {
         next(error);
@@ -25,7 +33,7 @@ router.post('/goals', async (req, res, next) => {
 // Route to fetch all summaries
 router.get('/', async (req, res, next) => {
     try {
-        await getSummaries(req, res);
+        await (0, summariesController_js_1.getSummaries)(req, res);
     }
     catch (error) {
         next(error); // Pass errors to the error-handling middleware
@@ -34,16 +42,17 @@ router.get('/', async (req, res, next) => {
 // Route to create a new summary
 router.post('/', async (req, res, next) => {
     try {
-        await createSummary(req, res);
+        await (0, summariesController_js_1.createSummary)(req, res);
     }
     catch (error) {
         next(error);
     }
 });
 // Route to update a summary by ID
+// router.put('/:summary_id', updateSummary);
 router.put('/:summary_id', async (req, res, next) => {
     try {
-        await updateSummary(req, res);
+        await (0, summariesController_js_1.updateSummary)(req, res);
     }
     catch (error) {
         next(error);
@@ -52,7 +61,7 @@ router.put('/:summary_id', async (req, res, next) => {
 // Route to delete a summary by ID
 router.delete('/:summary_id', async (req, res, next) => {
     try {
-        await deleteSummary(req, res);
+        await (0, summariesController_js_1.deleteSummary)(req, res);
     }
     catch (error) {
         next(error);
@@ -61,10 +70,17 @@ router.delete('/:summary_id', async (req, res, next) => {
 // Route to generate a weekly summary
 router.post('/generate', async (req, res, next) => {
     try {
-        await generateWeeklySummary(req, res);
+        await (0, summariesController_js_1.generateWeeklySummary)(req, res);
     }
     catch (error) {
         next(error);
     }
 });
-export default router;
+// router.post('/generate', async (req, res, next) => {
+//   try {
+//     await generateSummary(req, res);
+//   } catch (error) {
+//     next(error);
+//   }
+// });
+exports.default = router;

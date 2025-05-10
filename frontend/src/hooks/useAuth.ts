@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
-import { supabase } from '@lib/supabase';
+import supabase from '@lib/supabase';
 
 const useAuth = () => {  // Correct custom hook
     const [user, setUser] = useState<Session | null>(null); // Hook call inside a custom hook
@@ -31,7 +31,7 @@ export default useAuth;
 
 // import { useEffect, useState } from 'react';
 // import { Session } from '@supabase/supabase-js';
-// import { supabase } from '@lib/supabase';
+// import supabase from '@lib/supabase';
 
 // const [session, setSession] = useState<Session | null>(null);
 

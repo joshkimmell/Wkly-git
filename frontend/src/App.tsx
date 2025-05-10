@@ -3,7 +3,7 @@ import { Calendar, Award, LogOut, Home, Text } from 'lucide-react';
 import { GoalsProvider } from './context/GoalsContext';
 import WeeklyGoals from './components/WeeklyGoals';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
-import { supabase } from './lib/supabase';
+import supabase from './lib/supabase';
 import Auth from '@components/Auth';
 import useAuth from 'src/hooks/useAuth';
 import AllGoals from '@components/AllGoals';

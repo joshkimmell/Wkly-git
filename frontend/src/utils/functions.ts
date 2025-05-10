@@ -5,17 +5,17 @@
 //
 
 import React from "react";
-// import { Session } from "@supabase/auth-helpers-react";
-// import { SupabaseClient } from "@supabase/supabase-js";
 import { Goal, FetchGoalsParams }from "@utils/goalUtils";
-import { supabase } from "@lib/supabase";
-// import { useState } from "react";
-// import { Goal } from "@/components/GoalForm";
-// import { useAuth } from "@hooks/useAuth";
+import axios from "axios";
+import supabase from "@lib/supabase";
 
-export const backendUrl = (import.meta as any).env.VITE_BACKEND_URL;
+const backend = (import.meta as any).env.VITE_BACKEND_URL;
+export const backendUrl = backend + '/api/summaries';
 export const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
 export const supabaseKey = (import.meta as any).env.VITE_SUPABASE_KEY;
+export const openaiApiKey = (import.meta as any).env.VITE_OPENAI_API_KEY;
+
+
 console.log('Backend URL:', backendUrl);
 // console.log('Supabase URL:', supabaseUrl);
 
@@ -132,44 +132,115 @@ export const handleSubmit = async (
     }
 };
 
-                    
-export const fetchGoals = async (
-    fetchParams: FetchGoalsParams, 
-    // supabase: SupabaseClient<any, "public", any>, 
-    _filterGoalsByWeek: (
-        goals: Goal[],
-        selectedWeek: Date,
-        setFilteredGoals: React.Dispatch<React.SetStateAction<any[]>>
-    ) => void, 
-    setGoals: React.Dispatch<React.SetStateAction<any[]>>, 
-    // p1: () => void, 
-    // filter: string, 
-    _setFilteredGoals: React.Dispatch<React.SetStateAction<Goal[]>>, 
-    setError: React.Dispatch<React.SetStateAction<string | null>>, 
-    // userId: { userId: any; },      
-) => {  
-    try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error('User is not authenticated');
-        const { user } = session;
-        if (!user) throw new Error('User is not authenticated');
-        if (!session?.user?.id) throw new Error('User ID is missing.');
-        const { access_token } = session;
-        if (!access_token) throw new Error('Access token is missing');
-        // const { data: { user: { id } } } = await supabase.auth.getUser();
-        // if (!id) throw new Error('User ID is missing');
-        const data = await fetchWithAuth(`${fetchParams.backendUrl}/rest/v1/goals?user_id=${session.user.id}`, session.access_token);
-        
-        if(data) {
-            setGoals(data);
-        } else {
-            setGoals([]);
-        };
-        
-    } catch (err) {
-        handleError(err, setError);
+// Fetch all goals
+export const fetchGoals = async (userId: string, weekStart: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User is not authenticated');
+    const token = user.id;
+    const response = await fetch(`${backendUrl}/goals?user_id=${token}&week_start=${weekStart}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  
+    if (!response.ok) {
+      throw new Error('Failed to fetch goals');
     }
-};
+  
+    return response.json();
+  };
+  
+  // Add a new goal
+  export const addGoal = async (token: string, newGoal: any) => {
+    const response = await fetch(`${backendUrl}/goals`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(newGoal),
+    });
+  
+    if (!response.ok) {
+      throw new Error('Failed to add goal');
+    }
+  
+    return response.json();
+  };
+  
+  // Delete a goal
+  export const deleteGoal = async (token: string, goalId: string) => {
+    const response = await fetch(`${backendUrl}/goals/${goalId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  
+    if (!response.ok) {
+      throw new Error('Failed to delete goal');
+    }
+  
+    return response.json();
+  };
+  
+  // Update a goal
+  export const updateGoal = async (token: string, goalId: string, updatedGoal: any) => {
+    const response = await fetch(`${backendUrl}/goals/${goalId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(updatedGoal),
+    });
+  
+    if (!response.ok) {
+      throw new Error('Failed to update goal');
+    }
+  
+    return response.json();
+  };                    
+// export const fetchGoals = async (
+//     fetchParams: FetchGoalsParams, 
+//     // supabase: SupabaseClient<any, "public", any>, 
+//     filterGoalsByWeek: (
+//         goals: Goal[],
+//         selectedWeek: Date,
+//         setFilteredGoals: React.Dispatch<React.SetStateAction<any[]>>
+//     ) => void, 
+//     setGoals: React.Dispatch<React.SetStateAction<any[]>>, 
+//     // p1: () => void, 
+//     // filter: string, 
+//     setFilteredGoals: React.Dispatch<React.SetStateAction<Goal[]>>, 
+//     setError: React.Dispatch<React.SetStateAction<string | null>>, 
+//     // userId: { userId: any; },      
+// ) => {  
+//     try {
+//         const { data: { session } } = await supabase.auth.getSession();
+//         if (!session) throw new Error('User is not authenticated');
+//         const { user } = session;
+//         if (!user) throw new Error('User is not authenticated');
+//         if (!session?.user?.id) throw new Error('User ID is missing.');
+//         const { access_token } = session;
+//         if (!access_token) throw new Error('Access token is missing');
+//         // const { data: { user: { id } } } = await supabase.auth.getUser();
+//         // if (!id) throw new Error('User ID is missing');
+//         const data = await fetchWithAuth(`${fetchParams.backendUrl}/rest/v1/goals?user_id=${session.user.id}`, session.access_token);
+        
+//         if(data) {
+//             setGoals(data);
+//         } else {
+//             setGoals([]);
+//         };
+        
+//     } catch (err) {
+//         handleError(err, setError);
+//     }
+// };
 
 export const handleDeleteGoal = async (
     supabase: any,
@@ -205,33 +276,170 @@ export const filterGoalsByWeek = (
     });
     setFilteredGoals(filtered);
 };
-export const generateSummary = async (
-    filteredGoals: any[],
-    setSummary: React.Dispatch<React.SetStateAction<string>>,
-    setError: React.Dispatch<React.SetStateAction<string | null>>
-) => {
-    try {
-        const response = await fetch('/api/summaries/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                goals: filteredGoals.map((goal) => `- ${goal.title}: ${goal.description}`),
-                accomplishments: filteredGoals
-                .flatMap((goal) => goal.accomplishments || [])
-                .map((accomplishment) => `- ${accomplishment.title}: ${accomplishment.description}`),
-            }),
-        });
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to generate summary');
-        }
-        const data = await response.json();
-        setSummary(data.summary);
-    } catch (err) {
-        handleError(err, setError);
-    }
+
+// export const handleGenerate = async (props: { goals: any[]; accomplishments: any[]; setSummary: React.Dispatch<React.SetStateAction<string>> }) => {
+//     const { goals, accomplishments, setSummary } = props; // Destructure props to extract goals, accomplishments, and setSummary
+
+//     try {
+//         // Assuming `goals` and `accomplishments` are passed as props or available in the component's state
+//         const displayedGoals = goals.map((goal) => `- ${goal.title}: ${goal.description}`);
+//         const displayedAccomplishments = accomplishments.map(
+//             (accomplishment) => `- ${accomplishment.title}: ${accomplishment.description}`
+//         );
+
+//         const response = await axios.post(`${backendUrl}/generate`, {
+//             goals: displayedGoals,
+//             accomplishments: displayedAccomplishments,
+//         });
+
+//         setSummary(response.data.summary);
+//     } catch (error) {
+//         console.error('Error generating summary:', error);
+//     }
+// };
+
+export const getWeekStartDate = (date: Date = new Date()): string => {
+    const dayOfWeek = date.getDay(); // 0 (Sunday) to 6 (Saturday)
+    const diff = date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust for Monday as the start of the week
+    const weekStart = new Date(date.setDate(diff));
+    return weekStart.toISOString().split('T')[0]; // Format as YYYY-MM-DD
 };
 
+// export const handleGenerate = async (backendUrl: string, selectedDate: Date): Promise<string> => {
+//     try {
+//         const weekStart = getWeekStartDate(selectedDate); // Get the start date of the selected week
+
+//         if (!backendUrl) {
+//             throw new Error('Backend URL is not defined. Please set VITE_BACKEND_URL in your .env file.');
+//         }
+
+//         // Fetch goals from Supabase
+//         const { data: goalsData, error: goalsError } = await supabase
+//             .from('goals')
+//             .select('title, description, category')
+//             .eq('week_start', weekStart); // Filter by the selected week's start date
+
+//         if (goalsError) {
+//             throw new Error(`Error fetching goals: ${goalsError.message}`);
+//         }
+
+//         // Fetch accomplishments from Supabase
+//         const { data: accomplishmentsData, error: accomplishmentsError } = await supabase
+//             .from('accomplishments')
+//             .select('title, description, impact')
+//             .eq('week_start', weekStart); // Filter by the selected week's start date
+
+//         if (accomplishmentsError) {
+//             throw new Error(`Error fetching accomplishments: ${accomplishmentsError.message}`);
+//         }
+
+//         // Format the data for the backend
+//         const formattedGoals: string[] = goalsData?.map(
+//             (goal: { title: string; description: string; category: string }) =>
+//                 `(${goal.category}) ${goal.title}: ${goal.description}`
+//         ) || [];
+//         const accomplishments: string[] = accomplishmentsData?.map(
+//             (accomplishment: { title: string; description: string; impact: string }) =>
+//                 `${accomplishment.title}: ${accomplishment.description}<br/>Impact: ${accomplishment.impact}`
+//         ) || [];
+
+//         // Retrieve the authenticated user
+//         // const user = await supabase.auth.getUser();
+//         const { data: { user } } = await supabase.auth.getUser();
+//         if (!user) throw new Error('User is not authenticated');
+        
+//         const user_id = user.id;
+
+//         // Send a POST request to the backend
+//         const response = await axios.post(`${backendUrl}/generate?user_id=${user_id}&week_start=${weekStart}`, {
+//             goals: formattedGoals,
+//             accomplishments,
+//         });
+
+//         return response.data.summary; // Return the generated summary
+//     } catch (error) {
+//         console.error('Error generating summary:', error);
+//         throw error;
+//     }
+// };
+
+// export const generateSummary = async (
+//     filteredGoals: any[],
+//     setSummary: React.Dispatch<React.SetStateAction<string>>,
+//     setError: React.Dispatch<React.SetStateAction<string | null>>
+// ) => {
+//     try {
+//         const { data: { user } } = await supabase.auth.getUser();
+//         if (!user) throw new Error('User is not authenticated');
+        
+//         const user_id = user.id;
+//         const response = await fetch(`${backendUrl}/generate?user_id=${user_id}`, {
+//             method: 'POST',
+//             headers: { 'Content-Type': 'application/json' },
+//             body: JSON.stringify({
+//                 goals: filteredGoals.map((goal) => `- ${goal.title}: ${goal.description}`),
+//                 accomplishments: filteredGoals
+//                 .flatMap((goal) => goal.accomplishments || [])
+//                 .map((accomplishment) => `- ${accomplishment.title}: ${accomplishment.description}`),
+//             }),
+//         });
+//         if (!response.ok) {
+//             const errorData = await response.json();
+//             throw new Error(errorData.error || 'Failed to generate summary');
+//         }
+//         const data = await response.json();
+//         setSummary(data.summary);
+//     } catch (err) {
+//         handleError(err, setError);
+//     }
+// };
+
+export const handleGenerate = async (
+    userId: string, 
+    weekStart: string, 
+    goals: string[], 
+    accomplishments: string[]
+) => {
+    // const backendUrl = backend + '/api/summaries';
+    try {
+    const response = await fetch(`${backendUrl}/generate`/*?user_id=${userId}&week_start=${weekStart}*/, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`, // Pass the API key here
+      },
+      body: JSON.stringify({ 
+        user_id: userId, 
+        week_start: weekStart, 
+        goals, 
+        accomplishments, 
+    }),
+});
+
+    console.log('Request body:',{
+        user_id: userId,
+        week_start: weekStart,
+        goals,
+        accomplishments,
+      });
+
+    if (!response.ok) {
+      throw new Error('Failed to generate summary');
+    }
+
+    const data = await response.json();
+    return data.summary;
+  } catch (error) {
+    console.error('Error generating summary:', error);
+    throw error;
+  }
+};
+
+export function setSummary(summary: string) {
+    console.log("Generated Summary:", summary);
+    // This function could be expanded to update a state or perform other actions
+    // For now, it simply logs the summary to the console
+}
 export function setGoals(_data: any) {
     throw new Error("Function not implemented.");
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
+import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 // import { handleDeleteGoal } from '@utils/functions';
 import { Goal, Accomplishment } from '@utils/goalUtils'; // Adjust the import path as necessary
 import { ChevronDown, ChevronUp, Trash, Edit } from 'lucide-react';

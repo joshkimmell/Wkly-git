@@ -1,6 +1,6 @@
 // Assisted by watsonx Code Assistant 
 
-import { Accomplishment } from "@components/GoalCard";
+import { Accomplishment } from "@utils/goalUtils";
 
 
 export const groupAccomplishmentsByCategory = (accomplishments: Accomplishment[]): Record<string, Accomplishment[]> => {

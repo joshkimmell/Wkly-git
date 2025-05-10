@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
-import { useGoalsContext } from '@context/GoalsContext';
+import { fetchGoals, addGoal, deleteGoal, updateGoal } from '@utils/functions';
+import SummaryGenerator from '@components/SummaryGenerator';
+import SummaryEditor from '@components/SummaryEditor';
 import GoalCard from '@components/GoalCard';
-import DatePicker from 'react-datepicker';
 import Modal from 'react-modal';
-import 'react-datepicker/dist/react-datepicker.css';
 import { Goal } from '@utils/goalUtils';
-import { supabase } from '@lib/supabase';
-import { error } from 'console';
-import { tr } from 'date-fns/locale';
+import supabase from '@lib/supabase';
+import 'react-datepicker/dist/react-datepicker.css';
 
 const WeeklyGoals = () => {
-
+  const [selectedSummary, /*setSelectedSummary*/] = useState<{
+    id: string;
+    content: string;
+} | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [filteredGoals, setFilteredGoals] = useState<Goal[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -22,20 +24,15 @@ const WeeklyGoals = () => {
     category: 'Technical skills',
     week_start: '',
   });
+  const [token, setToken] = useState<string | null>(null); // Replace with your auth token logic
   const [filter, setFilter] = useState<string>(''); // For filtering goals
   const [selectedWeek, setSelectedWeek] = useState<Date>(new Date());
   const [error, setError] = useState<string | null>(null);
-  const [isExpanded, setIsExpanded] = useState(false); // State to track expansion
-  const [newAccomplishment, setNewAccomplishment] = useState({
-    title: '',
-    description: '',
-    impact: '',
-  });
-  const [accomplishments, setAccomplishments] = useState<any[]>([]); // State to hold accomplishments
-  const [isAccomplishmentModalOpen, setIsAccomplishmentModalOpen] = useState(false); // State to control the modal for adding accomplishments
+  const [weekOptions, setWeekOptions] = useState<Date[]>([]); // Store weeks as Date objects
+  
 
-  // Fetch all goals for the logged-in user
-  const fetchGoals = async () => {
+  // Fetch all distinct weeks and goals
+  const fetchWeeksAndGoals = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -43,80 +40,141 @@ const WeeklyGoals = () => {
         return;
       }
 
-      const { data, error } = await supabase
-        .from('goals')
-        .select('*')
-        .eq('user_id', user.id);
+      // Call the get_unique_weeks function
+      const { data: weeksData, error: weeksError } = await supabase.rpc('get_unique_weeks', {
+        user_id: user.id,
+      });
 
-      if (error) {
-        console.error('Error fetching goals:', error.message);
+      if (weeksError) {
+        console.error('Error fetching weeks:', weeksError.message);
         return;
       }
 
-      setGoals(data || []);
-      setFilteredGoals(data || []); // Initialize filtered goals
+      // Convert week_start strings to Date objects
+      const weeks = weeksData.map((week: { week_start: string | number | Date; }) => new Date(week.week_start));
+
+      setWeekOptions(weeks); // Populate dropdown options with unique Date objects
+      setSelectedWeek(weeks[0] || new Date()); // Default to the first week
     } catch (err) {
-      console.error('Unexpected error fetching goals:', err);
+      console.error('Unexpected error fetching weeks and goals:', err);
+    }
+  };
+
+  // // Add a new goal
+  // const handleAddGoal = async () => {
+  //   try {
+  //     const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  //     if (authError) {
+  //       console.error('Error fetching user:', authError.message);
+  //       return;
+  //     }
+
+  //     if (!user) {
+  //       console.error('User is not authenticated');
+  //       return;
+  //     }
+
+  //     // Ensure user_id is valid
+  //     if (!user.id) {
+  //       console.error('Invalid user_id');
+  //       return;
+  //     }
+
+  //     const { error } = await supabase.from('goals').insert({
+  //       ...newGoal,
+  //       user_id: user.id, // Use the authenticated user's ID
+  //       created_at: new Date().toISOString(),
+  //     });
+
+  //     if (error) {
+  //       console.error('Error adding goal:', error.message);
+  //       return;
+  //     }
+
+  //     fetchWeeksAndGoals(); // Refresh goals after adding
+  //     setIsModalOpen(false);
+  //     setNewGoal({
+  //       id: '', 
+  //       title: '',
+  //       description: '',
+  //       category: 'Technical skills',
+  //       week_start: '',
+  //       user_id: '',
+  //     });
+  //   } catch (err) {
+  //     console.error('Unexpected error adding goal:', err);
+  //   }
+  // };
+
+  // // Delete a goal
+  // const deleteGoal = async (goalId: string) => {
+  //   try {
+  //     // 1. Delete related accomplishments first
+  //     await supabase
+  //       .from('accomplishments')
+  //       .delete()
+  //       .eq('goal_id', goalId);
+  
+  //     // 2. Then, delete the goal
+  //     await supabase
+  //       .from('goals')
+  //       .delete()
+  //       .eq('id', goalId);
+  
+  //     // Fetch goals again to update the UI
+  //     await fetchWeeksAndGoals();
+  
+  //   } catch (error: any) {
+  //     setError(error.message);
+  //   }
+  // };
+
+   // Fetch all goals
+   const fetchAllGoals = async () => {
+    try {
+      const data = await fetchGoals(token!, selectedWeek.toISOString().split('T')[0]); // Ensure token and weekStart are available
+      setGoals(data);
+    } catch (error) {
+      console.error('Error fetching goals:', error);
     }
   };
 
   // Add a new goal
   const handleAddGoal = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error('User is not authenticated');
-        return;
-      }
-
-      const { error } = await supabase.from('goals').insert({
-        ...newGoal,
-        user_id: user.id,
-        created_at: new Date().toISOString(),
-      });
-
-      if (error) {
-        console.error('Error adding goal:', error.message);
-        return;
-      }
-
-      fetchGoals(); // Refresh goals after adding
-      setIsModalOpen(false);
-      setNewGoal({
-        id: '', 
-        title: '',
-        description: '',
-        category: 'Technical skills',
-        week_start: '',
-        user_id: '',
-      });
-    } catch (err) {
-      console.error('Unexpected error adding goal:', err);
+      await addGoal(token!, newGoal); // Ensure token is available
+      fetchAllGoals(); // Refresh goals after adding
+    } catch (error) {
+      console.error('Error adding goal:', error);
     }
   };
 
   // Delete a goal
-  const deleteGoal = async (goalId: string) => {
+  const handleDeleteGoal = async (goalId: string) => {
     try {
-      // 1. Delete related accomplishments first
-      await supabase
-        .from('accomplishments')
-        .delete()
-        .eq('goal_id', goalId);
-  
-      // 2. Then, delete the goal
-      await supabase
-        .from('goals')
-        .delete()
-        .eq('id', goalId);
-  
-      // Fetch goals again to update the UI
-      await fetchGoals();
-  
-    } catch (error: any) {
-      setError(error.message);
+      await deleteGoal(token!, goalId); // Ensure token is available
+      fetchAllGoals(); // Refresh goals after deleting
+    } catch (error) {
+      console.error('Error deleting goal:', error);
     }
   };
+
+  // Update a goal (example usage)
+  const handleUpdateGoal = async (goalId: string, updatedGoal: any) => {
+    try {
+      await updateGoal(token!, goalId, updatedGoal); // Ensure token is available
+      fetchAllGoals(); // Refresh goals after updating
+    } catch (error) {
+      console.error('Error updating goal:', error);
+    }
+  };
+
+  useEffect(() => {
+    // Fetch goals on component mount
+    fetchAllGoals();
+  }, []);
+
 
   // Filter goals based on the filter state
   const handleFilterChange = (filterValue: string) => {
@@ -134,13 +192,43 @@ const WeeklyGoals = () => {
     }
   };
 
-  useEffect(() => {
-    fetchGoals();
-  }, []);
+  // Filter goals by the selected week
+  const filterGoalsByWeek = (week: Date) => {
+    const weekString = week.toISOString().split('T')[0]; // Convert Date to YYYY-MM-DD
+    const filtered = goals.filter((goal) => goal.week_start === weekString);
+    setFilteredGoals(filtered);
+  };
 
-  // function setSelectedWeek(arg0: Date): void {
-  //   throw new Error('Function not implemented.');
-  // }
+  // Handle week selection from the dropdown
+  const handleWeekChange = (weekString: string) => {
+    const week = new Date(weekString); // Convert string to Date
+    setSelectedWeek(week);
+    filterGoalsByWeek(week);
+  };
+
+  // Navigate to the previous week
+  const handlePreviousWeek = () => {
+    const currentIndex = weekOptions.findIndex((week) => week.getTime() === selectedWeek.getTime());
+    if (currentIndex > 0) {
+      const previousWeek = weekOptions[currentIndex - 1];
+      setSelectedWeek(previousWeek);
+      filterGoalsByWeek(previousWeek);
+    }
+  };
+
+  // Navigate to the next week
+  const handleNextWeek = () => {
+    const currentIndex = weekOptions.findIndex((week) => week.getTime() === selectedWeek.getTime());
+    if (currentIndex < weekOptions.length - 1) {
+      const nextWeek = weekOptions[currentIndex + 1];
+      setSelectedWeek(nextWeek);
+      filterGoalsByWeek(nextWeek);
+    }
+  };
+
+  useEffect(() => {
+    fetchWeeksAndGoals();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -154,46 +242,37 @@ const WeeklyGoals = () => {
         </button>
       </div>
 
+      {/* Week Selector */}
+      <div className="flex items-center space-x-4">
+        <button
+          onClick={handlePreviousWeek}
+          disabled={weekOptions.findIndex((week) => week.getTime() === selectedWeek.getTime()) === 0}
+          className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50"
+        >
+          Previous
+        </button>
+          <select
+            value={selectedWeek.toISOString().split('T')[0]} // Convert Date to YYYY-MM-DD for the dropdown
+            onChange={(e) => handleWeekChange(e.target.value)}
+            className="px-4 py-2 border rounded-md"
+          >
+            {weekOptions.map((week) => (
+              <option key={week.toISOString()} value={week.toISOString().split('T')[0]}>
+                {week.toLocaleDateString()} {/* Format week_start */}
+              </option>
+            ))}
+          </select>
+        
+        <button
+          onClick={handleNextWeek}
+          disabled={weekOptions.findIndex((week) => week.getTime() === selectedWeek.getTime()) === weekOptions.length - 1}
+          className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50"
+        >
+          Next
+        </button>
+      </div>
+
       {/* Filter Input */}
-      <DatePicker 
-        className='flex mx-auto react-datepicker__input-container react-datepicker__view-calendar-icon w-auto justify-center items-center'
-        showIcon
-        selected={selectedWeek} 
-        allowSameDay={false}
-        monthsShown={2}
-        // shouldCloseOnSelect={true}
-        showTimeSelect={false}
-        showTimeInput={false}
-        showPreviousMonths={false}
-        showMonthYearPicker={false}
-        showFullMonthYearPicker={false}
-        showTwoColumnMonthYearPicker={false}
-        showFourColumnMonthYearPicker={false}
-        showYearPicker={false}
-        showQuarterYearPicker={false}
-        showWeekPicker={false}
-        strictParsing={false}
-        swapRange={false}
-        previousMonthAriaLabel="Previous Month"
-        previousMonthButtonLabel="Previous"
-        nextMonthAriaLabel="Next Month"
-        nextMonthButtonLabel="Next"
-        previousYearAriaLabel="Previous Year"
-        previousYearButtonLabel="Previous"
-        nextYearAriaLabel="Next Year"
-        nextYearButtonLabel="Next"
-        // timeInputLabel={false}
-        enableTabLoop={false}
-        // yearItemNumber=""
-        focusSelectedMonth={true}
-        showPopperArrow={true}
-        excludeScrollbar={false}
-        calendarStartDay={1}
-        toggleCalendarOnIconClick={true}
-        usePointerEvent
-        onChange={(date) => setSelectedWeek(date || new Date())} 
-      />
-       {error && <p style={{ color: 'red' }}>{error}</p>}
       <div className="mt-4 h-10">
         <input
           type="text"
@@ -210,11 +289,25 @@ const WeeklyGoals = () => {
           <GoalCard
             key={goal.id}
             goal={goal}
-            handleDelete={deleteGoal}
+            handleDelete={(goalId) => handleDeleteGoal(goalId)}
             handleEdit={() => console.log(`Edit goal: ${goal.id}`)} // Placeholder for edit functionality
           />
         ))}
       </div>
+      {/* Summary Generator and Editor */}
+        <div className="mt-6">
+            <h2 className="text-xl font-semibold text-gray-900">Summary</h2>
+            <p className="text-gray-600">Generate and edit your weekly summary.</p>
+        </div>
+         <div>
+            <SummaryGenerator selectedWeek={selectedWeek} />
+            {selectedSummary && (
+                <SummaryEditor
+                    summaryId={selectedSummary.id}
+                    initialContent={selectedSummary.content}
+                />
+            )}
+        </div>
 
       {/* Add Goal Modal */}
       {isModalOpen && (
@@ -296,38 +389,6 @@ const WeeklyGoals = () => {
       )}
     </div>
   );
-//   const { goals, filteredGoals, setFilteredGoals, filterGoalsByWeek, error } = useGoalsContext();
-//   const [selectedWeek, setSelectedWeek] = useState(new Date());
-
-//   useEffect(() => {
-//     filterGoalsByWeek(goals, selectedWeek, setFilteredGoals);
-//   }, [goals, selectedWeek]);
-
-//   return (
-//     <div>
-//       <h1>Weekly Goals</h1>
-//       <DatePicker selected={selectedWeek} onChange={(date) => setSelectedWeek(date || new Date())} />
-//       {error && <p style={{ color: 'red' }}>{error}</p>}
-//       <div>
-//         {filteredGoals.map((goal) => (
-//           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-//           {filteredGoals.map((goal) => (
-//             <GoalCard
-//               key={goal.id}
-//               goal={goal}
-//               handleDelete={deleteGoal}
-//               handleEdit={() => console.log(`Edit goal: ${goal.id}`)} // Placeholder for edit functionality
-//             />
-//           ))}
-//         </div>
-//         ))}
-//       </div>
-//     </div>
-//   );
 };
 
 export default WeeklyGoals;
-
-// function setError(_message: any) {
-//     throw new Error('Function not implemented.');
-//   }

@@ -1,10 +1,17 @@
+"use strict";
 // # Assisted by watsonx Code Assistant 
 // # watsonx Code Assistant did not check whether this code suggestion might be similar to third party code.
-import OpenAI from 'openai';
-const openai = new OpenAI({
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getWeeklySummary = void 0;
+const openai_1 = __importDefault(require("openai"));
+const openai = new openai_1.default({
     apiKey: process.env.OPENAI_API_KEY, // Ensure this is loaded
 });
-export const getWeeklySummary = async (req, res) => {
+const model = process.env.OPENAI_MODEL || 'o4-mini';
+const getWeeklySummary = async (req, res) => {
     const { goals, accomplishments } = req.body;
     if (!goals || !accomplishments) {
         res.status(400).json({ error: 'Goals and accomplishments are required.' });
@@ -21,7 +28,7 @@ export const getWeeklySummary = async (req, res) => {
       ${accomplishments.join('\n')}
     `;
         const response = await openai.chat.completions.create({
-            model: 'gpt-4o',
+            model: model || 'o4-mini',
             // prompt: prompt,
             messages: [{ role: 'user', content: prompt }],
             stream: false,
@@ -39,3 +46,4 @@ export const getWeeklySummary = async (req, res) => {
         });
     }
 };
+exports.getWeeklySummary = getWeeklySummary;

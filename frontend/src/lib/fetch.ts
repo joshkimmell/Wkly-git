@@ -6,7 +6,7 @@ const backendUrl = (import.meta as any).env.VITE_BACKEND_URL; // Ensure this is 
 
 export async function addGoal(goalData: any) {
     // const response = await fetch(`${supabaseUrl}/rest/v1/goals`, {
-    const response = await fetch(`${backendUrl}/rest/v1/goals`, {
+    const response = await fetch(`${backendUrl}/goals?user_id=${goalData.user_id}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -15,6 +15,8 @@ export async function addGoal(goalData: any) {
         body: JSON.stringify(goalData)
     });
 
+    console.log('url:', backendUrl);
+    console.log('response:', response); // Log the response for debugging
     if (!response.ok) {
         throw new Error(`Error adding goal: ${response.statusText}`);
     }

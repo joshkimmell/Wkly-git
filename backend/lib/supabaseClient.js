@@ -2,9 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.supabase = exports.supabaseRoleKey = exports.supabaseUrl = void 0;
 var supabase_js_1 = require("@supabase/supabase-js");
-// import dotenv from 'dotenv';
+var dotenv = require("dotenv");
 // Load environment variables from .env file
-// dotenv.config();
+dotenv.config();
 // Supabase configuration
 // const supabaseUrl = process.env.SUPABASE_URL;
 // const supabaseRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

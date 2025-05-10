@@ -26,7 +26,7 @@
     "lodash": "^4.17.21",
     "lodash.debounce": "^4.0.8",
     "lucide-react": "^0.344.0",
-    "openai": "^4.92.0",
+    "openai": "^4.97.0",
     "react": "^18.3.1",
     "react-date-range": "^2.0.1",
     "react-datepicker": "^8.3.0",

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
-import { supabase } from '@lib/supabase';
+import supabase from '@lib/supabase';
 import { handleSubmit, handleDeleteGoal, filterGoalsByWeek } from '@utils/functions';
 // import { Categories } from '@components/GoalForm';
 

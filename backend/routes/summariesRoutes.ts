@@ -6,11 +6,12 @@ import {
   deleteSummary,
   getGoals,
   createGoal,
+  // generateSummary,
   generateWeeklySummary,
 } from '../controllers/summariesController.js';
 // import { Request, Response } from 'express';
 // import { ParsedQs } from 'qs';
-import { supabase } from '../lib/supabaseClient.js';
+// import supabase from '../lib/supabaseClient.js';
 
 // Initialize Supabase client
 // const supabase = createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_SERVICE_ROLE_KEY || '');
@@ -57,6 +58,7 @@ router.post('/', async (req, res, next) => {
 });
 
 // Route to update a summary by ID
+// router.put('/:summary_id', updateSummary);
 router.put('/:summary_id', async (req, res, next) => {
   try {
     await updateSummary(req, res);
@@ -64,6 +66,7 @@ router.put('/:summary_id', async (req, res, next) => {
     next(error);
   }
 });
+
 
 // Route to delete a summary by ID
 router.delete('/:summary_id', async (req, res, next) => {
@@ -82,6 +85,14 @@ router.post('/generate', async (req, res, next) => {
     next(error);
   }
 });
+
+// router.post('/generate', async (req, res, next) => {
+//   try {
+//     await generateSummary(req, res);
+//   } catch (error) {
+//     next(error);
+//   }
+// });
 
                 
 export default router;

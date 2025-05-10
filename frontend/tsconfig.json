@@ -41,6 +41,6 @@
       "noUnusedParameters": true,
       "noFallthroughCasesInSwitch": true
     },
-    "include": [ "src/**/*", "vite.config.ts", "src/hooks", "src/lib", "backend/server.ts", "server", "src/components/Auth.tsx", "vite-env.d.ts", "Archive/WeeklyReview.tsx", "Archive/WeeklySummary.tsx"],
+    "include": [ "src/**/*", "vite.config.ts", "src/hooks", "src/lib", "backend/server.ts", "server", "src/components/Auth.tsx", "vite-env.d.ts", "Archive/WeeklyReview.tsx", "Archive/WeeklySummary.tsx", "Archive/groupAccomplishmentsByCategory.ts"],
     "exclude": ["node_modules"]
   }

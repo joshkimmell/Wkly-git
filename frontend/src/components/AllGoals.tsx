@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Modal from 'react-modal';
 // import { SupabaseClient } from '@supabase/supabase-js';
-import { supabase } from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
+import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 import { Goal } from '@utils/goalUtils';
 import GoalCard from '@components/GoalCard';
     
@@ -274,7 +274,7 @@ export default AllGoals;
 // import React, { useState, useEffect, useCallback } from 'react';
 // import Modal from 'react-modal';
 // import useAuth from '@hooks/useAuth';
-// import { supabase } from '@lib/supabase';
+// import supabase from '@lib/supabase';
 // // import { Session } from "@supabase/auth-helpers-react";
 // import { Categories, FetchGoalsParams, Goal } from '@utils/goalUtils';
 // import { backendUrl, fetchGoals, filterGoalsByWeek, handleSubmit, handleDeleteGoal, handleError } from '@utils/functions';
@@ -536,7 +536,7 @@ export default AllGoals;
 // // // }
 // // // import React, { useState, useCallback, useEffect } from 'react';
 // // // import Modal from 'react-modal';
-// // // import { supabase } from '../lib/supabase';
+// // // import supabase from '../lib/supabase';
 // // // import AddGoal, { Categories } from '@/components/GoalForm';
 // // // import GoalCard from '@/components/GoalCard';
 // // // import { FetchGoalsParams, backendUrl, fetchGoals, handleSubmit, handleDeleteGoal } from '../utils/goalUtils';

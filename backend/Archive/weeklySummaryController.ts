@@ -7,6 +7,7 @@ import OpenAI from 'openai';
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY, // Ensure this is loaded
 });
+const model = process.env.OPENAI_MODEL || 'o4-mini';
 
 export const getWeeklySummary = async (
   req: Request<{}, {}, { goals: string[]; accomplishments: string[] }>,
@@ -31,7 +32,7 @@ export const getWeeklySummary = async (
     `;
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: model || 'o4-mini',
       // prompt: prompt,
       messages: [{ role: 'user', content: prompt }],
       stream: false,
