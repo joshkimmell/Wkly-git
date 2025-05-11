@@ -98,7 +98,10 @@ const GoalCard: React.FC<GoalCardProps> = ({ goal, handleDelete, handleEdit }) =
       <div className="flex flex-col justify-between">
         <div className='goal-header flex flex-row w-full justify-right align-right'>
           <button
-            onClick={() => handleDelete(goal.id)}
+            onClick={() => {
+              console.log('Deleting Goal ID:', goal.id); // Log the goal ID
+              handleDelete(goal.id);
+            }}
             className="text-red-600 hover:text-red-800"
             >
             <Trash className="w-5 h-5" />

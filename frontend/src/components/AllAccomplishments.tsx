@@ -128,6 +128,16 @@ const AllAccomplishments = () => {
     }
   };
 
+  const openModal = () => {
+    if (!isModalOpen) {
+      setIsModalOpen(true);
+    }
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+  };
+
   useEffect(() => {
     fetchAccomplishments();
   }, []);
@@ -137,7 +147,7 @@ const AllAccomplishments = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">All Accomplishments</h1>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={openModal}
           className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
         >
           Add Accomplishment
@@ -181,9 +191,10 @@ const AllAccomplishments = () => {
       {isModalOpen && (
         <Modal
           isOpen={isModalOpen}
-          onRequestClose={() => setIsModalOpen(false)}
+          onRequestClose={closeModal}
           className="fixed inset-0 flex items-center justify-center z-50"
           overlayClassName="fixed inset-0 bg-gray-500 bg-opacity-75"
+          ariaHideApp={false} // Disable automatic aria-hidden management
         >
           <div className="bg-white rounded-lg shadow-lg p-6 w-96">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Add Accomplishment</h3>
@@ -240,7 +251,7 @@ const AllAccomplishments = () => {
             </div>
             <div className="mt-6 flex justify-end space-x-4">
               <button
-                onClick={() => setIsModalOpen(false)}
+                onClick={closeModal}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
                 Cancel

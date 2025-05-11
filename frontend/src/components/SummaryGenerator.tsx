@@ -2,80 +2,56 @@
 // This component allows users to generate summaries based on a selected period (weekly, quarterly, yearly).
 
 import React, { useState } from 'react';
-import { handleGenerate, fetchGoals, getWeekStartDate } from '@utils/functions';
+import { handleGenerate } from '@utils/functions';
 import supabase from '@lib/supabase';
 
 interface SummaryGeneratorProps {
-  selectedWeek: Date; // Add the selectedWeek prop to the type definition
+    selectedWeek: Date;
+    filteredGoals: { title: string; description: string; category: string; accomplishments?: string[] }[]; // Add filteredGoals as a prop
+//   filteredGoals: { title: string; description: string; category: string; accomplishments?: string[] }[]; // Add filteredGoals as a prop
 }
 
-const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ selectedWeek }) => {
+const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ selectedWeek, filteredGoals }) => {
   const [summary, setSummary] = useState<string | null>(null);
-
 
   const handleGenerateClick = async () => {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('User is not authenticated');
-        
-        const userId = user.id;
-        const weekStart = getWeekStartDate(selectedWeek);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User is not authenticated');
 
-        // Fetch goals
-        const goalsResponse = await fetchGoals(userId, weekStart);
-        const goals = goalsResponse.goals || []; // Ensure goals is an array
+      const userId = user.id;
+      const weekStart = selectedWeek.toISOString().split('T')[0];
 
-        // Fetch accomplishments
-        const accomplishmentsResponse = await fetchGoals(userId, weekStart); // Replace with a proper fetchAccomplishments function if needed
-        const accomplishments = accomplishmentsResponse.accomplishments || []; // Ensure accomplishments is an array
+      // Combine goals with their child accomplishments
+      const goalsWithAccomplishments = filteredGoals.map(goal => ({
+        title: goal.title,
+        description: goal.description,
+        category: goal.category || 'Technical skills', // Add a default category or derive it dynamically
+        accomplishments: (goal.accomplishments || []).map(accomplishment => ({
+          title: accomplishment, // Map string to title
+          description: accomplishment, // Use the same string as description
+          impact: 'Medium', // Add a default impact or derive it dynamically
+        })),
+      }));
 
-        // Generate summary
-        const generatedSummary = await handleGenerate(userId, weekStart, goals, accomplishments);
-        setSummary(generatedSummary);
+      // Generate summary
+    //   const goalsAsStrings = goalsWithAccomplishments.map(goal => `${goal.title}: ${goal.description} - Accomplishments: ${goal.accomplishments.join(', ')}`);
+      const generatedSummary = await handleGenerate(userId, weekStart, goalsWithAccomplishments);
+      setSummary(generatedSummary);
     } catch (error) {
-        console.error('Error generating summary:', error);
+      console.error('Error generating summary:', error);
     }
-
-    console.log('Selected week:', selectedWeek);
-    console.log('Generated summary:', summary);
-        // const goals = await fetchGoals(userId, weekStart)
-        //     .then((response) => response.json())
-        //     .then((data) => data.goals || [])
-        //     .catch((error) => {
-        //         console.error('Error fetching goals:', error);
-        //         return [];
-        //     });
-        // const accomplishments = await fetchGoals(userId, weekStart)
-        //     .then((response) => response.json())
-        //     .then((data) => data.accomplishments || [])
-        //     .catch((error) => {
-        //         console.error('Error fetching accomplishments:', error);
-        //         return [];
-        //     });
-        // const generatedSummary = await handleGenerate(userId, weekStart, goals, accomplishments);
-        // setSummary(generatedSummary);
-        // } catch (error) {
-        // console.error('Error generating summary:', error);
-        // }
-        // console.log('Selected week:', selectedWeek);
-        // console.log('Generated summary:', summary);
-    };
+  };
 
   return (
     <div>
-        {/* <h2>Generate Weekly Summary</h2> */}
-        <button 
-            onClick={handleGenerateClick}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-            Generate
-        </button>
-      {summary && (
-        <div className="mt-4 p-4 border rounded-md bg-gray-50">
-          <h3 className="text-lg font-medium text-gray-900">Generated Summary</h3>
-          <p className="mt-2 text-gray-700">{summary}</p>
-        </div>
-      )}   
+      <button
+        onClick={handleGenerateClick}
+        className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+      >
+        Generate Summary
+      </button>
+      {summary && <p className="mt-4">{summary}</p>}
     </div>
   );
 };

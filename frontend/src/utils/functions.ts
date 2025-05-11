@@ -15,9 +15,29 @@ export const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
 export const supabaseKey = (import.meta as any).env.VITE_SUPABASE_KEY;
 export const openaiApiKey = (import.meta as any).env.VITE_OPENAI_API_KEY;
 
+export const userString = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User is not authenticated');
+    return user.id;
+};
 
+// Fetch and store the user ID asynchronously
+let userId: string | null = null;
+
+(async () => {
+    try {
+        userId = await userString();
+        console.log('User ID:', userId); // Log the user ID for debugging
+    } catch (error) {
+        console.error('Error fetching user ID:', error);
+    }
+})();
+// console.log('User ID:', userId); // Log the user ID for debugging
+
+
+// Fix userId to be a string
 console.log('Backend URL:', backendUrl);
-// console.log('Supabase URL:', supabaseUrl);
+// console.log('User ID:', user.id);
 
 
 export const handleError = (error: any, setError: React.Dispatch<React.SetStateAction<string | null>>) => {
@@ -25,11 +45,11 @@ export const handleError = (error: any, setError: React.Dispatch<React.SetStateA
     setError(error instanceof Error ? error.message : 'An unknown error occurred');
 };
 
-export const fetchWithAuth = async (url: string, token: string) => {
+export const fetchWithAuth = async (url: string, userId: string) => {
     const response = await fetch(url, {
         method: 'GET',
         headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${userId}`,
             'Content-Type': 'application/json',
         },
     });
@@ -115,12 +135,12 @@ export const handleSubmit = async (
 ) => {
     event.preventDefault();
     try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('User is not authenticated');
+        // const { data: { user } } = await supabase.auth.getUser();
+        if (!userId) throw new Error('User is not authenticated');
         
         const { error } = await supabase.from('goals').insert({
             ...newGoal,
-            user_id: user.id,
+            user_id: userId,
         });
         if (error) throw new Error(error.message);
         
@@ -133,15 +153,15 @@ export const handleSubmit = async (
 };
 
 // Fetch all goals
-export const fetchGoals = async (userId: string, weekStart: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User is not authenticated');
-    const token = user.id;
-    const response = await fetch(`${backendUrl}/goals?user_id=${token}&week_start=${weekStart}`, {
+export const fetchGoals = async (weekStart: string) => {
+    // const { data: { user } } = await supabase.auth.getUser();
+    if (!userId) throw new Error('User is not authenticated');
+    // const token = userId;
+    const response = await fetch(`${backendUrl}/goals?user_id=${userId}&week_start=${weekStart}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${userId}`,
       },
     });
   
@@ -153,15 +173,19 @@ export const fetchGoals = async (userId: string, weekStart: string) => {
   };
   
   // Add a new goal
-  export const addGoal = async (token: string, newGoal: any) => {
-    const response = await fetch(`${backendUrl}/goals`, {
+  export const addGoal = async (newGoal: any) => {
+    // const { data: { user } } = await supabase.auth.getUser();
+    if (!userId) throw new Error('User is not authenticated');
+    // const token = userId;
+    const response = await fetch(`${backendUrl}/goals?user_id=${userId}}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${userId}`,
       },
       body: JSON.stringify(newGoal),
     });
+    console.log('User ID:', userId);
   
     if (!response.ok) {
       throw new Error('Failed to add goal');
@@ -171,12 +195,14 @@ export const fetchGoals = async (userId: string, weekStart: string) => {
   };
   
   // Delete a goal
-  export const deleteGoal = async (token: string, goalId: string) => {
-    const response = await fetch(`${backendUrl}/goals/${goalId}`, {
+  export const deleteGoal = async (goalId: string) => {
+    if (!userId) throw new Error('User is not authenticated');
+  
+    const response = await fetch(`${backendUrl}/goals/${goalId}?user_id=${userId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${userId}`,
       },
     });
   
@@ -188,12 +214,12 @@ export const fetchGoals = async (userId: string, weekStart: string) => {
   };
   
   // Update a goal
-  export const updateGoal = async (token: string, goalId: string, updatedGoal: any) => {
-    const response = await fetch(`${backendUrl}/goals/${goalId}`, {
+  export const updateGoal = async (goalId: string, updatedGoal: any) => {
+    const response = await fetch(`${backendUrl}/goals?user_id=${userId}/${goalId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${userId}`,
       },
       body: JSON.stringify(updatedGoal),
     });
@@ -397,8 +423,12 @@ export const getWeekStartDate = (date: Date = new Date()): string => {
 export const handleGenerate = async (
     userId: string, 
     weekStart: string, 
-    goals: string[], 
-    accomplishments: string[]
+    goalsWithAccomplishments: {
+        title: string;
+        description: string;
+        category: string;
+        accomplishments: { title: string; description: string; impact: string; }[];
+      }[]
 ) => {
     // const backendUrl = backend + '/api/summaries';
     try {
@@ -411,16 +441,14 @@ export const handleGenerate = async (
       body: JSON.stringify({ 
         user_id: userId, 
         week_start: weekStart, 
-        goals, 
-        accomplishments, 
+        goalsWithAccomplishments, 
     }),
 });
 
     console.log('Request body:',{
         user_id: userId,
         week_start: weekStart,
-        goals,
-        accomplishments,
+        goalsWithAccomplishments,
       });
 
     if (!response.ok) {

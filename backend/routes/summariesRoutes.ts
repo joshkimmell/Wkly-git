@@ -6,38 +6,44 @@ import {
   deleteSummary,
   getGoals,
   createGoal,
+  deleteGoal,
   // generateSummary,
   generateWeeklySummary,
 } from '../controllers/summariesController.js';
-// import { Request, Response } from 'express';
-// import { ParsedQs } from 'qs';
-// import supabase from '../lib/supabaseClient.js';
-
-// Initialize Supabase client
-// const supabase = createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_SERVICE_ROLE_KEY || '');
+import { Request, Response } from 'express-serve-static-core';
+import { ParsedQs } from 'qs';
+import supabase from '../lib/supabaseClient.js';
 
 const router = express.Router();
 
 // Route to fetch goals
 router.get('/goals', async (req, res, next) => {
-    console.log('Request Query:', req.query); // Log the request query
-    
-    try {
-        await getGoals(req, res, );
-            } catch (error) {
-        next(error);
-    }
+  console.log('Request Query:', req.query); // Log the request query
+  
+  try {
+    await getGoals(req, res);
+  } catch (error) {
+    next(error);
+  }
 });
 
 // Route to create a new goal
 router.post('/goals', async (req, res, next) => {
-    try {
-        await createGoal(req, res);
-            } catch (error) {
-                next(error);
-            }
-    }
-);
+  try {
+    await createGoal(req, res);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Route to delete a goal by ID
+router.delete('/goals/:goal_id', async (req, res, next) => {
+  try {
+    await deleteGoal(req, res);
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Route to fetch all summaries
 router.get('/', async (req, res, next) => {
@@ -58,7 +64,6 @@ router.post('/', async (req, res, next) => {
 });
 
 // Route to update a summary by ID
-// router.put('/:summary_id', updateSummary);
 router.put('/:summary_id', async (req, res, next) => {
   try {
     await updateSummary(req, res);
@@ -66,7 +71,6 @@ router.put('/:summary_id', async (req, res, next) => {
     next(error);
   }
 });
-
 
 // Route to delete a summary by ID
 router.delete('/:summary_id', async (req, res, next) => {
@@ -86,13 +90,32 @@ router.post('/generate', async (req, res, next) => {
   }
 });
 
-// router.post('/generate', async (req, res, next) => {
-//   try {
-//     await generateSummary(req, res);
-//   } catch (error) {
-//     next(error);
-//   }
-// });
-
-                
 export default router;
+
+// async function deleteGoal(
+//   req: Request<{ goal_id: string }, any, any, ParsedQs, Record<string, any>>,
+//   res: Response<any, Record<string, any>, number>
+// ) {
+//   const { goal_id } = req.params;
+
+//   try {
+//     const { data, error } = await supabase
+//       .from('goals')
+//       .delete()
+//       .eq('id', goal_id) as { data: { id: string }[] | null, error: any };
+
+//     if (error) {
+//       console.error('Error deleting goal:', error);
+//       return res.status(500).json({ error: 'Failed to delete goal' });
+//     }
+
+//     if (!data || data.length === 0) {
+//       return res.status(404).json({ error: 'Goal not found' });
+//     }
+
+//     res.status(200).json({ message: 'Goal deleted successfully', data });
+//   } catch (err) {
+//     console.error('Unexpected error:', err);
+//     res.status(500).json({ error: 'An unexpected error occurred' });
+//   }
+// }

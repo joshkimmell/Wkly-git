@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchGoals, addGoal, deleteGoal, updateGoal } from '@utils/functions';
+import { userString, fetchGoals, addGoal, deleteGoal, updateGoal } from '@utils/functions';
 import SummaryGenerator from '@components/SummaryGenerator';
 import SummaryEditor from '@components/SummaryEditor';
 import GoalCard from '@components/GoalCard';
@@ -13,9 +13,10 @@ const WeeklyGoals = () => {
     id: string;
     content: string;
 } | null>(null);
-  const [goals, setGoals] = useState<Goal[]>([]);
+const [userId, setUserId] = useState<string | null>(null); // Use state for userId  
+const [goals, setGoals] = useState<Goal[]>([]);
   const [filteredGoals, setFilteredGoals] = useState<Goal[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
   const [newGoal, setNewGoal] = useState<Goal>({
     id: '',
     user_id: '',
@@ -24,25 +25,43 @@ const WeeklyGoals = () => {
     category: 'Technical skills',
     week_start: '',
   });
-  const [token, setToken] = useState<string | null>(null); // Replace with your auth token logic
   const [filter, setFilter] = useState<string>(''); // For filtering goals
   const [selectedWeek, setSelectedWeek] = useState<Date>(new Date());
   const [error, setError] = useState<string | null>(null);
   const [weekOptions, setWeekOptions] = useState<Date[]>([]); // Store weeks as Date objects
   
+  // Fetch the user ID on component mount
+  useEffect(() => {
+    const fetchUserId = async () => {
+      try {
+        const id = await userString();
+        setUserId(id); // Set the userId in state
+        console.log('User ID:', id);
+      } catch (error) {
+        console.error('Error fetching user ID:', error);
+      }
+    };
+  
+    fetchUserId();
+  }, []);
 
-  // Fetch all distinct weeks and goals
-  const fetchWeeksAndGoals = async () => {
+  function formatDate(date: Date): string {
+    return date.toISOString().split('T')[0];
+  }
+
+  const formattedDate = formatDate(selectedWeek);
+
+  // Fetch all distinct weeks 
+  const fetchWeeks = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      if (!userId) {
         console.error('User is not authenticated');
         return;
       }
 
       // Call the get_unique_weeks function
       const { data: weeksData, error: weeksError } = await supabase.rpc('get_unique_weeks', {
-        user_id: user.id,
+        user_id: userId,
       });
 
       if (weeksError) {
@@ -60,91 +79,61 @@ const WeeklyGoals = () => {
     }
   };
 
-  // // Add a new goal
-  // const handleAddGoal = async () => {
-  //   try {
-  //     const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-  //     if (authError) {
-  //       console.error('Error fetching user:', authError.message);
-  //       return;
-  //     }
-
-  //     if (!user) {
-  //       console.error('User is not authenticated');
-  //       return;
-  //     }
-
-  //     // Ensure user_id is valid
-  //     if (!user.id) {
-  //       console.error('Invalid user_id');
-  //       return;
-  //     }
-
-  //     const { error } = await supabase.from('goals').insert({
-  //       ...newGoal,
-  //       user_id: user.id, // Use the authenticated user's ID
-  //       created_at: new Date().toISOString(),
-  //     });
-
-  //     if (error) {
-  //       console.error('Error adding goal:', error.message);
-  //       return;
-  //     }
-
-  //     fetchWeeksAndGoals(); // Refresh goals after adding
-  //     setIsModalOpen(false);
-  //     setNewGoal({
-  //       id: '', 
-  //       title: '',
-  //       description: '',
-  //       category: 'Technical skills',
-  //       week_start: '',
-  //       user_id: '',
-  //     });
-  //   } catch (err) {
-  //     console.error('Unexpected error adding goal:', err);
-  //   }
-  // };
-
-  // // Delete a goal
-  // const deleteGoal = async (goalId: string) => {
-  //   try {
-  //     // 1. Delete related accomplishments first
-  //     await supabase
-  //       .from('accomplishments')
-  //       .delete()
-  //       .eq('goal_id', goalId);
-  
-  //     // 2. Then, delete the goal
-  //     await supabase
-  //       .from('goals')
-  //       .delete()
-  //       .eq('id', goalId);
-  
-  //     // Fetch goals again to update the UI
-  //     await fetchWeeksAndGoals();
-  
-  //   } catch (error: any) {
-  //     setError(error.message);
-  //   }
-  // };
-
    // Fetch all goals
-   const fetchAllGoals = async () => {
+   const fetchWeeklyGoals = async () => {
     try {
-      const data = await fetchGoals(token!, selectedWeek.toISOString().split('T')[0]); // Ensure token and weekStart are available
+      if (!userId) {
+        console.error('User is not authenticated');
+        return;
+      }
+      await fetchWeeks(); // Fetch weeks first
+      // Fetch goals for the selected week
+      const data = await fetchGoals(formattedDate);
       setGoals(data);
+
+      // Apply filter and week selection
+      const weekString = formattedDate;
+      const filtered = data.filter((goal: { week_start: string; title: string; category: string; description: string; }) =>
+        goal.week_start === weekString &&
+        (goal.title.toLowerCase().includes(filter.toLowerCase()) ||
+          goal.category.toLowerCase().includes(filter.toLowerCase()) ||
+          goal.description.toLowerCase().includes(filter.toLowerCase()))
+      );
+      setFilteredGoals(filtered);
     } catch (error) {
       console.error('Error fetching goals:', error);
+    }
+  };
+
+  const refreshGoals = async () => {
+    try {
+      await fetchWeeklyGoals(); // Fetch the latest goals
+      console.log('Goals refreshed successfully');
+    } catch (error) {
+      console.error('Error refreshing goals:', error);
     }
   };
 
   // Add a new goal
   const handleAddGoal = async () => {
     try {
-      await addGoal(token!, newGoal); // Ensure token is available
-      fetchAllGoals(); // Refresh goals after adding
+      if (!userId) {
+        console.error('User is not authenticated');
+        return;
+      }
+
+      const goalToAdd = { ...newGoal, user_id: userId };
+      await addGoal(goalToAdd); // Use addGoal from functions.ts
+      setNewGoal({
+        id: '',
+        user_id: '',
+        title: '',
+        description: '',
+        category: 'Technical skills',
+        week_start: '',
+      }); // Reset newGoal state to default
+      setIsGoalModalOpen(false); // Close the modal
+      // refreshGoals(); // Refresh goals after adding
     } catch (error) {
       console.error('Error adding goal:', error);
     }
@@ -153,8 +142,16 @@ const WeeklyGoals = () => {
   // Delete a goal
   const handleDeleteGoal = async (goalId: string) => {
     try {
-      await deleteGoal(token!, goalId); // Ensure token is available
-      fetchAllGoals(); // Refresh goals after deleting
+      if (!userId) {
+        console.error('User is not authenticated');
+        return;
+      }
+
+      await deleteGoal(goalId);
+      setGoals((prevGoals) => prevGoals.filter((goal) => goal.id !== goalId)); // Remove the deleted goal from state
+      setFilteredGoals((prevFilteredGoals) =>
+        prevFilteredGoals.filter((goal) => goal.id !== goalId)
+      ); // Update filtered goals
     } catch (error) {
       console.error('Error deleting goal:', error);
     }
@@ -163,17 +160,27 @@ const WeeklyGoals = () => {
   // Update a goal (example usage)
   const handleUpdateGoal = async (goalId: string, updatedGoal: any) => {
     try {
-      await updateGoal(token!, goalId, updatedGoal); // Ensure token is available
-      fetchAllGoals(); // Refresh goals after updating
+      if (!userId) {
+        console.error('User is not authenticated');
+        return;
+      }
+
+      await updateGoal(goalId, updatedGoal);
+      // refreshGoals(); // Refresh goals after updating
+      setFilteredGoals((prevFilteredGoals) =>
+        prevFilteredGoals.filter((goal) => goal.id !== goalId)
+      ); // Update filtered goals
     } catch (error) {
       console.error('Error updating goal:', error);
     }
   };
 
   useEffect(() => {
-    // Fetch goals on component mount
-    fetchAllGoals();
-  }, []);
+    if (userId) {
+      fetchWeeks();
+      fetchWeeklyGoals();
+    }
+  }, [userId]); // Re-run when userId is set
 
 
   // Filter goals based on the filter state
@@ -226,16 +233,31 @@ const WeeklyGoals = () => {
     }
   };
 
+  const openGoalModal = () => {
+    if (!isGoalModalOpen) {
+      setIsGoalModalOpen(true);
+    }
+  };
+
+  const closeGoalModal = () => {
+    setIsGoalModalOpen(false);
+  };
+
   useEffect(() => {
-    fetchWeeksAndGoals();
-  }, []);
+    if (userId) {
+      fetchWeeks();
+      fetchWeeklyGoals();
+    }
+  }, [userId]); // Re-run when userId is set
+
+  
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Weekly Goals</h1>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={openGoalModal}
           className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
         >
           Add Goal
@@ -289,8 +311,14 @@ const WeeklyGoals = () => {
           <GoalCard
             key={goal.id}
             goal={goal}
-            handleDelete={(goalId) => handleDeleteGoal(goalId)}
-            handleEdit={() => console.log(`Edit goal: ${goal.id}`)} // Placeholder for edit functionality
+            handleDelete={(goalId) => {
+              console.log('Parent Component - Deleting Goal ID:', goalId); // Log the goal ID in the parent
+              handleDeleteGoal(goalId);
+            }}
+            handleEdit={(goalId) => {
+              console.log('Parent Component - Editing Goal ID:', goalId); // Log the goal ID in the parent
+              handleUpdateGoal(goalId, goal);
+            }}
           />
         ))}
       </div>
@@ -300,7 +328,7 @@ const WeeklyGoals = () => {
             <p className="text-gray-600">Generate and edit your weekly summary.</p>
         </div>
          <div>
-            <SummaryGenerator selectedWeek={selectedWeek} />
+            <SummaryGenerator selectedWeek={selectedWeek} filteredGoals={filteredGoals} />
             {selectedSummary && (
                 <SummaryEditor
                     summaryId={selectedSummary.id}
@@ -310,10 +338,10 @@ const WeeklyGoals = () => {
         </div>
 
       {/* Add Goal Modal */}
-      {isModalOpen && (
+      {isGoalModalOpen && (
         <Modal
-          isOpen={isModalOpen}
-          onRequestClose={() => setIsModalOpen(false)}
+          isOpen={isGoalModalOpen}
+          onRequestClose={closeGoalModal}
           className="fixed inset-0 flex items-center justify-center z-50"
           overlayClassName="fixed inset-0 bg-gray-500 bg-opacity-75"
         >
@@ -372,7 +400,7 @@ const WeeklyGoals = () => {
             </div>
             <div className="mt-6 flex justify-end space-x-4">
               <button
-                onClick={() => setIsModalOpen(false)}
+                onClick={closeGoalModal}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
                 Cancel

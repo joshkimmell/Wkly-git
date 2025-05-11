@@ -78,12 +78,10 @@ const generateSummary = async (prompt) => {
         throw new Error('Failed to generate summary.');
     }
 };
-const generateSummaryWithOpenAI = async (userId, weekStart, goals, accomplishments) => {
+const generateSummaryWithOpenAI = async (userId, weekStart, goalsWithAccomplishments) => {
     const weekStartDate = new Date(weekStart);
     const weekEndDate = new Date(weekStartDate);
     weekEndDate.setDate(weekStartDate.getDate() + 6); // Set to the end of the week
-    const weekStartString = weekStartDate.toISOString().split('T')[0];
-    const weekEndString = weekEndDate.toISOString().split('T')[0];
     const weekStartDateFormatted = weekStartDate.toLocaleDateString('en-US', {
         year: 'numeric',
         month: '2-digit',
@@ -94,24 +92,24 @@ const generateSummaryWithOpenAI = async (userId, weekStart, goals, accomplishmen
         month: '2-digit',
         day: '2-digit',
     });
+    // Format the prompt with goals and their child accomplishments
     const prompt = `
-        Summarize the following weekly goals and accomplishments into a concise, friendly report. Use the following hierarchy format:
-        Goal 1:
-            - Accomplishment 1
-            - Accomplishment 2
-        Goal 2:
-            - Accomplishment 1
-            - Accomplishment 2
-        Goals and Accomplishments:
-        ${goals.map((goal, index) => {
-        const relatedAccomplishments = accomplishments
-            .filter(accomplishment => accomplishment.includes(goal)) // Adjust this logic if needed
-            .map(accomplishment => `|_ ${accomplishment}`)
-            .join('\n');
-        return `${index + 1}. ${goal}\n${relatedAccomplishments}`;
-    }).join('\n\n')}
-        Summary for the week of ${weekStartDateFormatted} to ${weekEndDateFormatted}:
-    `;
+    Summarize the following weekly goals and accomplishments into a concise, friendly report. Use the following hierarchy format:
+
+    ${goalsWithAccomplishments
+        .map((goal, index) => `
+        Goal ${index + 1}: ${goal.title}
+        Description: ${goal.description}
+        Category: ${goal.category}
+        Accomplishments:
+        ${goal.accomplishments
+        .map((accomplishment, subIndex) => `  ${subIndex + 1}. ${accomplishment.title}: ${accomplishment.description} <br />Impact: ${accomplishment.impact}`)
+        .join('\n')}
+      `)
+        .join('\n')}
+
+    Summary for the week of ${weekStartDateFormatted} to ${weekEndDateFormatted}:
+  `;
     try {
         const response = await limiter.schedule(() => generateSummary(prompt));
         console.log(response);
