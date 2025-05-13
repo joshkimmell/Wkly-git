@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { userString, fetchGoals, addGoal, deleteGoal, updateGoal } from '@utils/functions';
+import { useEffect, useState, useRef } from 'react';
+import { userId, fetchGoals, filterGoalsByWeek, getWeekStartDate, addGoal, deleteGoal, updateGoal } from '@utils/functions';
 import SummaryGenerator from '@components/SummaryGenerator';
 import SummaryEditor from '@components/SummaryEditor';
 import GoalCard from '@components/GoalCard';
@@ -7,16 +7,91 @@ import Modal from 'react-modal';
 import { Goal } from '@utils/goalUtils';
 import supabase from '@lib/supabase';
 import 'react-datepicker/dist/react-datepicker.css';
+import { startOfWeek } from 'date-fns'; // Import helper to calculate Monday
+// import { data } from 'react-router';
+// import { set } from 'lodash';
+// import { User } from 'lucide-react';
+
+
 
 const WeeklyGoals = () => {
-  const [selectedSummary, /*setSelectedSummary*/] = useState<{
-    id: string;
-    content: string;
-} | null>(null);
-const [userId, setUserId] = useState<string | null>(null); // Use state for userId  
-const [goals, setGoals] = useState<Goal[]>([]);
+
+  const hasFetchedData = useRef(false);
+
+  useEffect(() => {
+    if (hasFetchedData.current) return;
+
+    const initializeData = async () => {
+      if (!userId) return;
+
+      try {
+        // Fetch weeks
+        const { data: weeksData, error: weeksError } = await supabase.rpc('get_unique_weeks', {
+          user_id: userId,
+        });
+
+        if (weeksError) {
+          console.error('Error fetching weeks:', weeksError.message);
+          return;
+        }
+
+        const weeks = weeksData.map((week: { week_start: string }) => new Date(week.week_start));
+        const uniqueWeeks = Array.from(new Set(weeks.map((week: { getTime: () => any; }) => week.getTime())))
+          .map((time) => new Date(time as number))
+          .sort((a, b) => a.getTime() - b.getTime());
+
+        setWeekOptions(uniqueWeeks);
+
+        // Set the most recent week as the default selected week
+        const mostRecentWeek = uniqueWeeks[uniqueWeeks.length - 1] || new Date();
+        setSelectedWeek(mostRecentWeek);
+
+        // Fetch goals for the most recent week
+        const weekStart = getWeekStartDate(mostRecentWeek);
+        const fetchedGoals = await fetchGoals(weekStart);
+        setGoals(fetchedGoals);
+
+        // Filter goals for the selected week
+        const filtered = filterGoalsByWeek(fetchedGoals, mostRecentWeek);
+        setFilteredGoals(filtered);
+      } catch (error) {
+        console.error('Error initializing data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeData();
+    hasFetchedData.current = true; // Set the flag to true after fetching data
+  }, [userId]);
+
+    const refreshGoals = async () => {
+    if (!selectedWeek) {
+      console.error('Selected week is not set');
+      return;
+    }
+  
+    try {
+      const weekStart = getWeekStartDate(selectedWeek);
+      const fetchedGoals = await fetchGoals(weekStart);
+      setGoals(fetchedGoals);
+  
+      const filtered = filterGoalsByWeek(fetchedGoals, selectedWeek);
+      setFilteredGoals(filtered);
+    } catch (error) {
+      console.error('Error refreshing goals:', error);
+    }
+  };
+
+  const [goals, setGoals] = useState<Goal[]>([]);
+  // const [summary, setSummary] = useState<string | null>(null); // Summary state
+  // const [error, setError] = useState<string | null>(null); // Error state
   const [filteredGoals, setFilteredGoals] = useState<Goal[]>([]);
-  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+  const [weekOptions, setWeekOptions] = useState<Date[]>([]); // Store weeks as Date objects
+  const [selectedWeek, setSelectedWeek] = useState<Date | null>(null); // Default to null until fetched
+  const [filter, setFilter] = useState<string>(''); // For filtering goals
+  const [isLoading, setIsLoading] = useState<boolean>(true); // Loading state
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false); // Modal state
   const [newGoal, setNewGoal] = useState<Goal>({
     id: '',
     user_id: '',
@@ -25,97 +100,48 @@ const [goals, setGoals] = useState<Goal[]>([]);
     category: 'Technical skills',
     week_start: '',
   });
-  const [filter, setFilter] = useState<string>(''); // For filtering goals
-  const [selectedWeek, setSelectedWeek] = useState<Date>(new Date());
-  const [error, setError] = useState<string | null>(null);
-  const [weekOptions, setWeekOptions] = useState<Date[]>([]); // Store weeks as Date objects
   
-  // Fetch the user ID on component mount
-  useEffect(() => {
-    const fetchUserId = async () => {
-      try {
-        const id = await userString();
-        setUserId(id); // Set the userId in state
-        console.log('User ID:', id);
-      } catch (error) {
-        console.error('Error fetching user ID:', error);
-      }
-    };
-  
-    fetchUserId();
-  }, []);
+  console.log('User ID:', userId); // Log the user ID for debugging
 
-  function formatDate(date: Date): string {
-    return date.toISOString().split('T')[0];
+
+  const [selectedSummary, setSelectedSummary] = useState<{
+    id: string;
+    title: string;
+    content: string;
+  } | null>(null); // State for selected summary
+
+  // Utility function to get the Monday of a given date
+  function getMonday(date: Date): Date {
+    return startOfWeek(date, { weekStartsOn: 1 }); // Week starts on Monday
   }
 
-  const formattedDate = formatDate(selectedWeek);
+  console.log('Goals fetched:', goals);
+  console.log('Filtered goals:', filteredGoals);
+  console.log('Selected week:', selectedWeek); // Log the user ID for debugging
 
-  // Fetch all distinct weeks 
-  const fetchWeeks = async () => {
-    try {
-      if (!userId) {
-        console.error('User is not authenticated');
-        return;
-      }
+  useEffect(() => {
+    if (!selectedWeek || goals.length === 0) return;
+  
+    const filtered = filterGoalsByWeek(goals, selectedWeek);
+    setFilteredGoals(filtered);
+  }, [selectedWeek, goals]);
 
-      // Call the get_unique_weeks function
-      const { data: weeksData, error: weeksError } = await supabase.rpc('get_unique_weeks', {
-        user_id: userId,
-      });
-
-      if (weeksError) {
-        console.error('Error fetching weeks:', weeksError.message);
-        return;
-      }
-
-      // Convert week_start strings to Date objects
-      const weeks = weeksData.map((week: { week_start: string | number | Date; }) => new Date(week.week_start));
-
-      setWeekOptions(weeks); // Populate dropdown options with unique Date objects
-      setSelectedWeek(weeks[0] || new Date()); // Default to the first week
-    } catch (err) {
-      console.error('Unexpected error fetching weeks and goals:', err);
+  // Handle week selection from the dropdown
+  const handleWeekChange = (weekString: string) => {
+    const week = new Date(weekString); // Convert string to Date
+    setSelectedWeek(week);
+    if (selectedWeek) {
+      filterGoalsByWeek(filteredGoals, selectedWeek); // Filter goals for the previous week
     }
   };
 
-   // Fetch all goals
-   const fetchWeeklyGoals = async () => {
-    try {
-      if (!userId) {
-        console.error('User is not authenticated');
-        return;
-      }
-      await fetchWeeks(); // Fetch weeks first
-      // Fetch goals for the selected week
-      const data = await fetchGoals(formattedDate);
-      setGoals(data);
-
-      // Apply filter and week selection
-      const weekString = formattedDate;
-      const filtered = data.filter((goal: { week_start: string; title: string; category: string; description: string; }) =>
-        goal.week_start === weekString &&
-        (goal.title.toLowerCase().includes(filter.toLowerCase()) ||
-          goal.category.toLowerCase().includes(filter.toLowerCase()) ||
-          goal.description.toLowerCase().includes(filter.toLowerCase()))
-      );
-      setFilteredGoals(filtered);
-    } catch (error) {
-      console.error('Error fetching goals:', error);
-    }
-  };
-
-  const refreshGoals = async () => {
-    try {
-      await fetchWeeklyGoals(); // Fetch the latest goals
-      console.log('Goals refreshed successfully');
-    } catch (error) {
-      console.error('Error refreshing goals:', error);
-    }
-  };
-
+  // Render loading state
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+  
   // Add a new goal
-  const handleAddGoal = async () => {
+    const handleAddGoal = async () => {
     try {
       if (!userId) {
         console.error('User is not authenticated');
@@ -133,7 +159,7 @@ const [goals, setGoals] = useState<Goal[]>([]);
         week_start: '',
       }); // Reset newGoal state to default
       setIsGoalModalOpen(false); // Close the modal
-      // refreshGoals(); // Refresh goals after adding
+      await refreshGoals(); // Refresh goals after adding
     } catch (error) {
       console.error('Error adding goal:', error);
     }
@@ -152,6 +178,7 @@ const [goals, setGoals] = useState<Goal[]>([]);
       setFilteredGoals((prevFilteredGoals) =>
         prevFilteredGoals.filter((goal) => goal.id !== goalId)
       ); // Update filtered goals
+      await refreshGoals(); // Refresh goals after adding
     } catch (error) {
       console.error('Error deleting goal:', error);
     }
@@ -170,17 +197,11 @@ const [goals, setGoals] = useState<Goal[]>([]);
       setFilteredGoals((prevFilteredGoals) =>
         prevFilteredGoals.filter((goal) => goal.id !== goalId)
       ); // Update filtered goals
+      await refreshGoals(); // Refresh goals after adding
     } catch (error) {
       console.error('Error updating goal:', error);
     }
   };
-
-  useEffect(() => {
-    if (userId) {
-      fetchWeeks();
-      fetchWeeklyGoals();
-    }
-  }, [userId]); // Re-run when userId is set
 
 
   // Filter goals based on the filter state
@@ -199,37 +220,27 @@ const [goals, setGoals] = useState<Goal[]>([]);
     }
   };
 
-  // Filter goals by the selected week
-  const filterGoalsByWeek = (week: Date) => {
-    const weekString = week.toISOString().split('T')[0]; // Convert Date to YYYY-MM-DD
-    const filtered = goals.filter((goal) => goal.week_start === weekString);
-    setFilteredGoals(filtered);
-  };
-
-  // Handle week selection from the dropdown
-  const handleWeekChange = (weekString: string) => {
-    const week = new Date(weekString); // Convert string to Date
-    setSelectedWeek(week);
-    filterGoalsByWeek(week);
-  };
-
   // Navigate to the previous week
   const handlePreviousWeek = () => {
-    const currentIndex = weekOptions.findIndex((week) => week.getTime() === selectedWeek.getTime());
+    const currentIndex = weekOptions.findIndex((week) => week.getTime() === selectedWeek?.getTime());
     if (currentIndex > 0) {
       const previousWeek = weekOptions[currentIndex - 1];
       setSelectedWeek(previousWeek);
-      filterGoalsByWeek(previousWeek);
+      if (selectedWeek) {
+        filterGoalsByWeek(filteredGoals, selectedWeek); // Filter goals for the previous week
+      }
     }
   };
 
   // Navigate to the next week
   const handleNextWeek = () => {
-    const currentIndex = weekOptions.findIndex((week) => week.getTime() === selectedWeek.getTime());
+    const currentIndex = weekOptions.findIndex((week) => week.getTime() === selectedWeek?.getTime());
     if (currentIndex < weekOptions.length - 1) {
       const nextWeek = weekOptions[currentIndex + 1];
       setSelectedWeek(nextWeek);
-      filterGoalsByWeek(nextWeek);
+      if (selectedWeek) {
+        filterGoalsByWeek(filteredGoals, selectedWeek); // Filter goals for the next week
+      }
     }
   };
 
@@ -243,14 +254,7 @@ const [goals, setGoals] = useState<Goal[]>([]);
     setIsGoalModalOpen(false);
   };
 
-  useEffect(() => {
-    if (userId) {
-      fetchWeeks();
-      fetchWeeklyGoals();
-    }
-  }, [userId]); // Re-run when userId is set
 
-  
 
   return (
     <div className="space-y-6">
@@ -268,13 +272,13 @@ const [goals, setGoals] = useState<Goal[]>([]);
       <div className="flex items-center space-x-4">
         <button
           onClick={handlePreviousWeek}
-          disabled={weekOptions.findIndex((week) => week.getTime() === selectedWeek.getTime()) === 0}
+          disabled={weekOptions.findIndex((week) => week.getTime() === selectedWeek?.getTime()) === 0}
           className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50"
         >
           Previous
         </button>
           <select
-            value={selectedWeek.toISOString().split('T')[0]} // Convert Date to YYYY-MM-DD for the dropdown
+            value={selectedWeek?.toISOString().split('T')[0] || ''}
             onChange={(e) => handleWeekChange(e.target.value)}
             className="px-4 py-2 border rounded-md"
           >
@@ -287,7 +291,7 @@ const [goals, setGoals] = useState<Goal[]>([]);
         
         <button
           onClick={handleNextWeek}
-          disabled={weekOptions.findIndex((week) => week.getTime() === selectedWeek.getTime()) === weekOptions.length - 1}
+          disabled={weekOptions.findIndex((week) => week.getTime() === selectedWeek?.getTime()) === weekOptions.length - 1}
           className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50"
         >
           Next
@@ -328,13 +332,14 @@ const [goals, setGoals] = useState<Goal[]>([]);
             <p className="text-gray-600">Generate and edit your weekly summary.</p>
         </div>
          <div>
-            <SummaryGenerator selectedWeek={selectedWeek} filteredGoals={filteredGoals} />
+            <SummaryGenerator selectedWeek={selectedWeek || new Date()} filteredGoals={filteredGoals} />
             {selectedSummary && (
-                <SummaryEditor
-                    summaryId={selectedSummary.id}
-                    initialContent={selectedSummary.content}
-                />
-            )}
+              <SummaryEditor
+                summaryId={selectedSummary.id}
+                initialContent={selectedSummary.content}
+                onRequestClose={() => setSelectedSummary(null)} // Close the modal properly
+              />
+            )}    
         </div>
 
       {/* Add Goal Modal */}

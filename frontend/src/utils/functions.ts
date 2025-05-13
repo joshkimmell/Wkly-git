@@ -8,6 +8,7 @@ import React from "react";
 import { Goal, FetchGoalsParams }from "@utils/goalUtils";
 import axios from "axios";
 import supabase from "@lib/supabase";
+import { set } from "lodash";
 
 const backend = (import.meta as any).env.VITE_BACKEND_URL;
 export const backendUrl = backend + '/api/summaries';
@@ -15,28 +16,21 @@ export const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
 export const supabaseKey = (import.meta as any).env.VITE_SUPABASE_KEY;
 export const openaiApiKey = (import.meta as any).env.VITE_OPENAI_API_KEY;
 
-export const userString = async () => {
+const userString = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User is not authenticated');
     return user.id;
+    // const resolvedUserId = user.id; // Get the user ID from the authenticated user
+    // Fetch and store the user ID asynchronously
 };
+export const userId = await userString();
+console.log('My User ID:', userId); // Log the user ID for debugging
 
-// Fetch and store the user ID asynchronously
-let userId: string | null = null;
 
-(async () => {
-    try {
-        userId = await userString();
-        console.log('User ID:', userId); // Log the user ID for debugging
-    } catch (error) {
-        console.error('Error fetching user ID:', error);
-    }
-})();
-// console.log('User ID:', userId); // Log the user ID for debugging
 
 
 // Fix userId to be a string
-console.log('Backend URL:', backendUrl);
+// console.log('Backend URL:', backendUrl);
 // console.log('User ID:', user.id);
 
 
@@ -153,10 +147,28 @@ export const handleSubmit = async (
 };
 
 // Fetch all goals
-export const fetchGoals = async (weekStart: string) => {
-    // const { data: { user } } = await supabase.auth.getUser();
+// export const fetchGoals = async (weekStart: string) => {
+//     if (!userId) throw new Error('User is not authenticated');
+  
+//     const response = await fetch(`${backendUrl}/goals?user_id=${userId}&week_start=${weekStart}`, {
+//       method: 'GET',
+//       headers: {
+//         'Content-Type': 'application/json',
+//         Authorization: `Bearer ${userId}`,
+//       },
+//     });
+  
+//     if (!response.ok) {
+//       const errorText = await response.text();
+//       console.error('Error fetching goals:', errorText);
+//       throw new Error('Failed to fetch goals');
+//     }
+  
+//     return response.json();
+//   };
+    export const fetchGoals = async (weekStart: string): Promise<Goal[]> => {
     if (!userId) throw new Error('User is not authenticated');
-    // const token = userId;
+  
     const response = await fetch(`${backendUrl}/goals?user_id=${userId}&week_start=${weekStart}`, {
       method: 'GET',
       headers: {
@@ -166,6 +178,8 @@ export const fetchGoals = async (weekStart: string) => {
     });
   
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error fetching goals:', errorText);
       throw new Error('Failed to fetch goals');
     }
   
@@ -192,6 +206,7 @@ export const fetchGoals = async (weekStart: string) => {
     }
   
     return response.json();
+    console.log('Adding goal with body:', newGoal);
   };
   
   // Delete a goal
@@ -284,23 +299,36 @@ export const handleDeleteGoal = async (
         handleError(err, setError);
     }
 };
-export const filterGoalsByWeek = (
-    goals: any[],
-    selectedWeek: Date,
-    setFilteredGoals: React.Dispatch<React.SetStateAction<any[]>>
-) => {
-    const startOfWeek = new Date(selectedWeek);
-    startOfWeek.setHours(0, 0, 0, 0);
+// export const filterGoalsByWeek = (
+//     goals: any[],
+//     selectedWeek: Date,
+//     setFilteredGoals: React.Dispatch<React.SetStateAction<any[]>>
+// ) => {
+//     const startOfWeek = new Date(selectedWeek);
+//     startOfWeek.setHours(0, 0, 0, 0);
     
-    const endOfWeek = new Date(selectedWeek);
-    endOfWeek.setDate(endOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
+//     const endOfWeek = new Date(selectedWeek);
+//     endOfWeek.setDate(endOfWeek.getDate() + 6);
+//     endOfWeek.setHours(23, 59, 59, 999);
     
-    const filtered = goals.filter((goal) => {
-        const goalDate = new Date(goal.week_start);
-        return goalDate >= startOfWeek && goalDate <= endOfWeek;
-    });
-    setFilteredGoals(filtered);
+//     const filtered = goals.filter((goal) => {
+//         const goalDate = new Date(goal.week_start);
+//         return goalDate >= startOfWeek && goalDate <= endOfWeek;
+//     });
+//     setFilteredGoals(filtered);
+// };
+export const filterGoalsByWeek = (goals: Goal[], selectedWeek: Date): Goal[] => {
+  const startOfWeek = new Date(selectedWeek);
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const endOfWeek = new Date(selectedWeek);
+  endOfWeek.setDate(endOfWeek.getDate() + 6);
+  endOfWeek.setHours(23, 59, 59, 999);
+
+  return goals.filter((goal) => {
+    const goalDate = new Date(goal.week_start);
+    return goalDate >= startOfWeek && goalDate <= endOfWeek;
+  });
 };
 
 // export const handleGenerate = async (props: { goals: any[]; accomplishments: any[]; setSummary: React.Dispatch<React.SetStateAction<string>> }) => {
@@ -330,6 +358,8 @@ export const getWeekStartDate = (date: Date = new Date()): string => {
     const weekStart = new Date(date.setDate(diff));
     return weekStart.toISOString().split('T')[0]; // Format as YYYY-MM-DD
 };
+
+
 
 // export const handleGenerate = async (backendUrl: string, selectedDate: Date): Promise<string> => {
 //     try {

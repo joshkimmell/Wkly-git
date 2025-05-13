@@ -2,8 +2,13 @@
 // This component allows users to generate summaries based on a selected period (weekly, quarterly, yearly).
 
 import React, { useState } from 'react';
+import ReactMarkdown from 'react-markdown'; // Import react-markdown
 import { handleGenerate } from '@utils/functions';
 import supabase from '@lib/supabase';
+// import openEditorModal from '@components/SummaryEditor'; // Import the function to open the modal
+import SummaryEditor from '@components/SummaryEditor';
+import Modal from 'react-modal';
+import { Edit } from 'lucide-react';
 
 interface SummaryGeneratorProps {
     selectedWeek: Date;
@@ -13,6 +18,9 @@ interface SummaryGeneratorProps {
 
 const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ selectedWeek, filteredGoals }) => {
   const [summary, setSummary] = useState<string | null>(null);
+  const [isEditorOpen, setIsEditorOpen] = useState(false); // Modal state
+  const openEditor= () => setIsEditorOpen(true); // Open modal function
+  const closeEditor = () => setIsEditorOpen(false); // Close modal function
 
   const handleGenerateClick = async () => {
     try {
@@ -43,6 +51,17 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ selectedWeek, filte
     }
   };
 
+  const handleOpenEditor = () => {
+    // Open the modal to add a new goal
+    // You can pass any necessary props to the modal here
+    openEditor();
+  };
+  const handleCloseEditor = () => {
+    // Open the modal to add a new goal
+    // You can pass any necessary props to the modal here
+    closeEditor();
+  };
+
   return (
     <div>
       <button
@@ -51,7 +70,40 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ selectedWeek, filte
       >
         Generate Summary
       </button>
-      {summary && <p className="mt-4">{summary}</p>}
+      
+      {summary && (
+        <div className="mt-4 p-4 bg-gray-100 rounded-md">
+          <button
+            onClick={handleOpenEditor}
+            className="text-blue-600 hover:text-blue-800 ml-2"
+            aria-activedescendant='Edit'
+            aria-label="Edit Summary"
+            title="Edit Summary"
+            role="button"
+            >
+            <Edit className="w-5 h-5" />
+          </button>
+          <ReactMarkdown>{summary}</ReactMarkdown>
+        </div>
+      )}
+    
+    {/* Add Goal Modal */}
+    {isEditorOpen && (
+      <Modal
+        isOpen={isEditorOpen}
+        onRequestClose={handleCloseEditor}
+        className="fixed inset-0 flex items-center justify-center z-50"
+        overlayClassName="fixed inset-0 bg-gray-500 bg-opacity-75"
+      >
+        <div className="bg-white rounded-lg shadow-lg p-6 w-96">
+          <SummaryEditor
+            summaryId="new"
+            initialContent={summary || ''}
+            onRequestClose={closeEditor} // Pass the close function to the editor
+          />
+        </div>
+      </Modal>
+    )}
     </div>
   );
 };
