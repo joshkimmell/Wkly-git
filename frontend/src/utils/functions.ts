@@ -27,8 +27,6 @@ export const userId = await userString();
 console.log('My User ID:', userId); // Log the user ID for debugging
 
 
-
-
 // Fix userId to be a string
 // console.log('Backend URL:', backendUrl);
 // console.log('User ID:', user.id);
@@ -299,6 +297,7 @@ export const handleDeleteGoal = async (
         handleError(err, setError);
     }
 };
+
 // export const filterGoalsByWeek = (
 //     goals: any[],
 //     selectedWeek: Date,
@@ -451,14 +450,15 @@ export const getWeekStartDate = (date: Date = new Date()): string => {
 // };
 
 export const handleGenerate = async (
-    userId: string, 
-    weekStart: string, 
-    goalsWithAccomplishments: {
-        title: string;
-        description: string;
-        category: string;
-        accomplishments: { title: string; description: string; impact: string; }[];
-      }[]
+  // id: string,  
+  userId: string, 
+  weekStart: string, 
+  goalsWithAccomplishments: {
+      title: string;
+      description: string;
+      category: string;
+      accomplishments: { title: string; description: string; impact: string; }[];
+    }[]
 ) => {
     // const backendUrl = backend + '/api/summaries';
     try {
@@ -469,6 +469,7 @@ export const handleGenerate = async (
         Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`, // Pass the API key here
       },
       body: JSON.stringify({ 
+        // summary_id: id, 
         user_id: userId, 
         week_start: weekStart, 
         goalsWithAccomplishments, 
@@ -476,6 +477,7 @@ export const handleGenerate = async (
 });
 
     console.log('Request body:',{
+        // summary_id: id,
         user_id: userId,
         week_start: weekStart,
         goalsWithAccomplishments,

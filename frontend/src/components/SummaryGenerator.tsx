@@ -3,24 +3,29 @@
 
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown'; // Import react-markdown
-import { handleGenerate } from '@utils/functions';
+import { handleGenerate, getWeekStartDate } from '@utils/functions';
 import supabase from '@lib/supabase';
 // import openEditorModal from '@components/SummaryEditor'; // Import the function to open the modal
 import SummaryEditor from '@components/SummaryEditor';
 import Modal from 'react-modal';
 import { Edit } from 'lucide-react';
+// import { set } from 'lodash';
 
 interface SummaryGeneratorProps {
-    selectedWeek: Date;
-    filteredGoals: { title: string; description: string; category: string; accomplishments?: string[] }[]; // Add filteredGoals as a prop
+  // summaryId: string; // Add summaryId to the props
+  selectedWeek: Date;
+  filteredGoals: { title: string; description: string; category: string; accomplishments?: string[] }[]; // Add filteredGoals as a prop
+  content?: string | null; // Optional content prop
+  // type: null | 'AI' | 'User';
 //   filteredGoals: { title: string; description: string; category: string; accomplishments?: string[] }[]; // Add filteredGoals as a prop
 }
 
 const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ selectedWeek, filteredGoals }) => {
   const [summary, setSummary] = useState<string | null>(null);
-  const [isEditorOpen, setIsEditorOpen] = useState(false); // Modal state
-  const openEditor= () => setIsEditorOpen(true); // Open modal function
-  const closeEditor = () => setIsEditorOpen(false); // Close modal function
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+
+  const openEditor = () => setIsEditorOpen(true);
+  const closeEditor = () => setIsEditorOpen(false);
 
   const handleGenerateClick = async () => {
     try {
@@ -30,36 +35,54 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ selectedWeek, filte
       const userId = user.id;
       const weekStart = selectedWeek.toISOString().split('T')[0];
 
-      // Combine goals with their child accomplishments
       const goalsWithAccomplishments = filteredGoals.map(goal => ({
         title: goal.title,
         description: goal.description,
-        category: goal.category || 'Technical skills', // Add a default category or derive it dynamically
+        category: goal.category || 'Technical skills',
         accomplishments: (goal.accomplishments || []).map(accomplishment => ({
-          title: accomplishment, // Map string to title
-          description: accomplishment, // Use the same string as description
-          impact: 'Medium', // Add a default impact or derive it dynamically
+          title: accomplishment,
+          description: accomplishment,
+          impact: 'Medium',
         })),
       }));
 
-      // Generate summary
-    //   const goalsAsStrings = goalsWithAccomplishments.map(goal => `${goal.title}: ${goal.description} - Accomplishments: ${goal.accomplishments.join(', ')}`);
       const generatedSummary = await handleGenerate(userId, weekStart, goalsWithAccomplishments);
       setSummary(generatedSummary);
+      saveSummary(generatedSummary || '', 'AI');
+      
     } catch (error) {
       console.error('Error generating summary:', error);
     }
   };
 
-  const handleOpenEditor = () => {
-    // Open the modal to add a new goal
-    // You can pass any necessary props to the modal here
-    openEditor();
-  };
-  const handleCloseEditor = () => {
-    // Open the modal to add a new goal
-    // You can pass any necessary props to the modal here
-    closeEditor();
+  const saveSummary = async (summaryContent: string, summaryType: string = 'AI') => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User is not authenticated');
+  
+      const userId = user.id;
+      const weekStart = getWeekStartDate(selectedWeek); // Get Monday as YYYY-MM-DD
+  
+      const requestBody = {
+        user_id: userId,
+        week_start: weekStart,
+        content: summaryContent,
+        summary_type: summaryType, // Use the provided summaryType
+      };
+  
+      console.log('Request body:', requestBody);
+  
+      const { error } = await supabase.from('summaries').insert(requestBody);
+  
+      if (error) {
+        console.error('Error saving summary:', error.message);
+        throw new Error('Failed to save summary');
+      }
+  
+      console.log('Summary saved successfully');
+    } catch (error) {
+      console.error('Error saving summary:', error);
+    }
   };
 
   return (
@@ -70,40 +93,54 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ selectedWeek, filte
       >
         Generate Summary
       </button>
-      
+
       {summary && (
         <div className="mt-4 p-4 bg-gray-100 rounded-md">
           <button
-            onClick={handleOpenEditor}
+            onClick={openEditor}
             className="text-blue-600 hover:text-blue-800 ml-2"
-            aria-activedescendant='Edit'
+            aria-activedescendant="Edit"
             aria-label="Edit Summary"
             title="Edit Summary"
             role="button"
-            >
+          >
             <Edit className="w-5 h-5" />
           </button>
           <ReactMarkdown>{summary}</ReactMarkdown>
         </div>
       )}
-    
-    {/* Add Goal Modal */}
-    {isEditorOpen && (
-      <Modal
-        isOpen={isEditorOpen}
-        onRequestClose={handleCloseEditor}
-        className="fixed inset-0 flex items-center justify-center z-50"
-        overlayClassName="fixed inset-0 bg-gray-500 bg-opacity-75"
-      >
-        <div className="bg-white rounded-lg shadow-lg p-6 w-96">
-          <SummaryEditor
-            summaryId="new"
-            initialContent={summary || ''}
-            onRequestClose={closeEditor} // Pass the close function to the editor
-          />
-        </div>
-      </Modal>
-    )}
+
+      {/* {isEditorOpen && ( */}
+        {/* <Modal
+          isOpen={isEditorOpen}
+          onRequestClose={closeEditor}
+          className="fixed inset-0 flex items-center justify-center z-50"
+          overlayClassName="fixed inset-0 bg-gray-500 bg-opacity-75"
+        > */}
+          {/* <div className="bg-white rounded-lg shadow-lg p-6 w-96"> */}
+            {/* <SummaryEditor
+              summaryId={selectedSummary?.id || ''} // Use selectedSummary.id if available
+              initialContent={summary || ''}
+              onRequestClose={closeEditor}
+              onSave={async (editedContent) => {
+                try {
+                  await saveSummary(editedContent, 'User'); // Save the edited summary as a new entry
+                  setSummary(editedContent); // Update the local state
+                  closeEditor(); // Close the editor
+                } catch (error) {
+                  console.error('Error saving edited summary:', error);
+                }
+              }} 
+            />
+            <button
+              onClick={() => saveSummary(summary || '', 'User')} // Save as 'User' type
+              className="mt-4 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+            >
+              Save edited summary
+            </button> */}
+          {/* </div>
+        </Modal> */}
+      {/* )} */}
     </div>
   );
 };

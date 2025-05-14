@@ -46,6 +46,7 @@ const openAIConfig = {
     n: 1,
     stream: false,
     stop: null,
+    store: true,
 };
 const openai = new OpenAI(openAIConfig);
 const generateSummary = async (prompt: string) => {
@@ -105,26 +106,27 @@ export const generateSummaryWithOpenAI = async (
 
   // Format the prompt with goals and their child accomplishments
   const prompt = `
-    Summarize the following weekly goals and accomplishments into a concise, friendly report. Use the following hierarchy format:
-
+    Summarize the following goals and accomplishments into a weekly reflection no more than 3 paragraphs long in Markdown format.
+    
+    
     ${goalsWithAccomplishments
+    .map(
+      (goal, index) => `
+      Goal ${index + 1}: ${goal.title}
+      Description: ${goal.description}
+      Category: ${goal.category}
+      Accomplishments:
+      ${goal.accomplishments
       .map(
-        (goal, index) => `
-        Goal ${index + 1}: ${goal.title}
-        Description: ${goal.description}
-        Category: ${goal.category}
-        Accomplishments:
-        ${goal.accomplishments
-          .map(
-            (accomplishment, subIndex) =>
-              `  ${subIndex + 1}. ${accomplishment.title}: ${accomplishment.description} <br />Impact: ${accomplishment.impact}`
-          )
-          .join('\n')}
-      `
+        (accomplishment, subIndex) =>
+          `  ${subIndex + 1}. ${accomplishment.title}: ${accomplishment.description} <br />Impact: ${accomplishment.impact}`
       )
       .join('\n')}
-
-    Summary for the week of ${weekStartDateFormatted} to ${weekEndDateFormatted}:
+      `
+    )
+    .join('\n')}
+    
+    # Summary for the week of ${weekStartDateFormatted}:
   `;
 
   try {
