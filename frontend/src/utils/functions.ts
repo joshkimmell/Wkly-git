@@ -316,7 +316,7 @@ export const handleDeleteGoal = async (
 //     });
 //     setFilteredGoals(filtered);
 // };
-export const filterGoalsByWeek = (goals: Goal[], selectedWeek: Date): Goal[] => {
+export const filterGoalsByWeek = (goals: Goal[], selectedWeek: string | Date): Goal[] => {
   const startOfWeek = new Date(selectedWeek);
   startOfWeek.setHours(0, 0, 0, 0);
 
@@ -352,10 +352,13 @@ export const filterGoalsByWeek = (goals: Goal[], selectedWeek: Date): Goal[] => 
 // };
 
 export const getWeekStartDate = (date: Date = new Date()): string => {
-    const dayOfWeek = date.getDay(); // 0 (Sunday) to 6 (Saturday)
-    const diff = date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust for Monday as the start of the week
-    const weekStart = new Date(date.setDate(diff));
-    return weekStart.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+  const d = new Date(date);
+  const day = d.getDay();
+  // Calculate how many days to subtract to get to Monday (1)
+  const diff = d.getDate() - ((day === 0 ? 6 : day - 1));
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString().split('T')[0]; // Format as YYYY-MM-DD
 };
 
 

@@ -10,6 +10,7 @@ import supabase from '@lib/supabase';
 import 'react-datepicker/dist/react-datepicker.css';
 // import { startOfWeek } from 'date-fns'; // Import helper to calculate Monday
 import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { set } from 'lodash';
 // import { data } from 'react-router';
 // import { set } from 'lodash';
 // import { User } from 'lucide-react';
@@ -62,6 +63,7 @@ const WeeklyGoals = () => {
         const { data: weeksData, error: weeksError } = await supabase.rpc('get_unique_weeks', {
           user_id: userId,
         });
+        console.log('Weeks data:', weeksData); // Log the fetched weeks data
 
         if (weeksError) {
           console.error('Error fetching weeks:', weeksError.message);
@@ -69,25 +71,28 @@ const WeeklyGoals = () => {
         }
 
         // Convert week_start strings to Date objects
-        const weeks = weeksData.map((week: { week_start: string }) => new Date(week.week_start));
-        const uniqueWeeks = Array.from(new Set(weeks.map((week: { getTime: () => any; }) => week.getTime())))
-          .map((time) => new Date(time as number))
-          .sort((a, b) => a.getTime() - b.getTime());
+        // const weeks = weeksData.map((week: { week_start: string }) => new Date(week.week_start));
+        // const uniqueWeeks = Array.from(new Set(weeks.map((week: { getTime: () => any; }) => week.getTime())))
+        //   .map((time) => new Date(time as number))
+        //   .sort((a, b) => a.getTime() - b.getTime());
+        const weeks = weeksData.map((week: { week_start: string }) => {
+          const [year, month, day] = week.week_start.split('-').map(Number);
+          return new Date(year, month - 1, day); // month is 0-indexed
+        });
 
-        setWeekOptions(uniqueWeeks);
+        console.log('Unique weeks:', weeks); // Log the unique weeks
+
+        setWeekOptions(weeks);
 
         // Set the most recent week as the default selected week
-        const mostRecentWeek = uniqueWeeks[uniqueWeeks.length - 1] || new Date();
-        setSelectedWeek(mostRecentWeek);
-
+        const mostRecentWeek = weeks[weeks.length - 1] || new Date();
+        
         // Fetch goals for the most recent week
-        const weekStart = getWeekStartDate(mostRecentWeek);
+        const weekStart = mostRecentWeek.toISOString().split('T')[0]; // Convert to YYYY-MM-DD
         const fetchedGoals = await fetchGoals(weekStart);
         setGoals(fetchedGoals);
-
-        // Filter goals for the selected week
-        const filtered = filterGoalsByWeek(fetchedGoals, mostRecentWeek);
-        setFilteredGoals(filtered);
+        setSelectedWeek(mostRecentWeek);
+        // Do NOT call setFilteredGoals here; let useEffect handle it
       } catch (error) {
         console.error('Error initializing data:', error);
       } finally {
@@ -106,7 +111,8 @@ const WeeklyGoals = () => {
     }
   
     try {
-      const weekStart = getWeekStartDate(selectedWeek); // Get Monday as YYYY-MM-DD
+      // const weekStart = getWeekStartDate(selectedWeek); // Get Monday as YYYY-MM-DD
+      const weekStart = selectedWeek.toISOString().split('T')[0]; // Convert to YYYY-MM-DD format
       const fetchedGoals = await fetchGoals(weekStart); // Fetch goals for the week
       setGoals(fetchedGoals);
   
@@ -117,23 +123,42 @@ const WeeklyGoals = () => {
     }
   };
 
-  // console.log('Goals fetched:', goals);
-  // console.log('Filtered goals:', filteredGoals);
-  // console.log('Selected week:', selectedWeek); // Log the user ID for debugging
-
-  useEffect(() => {
-    if (!selectedWeek || goals.length === 0) return;
+  console.log('Goals fetched:', goals);
+  console.log('Selected week:', selectedWeek); // Log the user ID for debugging
   
-    const filtered = filterGoalsByWeek(goals, selectedWeek);
-    setFilteredGoals(filtered);
-  }, [selectedWeek, goals]);
+  // useEffect(() => {
+  //   if (!selectedWeek) return;
+  //   const filtered = filterGoalsByWeek(goals, selectedWeek);
+  //   setFilteredGoals(filtered);
+  // }, [selectedWeek, goals]);
+  // console.log('Filtered goals:', filteredGoals);
+
+useEffect(() => {
+  if (!selectedWeek) return;
+  const fetchAndSetGoals = async () => {
+    setIsLoading(true);
+    try {
+      const weekStart = selectedWeek.toISOString().split('T')[0];
+      const fetchedGoals = await fetchGoals(weekStart);
+      const filtered = filterGoalsByWeek(fetchedGoals, weekStart);
+      setGoals(fetchedGoals);
+      setFilteredGoals(filtered); // Set filtered goals to fetched goals
+    } catch (error) {
+      console.error('Error fetching goals for week:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  fetchAndSetGoals();
+}, [selectedWeek]);
 
   // Handle week selection from the dropdown
-  const handleWeekChange = (weekString: string) => {
-    const week = new Date(weekString); // Convert string to Date
-    const monday = getWeekStartDate(week); // Get the Monday of the selected week
-    setSelectedWeek(new Date(monday)); // Set the selected week to Monday
+  const handleWeekChange = (selectedWeek: string) => {
+    // const week = new Date(weekString); // Convert string to Date
+    // const monday = getWeekStartDate(week); // Get the Monday of the selected week
+    setSelectedWeek(new Date(selectedWeek)); // Set the selected week to Monday
   };
+  console.log('Selected week:', selectedWeek); // Log the selected week for debugging
 
   // Render loading state
   if (isLoading) {
@@ -178,7 +203,7 @@ const WeeklyGoals = () => {
       setFilteredGoals((prevFilteredGoals) =>
         prevFilteredGoals.filter((goal) => goal.id !== goalId)
       ); // Update filtered goals
-      await refreshGoals(); // Refresh goals after adding
+      await refreshGoals(); // Refresh goals after deleting
     } catch (error) {
       console.error('Error deleting goal:', error);
     }
@@ -197,7 +222,8 @@ const WeeklyGoals = () => {
       setFilteredGoals((prevFilteredGoals) =>
         prevFilteredGoals.filter((goal) => goal.id !== goalId)
       ); // Update filtered goals
-      await refreshGoals(); // Refresh goals after adding
+      await refreshGoals(); // Refresh goals after updating
+      console.log('Goal updated successfully');
     } catch (error) {
       console.error('Error updating goal:', error);
     }
@@ -225,11 +251,7 @@ const WeeklyGoals = () => {
     const currentIndex = weekOptions.findIndex((week) => week.getTime() === selectedWeek?.getTime());
     if (currentIndex > 0) {
       const previousWeek = weekOptions[currentIndex - 1];
-      // const monday = getMonday(previousWeek); // Get the Monday of the previous week
       setSelectedWeek(previousWeek);
-      if (selectedWeek) {
-        filterGoalsByWeek(filteredGoals, selectedWeek); // Filter goals for the previous week
-      }
     }
   };
 
@@ -238,11 +260,7 @@ const WeeklyGoals = () => {
     const currentIndex = weekOptions.findIndex((week) => week.getTime() === selectedWeek?.getTime());
     if (currentIndex < weekOptions.length - 1) {
       const nextWeek = weekOptions[currentIndex + 1];
-      // const monday = getMonday(nextWeek); // Get the Monday of the next week
       setSelectedWeek(nextWeek);
-      if (selectedWeek) {
-        filterGoalsByWeek(filteredGoals, selectedWeek); // Filter goals for the next week
-      }
     }
   };
 
