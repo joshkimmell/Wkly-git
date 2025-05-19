@@ -1,17 +1,10 @@
 import { useState, useEffect } from 'react';
 import Modal from 'react-modal';
+import { Summary } from '@utils/goalUtils'; // Adjust the import path as necessary
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
+import SummaryCard from './SummaryCard';
 
 Modal.setAppElement('#root');
-
-interface Summary {
-  id: string;
-  title: string;
-  content: string;
-  type: 'AI-generated' | 'Edited'; // Summary types
-  created_at: string;
-  user_id: string;
-}
 
 const AllSummaries = () => {
   const [summaries, setSummaries] = useState<Summary[]>([]);
@@ -22,7 +15,7 @@ const AllSummaries = () => {
     title: '',
     content: '',
     type: 'AI-generated',
-    created_at: '',
+    week_start: '',
     user_id: '',
   });
   const [filter, setFilter] = useState<string>(''); // For filtering summaries
@@ -80,7 +73,7 @@ const AllSummaries = () => {
         title: '',
         content: '',
         type: 'AI-generated',
-        created_at: '',
+        week_start: '',
         user_id: '',
       });
     } catch (err) {
@@ -190,21 +183,35 @@ const AllSummaries = () => {
       {/* Summaries List */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {filteredSummaries.map((summary) => (
-          <div key={summary.id} className="bg-white shadow-sm border rounded-lg p-4">
-            <h4 className="text-lg font-medium text-gray-900">{summary.title}</h4>
-            <p className="text-gray-600 mt-1">{summary.content}</p>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 mt-2">
-              {summary.type}
-            </span>
-            <div className="mt-4 flex justify-end space-x-2">
-              <button
-                onClick={() => handleDeleteSummary(summary.id)}
-                className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
+          // <div key={summary.id} className="bg-white shadow-sm border rounded-lg p-4">
+          //   <h4 className="text-lg font-medium text-gray-900">{summary.title}</h4>
+          //   <p className="text-gray-600 mt-1">{summary.content}</p>
+          //   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 mt-2">
+          //     {summary.type}
+          //   </span>
+          //   <div className="mt-4 flex justify-end space-x-2">
+          //     <button
+          //       onClick={() => handleDeleteSummary(summary.id)}
+          //       className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+          //     >
+          //       Delete
+          //     </button>
+          //   </div>
+          // </div>
+
+          
+          // <SummaryCard
+          // // summary={summary}
+          //   key={summary.id}
+          //   handleDelete={handleDeleteSummary}
+          //   handleEdit={() => {}}
+          // />
+          <SummaryCard
+            key={summary.id}
+            summary={summary}
+            handleDelete={handleDeleteSummary}
+            handleEdit={() => console.log(`Edit summary: ${summary.id}`)} // Placeholder for edit functionality
+          />
         ))}
       </div>
 

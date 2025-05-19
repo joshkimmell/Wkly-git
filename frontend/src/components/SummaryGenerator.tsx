@@ -16,16 +16,13 @@ interface SummaryGeneratorProps {
   selectedWeek: Date;
   filteredGoals: { title: string; description: string; category: string; accomplishments?: string[] }[]; // Add filteredGoals as a prop
   content?: string | null; // Optional content prop
+
   // type: null | 'AI' | 'User';
 //   filteredGoals: { title: string; description: string; category: string; accomplishments?: string[] }[]; // Add filteredGoals as a prop
 }
 
 const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ selectedWeek, filteredGoals }) => {
   const [summary, setSummary] = useState<string | null>(null);
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
-
-  const openEditor = () => setIsEditorOpen(true);
-  const closeEditor = () => setIsEditorOpen(false);
 
   const handleGenerateClick = async () => {
     try {
@@ -85,6 +82,18 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ selectedWeek, filte
     }
   };
 
+
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+
+  function openEditor(event: React.MouseEvent<HTMLButtonElement, MouseEvent>): void {
+    event.preventDefault();
+    setIsEditorOpen(true);
+  }
+  console.log('isEditorOpen:', isEditorOpen);
+
+  function closeEditor() {
+    setIsEditorOpen(false);
+  }
   return (
     <div>
       <button
@@ -97,7 +106,7 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ selectedWeek, filte
       {summary && (
         <div className="mt-4 p-4 bg-gray-100 rounded-md">
           <button
-            onClick={openEditor}
+            onClick={openEditor} // NEED FUNCTION TO PASS
             className="text-blue-600 hover:text-blue-800 ml-2"
             aria-activedescendant="Edit"
             aria-label="Edit Summary"
@@ -106,20 +115,21 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ selectedWeek, filte
           >
             <Edit className="w-5 h-5" />
           </button>
+        
           <ReactMarkdown>{summary}</ReactMarkdown>
         </div>
       )}
 
-      {/* {isEditorOpen && ( */}
-        {/* <Modal
+      {isEditorOpen && ( 
+        <Modal
           isOpen={isEditorOpen}
           onRequestClose={closeEditor}
           className="fixed inset-0 flex items-center justify-center z-50"
           overlayClassName="fixed inset-0 bg-gray-500 bg-opacity-75"
-        > */}
-          {/* <div className="bg-white rounded-lg shadow-lg p-6 w-96"> */}
-            {/* <SummaryEditor
-              summaryId={selectedSummary?.id || ''} // Use selectedSummary.id if available
+        > 
+          <div className="bg-white rounded-lg shadow-lg p-6 w-96">
+            <SummaryEditor
+              summaryId={summary || ''} // Use selectedSummary.id if available
               initialContent={summary || ''}
               onRequestClose={closeEditor}
               onSave={async (editedContent) => {
@@ -137,12 +147,13 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ selectedWeek, filte
               className="mt-4 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
             >
               Save edited summary
-            </button> */}
-          {/* </div>
-        </Modal> */}
-      {/* )} */}
+            </button> 
+          </div>
+        </Modal> 
+       )}
     </div>
   );
 };
 
-export default SummaryGenerator;
+export default SummaryGenerator; 
+// export openEditor;

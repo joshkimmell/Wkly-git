@@ -44,6 +44,7 @@ const openAIConfig = {
     n: 1,
     stream: false,
     stop: null,
+    store: true,
 };
 const openai = new openai_1.OpenAI(openAIConfig);
 const generateSummary = async (prompt) => {
@@ -109,7 +110,8 @@ const generateSummaryWithOpenAI = async (userId, weekStart, goalsWithAccomplishm
       `)
         .join('\n')}
     
-    # Summary for the week of ${weekStartDateFormatted}:
+    ## Weekly reflection | ${weekStartDateFormatted}:
+
   `;
     try {
         const response = await limiter.schedule(() => generateSummary(prompt));

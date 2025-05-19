@@ -10,7 +10,7 @@ import supabase from '@lib/supabase';
 import 'react-datepicker/dist/react-datepicker.css';
 // import { startOfWeek } from 'date-fns'; // Import helper to calculate Monday
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-import { set } from 'lodash';
+// import { set } from 'lodash';
 // import { data } from 'react-router';
 // import { set } from 'lodash';
 // import { User } from 'lucide-react';
@@ -41,6 +41,12 @@ const WeeklyGoals = () => {
   
   // console.log('User ID:', userId); // Log the user ID for debugging
 
+  const openEditor = () => {
+    setIsEditorOpen(true);
+  };
+  const closeEditor = () => {
+    setIsEditorOpen(false);
+  };
 
   const [selectedSummary, setSelectedSummary] = useState<{
     id: string;
@@ -365,10 +371,11 @@ console.log('Selected week:', selectedWeek); // Log the selected week for debugg
             //  type="AI" 
             selectedWeek={selectedWeek || new Date()}
             filteredGoals={filteredGoals}
+            
             //  summaryId={selectedSummary?.id || ''} 
            />
-            {/* <SummaryGenerator selectedWeek={selectedWeek || new Date()} filteredGoals={filteredGoals} /> */}
-            {selectedSummary && isEditorOpen && (
+
+            {/* {selectedSummary && isEditorOpen && (
             <Modal
               isOpen={!!selectedSummary}
               onRequestClose={() => setSelectedSummary(null)} // Close the modal properly
@@ -400,7 +407,7 @@ console.log('Selected week:', selectedWeek); // Log the selected week for debugg
                 />
               </div>
             </Modal>
-          )}
+          )} */}
         </div>
 
       {/* Add Goal Modal */}

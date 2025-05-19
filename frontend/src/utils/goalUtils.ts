@@ -32,11 +32,19 @@ export interface Accomplishment {
     user_id: string;
     created_at: string;
   }
-export interface Goal {
+  export interface Goal {
     id: string;
     title: string;
     description: string;
     category: string;
+    week_start: string;
+    user_id: string;
+  };
+  export interface Summary {
+    id: string;
+    title: string;
+    content: string;
+    type: string;
     week_start: string;
     user_id: string;
   };

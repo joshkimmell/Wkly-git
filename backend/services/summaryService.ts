@@ -126,7 +126,8 @@ export const generateSummaryWithOpenAI = async (
     )
     .join('\n')}
     
-    # Summary for the week of ${weekStartDateFormatted}:
+    ## Weekly reflection | ${weekStartDateFormatted}:
+
   `;
 
   try {
