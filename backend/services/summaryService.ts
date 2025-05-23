@@ -106,7 +106,8 @@ export const generateSummaryWithOpenAI = async (
 
   // Format the prompt with goals and their child accomplishments
   const prompt = `
-    Summarize the following goals and accomplishments into a weekly reflection no more than 3 paragraphs long in Markdown format.
+    Summarize the following goals and accomplishments into a reflection no more than 240 characters. Use the following hierarchy in Markdown format:
+
     
     
     ${goalsWithAccomplishments
@@ -126,7 +127,8 @@ export const generateSummaryWithOpenAI = async (
     )
     .join('\n')}
     
-    ## Weekly reflection | ${weekStartDateFormatted}:
+  ## Weekly Reflection for ${weekStartDateFormatted} to ${weekEndDateFormatted}  
+
 
   `;
 

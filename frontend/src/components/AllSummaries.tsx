@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import Modal from 'react-modal';
 import { Summary } from '@utils/goalUtils'; // Adjust the import path as necessary
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
-import SummaryCard from './SummaryCard';
+import SummaryCard from '@components/SummaryCard';
 
 Modal.setAppElement('#root');
 

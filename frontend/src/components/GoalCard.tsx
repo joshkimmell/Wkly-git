@@ -121,9 +121,11 @@ const GoalCard: React.FC<GoalCardProps> = ({ goal, handleDelete, handleEdit }) =
           </span>
         </div>
         <footer className="mt-2 text-sm text-gray-500">
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="text-indigo-600 hover:underline text-sm w-full"
+          { accomplishments.length > 0 && ( 
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="accordion-header flex flex-row items-center justify-between w-full"
+              type="button"   
             >
             {isExpanded ? (
               <h4 className="text-sm font-semibold text-gray-900 flex flex-row items-center justify-between w-full">
@@ -137,6 +139,17 @@ const GoalCard: React.FC<GoalCardProps> = ({ goal, handleDelete, handleEdit }) =
               </h4>
             )}
           </button>
+            )
+            } 
+            { accomplishments.length === 0 && (
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="btn-secondary"
+                >
+                Add Accomplishment
+              </button>
+            )
+          }
         </footer>
 
       {isExpanded && (
@@ -157,7 +170,7 @@ const GoalCard: React.FC<GoalCardProps> = ({ goal, handleDelete, handleEdit }) =
           </ul>
           <button
           onClick={() => setIsModalOpen(true)}
-          className="mt-4 inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          className="btn-secondary"
           >
           Add Accomplishment
           </button>

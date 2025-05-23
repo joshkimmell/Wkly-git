@@ -9,6 +9,7 @@ import supabase from '@lib/supabase';
 import SummaryEditor from '@components/SummaryEditor';
 import Modal from 'react-modal';
 import { Edit } from 'lucide-react';
+import SummaryCard from '@components/SummaryCard';
 // import { set } from 'lodash';
 
 interface SummaryGeneratorProps {
@@ -20,6 +21,8 @@ interface SummaryGeneratorProps {
   // type: null | 'AI' | 'User';
 //   filteredGoals: { title: string; description: string; category: string; accomplishments?: string[] }[]; // Add filteredGoals as a prop
 }
+
+
 
 const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ selectedWeek, filteredGoals }) => {
   const [summary, setSummary] = useState<string | null>(null);
@@ -98,7 +101,7 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ selectedWeek, filte
     <div>
       <button
         onClick={handleGenerateClick}
-        className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+        className="btn-primary"
       >
         Generate Summary
       </button>
@@ -116,7 +119,20 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ selectedWeek, filte
             <Edit className="w-5 h-5" />
           </button>
         
-          <ReactMarkdown>{summary}</ReactMarkdown>
+          <SummaryCard
+            // key='string'
+            summary={{
+              id: 'string',
+              user_id: 'string',
+              title: 'string',
+              content: 'summary',
+              type: 'AI',
+              week_start: new Date().toISOString(),
+            }}
+
+            handleDelete={deleteSummary => console.log(`Delete summary: ${deleteSummary}`)} // Placeholder for delete functionality
+            handleEdit={editSummary => console.log(`Edit summary: ${editSummary}`)} // Placeholder for edit functionality
+          />
         </div>
       )}
 
