@@ -106,9 +106,8 @@ export const generateSummaryWithOpenAI = async (
 
   // Format the prompt with goals and their child accomplishments
   const prompt = `
-    Summarize the following goals and accomplishments into a weekly reflection no more than 3 paragraphs long in Markdown format.
-    
-    
+    Summarize the following goals with their accomplishments into a concise self-reflection no more than 480 characters. Format for use with ReactQuill.
+    Do not include the goals or accomplishments list in the summary. Instead, focus on the overall progress and impact of the goals and accomplishments.
     ${goalsWithAccomplishments
     .map(
       (goal, index) => `
@@ -124,9 +123,9 @@ export const generateSummaryWithOpenAI = async (
       .join('\n')}
       `
     )
-    .join('\n')}
+    .join('\n\n')}    
     
-    ## Weekly reflection | ${weekStartDateFormatted}:
+   'Weekly Reflection for ${weekStartDateFormatted} to ${weekEndDateFormatted}'  
 
   `;
 

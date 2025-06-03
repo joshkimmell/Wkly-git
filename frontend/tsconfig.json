@@ -13,6 +13,7 @@
         "@lib/*": ["src/lib/*"],
         "@utils/*": ["src/utils/*"],
         "@hooks/*": ["src/hooks/*"],
+        "@styles/*": ["src/styles/*"],
         // "@dist/*": ["src/dist/*"],
         // "@server/*": ["server/*"],
         // "@routes/*": ["src/routes/*"],

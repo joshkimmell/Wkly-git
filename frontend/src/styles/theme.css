@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind theme;
+/* @import './variables.scss'; */
+@tailwind utilities;
+
+@theme static {
+  /* BRAND COLORS */
+  /* --color-brand-100: #17001b; 
+  --color-brand-90: #230028;
+  --color-brand-80: #3b0043;
+  --color-brand-70: #4d0057;
+  --color-brand-60: #570082;
+  --color-brand-50: #6a0078;
+  --color-brand-40: #760086;
+  --color-brand-30: #c300dc;
+  --color-brand-20: #E737FE;
+  --color-brand-10: #F07DFF;
+  --color-brand-0: #F8C1FF;*/
+
+/* GRAY COLORS */
+  /*--color-gray-100: #181818;
+  --color-gray-90: #1A1A1A;
+  --color-gray-80: #333333;
+  --color-gray-70: #4D4D4D;
+  --color-gray-60: #666666;
+  --color-gray-50: #808080;
+  --color-gray-40: #999999;
+  --color-gray-30: #B3B3B3;
+  --color-gray-20: #CCCCCC;
+  --color-gray-10: #E6E6E6;
+  --color-gray-0: #F4F4F4; */
+
+
+  /* TOKENS */
+    --color-background: var(--color-gray-0);
+    --color-background-inverse: var(--color-gray-100);
+
+    --color-text-primary: var(--color-gray-90);
+    --color-text-secondary: var(--color-gray-70);
+    --color-text-tertiary: var(--color-gray-50);
+    --color-text-inverse: var(--color-gray-10);
+
+    --color-icon-primary: var(--color-gray-90);
+    --color-icon-secondary: var(--color-gray-70);
+    --color-icon-tertiary: var(--color-gray-50);
+    --color-icon-inverse: var(--color-gray-10);
+    --color-icon-interactive: var(--color-brand-50);
+
+    --color-border-primary: var(--color-gray-90);
+    --color-border-secondary: var(--color-gray-70);
+    --color-border-tertiary: var(--color-gray-50);
+
+    --color-button-primary: var(--color-brand-60);
+    --color-button-secondary: var(--color-gray-20);
+    --color-button-tertiary: var(--color-gray-10);
+    --color-button-primary-hover: var(--color-brand-80);
+    --color-button-secondary-hover: var(--color-gray-30);
+    --color-button-tertiary-hover: var(--color-gray-20);
+
+    --color-link-primary: var(--color-brand-70);
+    --color-link-secondary: var(--color-gray-70);
+    --color-link-tertiary: var(--color-gray-50);
+
+}
