@@ -1,3 +1,5 @@
+@import '../../src/styles/variables';
+
 .summary {
     display: flex;
     flex-direction: column;
@@ -9,9 +11,19 @@
     }
     &--content {
         font-size: 1rem;
-        color: #666;
+        color: var(--text-secondary, $gray-30);
     }
 
+}
+
+svg {
+
+    & g .fill-brand {
+        color: $brand-60;
+    }
+    & g .fill-white {
+        color: white;
+    }
 }
 
 .header {
@@ -26,7 +38,7 @@
     // }
     
     &-brand {
-        background: linear-gradient(180deg, #780088 0%, #36003D 100%);
+        background: linear-gradient(180deg, $brand-90 0%, $brand-70 100%);
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -38,11 +50,12 @@
         
         &--logo {
             display: flex;
-            width: 321px;
+            width: 22rem;
             height: 110px;
             flex-direction: column;
             align-items: flex-start;
             gap: 8px;
+
         }
         
         &--menu-btn {
@@ -60,6 +73,7 @@
                 align-items: center;
                 gap: 4px;
                 aspect-ratio: 1/1;
+                transition: all 300ms;
 
                 &:hover {
                     background: transparent;
@@ -81,25 +95,25 @@
         }
         &-enter-active {
             opacity: 1;
-            transition: opacity 300ms;
+            transition: all 300ms;
         }
         &-exit {
             opacity: 1;
         }
         &-exit-active {
             opacity: 0;
-            transition: opacity 300ms;
+            transition: all 300ms;
         }
         
         &-container {
             display: flex;
-            background-color: var(--Background, #efefef);
+            // background-color: var(--Layer-01, #F5F5F5);
             padding: 16px 16px 32px 48px;
             align-self: stretch;
             flex-direction: column;
             align-items: flex-end;
             gap: 8px;
-            border-bottom: 1px solid #ccc;
+            border-bottom: 1px solid $gray-70;
             
             &--list {
                 display: flex;
@@ -110,7 +124,7 @@
                 align-self: stretch;
                     
                     
-                &--menu-item {
+                &--item {
                     display: flex;
                     min-width: 240px;
                     max-width: 320px;
@@ -120,26 +134,36 @@
                     align-self: stretch;
                     border-radius: 8px;
                     
-                    &:hover {
-                        background: var(--Layer-01-hover, #e5e5e5);
-                    }
+                    // &:hover {
+                    //     background: var(--color-gray-80, #e5e5e5);
+                    // }
                     
-                    &:active {
-                        background: var(--Layer-01, #CDCDCD);
+                    // &:active {
+                    //     background: var(--Layer-01, #CDCDCD);
                         
-                    }
+                    // }
                 }
             }
         }
     }
 }
 
-logo {
-    display: flex;
-    width: 321px;
-    height: 110px;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-    flex-shrink: 0;
-}
+// logo {
+//     display: flex;
+//     width: 380px;
+//     height: 110px;
+//     flex-direction: column;
+//     align-items: flex-start;
+//     gap: 8px;
+//     flex-shrink: 0;
+// }
+
+.ql-toolbar.ql-snow .ql-picker-label, .ql-toolbar.ql-snow .ql-stroke, .ql-snow .ql-picker {
+    @apply stroke-gray-70 dark:stroke-gray-40 hover:stroke-gray-90 dark:hover:stroke-gray-10 text-gray-70 dark:text-gray-40 hover:text-gray-90 dark:hover:text-gray-10;
+  }
+.ql-toolbar.ql-snow .ql-picker-options {
+    @apply bg-gray-0 dark:bg-gray-100;
+  }
+.ql-editor p {
+    @apply text-gray-90 dark:text-gray-10;
+  }

@@ -6,9 +6,9 @@
 
 import React from "react";
 import { Goal, FetchGoalsParams }from "@utils/goalUtils";
-import axios from "axios";
+// import axios from "axios";
 import supabase from "@lib/supabase";
-import { set } from "lodash";
+// import { set } from "lodash";
 
 const backend = (import.meta as any).env.VITE_BACKEND_URL;
 export const backendUrl = backend + '/api/summaries';
@@ -23,8 +23,8 @@ const userString = async () => {
     // const resolvedUserId = user.id; // Get the user ID from the authenticated user
     // Fetch and store the user ID asynchronously
 };
-export const userId = await userString();
-console.log('My User ID:', userId); // Log the user ID for debugging
+// export const userId = await userString();
+// console.log('My User ID:', userId); // Log the user ID for debugging
 
 
 // Fix userId to be a string
@@ -127,159 +127,144 @@ export const handleSubmit = async (
 ) => {
     event.preventDefault();
     try {
-        // const { data: { user } } = await supabase.auth.getUser();
-        if (!userId) throw new Error('User is not authenticated');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User is not authenticated');
+      const userId = user.id;
         
-        const { error } = await supabase.from('goals').insert({
-            ...newGoal,
-            user_id: userId,
-        });
-        if (error) throw new Error(error.message);
-        
-        await fetchGoals();
-        setIsModalOpen(false);
-        resetNewGoal();
+      const { error } = await supabase.from('goals').insert({
+          ...newGoal,
+          user_id: userId,
+      });
+      if (error) throw new Error(error.message);
+      
+      setIsModalOpen(false);
+      resetNewGoal();
+      await fetchGoals();
     } catch (err) {
         handleError(err, setError);
     }
 };
 
 // Fetch all goals
-// export const fetchGoals = async (weekStart: string) => {
-//     if (!userId) throw new Error('User is not authenticated');
-  
-//     const response = await fetch(`${backendUrl}/goals?user_id=${userId}&week_start=${weekStart}`, {
-//       method: 'GET',
-//       headers: {
-//         'Content-Type': 'application/json',
-//         Authorization: `Bearer ${userId}`,
-//       },
-//     });
-  
-//     if (!response.ok) {
-//       const errorText = await response.text();
-//       console.error('Error fetching goals:', errorText);
-//       throw new Error('Failed to fetch goals');
-//     }
-  
-//     return response.json();
-//   };
-    export const fetchGoals = async (weekStart: string): Promise<Goal[]> => {
-    if (!userId) throw new Error('User is not authenticated');
-  
-    const response = await fetch(`${backendUrl}/goals?user_id=${userId}&week_start=${weekStart}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${userId}`,
-      },
-    });
-  
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error fetching goals:', errorText);
-      throw new Error('Failed to fetch goals');
-    }
-  
-    return response.json();
-  };
-  
-  // Add a new goal
-  export const addGoal = async (newGoal: any) => {
-    // const { data: { user } } = await supabase.auth.getUser();
-    if (!userId) throw new Error('User is not authenticated');
-    // const token = userId;
-    const response = await fetch(`${backendUrl}/goals?user_id=${userId}}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${userId}`,
-      },
-      body: JSON.stringify(newGoal),
-    });
-    console.log('User ID:', userId);
-  
-    if (!response.ok) {
-      throw new Error('Failed to add goal');
-    }
-  
-    return response.json();
-    console.log('Adding goal with body:', newGoal);
-  };
-  
-  // Delete a goal
-  export const deleteGoal = async (goalId: string) => {
-    if (!userId) throw new Error('User is not authenticated');
-  
-    const response = await fetch(`${backendUrl}/goals/${goalId}?user_id=${userId}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${userId}`,
-      },
-    });
-  
-    if (!response.ok) {
-      throw new Error('Failed to delete goal');
-    }
-  
-    return response.json();
-  };
-  
-  // Update a goal
-  export const updateGoal = async (goalId: string, updatedGoal: any) => {
-    const response = await fetch(`${backendUrl}/goals?user_id=${userId}/${goalId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${userId}`,
-      },
-      body: JSON.stringify(updatedGoal),
-    });
-  
-    if (!response.ok) {
-      throw new Error('Failed to update goal');
-    }
-  
-    return response.json();
-  };                    
-// export const fetchGoals = async (
-//     fetchParams: FetchGoalsParams, 
-//     // supabase: SupabaseClient<any, "public", any>, 
-//     filterGoalsByWeek: (
-//         goals: Goal[],
-//         selectedWeek: Date,
-//         setFilteredGoals: React.Dispatch<React.SetStateAction<any[]>>
-//     ) => void, 
-//     setGoals: React.Dispatch<React.SetStateAction<any[]>>, 
-//     // p1: () => void, 
-//     // filter: string, 
-//     setFilteredGoals: React.Dispatch<React.SetStateAction<Goal[]>>, 
-//     setError: React.Dispatch<React.SetStateAction<string | null>>, 
-//     // userId: { userId: any; },      
-// ) => {  
-//     try {
-//         const { data: { session } } = await supabase.auth.getSession();
-//         if (!session) throw new Error('User is not authenticated');
-//         const { user } = session;
-//         if (!user) throw new Error('User is not authenticated');
-//         if (!session?.user?.id) throw new Error('User ID is missing.');
-//         const { access_token } = session;
-//         if (!access_token) throw new Error('Access token is missing');
-//         // const { data: { user: { id } } } = await supabase.auth.getUser();
-//         // if (!id) throw new Error('User ID is missing');
-//         const data = await fetchWithAuth(`${fetchParams.backendUrl}/rest/v1/goals?user_id=${session.user.id}`, session.access_token);
-        
-//         if(data) {
-//             setGoals(data);
-//         } else {
-//             setGoals([]);
-//         };
-        
-//     } catch (err) {
-//         handleError(err, setError);
-//     }
+export const fetchGoals = async (weekStart: string): Promise<Goal[]> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User is not authenticated');
+  const userId = user.id;
+
+  const response = await fetch(`${backendUrl}/goals?user_id=${userId}&week_start=${weekStart}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${userId}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Error fetching goals:', errorText);
+    throw new Error('Failed to fetch goals');
+  }
+
+  // return response.json();
+  const goals = await response.json();
+  // Sort by created date ascending
+  goals.sort((a: { created_at: string | number | Date; }, b: { created_at: string | number | Date; }) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  console.log('Fetched goals:', goals);
+  return goals;
+};
+
+// Add a new goal
+export const addGoal = async (newGoal: any) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User is not authenticated');
+  const userId = user.id;
+
+  // Ensure user_id is included in the body if your backend expects it
+  const goalToSend = { ...newGoal, user_id: userId };
+
+  console.log('addGoal request:', goalToSend);
+
+  const response = await fetch(`${backendUrl}/goals?user_id=${userId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${userId}`,
+    },
+    body: JSON.stringify(goalToSend),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Error adding goal:', errorText);
+    throw new Error('Failed to add goal');
+  }
+
+  return response.json();
+};
+// export const addGoal = async (newGoal: any) => {
+//   const { data: { user } } = await supabase.auth.getUser();
+//   if (!user) throw new Error('User is not authenticated');
+//   const userId = user.id;
+
+//   const response = await fetch(`${backendUrl}/goals?user_id=${userId}`, {
+//     method: 'POST',
+//     headers: {
+//       'Content-Type': 'application/json',
+//       Authorization: `Bearer ${userId}`,
+//     },
+//     body: JSON.stringify(newGoal),
+//   });
+
+//   if (!response.ok) {
+//     throw new Error('Failed to add goal');
+//   }
+
+//   console.log('addGoal request:', newGoal);
+//   return response.json();
 // };
+
+// Delete a goal
+export const deleteGoal = async (goalId: string) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User is not authenticated');
+  const userId = user.id;
+
+  const response = await fetch(`${backendUrl}/goals/${goalId}?user_id=${userId}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${userId}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to delete goal');
+  }
+
+  return response.json();
+};
+
+// Update a goal
+export const updateGoal = async (goalId: string, updatedGoal: any) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User is not authenticated');
+  const userId = user.id;
+
+  const response = await fetch(`${backendUrl}/goals/${goalId}?user_id=${userId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${userId}`,
+    },
+    body: JSON.stringify(updatedGoal),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to update goal');
+  }
+
+  return response.json();
+};                    
 
 export const handleDeleteGoal = async (
     supabase: any,
@@ -298,24 +283,6 @@ export const handleDeleteGoal = async (
     }
 };
 
-// export const filterGoalsByWeek = (
-//     goals: any[],
-//     selectedWeek: Date,
-//     setFilteredGoals: React.Dispatch<React.SetStateAction<any[]>>
-// ) => {
-//     const startOfWeek = new Date(selectedWeek);
-//     startOfWeek.setHours(0, 0, 0, 0);
-    
-//     const endOfWeek = new Date(selectedWeek);
-//     endOfWeek.setDate(endOfWeek.getDate() + 6);
-//     endOfWeek.setHours(23, 59, 59, 999);
-    
-//     const filtered = goals.filter((goal) => {
-//         const goalDate = new Date(goal.week_start);
-//         return goalDate >= startOfWeek && goalDate <= endOfWeek;
-//     });
-//     setFilteredGoals(filtered);
-// };
 export const filterGoalsByWeek = (goals: Goal[], selectedWeek: string | Date): Goal[] => {
   const startOfWeek = new Date(selectedWeek);
   startOfWeek.setHours(0, 0, 0, 0);
@@ -330,27 +297,6 @@ export const filterGoalsByWeek = (goals: Goal[], selectedWeek: string | Date): G
   });
 };
 
-// export const handleGenerate = async (props: { goals: any[]; accomplishments: any[]; setSummary: React.Dispatch<React.SetStateAction<string>> }) => {
-//     const { goals, accomplishments, setSummary } = props; // Destructure props to extract goals, accomplishments, and setSummary
-
-//     try {
-//         // Assuming `goals` and `accomplishments` are passed as props or available in the component's state
-//         const displayedGoals = goals.map((goal) => `- ${goal.title}: ${goal.description}`);
-//         const displayedAccomplishments = accomplishments.map(
-//             (accomplishment) => `- ${accomplishment.title}: ${accomplishment.description}`
-//         );
-
-//         const response = await axios.post(`${backendUrl}/generate`, {
-//             goals: displayedGoals,
-//             accomplishments: displayedAccomplishments,
-//         });
-
-//         setSummary(response.data.summary);
-//     } catch (error) {
-//         console.error('Error generating summary:', error);
-//     }
-// };
-
 export const getWeekStartDate = (date: Date = new Date()): string => {
   const d = new Date(date);
   const day = d.getDay();
@@ -360,97 +306,6 @@ export const getWeekStartDate = (date: Date = new Date()): string => {
   d.setHours(0, 0, 0, 0);
   return d.toISOString().split('T')[0]; // Format as YYYY-MM-DD
 };
-
-
-
-// export const handleGenerate = async (backendUrl: string, selectedDate: Date): Promise<string> => {
-//     try {
-//         const weekStart = getWeekStartDate(selectedDate); // Get the start date of the selected week
-
-//         if (!backendUrl) {
-//             throw new Error('Backend URL is not defined. Please set VITE_BACKEND_URL in your .env file.');
-//         }
-
-//         // Fetch goals from Supabase
-//         const { data: goalsData, error: goalsError } = await supabase
-//             .from('goals')
-//             .select('title, description, category')
-//             .eq('week_start', weekStart); // Filter by the selected week's start date
-
-//         if (goalsError) {
-//             throw new Error(`Error fetching goals: ${goalsError.message}`);
-//         }
-
-//         // Fetch accomplishments from Supabase
-//         const { data: accomplishmentsData, error: accomplishmentsError } = await supabase
-//             .from('accomplishments')
-//             .select('title, description, impact')
-//             .eq('week_start', weekStart); // Filter by the selected week's start date
-
-//         if (accomplishmentsError) {
-//             throw new Error(`Error fetching accomplishments: ${accomplishmentsError.message}`);
-//         }
-
-//         // Format the data for the backend
-//         const formattedGoals: string[] = goalsData?.map(
-//             (goal: { title: string; description: string; category: string }) =>
-//                 `(${goal.category}) ${goal.title}: ${goal.description}`
-//         ) || [];
-//         const accomplishments: string[] = accomplishmentsData?.map(
-//             (accomplishment: { title: string; description: string; impact: string }) =>
-//                 `${accomplishment.title}: ${accomplishment.description}<br/>Impact: ${accomplishment.impact}`
-//         ) || [];
-
-//         // Retrieve the authenticated user
-//         // const user = await supabase.auth.getUser();
-//         const { data: { user } } = await supabase.auth.getUser();
-//         if (!user) throw new Error('User is not authenticated');
-        
-//         const user_id = user.id;
-
-//         // Send a POST request to the backend
-//         const response = await axios.post(`${backendUrl}/generate?user_id=${user_id}&week_start=${weekStart}`, {
-//             goals: formattedGoals,
-//             accomplishments,
-//         });
-
-//         return response.data.summary; // Return the generated summary
-//     } catch (error) {
-//         console.error('Error generating summary:', error);
-//         throw error;
-//     }
-// };
-
-// export const generateSummary = async (
-//     filteredGoals: any[],
-//     setSummary: React.Dispatch<React.SetStateAction<string>>,
-//     setError: React.Dispatch<React.SetStateAction<string | null>>
-// ) => {
-//     try {
-//         const { data: { user } } = await supabase.auth.getUser();
-//         if (!user) throw new Error('User is not authenticated');
-        
-//         const user_id = user.id;
-//         const response = await fetch(`${backendUrl}/generate?user_id=${user_id}`, {
-//             method: 'POST',
-//             headers: { 'Content-Type': 'application/json' },
-//             body: JSON.stringify({
-//                 goals: filteredGoals.map((goal) => `- ${goal.title}: ${goal.description}`),
-//                 accomplishments: filteredGoals
-//                 .flatMap((goal) => goal.accomplishments || [])
-//                 .map((accomplishment) => `- ${accomplishment.title}: ${accomplishment.description}`),
-//             }),
-//         });
-//         if (!response.ok) {
-//             const errorData = await response.json();
-//             throw new Error(errorData.error || 'Failed to generate summary');
-//         }
-//         const data = await response.json();
-//         setSummary(data.summary);
-//     } catch (err) {
-//         handleError(err, setError);
-//     }
-// };
 
 export const handleGenerate = async (
   // id: string,  
@@ -497,6 +352,103 @@ export const handleGenerate = async (
     throw error;
   }
 };
+
+// export const saveSummary = async (newId: string, summaryContent: string, summaryType: string = 'AI') => {
+//     try {
+//       const { data: { user } } = await supabase.auth.getUser();
+//       if (!user) throw new Error('User is not authenticated');
+  
+//       const userId = user.id;
+//       // const weekStart = getWeekStartDate(selectedWeek); // Get Monday as YYYY-MM-DD
+  
+//       const requestBody = {
+//         summary_id: newId, // Generate a unique ID for the summary
+//         user_id: userId,
+//         // week_start: weekStart,
+//         content: summaryContent,
+//         summary_type: summaryType, // Use the provided summaryType
+//       };
+  
+//       console.log('Request body:', requestBody);
+  
+//       const { error } = await supabase.from('summaries').insert(requestBody);
+  
+//       if (error) {
+//         console.error('Error saving summary:', error.message);
+//         throw new Error('Failed to save summary');
+//       }
+  
+//       console.log('Summary saved successfully');
+//     } catch (error) {
+//       console.error('Error saving summary:', error);
+//     }
+//   };
+
+
+export const saveSummary = async (
+  setLocalSummaryId: (id: string) => void,
+  summaryContent: string,
+  summaryType: string,
+  selectedWeek: Date
+) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User is not authenticated');
+
+    const userId = user.id;
+    const weekStart = getWeekStartDate(selectedWeek);
+
+    const requestBody = {
+      user_id: userId,
+      week_start: weekStart,
+      content: summaryContent,
+      summary_type: summaryType,
+    };
+
+    const { data, error } = await supabase
+      .from('summaries')
+      .insert(requestBody)
+      .select('summary_id')
+      .single();
+
+    if (error) {
+      console.error('Supabase error:', error); // <--- log the actual error
+      throw new Error('Failed to save summary');
+    }
+    setLocalSummaryId(data.summary_id); // <-- Set the actual ID from the backend
+    return data; // Return the inserted row (including id)
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const deleteSummary = async (summary_id: string) =>
+{
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User is not authenticated');
+      const userId = user.id;
+      // const summaryId = summary_id; // Assuming summary_id is passed as a parameter
+      // const weekStart = selectedWeek.toISOString().split('T')[0];
+
+      // Delete the summary for this user and week
+      const { error } = await supabase
+        .from('summaries')
+        .delete()
+        .match({ summary_id, user_id: userId });
+
+      if (error) {
+        console.error('Error deleting summary:', error.message);
+        throw new Error('Failed to delete summary');
+      }
+
+      // setSummary(null); // Remove summary from local state
+      // setIsEditorOpen(false); // Close editor if open
+      console.log('Summary deleted successfully');
+    } catch (error) {
+      console.error('Error deleting summary:', error);
+    }
+}
 
 export function setSummary(summary: string) {
     console.log("Generated Summary:", summary);

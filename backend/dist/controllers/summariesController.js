@@ -13,7 +13,7 @@ const openai = new openai_1.OpenAI({
 // const openai = new OpenAI(openAIConfig);
 // Fetch all goals for a specific user
 const getGoals = async (req, res) => {
-    const { user_id } = req.query;
+    const { user_id, week_start } = req.query;
     if (!user_id) {
         return res.status(400).json({ error: 'User ID is required.' });
     }
@@ -22,7 +22,9 @@ const getGoals = async (req, res) => {
         const { data, error } = await supabaseClient_js_1.default
             .from('goals') // Ensure this matches your table name
             .select('*')
-            .eq('user_id', user_id);
+            .eq('user_id', user_id)
+            .eq('week_start', week_start) // Ensure this matches your column name;
+            .order('created_at', { ascending: true }); // Optional: order by week_start
         if (error) {
             console.error('Error fetching goals from Supabase:', error);
             return res.status(500).json({ error: 'Failed to fetch goals.' });

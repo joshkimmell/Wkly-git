@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { getWeekStartDate } from '@utils/functions'; // Adjust the import path as necessary
 
 export const Categories = [
   'Technical skills',
@@ -24,26 +25,37 @@ export interface AddGoalProps {
   categories: string[];
 }
 
-const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleSubmit, categories }) => {
+const AddGoal: React.FC<AddGoalProps> = ({ handleSubmit, newGoal, setNewGoal, categories }) => {
   // Set the default `week_start` to the current week's Monday
   useEffect(() => {
-    const getCurrentWeekStart = () => {
-      const now = new Date();
-      const dayOfWeek = now.getDay(); // 0 (Sunday) to 6 (Saturday)
-      const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust to Monday
-      const monday = new Date(now.setDate(diff));
-      return monday.toISOString().split('T')[0]; // Format as YYYY-MM-DD
-    };
-
     if (!newGoal.week_start) {
       setNewGoal((prevGoal) => ({
         ...prevGoal,
-        week_start: getCurrentWeekStart(),
+        week_start: getWeekStartDate(),
       }));
     }
   }, [newGoal.week_start, setNewGoal]);
+  // useEffect(() => {
+  //   const getCurrentWeekStart = () => {
+  //     const now = new Date();
+  //     const dayOfWeek = now.getDay(); // 0 (Sunday) to 6 (Saturday)
+  //     const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust to Monday
+  //     const monday = new Date(now.setDate(diff));
+  //     return monday.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+  //   };
 
-
+  //   if (!newGoal.week_start) {
+  //     setNewGoal((prevGoal) => ({
+  //       ...prevGoal,
+  //       week_start: getCurrentWeekStart(),
+  //     }));
+  //   }
+  // }, [newGoal.week_start, setNewGoal]);
+  console.log('addGoal week_start:', newGoal.week_start);
+  console.log('addGoal request:', newGoal);
+  console.log('addGoal categories:', categories);
+  
+  
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
@@ -100,7 +112,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleSubmit, ca
           id="week_start"
           value={newGoal.week_start}
           onChange={(e) => setNewGoal({ ...newGoal, week_start: e.target.value })}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="mt-1 block w-full rounded-md"
+          required
         />
       </div>
 

@@ -3,6 +3,8 @@ import supabase from '@lib/supabase'; // Ensure this is the correct path to your
 // import { handleDeleteGoal } from '@utils/functions';
 import { Goal, Accomplishment } from '@utils/goalUtils'; // Adjust the import path as necessary
 import { ChevronDown, ChevronUp, Trash, Edit } from 'lucide-react';
+import { cardClasses, modalClasses } from '@styles/classes'; // Adjust the import path as necessary
+import { Link } from 'react-router-dom';
 
 interface GoalCardProps {
   goal: Goal;
@@ -90,152 +92,145 @@ const GoalCard: React.FC<GoalCardProps> = ({ goal, handleDelete, handleEdit }) =
       }
     }
   };
-
-  
   
   return (
-    <div key={goal.id} className="bg-white shadow-sm border rounded-lg p-4">
-      <div className="flex flex-col justify-between">
-        <div className='goal-header flex flex-row w-full justify-right align-right'>
-          <button
-            onClick={() => {
-              console.log('Deleting Goal ID:', goal.id); // Log the goal ID
-              handleDelete(goal.id);
-            }}
-            className="text-red-600 hover:text-red-800"
-            >
-            <Trash className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => handleEdit(goal.id)}
-            className="text-blue-600 hover:text-blue-800 ml-2"
-            >
-            <Edit className="w-5 h-5" />
-          </button>
+    <div key={goal.id} className={`${cardClasses} shadow-xl`}>
+      <div className="flex flex-col flex-grow">
+        <div className='card-content flex flex-col h-full'>
+          <div className="goal-header flex flex-row w-full justify-between items-center">
+            <div className='flex flex-row w-full justify-right align-right'>
+              <button
+                onClick={() => {
+                  console.log('Deleting Goal ID:', goal.id); // Log the goal ID
+                  handleDelete(goal.id);
+                }}
+                className="btn-ghost w-auto"
+                >
+                <Trash className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => handleEdit(goal.id)}
+                className="btn-ghost w-auto"
+                >
+                <Edit className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="tabs flex flex-row items-center justify-between w-full">
+              <span className="flex flex-col w-auto items-left px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-10 text-brand-90 mt-2">
+                {goal.category || 'Uncategorized'}
+              </span>
+            </div>
+          </div>
+          <div className="goal-content flex flex-col mt-2 flex-grow">
+            <h4 className="text-lg text-gray-90 dark:text-gray-10 font-medium">{goal.title || 'Untitled Goal'}</h4>
+            <p className="text-gray-60 dark:text-gray-40 mt-1">{goal.description || 'No description provided.'}</p>
+            
+          </div>
         </div>
-        <div className="goal-content flex flex-col mt-2">
-          <h4 className="text-lg font-medium text-gray-900">{goal.title || 'Untitled Goal'}</h4>
-          <p className="text-gray-600 mt-1">{goal.description || 'No description provided.'}</p>
-          <span className="flex flex-col w-auto items-left px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 mt-2">
-            {goal.category || 'Uncategorized'}
-          </span>
-        </div>
-        <footer className="mt-2 text-sm text-gray-500">
+        <footer className="mt-2 text-sm text-gray-50 dark:text-gray-30 flex flex-col items-left justify-between">
           { accomplishments.length > 0 && ( 
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="accordion-header flex flex-row items-center justify-between w-full"
-              type="button"   
+              className="px-0 text-gray-90 dark:text-gray-10 bg-transparent hover:bg-transparent border-none focus-visible:outline-none  flex flex-row items-center justify-between w-full"
             >
+              <h4 className="text-sm font-semibold text-gray-90 dark:text-gray-10  flex flex-row items-center justify-between w-full">
+              Accomplishments ({accomplishments.length})
             {isExpanded ? (
-              <h4 className="text-sm font-semibold text-gray-900 flex flex-row items-center justify-between w-full">
-              Accomplishments
               <ChevronUp className="w-5 h-5" />
-            </h4>
             ) : (
-              <h4 className="text-sm font-semibold text-gray-900 flex flex-row items-center justify-between w-full">
-              Accomplishments
-                <ChevronDown className="w-5 h-5 mt-1" />
-              </h4>
+              <ChevronDown className="w-5 h-5" />
             )}
+            </h4>
+              
           </button>
-            )
-            } 
-            { accomplishments.length === 0 && (
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="btn-secondary"
-                >
-                Add Accomplishment
-              </button>
-            )
-          }
+            )} 
+            
+            {isExpanded && (
+              <div className="goal-accomplishments mt-4">
+                {/* <h4 className="text-sm font-semibold text-gray-900">Accomplishments</h4> */}
+                <ul className="list-none list-inside text-gray-700 mt-2 space-y-1">
+                  {accomplishments.map((accomplishment) => (
+                    <li key={accomplishment.id}>
+                      <h5 className="text-md font-semibold text-gray-80 dark:text-gray-20">
+                        {accomplishment.title}
+                      </h5>
+                      <p className="text-md text-gray-60 dark:text-gray-40">
+                        {accomplishment.description}
+                      </p>
+                      <label className="text-sm text-gray-40 dark:text-gray-50">Impact: {accomplishment.impact}</label>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <button
+              // to='#'
+              onClick={() => setIsModalOpen(true)}
+              className="mt-2 btn-ghost w-full border-none text-sm font-semibold text-brand-70 dark:text-brand-20 hover:text-brand-90 dark:hover:text-brand-10"
+              >
+              Add Accomplishment
+            </button>
         </footer>
-
-      {isExpanded && (
-        <div className="goal-accomplishments mt-4">
-          {/* <h4 className="text-sm font-semibold text-gray-900">Accomplishments</h4> */}
-          <ul className="list-none list-inside text-gray-700 mt-2 space-y-1">
-            {accomplishments.map((accomplishment) => (
-              <li key={accomplishment.id}>
-                <h5>
-                  <strong>{accomplishment.title}</strong>
-                </h5>
-                <p>
-                  {accomplishment.description}{' '}
-                  <span className="text-sm">{accomplishment.impact}</span>
-                </p>
-              </li>
-            ))}
-          </ul>
-          <button
-          onClick={() => setIsModalOpen(true)}
-          className="btn-secondary"
-          >
-          Add Accomplishment
-          </button>
-        </div>
-      )}
           
       {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg shadow-lg p-6 w-96">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Add Accomplishment</h3>
-        <div className="space-y-4">
-        <div>
-        <label className="block text-sm font-medium text-gray-700">Title</label>
-        <input
-        type="text"
-        value={newAccomplishment.title}
-        onChange={(e) =>
-          setNewAccomplishment({ ...newAccomplishment, title: e.target.value })
-        }
-        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-        />
+          <div className={`${modalClasses}`}>
+            <h3 className="text-lg font-medium text-gray-90 mb-4">Add Accomplishment</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-70 dark:text-gray-40">Title</label>
+                <input
+                  type="text"
+                  value={newAccomplishment.title}
+                  onChange={(e) =>
+                    setNewAccomplishment({ ...newAccomplishment, title: e.target.value })
+                  }
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-70 dark:text-gray-40">Description</label>
+                <textarea
+                value={newAccomplishment.description}
+                onChange={(e) =>
+                  setNewAccomplishment({ ...newAccomplishment, description: e.target.value })
+                }
+                rows={3}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-70 dark:text-gray-40">Impact</label>
+              <input
+              type="text"
+              value={newAccomplishment.impact}
+              onChange={(e) =>
+                setNewAccomplishment({ ...newAccomplishment, impact: e.target.value })
+              }
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+          </div>
+          <div className="mt-6 flex justify-end space-x-4">
+            <button
+            onClick={() => setIsModalOpen(false)}
+            className="btn-secondary"
+            >
+            Cancel
+            </button>
+            <button
+            onClick={handleAddAccomplishment}
+            className="btn-primary"
+            >
+            Add
+            </button>
+          </div>
         </div>
-        <div>
-        <label className="block text-sm font-medium text-gray-700">Description</label>
-        <textarea
-        value={newAccomplishment.description}
-        onChange={(e) =>
-          setNewAccomplishment({ ...newAccomplishment, description: e.target.value })
-        }
-        rows={3}
-        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-        />
-        </div>
-        <div>
-        <label className="block text-sm font-medium text-gray-700">Impact</label>
-        <input
-        type="text"
-        value={newAccomplishment.impact}
-        onChange={(e) =>
-          setNewAccomplishment({ ...newAccomplishment, impact: e.target.value })
-        }
-        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-        />
-        </div>
-        </div>
-        <div className="mt-6 flex justify-end space-x-4">
-        <button
-        onClick={() => setIsModalOpen(false)}
-        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-        Cancel
-        </button>
-        <button
-        onClick={handleAddAccomplishment}
-        className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-        Add
-        </button>
-        </div>
-        </div>
-        </div>
+      </div>
       )}
     </div>
-    </div>
+  </div>
   );
   };
       

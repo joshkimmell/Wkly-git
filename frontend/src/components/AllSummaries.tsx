@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import Modal from 'react-modal';
 import { Summary } from '@utils/goalUtils'; // Adjust the import path as necessary
+import { deleteSummary, setSummary, saveSummary } from '@utils/functions'; // Adjust the import path as necessary
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 import SummaryCard from '@components/SummaryCard';
+import SummaryEditor from '@components/SummaryEditor';
+import SummaryGenerator from '@components/SummaryGenerator';
+import { modalClasses } from '@styles/classes'; // Adjust the import path as necessary
 
 Modal.setAppElement('#root');
 
@@ -10,15 +14,63 @@ const AllSummaries = () => {
   const [summaries, setSummaries] = useState<Summary[]>([]);
   const [filteredSummaries, setFilteredSummaries] = useState<Summary[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newSummary, setNewSummary] = useState<Summary>({
+  // Removed unused summaryType state
+    const [newSummary, setNewSummary] = useState<Summary>({
     id: '',
     title: '',
     content: '',
-    type: 'AI-generated',
+    type: '', 
     week_start: '',
     user_id: '',
   });
+  const [localSummaryId, setLocalSummaryId] = useState<string | null>(null);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [selectedSummary, setSelectedSummary] = useState<Summary | null>(null);
+  const [selectedWeek, setSelectedWeek] = useState<Date>(new Date()); // Default to current week
+
+  function openEditor(summary: Summary) {
+    setSelectedSummary(summary);
+    setIsEditorOpen(true);
+  }
+  console.log('isEditorOpen:', isEditorOpen);
+
+  function closeEditor() {
+    setIsEditorOpen(false);
+    setSelectedSummary(null);
+  }
+  
+  // Save the edited summary
+  const handleSave = async (editedContent: string) => {
+    try {
+     await saveSummary(setLocalSummaryId, editedContent, 'User', selectedWeek);
+      setSummary(editedContent);
+      closeEditor();
+    } catch (error) {
+      console.error('Error saving edited summary:', error);
+    }
+  };
+    const handleDeleteSummary = async (summaryId: string) => {
+      try {
+        await deleteSummary(summaryId); // Use the summary ID passed as argument
+        
+        setNewSummary({
+          id: summaryId,
+          title: '',
+          content: '',
+          type: 'User',
+          week_start: '',
+          user_id: '',
+        }); // Reset newSummary state
+        setIsEditorOpen(false); // Close editor if open
+        console.log('Summary deleted successfully');
+        fetchSummaries(); // Refresh summaries after deleting
+      } catch (error) {
+        console.error('Error deleting summary:', error);
+      }
+    };
   const [filter, setFilter] = useState<string>(''); // For filtering summaries
+
+  
 
   // Fetch all summaries for the logged-in user
   const fetchSummaries = async () => {
@@ -72,7 +124,7 @@ const AllSummaries = () => {
         id: '',
         title: '',
         content: '',
-        type: 'AI-generated',
+        type: 'AI',
         week_start: '',
         user_id: '',
       });
@@ -82,23 +134,23 @@ const AllSummaries = () => {
   };
 
   // Delete a summary
-  const handleDeleteSummary = async (summaryId: string) => {
-    try {
-      const { error } = await supabase
-        .from('summaries')
-        .delete()
-        .eq('id', summaryId);
+  // const handleDeleteSummary = async (summaryId: string) => {
+  //   try {
+  //     const { error } = await supabase
+  //       .from('summaries')
+  //       .delete()
+  //       .eq('id', summaryId);
 
-      if (error) {
-        console.error('Error deleting summary:', error.message);
-        return;
-      }
+  //     if (error) {
+  //       console.error('Error deleting summary:', error.message);
+  //       return;
+  //     }
 
-      fetchSummaries(); // Refresh summaries after deleting
-    } catch (err) {
-      console.error('Unexpected error deleting summary:', err);
-    }
-  };
+  //     fetchSummaries(); // Refresh summaries after deleting
+  //   } catch (err) {
+  //     console.error('Unexpected error deleting summary:', err);
+  //   }
+  // };
 
   // Filter summaries based on the filter state
   const handleFilterChange = (filterValue: string) => {
@@ -203,17 +255,64 @@ const AllSummaries = () => {
           // <SummaryCard
           // // summary={summary}
           //   key={summary.id}
-          //   handleDelete={handleDeleteSummary}
-          //   handleEdit={() => {}}
-          // />
           <SummaryCard
             key={summary.id}
             summary={summary}
-            handleDelete={handleDeleteSummary}
-            handleEdit={() => console.log(`Edit summary: ${summary.id}`)} // Placeholder for edit functionality
+            handleDelete={() => handleDeleteSummary(summary.id)}
+            handleEdit={() => openEditor(summary)}
           />
         ))}
       </div>
+      {isEditorOpen && selectedSummary && ( 
+        <Modal
+          isOpen={isEditorOpen}
+          onRequestClose={closeEditor}
+          className="fixed inset-0 flex items-center justify-center z-50"
+          overlayClassName="fixed inset-0 bg-gray-500 bg-opacity-75"
+        > 
+          <div className={modalClasses}>
+           <div className={`${modalClasses}`}>
+              <SummaryEditor
+                summaryId={selectedSummary?.id || ''} // Pass the correct summary ID
+                initialContent={selectedSummary.content} // Pass the initial content
+                onRequestClose={() => setSelectedSummary(null)} // Close the modal
+                onSave={async (editedContent) => {
+                  try {
+                    // Save the edited summary as a new entry with summary_type === 'User'
+                    // Optionally, you can also update the local state or refetch the summaries
+                    await saveSummary(setLocalSummaryId, editedContent, 'User', selectedWeek);
+                    closeEditor(); // Close the modal after saving
+                    setSummary(editedContent); // Update the local state
+                    // await refreshGoals(); // Refetch goals if needed
+                    console.log('Edited summary saved successfully');
+                  } catch (error) {
+                    console.error('Error saving edited summary:', error);
+                  }
+                }}
+              />
+            </div>
+            
+            <div className='flex flex-row justify-end mt-4 gap-2'>
+              <button
+                onClick={() => closeEditor()}
+                className="btn-secondary"
+              >
+                Cancel
+              </button> 
+              <button
+                onClick={() => handleSave(
+                  selectedSummary.content,
+                )} // Save as 'User' type
+                className="btn-primary"
+              >
+                Save edited summary
+              </button> 
+              
+            </div>
+          </div>
+        </Modal> 
+       )}
+        
 
       {/* Add Summary Modal */}
       {isModalOpen && (
@@ -278,7 +377,7 @@ const AllSummaries = () => {
             </div>
           </div>
         </Modal>
-      )}
+       )}
     </div>
   );
 };

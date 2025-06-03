@@ -2,6 +2,7 @@ import React,{ useState } from 'react';
 import menuIcon from '../images/button-menu.svg';
 import menuOpenIcon from '../images/button-menu-open.svg';
 import CSSTransition from 'react-transition-group/CSSTransition';
+// import { is } from 'date-fns/locale';
 // import { Calendar, Award, LogOut, Home, Text } from 'lucide-react';
 // import { Link } from 'react-router-dom';
 // import supabase from '@lib/supabase';
@@ -9,58 +10,35 @@ import CSSTransition from 'react-transition-group/CSSTransition';
 // import { handleLogout } from '@utils/functions'; // Adjust the import path as necessary
 
 interface MenuBtnProps {
-    class: string; // Add class prop for styling
+    className: string; // Add class prop for styling
+    children?: React.ReactNode; // Optional children prop
     onClick: () => void;
 }
+// const Component = ({ children }: Props) => <div>{children}</div>
 
-const MenuBtn: React.FC<MenuBtnProps> = ({ onClick, class: className }) => {
+const MenuBtn: React.FC<MenuBtnProps> = ({ onClick, children, className }) => {
   const [isOpen, setIsOpen] = useState(false);
-//   const nodeRef = useRef<HTMLDivElement>(null);
 
-//   const handleLogout = async () => {
-//       try {
-//         if (!supabase) {
-//           console.error('Supabase client is not initialized');
-//           return;
-//         }
-//         const { error } = await supabase.auth.signOut();
-//         if (error) throw error;
-//         console.log('User logged out successfully');
-//         window.location.href = '/auth'; // Redirect to the auth route
-//       } catch (error) {
-//         console.error('Error logging out:', error);
-//       }
-//     };
-
-//   const handleClick = () => {
-//     // Toggle the menu open/close state
-//     if (!isOpen) {
-//       setIsOpen(true);
-//     } else {
-//       setIsOpen(false);
-//     }
-//     // Call the onClick prop to trigger the menu toggle
-//     onClick();
-    
-//   };
 
   return (
     <div>
-        <button onClick={onClick} className="p-2 focus:outline-none">
+        <button onClick={onClick} className={`${className} transition-all transition-discrete`}>
         <img src={isOpen ? menuOpenIcon : menuIcon} alt="Menu" className="w-6 h-6" />
-        </button>
         <CSSTransition
-            in={isOpen}
-            // nodeRef={nodeRef}
+            in={!isOpen}
             onEnter={() => setIsOpen(true)}
             onExit={() => setIsOpen(false)}
+            // transition="fade"
             mountOnEnter
             unmountOnExit
             timeout={160}
             classNames="menu"
-        >
-            
+            >
+          <div className="children-container transition-all transition-discrete">
+            {children}
+          </div>
         </CSSTransition>
+          </button>
     </div>
   );
 };

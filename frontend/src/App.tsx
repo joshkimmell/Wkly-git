@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link } from 'react-router-dom';
 import { GoalsProvider } from '@context/GoalsContext';
 import MenuBtn from '@components/menu-btn';
@@ -10,11 +10,20 @@ import useAuth from '@hooks/useAuth';
 import AllGoals from '@components/AllGoals';
 import AllSummaries from '@components/AllSummaries';
 import AllAccomplishments from '@components/AllAccomplishments';
-import { Calendar, Award, LogOut, Home, Text } from 'lucide-react';
+import { Calendar, Award, LogOut, Home, Text, Sun, Moon } from 'lucide-react';
+// import { on } from 'events';
 
 function App() {
   const { session } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  // const [icon, setIcon] = useState<'icon-menu' | 'icon-close'>(
+  //   isOpen ? 'icon-close' : 'icon-menu'
+  // );
+  // Initialize theme based on user's preference
+  const [theme, setTheme] = useState<'theme-dark' | 'theme-light'>(
+    window.matchMedia('(prefers-color-scheme: dark)').matches ? 'theme-dark' : 'theme-light'
+  );
+  
   const handleLogout = async () => {
     try {
       if (!supabase) {
@@ -34,13 +43,45 @@ function App() {
       // Toggle the menu open/close state
       if (!isOpen) {
         setIsOpen(true);
+        // setIcon('icon-close');
       } else {
         setIsOpen(false);
+        // setIcon('icon-menu');
       }
       // Call the onClick prop to trigger the menu toggle
       // onClick();
-      
     };
+
+  useEffect(() => {
+  if (theme === 'theme-dark') {
+    document.body.classList.add('dark');
+  } else {
+    document.body.classList.remove('dark');
+  }
+}, [theme]);
+
+const toggleTheme = () => {
+  setTheme(prev => (prev === 'theme-dark' ? 'theme-light' : 'theme-dark'));
+};
+
+  const current = theme === 'theme-dark' ? 'dark' : 'light';
+  const themePrefix = theme === 'theme-dark' ? 'dark:' : '';
+
+  const classMenuItem = `
+    menu-container--list--item 
+    text-brand-80 
+    dark:text-brand-10 
+    hover:text-brand-90 
+    dark:hover:text-brand-20 
+    hover:bg-gray-20 
+    dark:hover:bg-gray-80 
+    flex 
+    items-center 
+    px-3 
+    py-2 
+    text-sm 
+    font-medium
+  `;
 
   if (!session) {
     return <Auth />;
@@ -48,70 +89,75 @@ function App() {
 
   return (
     // <SessionContextProvider supabaseClient={supabase}>
-      <div className="min-h-screen bg-gray-50">
+    <div className={`${current}`}>
+      <div className={`min-h-screen bg-gray-10 dark:bg-gray-90 text-gray-90 dark:text-gray-10`}>
         <div className="header flex items-center"> 
           <div className="header-brand">
-            <Link
-              to="/home"
-              className="header-brand--logo"
+            <div className='header-brand--logo-container relative pr-6'>
+            {/* Theme Switcher */}
+              <button
+                onClick={toggleTheme}
+                className="ml-4 p-2 rounded absolute top-0 right-0"
+                aria-label="Toggle theme"
               >
-              <img src="./src/images/logo-large.svg" alt="Logo" className="" />
-            </Link>
-            {/* <div className="header-brand--menu-btn"> */}
-              {/* <button
-                type="button"
-                // className="inline-flex items-center p-2 text-gray-500 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                aria-controls="mobile-menu"
-                aria-expanded="false"
+                {theme === 'theme-dark' ? <Sun className="w-5 h-5 stroke-gray-10 hover:stroke-gray-30 focus:outline-none" /> : <Moon className="w-5 h-5 stroke-gray-10 hover:stroke-gray-30 focus:outline-none" />}
+              </button>
+              <Link
+                to="/home"
+                className="header-brand--logo pr-2 overflow-hidden"
                 >
-                Open main menu
-              </button> */}
+                <embed src="./src/images/logo-large.svg" className='mask-clip-border' />
+              </Link>
+            </div>
+              
               <MenuBtn 
-                class="header-brand--menu-btn" 
+                className="header-brand--menu-btn" 
                 onClick={handleClick} //  => setIsOpen(!isOpen) 
+                // children= "string"
               />
           </div>
           { isOpen && (
             <div className="menu">
-              <div className="menu-container">
-                <div className="menu-container--list">
+              <div className={`menu-container bg-white dark:bg-gray-100 text-brand-80 dark:text-brand-10 align-right`}>
+                <div className="menu-container--list align-flex-end justify-end flex flex-col space-y-2">
                   <Link
                   to="/home"
-                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:text-indigo-600 menu-container--menu-item"
+                  className={`${classMenuItem}`}
                   >
                   <Home className="w-5 h-5 mr-2" />
                   Weekly Goals
                   </Link>
                   <Link
                   to="/goals"
-                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:text-indigo-600 menu-container--menu-item"
+                  className={`${classMenuItem}`}
                   >
                   <Calendar className="w-5 h-5 mr-2" />
                   All Goals
                   </Link>
                   <Link
                   to="/accomplishments"
-                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:text-indigo-600 menu-container--menu-item"
+                  className={`${classMenuItem}`}
                   >
                   <Award className="w-5 h-5 mr-2" />
                   Accomplishments
                   </Link>
                   <Link
                   to="/summaries"
-                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:text-indigo-600 menu-container--menu-item"
+                  className={`${classMenuItem}`}
                   >
                   <Text className="w-5 h-5 mr-2" />
                   Summaries
                   </Link>
-                  <div className="flex space-x-8">
-                    <button
+                  {/* <div className="flex space-x-8"> */}
+                    <Link
+                        to="/auth"
                         onClick={handleLogout}
-                        className="flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:text-indigo-600"
+                        className={`${classMenuItem}`}
                     >
                         <LogOut className="w-5 h-5 mr-2" />
                         Log out
-                    </button>
-                  </div>
+                    </Link>
+                  {/* </div> */}
                 </div>
               </div>
             </div>
@@ -128,8 +174,10 @@ function App() {
           </main>
         </GoalsProvider>
       </div>
+    </div>
     // </SessionContextProvider>
   );
 }
 
 export default App;
+

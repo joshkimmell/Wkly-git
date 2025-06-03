@@ -12,6 +12,8 @@ export default defineConfig({
       '@hooks': path.resolve(__dirname, 'src/hooks'), // Correct path to hooks directory
       '@context': path.resolve(__dirname, 'src/context'), // Correct path to context directory
       '@utils': path.resolve(__dirname, 'src/utils'), // Correct path to utils directory
+      '@styles': path.resolve(__dirname, 'src/styles'), // Correct path to styles directory
+
          src: "/src",
          // ... other aliases
       },

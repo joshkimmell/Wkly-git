@@ -1,30 +1,170 @@
+/* @import "./styles/theme.css"; */
 @tailwind base;
 @tailwind components;
+@tailwind theme;
 @tailwind utilities;
 
 @layer base {
   body {
-    @apply antialiased text-gray-900;
+    @apply antialiased text-gray-90 dark:text-gray-10 bg-gray-10 dark:bg-gray-90;
   }
+  button {
+    @apply appearance-none inline-flex items-center px-2 py-2 border border-gray-30 dark:border-gray-70 text-gray-80 dark:text-gray-20 text-sm font-medium rounded-md shadow-sm text-brand-0 bg-brand-60 hover:bg-brand-80 hover:text-brand-10;
+  }
+  a {
+    @apply text-brand-70 hover:text-brand-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-70;
+  }
+  label {
+    @apply block text-sm font-medium text-gray-70 dark:text-gray-40;
+  }
+  input, textarea, select {
+    @apply pr-3 bg-gray-0 dark:bg-gray-100 border border-gray-30 dark:border-gray-70 focus:border-brand-50 focus:ring-brand-70 px-4 py-2 rounded-md shadow-sm text-gray-90 dark:text-gray-10 fill-gray-70 dark:fill-gray-40;
+  }
+  ::-webkit-calendar-picker-indicator {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="15" viewBox="0 0 24 24"><path class="fill-current" fill="%23AAAAAA" fill-rule="evenodd" d="M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 18H4V8h16v13z"/></svg>');
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-brand-70 dark:text-brand-10;
+  }
+
+  .ql-snow .ql-stroke  {
+    @apply stroke-gray-70 dark:stroke-gray-40 hover:stroke-gray-90 dark:hover:stroke-gray-10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-70 !important;
+  }
+
+  .ql-editor p {
+    @apply text-gray-90 dark:text-gray-10;
+  }
+
+}
+
+@theme static {
+  --*: initial;
+  --color-background: var(--color-gray-0);
+  --color-background-inverse: var(--color-gray-100);
+
+  --color-text-primary: var(--color-gray-90);
+  --color-text-secondary: var(--color-gray-70);
+  --color-text-tertiary: var(--color-gray-50);
+  --color-text-inverse: var(--color-gray-10);
+
+  --color-icon-primary: var(--color-gray-90);
+  --color-icon-secondary: var(--color-gray-70);
+  --color-icon-tertiary: var(--color-gray-50);
+  --color-icon-inverse: var(--color-gray-10);
+  --color-icon-interactive: var(--color-brand-70);
+  --color-icon-interactive-hover: var(--color-brand-90);
+
+  --color-border-primary: var(--color-gray-90);
+  --color-border-secondary: var(--color-gray-70);
+  --color-border-tertiary: var(--color-gray-50);
+
+  --color-button-primary: var(--color-brand-60);
+  --color-button-secondary: var(--color-gray-20);
+  --color-button-tertiary: var(--color-gray-10);
+  --color-button-primary-hover: var(--color-brand-80);
+  --color-button-secondary-hover: var(--color-gray-30);
+  --color-button-tertiary-hover: var(--color-gray-20);
+
+  --color-link-primary: var(--color-brand-70);
+  --color-link-primary-hover: var(--color-brand-90);
+  --color-link-secondary: var(--color-gray-70);
+  --color-link-secondary-hover: var(--color-gray-90);
+  --color-link-tertiary: var(--color-gray-50);
+  --color-link-tertiary-hover: var(--color-gray-70);
+
 }
 
 @layer components {
   
   .btn-primary {
-    @apply inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500;
+    /* background-color: var(--color-button-primary); */
+    /* @apply text-gray-10 bg-brand-60 hover:bg-brand-80 hover:text-brand-20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-70; */
+    /* @apply  focus:outline-none focus:ring-2 focus:ring-offset-2; */
+    @apply inline-flex items-center px-2 py-2 border border-gray-30 dark:border-gray-70 text-gray-80 dark:text-gray-20 text-sm font-medium rounded-md shadow-sm text-brand-0 bg-brand-60 hover:bg-brand-80 hover:text-brand-10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-70;
   }
   .btn-secondary {
-    @apply inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500;
+    @apply border-gray-30 dark:border-gray-70 text-gray-80 hover:text-gray-100 dark:text-gray-20 dark:hover:text-gray-10 bg-gray-10 hover:bg-gray-20 dark:bg-gray-80 dark:hover:bg-gray-100 focus-visible:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-70;
+  }
+  .btn-ghost {
+    @apply text-gray-90 dark:text-gray-30 hover:text-gray-100 hover:dark:text-gray-10 bg-transparent hover:bg-gray-10 dark:hover:bg-gray-80 border-none;
   }
 }
+
 
 @layer utilities {
 
   .input-field {
-    @apply mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm;
+    @apply mt-1 block w-full rounded-md border-gray-30 dark:border-gray-70 shadow-sm focus:border-brand-50 focus:ring-brand-70 sm:text-sm;
   }
 
   .form-label {
-    @apply block text-sm font-medium text-gray-700;
+    @apply block text-sm font-medium text-gray-70 dark:text-gray-40;
   }
 }
+
+
+@layer components {
+  .card {
+    @apply bg-gray-10 dark:bg-gray-90 rounded-lg shadow rounded-lg p-6;
+  }
+  
+  .card-header {
+    @apply text-lg font-semibold text-gray-90 mb-4;
+  }
+  
+  .card-body {
+    @apply text-gray-70;
+  }
+  
+  .card-footer {
+    @apply mt-4 flex justify-end;
+  }
+
+  .ql-stroke {
+    @apply stroke-gray-40 dark:stroke-gray-70;
+  }
+  .ql-fill {
+    @apply fill-gray-70 dark:fill-gray-40;
+  }
+  .ql-editor {
+    @apply bg-gray-0 dark:bg-gray-100 text-gray-90 dark:text-gray-10 border border-gray-30 dark:border-gray-70 rounded-md shadow-sm focus:border-brand-50 focus:ring-brand-70;
+  }
+  .ql-toolbar {
+    @apply bg-gray-10 dark:bg-gray-90 border-b border-gray-30 dark:border-gray-70;
+  }
+  .ql-toolbar button {
+    @apply text-gray-70 dark:text-gray-40 hover:text-gray-90 dark:hover:text-gray-10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-70;
+  }
+  .ql-toolbar .ql-active {
+    @apply text-brand-70 dark:text-brand-10;
+  }
+  .ql-snow .ql-picker-options {
+    @apply bg-gray-10 dark:bg-gray-90 text-gray-70 dark:text-gray-40 border border-gray-30 dark:border-gray-70;
+  }
+  .ql-snow .ql-picker-item {
+    @apply text-gray-70 dark:text-gray-40 hover:bg-gray-20 dark:hover:bg-gray-80;
+  }
+  .ql-snow .ql-picker-label {
+    @apply text-gray-70 dark:text-gray-40;
+  }
+  .ql-snow .ql-picker-item.ql-selected {
+    @apply text-brand-70 dark:text-brand-10 bg-gray-20 dark:bg-gray-80;
+  }
+  .ql-snow .ql-tooltip {
+    @apply bg-gray-10 dark:bg-gray-90 text-gray-70 dark:text-gray-40 border border-gray-30 dark:border-gray-70 shadow-lg;
+  }
+  .ql-snow .ql-tooltip.ql-editing {
+    @apply bg-gray-20 dark:bg-gray-80;
+  }
+  .ql-snow .ql-tooltip.ql-hidden {
+    @apply hidden;
+  }
+  .ql-snow .ql-tooltip.ql-editing .ql-tooltip-editor {
+    @apply bg-gray-10 dark:bg-gray-90 text-gray-70 dark:text-gray-40 border border-gray-30 dark:border-gray-70 rounded-md shadow-sm;
+  }
+  .ql-snow .ql-tooltip.ql-hidden .ql-tooltip-editor {
+    @apply hidden;  
+    }
+  
+  
+} 
