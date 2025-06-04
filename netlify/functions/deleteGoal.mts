@@ -1,7 +1,9 @@
 import { Handler } from '@netlify/functions';
-import supabase from '../../backend/lib/supabaseClient.js';
+import supabase from '../../lib/supabase';
 
 export const handler: Handler = async (event) => {
+  // const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  // const supabaseRoleKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
   const body = JSON.parse(event.body || '{}');
   const { id } = body;
 

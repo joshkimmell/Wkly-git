@@ -30,7 +30,7 @@ function App() {
         console.error('Supabase client is not initialized');
         return;
       }
-      const { error } = await supabase.auth.signOut();
+      const { error } = await supabaseF.auth.signOut();
       if (error) throw error;
       console.log('User logged out successfully');
       window.location.href = '/auth'; // Redirect to the auth route

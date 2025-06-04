@@ -11,7 +11,7 @@ import { Goal } from "@utils/goalUtils";
 import supabase from "@lib/supabase";
 // import { set } from "lodash";
 
-const backend = (import.meta as any).env.VITE_NETLIFY_BACKEND_URL;
+const backend = '/.netlify/functions';
 export const backendUrl = backend + '/api/summaries';
 export const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
 export const supabaseKey = (import.meta as any).env.VITE_SUPABASE_KEY;
@@ -137,13 +137,17 @@ export const fetchGoals = async (weekStart: string): Promise<Goal[]> => {
   if (!user) throw new Error('User is not authenticated');
   const userId = user.id;
 
-  const response = await fetch(`${backend}/goals?user_id=${userId}&week_start=${weekStart}`, {
+  const response = await fetch(`${backend}/getGoals?user_id=${userId}&week_start=${weekStart}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${userId}`,
     },
   });
+  // const text = await response.text();
+  // console.log(text); // See what you actually got
+  // const data = JSON.parse(text); // Only if it's valid JSON
+  // console.log('Response data:', data); // Log the parsed data
 
   if (!response.ok) {
     const errorText = await response.text();

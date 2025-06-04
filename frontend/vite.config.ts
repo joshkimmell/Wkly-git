@@ -13,8 +13,9 @@ export default defineConfig({
       '@context': path.resolve(__dirname, 'src/context'), // Correct path to context directory
       '@utils': path.resolve(__dirname, 'src/utils'), // Correct path to utils directory
       '@styles': path.resolve(__dirname, 'src/styles'), // Correct path to styles directory
+      // '@images': path.resolve(__dirname, 'src/images'), // Correct path to netlify directory
 
-         src: "/src",
+         // src: "/src",
          // ... other aliases
       },
    },

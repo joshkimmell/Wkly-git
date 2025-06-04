@@ -275,7 +275,7 @@ export default AllGoals;
 // import React, { useState, useEffect, useCallback } from 'react';
 // import Modal from 'react-modal';
 // import useAuth from '@hooks/useAuth';
-// import supabase from '@lib/supabase';
+// import supabase from '../../frontend/src/lib/supabase';
 // // import { Session } from "@supabase/auth-helpers-react";
 // import { Categories, FetchGoalsParams, Goal } from '@utils/goalUtils';
 // import { backendUrl, fetchGoals, filterGoalsByWeek, handleSubmit, handleDeleteGoal, handleError } from '@utils/functions';

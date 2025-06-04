@@ -5,7 +5,7 @@ import CSSTransition from 'react-transition-group/CSSTransition';
 // import { is } from 'date-fns/locale';
 // import { Calendar, Award, LogOut, Home, Text } from 'lucide-react';
 // import { Link } from 'react-router-dom';
-// import supabase from '@lib/supabase';
+// import supabase from '../../frontend/src/lib/supabase';
 
 // import { handleLogout } from '@utils/functions'; // Adjust the import path as necessary
 
