@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Routes, Route, Link } from 'react-router-dom';
 import { GoalsProvider } from '@context/GoalsContext';
 import MenuBtn from '@components/menu-btn';
@@ -65,7 +65,7 @@ const toggleTheme = () => {
 };
 
   const current = theme === 'theme-dark' ? 'dark' : 'light';
-  const themePrefix = theme === 'theme-dark' ? 'dark:' : '';
+  // const themePrefix = theme === 'theme-dark' ? 'dark:' : '';
 
   const classMenuItem = `
     menu-container--list--item 

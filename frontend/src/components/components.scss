@@ -1,4 +1,4 @@
-@import '../../src/styles/variables';
+@use '../../src/styles/variables';
 
 .summary {
     display: flex;
@@ -11,7 +11,7 @@
     }
     &--content {
         font-size: 1rem;
-        color: var(--text-secondary, $gray-30);
+        color: var(--text-secondary, variables.$gray-30);
     }
 
 }
@@ -19,7 +19,7 @@
 svg {
 
     & g .fill-brand {
-        color: $brand-60;
+        color: variables.$brand-60;
     }
     & g .fill-white {
         color: white;
@@ -38,7 +38,7 @@ svg {
     // }
     
     &-brand {
-        background: linear-gradient(180deg, $brand-90 0%, $brand-70 100%);
+        background: linear-gradient(180deg, variables.$brand-90 0%, variables.$brand-70 100%);
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -113,7 +113,7 @@ svg {
             flex-direction: column;
             align-items: flex-end;
             gap: 8px;
-            border-bottom: 1px solid $gray-70;
+            border-bottom: 1px solid variables.$gray-70;
             
             &--list {
                 display: flex;
@@ -158,12 +158,46 @@ svg {
 //     flex-shrink: 0;
 // }
 
-.ql-toolbar.ql-snow .ql-picker-label, .ql-toolbar.ql-snow .ql-stroke, .ql-snow .ql-picker {
-    @apply stroke-gray-70 dark:stroke-gray-40 hover:stroke-gray-90 dark:hover:stroke-gray-10 text-gray-70 dark:text-gray-40 hover:text-gray-90 dark:hover:text-gray-10;
-  }
+.ql-toolbar.ql-snow .ql-picker-label,
+.ql-toolbar.ql-snow .ql-stroke,
+.ql-snow .ql-picker {
+    stroke: variables.$gray-70;
+    color: variables.$gray-70;
+}
+.ql-toolbar.ql-snow .ql-picker-label:hover,
+.ql-toolbar.ql-snow .ql-stroke:hover,
+.ql-snow .ql-picker:hover {
+    stroke: variables.$gray-90;
+    color: variables.$gray-90;
+}
+@media (prefers-color-scheme: dark) {
+    .ql-toolbar.ql-snow .ql-picker-label,
+    .ql-toolbar.ql-snow .ql-stroke,
+    .ql-snow .ql-picker {
+        stroke: variables.$gray-40;
+        color: variables.$gray-40;
+    }
+    .ql-toolbar.ql-snow .ql-picker-label:hover,
+    .ql-toolbar.ql-snow .ql-stroke:hover,
+    .ql-snow .ql-picker:hover {
+        stroke: variables.$gray-10;
+        color: variables.$gray-10;
+    }
+}
 .ql-toolbar.ql-snow .ql-picker-options {
-    @apply bg-gray-0 dark:bg-gray-100;
-  }
+    background-color: #fff; // Replace with $gray-0 if defined in your variables
+}
+@media (prefers-color-scheme: dark) {
+    .ql-toolbar.ql-snow .ql-picker-options {
+        background-color: #1a1a1a; // Replace with $gray-100 if defined in your variables
+    }
+}
 .ql-editor p {
-    @apply text-gray-90 dark:text-gray-10;
-  }
+    color: variables.$gray-90;
+}
+
+@media (prefers-color-scheme: dark) {
+    .ql-editor p {
+        color: variables.$gray-10;
+    }
+}

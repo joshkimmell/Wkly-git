@@ -2,14 +2,14 @@
 // This component allows users to generate summaries based on a selected period (weekly, quarterly, yearly).
 
 import React, { useState } from 'react';
-import { handleGenerate, getWeekStartDate, handleDeleteGoal, saveSummary, deleteSummary } from '@utils/functions';
+import { handleGenerate, saveSummary, deleteSummary } from '@utils/functions';
 import supabase from '@lib/supabase';
 // import openEditorModal from '@components/SummaryEditor'; // Import the function to open the modal
 import SummaryEditor from '@components/SummaryEditor';
 import Modal from 'react-modal';
 // import { Edit } from 'lucide-react';
 import SummaryCard from '@components/SummaryCard';
-import { modalClasses, cardClasses } from '@styles/classes';
+import { modalClasses } from '@styles/classes';
 
 interface SummaryGeneratorProps {
   summaryId: string; // Add summaryId to the props
@@ -21,7 +21,7 @@ interface SummaryGeneratorProps {
 
 
 
-const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ summaryId, summaryType: initialSummaryType, selectedWeek, filteredGoals }) => {
+const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ summaryType: initialSummaryType, selectedWeek, filteredGoals }) => {
   const [summary, setSummary] = useState<string | null>(null);
   const [localSummaryId, setLocalSummaryId] = useState<string | null>(null);
   const [summaryType, setSummaryType] = useState<null | 'AI' | 'User'>(initialSummaryType || 'AI');
@@ -168,7 +168,7 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ summaryId, summaryT
           <div className={ `${modalClasses} gap-4` }>
             
             <SummaryEditor
-              summaryId={localSummaryId || ''} // Pass the summary ID if needed, or keep it empty for new summaries
+              // summaryId={localSummaryId || ''} // Pass the summary ID if needed, or keep it empty for new summaries
               initialContent={summary || ''}
               onRequestClose={closeEditor}
               onSave={handleSave}

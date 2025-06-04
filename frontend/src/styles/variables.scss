@@ -1,3 +1,4 @@
+@use "sass:map";
 // BRAND COLORS
 $brand-100: #17001b;
 $brand-90: #230028;
@@ -128,28 +129,28 @@ $tertiary-link: $brand-10;
 
 
 @mixin theme-vars($theme-map) {
-  --background: #{map-get($theme-map, background)};
-  --background-inverse: #{map-get($theme-map, background-inverse)};
-  --primary-text: #{map-get($theme-map, primary-text)};
-  --secondary-text: #{map-get($theme-map, secondary-text)};
-  --tertiary-text: #{map-get($theme-map, tertiary-text)};
-  --inverse-text: #{map-get($theme-map, inverse-text)};
-  --button-text: #{map-get($theme-map, button-text)};
-  --primary-icon: #{map-get($theme-map, primary-icon)};
-  --secondary-icon: #{map-get($theme-map, secondary-icon)};
-  --tertiary-icon: #{map-get($theme-map, tertiary-icon)};
-  --inverse-icon: #{map-get($theme-map, inverse-icon)};
-  --interactive-icon: #{map-get($theme-map, interactive-icon)};
-  --primary-border: #{map-get($theme-map, primary-border)};
-  --secondary-border: #{map-get($theme-map, secondary-border)};
-  --tertiary-border: #{map-get($theme-map, tertiary-border)};
-  --primary-button: #{map-get($theme-map, primary-button)}; 
-  --secondary-button: #{map-get($theme-map, secondary-button)};
-  --tertiary-button: #{map-get($theme-map, tertiary-button)};
-  --primary-button-hover: #{map-get($theme-map, primary-button-hover)};
-  --secondary-button-hover: #{map-get($theme-map, secondary-button-hover)};
-  --tertiary-button-hover: #{map-get($theme-map, tertiary-button-hover)};
-  --primary-link: #{map-get($theme-map, primary-link)};
-  --secondary-link: #{map-get($theme-map, secondary-link)};
-  --tertiary-link: #{map-get($theme-map, tertiary-link)};
+  --background: #{map.get($theme-map, background)};
+  --background-inverse: #{map.get($theme-map, background-inverse)};
+  --primary-text: #{map.get($theme-map, primary-text)};
+  --secondary-text: #{map.get($theme-map, secondary-text)};
+  --tertiary-text: #{map.get($theme-map, tertiary-text)};
+  --inverse-text: #{map.get($theme-map, inverse-text)};
+  --button-text: #{map.get($theme-map, button-text)};
+  --primary-icon: #{map.get($theme-map, primary-icon)};
+  --secondary-icon: #{map.get($theme-map, secondary-icon)};
+  --tertiary-icon: #{map.get($theme-map, tertiary-icon)};
+  --inverse-icon: #{map.get($theme-map, inverse-icon)};
+  --interactive-icon: #{map.get($theme-map, interactive-icon)};
+  --primary-border: #{map.get($theme-map, primary-border)};
+  --secondary-border: #{map.get($theme-map, secondary-border)};
+  --tertiary-border: #{map.get($theme-map, tertiary-border)};
+  --primary-button: #{map.get($theme-map, primary-button)}; 
+  --secondary-button: #{map.get($theme-map, secondary-button)};
+  --tertiary-button: #{map.get($theme-map, tertiary-button)};
+  --primary-button-hover: #{map.get($theme-map, primary-button-hover)};
+  --secondary-button-hover: #{map.get($theme-map, secondary-button-hover)};
+  --tertiary-button-hover: #{map.get($theme-map, tertiary-button-hover)};
+  --primary-link: #{map.get($theme-map, primary-link)};
+  --secondary-link: #{map.get($theme-map, secondary-link)};
+  --tertiary-link: #{map.get($theme-map, tertiary-link)};
 }

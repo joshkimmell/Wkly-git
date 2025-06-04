@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 // import ReactMarkdown, { MarkdownAsync } from 'react-markdown'; // Import react-markdown
 // import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 // import { handleDeleteGoal } from '@utils/functions';

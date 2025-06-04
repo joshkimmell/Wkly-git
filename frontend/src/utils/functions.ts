@@ -5,7 +5,8 @@
 //
 
 import React from "react";
-import { Goal, FetchGoalsParams }from "@utils/goalUtils";
+// import { Goal, FetchGoalsParams }from "@utils/goalUtils";
+import { Goal } from "@utils/goalUtils";
 // import axios from "axios";
 import supabase from "@lib/supabase";
 // import { set } from "lodash";
@@ -16,13 +17,13 @@ export const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
 export const supabaseKey = (import.meta as any).env.VITE_SUPABASE_KEY;
 export const openaiApiKey = (import.meta as any).env.VITE_OPENAI_API_KEY;
 
-const userString = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User is not authenticated');
-    return user.id;
-    // const resolvedUserId = user.id; // Get the user ID from the authenticated user
-    // Fetch and store the user ID asynchronously
-};
+// const userString = async () => {
+//     const { data: { user } } = await supabase.auth.getUser();
+//     if (!user) throw new Error('User is not authenticated');
+//     return user.id;
+//     // const resolvedUserId = user.id; // Get the user ID from the authenticated user
+//     // Fetch and store the user ID asynchronously
+// };
 // export const userId = await userString();
 // console.log('My User ID:', userId); // Log the user ID for debugging
 
