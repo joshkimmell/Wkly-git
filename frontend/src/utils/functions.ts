@@ -11,26 +11,11 @@ import { Goal } from "@utils/goalUtils";
 import supabase from "@lib/supabase";
 // import { set } from "lodash";
 
-const backend = (import.meta as any).env.VITE_BACKEND_URL;
+const backend = (import.meta as any).env.VITE_NETLIFY_BACKEND_URL;
 export const backendUrl = backend + '/api/summaries';
 export const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
 export const supabaseKey = (import.meta as any).env.VITE_SUPABASE_KEY;
 export const openaiApiKey = (import.meta as any).env.VITE_OPENAI_API_KEY;
-
-// const userString = async () => {
-//     const { data: { user } } = await supabase.auth.getUser();
-//     if (!user) throw new Error('User is not authenticated');
-//     return user.id;
-//     // const resolvedUserId = user.id; // Get the user ID from the authenticated user
-//     // Fetch and store the user ID asynchronously
-// };
-// export const userId = await userString();
-// console.log('My User ID:', userId); // Log the user ID for debugging
-
-
-// Fix userId to be a string
-// console.log('Backend URL:', backendUrl);
-// console.log('User ID:', user.id);
 
 
 export const handleError = (error: any, setError: React.Dispatch<React.SetStateAction<string | null>>) => {
@@ -152,7 +137,7 @@ export const fetchGoals = async (weekStart: string): Promise<Goal[]> => {
   if (!user) throw new Error('User is not authenticated');
   const userId = user.id;
 
-  const response = await fetch(`${backendUrl}/goals?user_id=${userId}&week_start=${weekStart}`, {
+  const response = await fetch(`${backend}/goals?user_id=${userId}&week_start=${weekStart}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -185,7 +170,7 @@ export const addGoal = async (newGoal: any) => {
 
   console.log('addGoal request:', goalToSend);
 
-  const response = await fetch(`${backendUrl}/goals?user_id=${userId}`, {
+  const response = await fetch(`${backend}/createGoal?user_id=${userId}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -230,7 +215,7 @@ export const deleteGoal = async (goalId: string) => {
   if (!user) throw new Error('User is not authenticated');
   const userId = user.id;
 
-  const response = await fetch(`${backendUrl}/goals/${goalId}?user_id=${userId}`, {
+  const response = await fetch(`${backend}/deleteGoal/${goalId}?user_id=${userId}`, {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',
@@ -251,7 +236,7 @@ export const updateGoal = async (goalId: string, updatedGoal: any) => {
   if (!user) throw new Error('User is not authenticated');
   const userId = user.id;
 
-  const response = await fetch(`${backendUrl}/goals/${goalId}?user_id=${userId}`, {
+  const response = await fetch(`${backend}/updateGoal/${goalId}?user_id=${userId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -319,9 +304,8 @@ export const handleGenerate = async (
       accomplishments: { title: string; description: string; impact: string; }[];
     }[]
 ) => {
-    // const backendUrl = backend + '/api/summaries';
     try {
-    const response = await fetch(`${backendUrl}/generate`/*?user_id=${userId}&week_start=${weekStart}*/, {
+    const response = await fetch(`${backend}/generateSummary`/*?user_id=${userId}&week_start=${weekStart}*/, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

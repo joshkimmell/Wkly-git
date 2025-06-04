@@ -91,31 +91,3 @@ router.post('/generate', async (req, res, next) => {
 });
 
 export default router;
-
-// async function deleteGoal(
-//   req: Request<{ goal_id: string }, any, any, ParsedQs, Record<string, any>>,
-//   res: Response<any, Record<string, any>, number>
-// ) {
-//   const { goal_id } = req.params;
-
-//   try {
-//     const { data, error } = await supabase
-//       .from('goals')
-//       .delete()
-//       .eq('id', goal_id) as { data: { id: string }[] | null, error: any };
-
-//     if (error) {
-//       console.error('Error deleting goal:', error);
-//       return res.status(500).json({ error: 'Failed to delete goal' });
-//     }
-
-//     if (!data || data.length === 0) {
-//       return res.status(404).json({ error: 'Goal not found' });
-//     }
-
-//     res.status(200).json({ message: 'Goal deleted successfully', data });
-//   } catch (err) {
-//     console.error('Unexpected error:', err);
-//     res.status(500).json({ error: 'An unexpected error occurred' });
-//   }
-// }
