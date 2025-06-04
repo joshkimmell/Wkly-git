@@ -54,9 +54,9 @@ const WeeklyGoals = () => {
   
   // console.log('User ID:', userId); // Log the user ID for debugging
 
-  const openEditor = () => {
-    setIsEditorOpen(true);
-  };
+  // const openEditor = () => {
+  //   setIsEditorOpen(true);
+  // };
   const closeEditor = () => {
     setIsEditorOpen(false);
   };
@@ -450,7 +450,7 @@ const sortedGoals = [...filteredGoals].sort((a, b) => {
           >
             <div className={`${modalClasses}`}>
               <SummaryEditor
-                summaryId={selectedSummary?.id || ''} // Pass the correct summary ID
+                // summaryId={selectedSummary?.id || ''} // Pass the correct summary ID
                 initialContent={selectedSummary.content} // Pass the initial content
                 onRequestClose={() => setSelectedSummary(null)} // Close the modal
                 onSave={async (editedContent) => {

@@ -3,14 +3,12 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
 interface SummaryEditorProps {
-    summaryId: string;
     initialContent: string;
     onRequestClose: () => void;
     onSave: (updatedContent: string) => Promise<void>;
 }
 
 const SummaryEditor: React.FC<SummaryEditorProps> = ({
-    summaryId,
     initialContent,
     onRequestClose,
     onSave,

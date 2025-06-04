@@ -4,7 +4,7 @@ import supabase from '@lib/supabase'; // Ensure this is the correct path to your
 import { Goal, Accomplishment } from '@utils/goalUtils'; // Adjust the import path as necessary
 import { ChevronDown, ChevronUp, Trash, Edit } from 'lucide-react';
 import { cardClasses, modalClasses } from '@styles/classes'; // Adjust the import path as necessary
-import { Link } from 'react-router-dom';
+// import { Link } from 'react-router-dom';
 
 interface GoalCardProps {
   goal: Goal;

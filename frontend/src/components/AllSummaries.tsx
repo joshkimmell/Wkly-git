@@ -5,7 +5,7 @@ import { deleteSummary, setSummary, saveSummary } from '@utils/functions'; // Ad
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 import SummaryCard from '@components/SummaryCard';
 import SummaryEditor from '@components/SummaryEditor';
-import SummaryGenerator from '@components/SummaryGenerator';
+// import SummaryGenerator from '@components/SummaryGenerator';
 import { modalClasses } from '@styles/classes'; // Adjust the import path as necessary
 
 Modal.setAppElement('#root');
@@ -44,7 +44,9 @@ const AllSummaries = () => {
     try {
      await saveSummary(setLocalSummaryId, editedContent, 'User', selectedWeek);
       setSummary(editedContent);
+      setSelectedWeek(selectedWeek);
       closeEditor();
+      console.log('Local summary ID set:', localSummaryId);
     } catch (error) {
       console.error('Error saving edited summary:', error);
     }
@@ -273,7 +275,7 @@ const AllSummaries = () => {
           <div className={modalClasses}>
            <div className={`${modalClasses}`}>
               <SummaryEditor
-                summaryId={selectedSummary?.id || ''} // Pass the correct summary ID
+                // summaryId={selectedSummary?.id || ''} // Pass the correct summary ID
                 initialContent={selectedSummary.content} // Pass the initial content
                 onRequestClose={() => setSelectedSummary(null)} // Close the modal
                 onSave={async (editedContent) => {

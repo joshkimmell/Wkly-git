@@ -3,7 +3,7 @@ const { tokenToString } = require("typescript");
 module.exports = {
   content: [
     './index.html',
-    './src/**/*.{js,ts,jsx,tsx}', // Include all frontend files
+    './src/**/*.{js,ts,jsx,tsx,css,scss,sass}', // Include all frontend files
   ],
   darkMode: 'class', // Enable dark mode support
   theme: {

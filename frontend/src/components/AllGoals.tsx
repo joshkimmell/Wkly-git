@@ -21,7 +21,7 @@ const AllGoals = () => {
     week_start: '',
   });
   const [filter, setFilter] = useState<string>(''); // For filtering goals
-  const [error, setError] = useState<string | null>(null); // For error handling
+  // Removed unused error state
 
   // Fetch all goals for the logged-in user
   const fetchGoals = async () => {
@@ -103,7 +103,8 @@ const AllGoals = () => {
       await fetchGoals();
   
     } catch (error: any) {
-      setError(error.message);
+      // Optionally log the error or handle it as needed
+      console.error(error.message);
     }
   };
   
