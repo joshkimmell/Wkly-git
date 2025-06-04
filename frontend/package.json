@@ -1,10 +1,10 @@
 {
-  "name": "weekly-goals-tracker",
+  "name": "weekly-goals-frontend",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite && node -r tsconfig-paths/register dist/server.js",
+    "dev": "vite && node -r tsx server.ts",
     "build": "vite build && tsc",
     "lint": "eslint .",
     "preview": "vite preview",

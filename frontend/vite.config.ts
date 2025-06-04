@@ -18,7 +18,13 @@ export default defineConfig({
          // ... other aliases
       },
    },
+   server: {
+     proxy: {
+       '/api': 'http://localhost:3001', // or whatever your backend port is
+     },
+   },
 });
+
 
 
 // import { defineConfig } from 'vite';
