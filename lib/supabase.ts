@@ -1,4 +1,4 @@
-import { createClient } from '../frontend/node_modules/@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 dotenv.config();
 

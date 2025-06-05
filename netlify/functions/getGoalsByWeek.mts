@@ -28,7 +28,7 @@ export const handler: Handler = async (event) => {
         body: JSON.stringify({ error: 'Failed to fetch goals.' }),
       };
     }
-
+    
     return {
       statusCode: 200,
       body: JSON.stringify(data),

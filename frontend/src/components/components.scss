@@ -146,6 +146,54 @@ svg {
             }
         }
     }
+
+}
+
+.tabs {
+    display: flex;
+    flex-direction: row;
+    
+    &-container {
+        display: flex;
+        padding: 16px 16px 32px 48px;
+        align-self: stretch;
+        flex-direction: row;
+        align-items: flex-end;
+        gap: 8px;
+        
+        &--list {
+            display: flex;
+            padding: 0px 12px;
+            width: 100%;
+            flex-direction: row;
+            gap: 16px;
+            // align-items: flex-end;
+            // align-self: stretch;
+                
+                
+            &--item {
+                display: flex;
+                min-width: 180px;
+                max-width: 320px;
+                padding: 8px 16px;
+                align-items: center;
+                // gap: 8px;
+                align-self: stretch;
+                border-radius: 8px;
+                border:focus 1px solid transparent;
+                border: 1px solid transparent;
+                
+                // &:hover {
+                //     background: var(--color-gray-80, #e5e5e5);
+                // }
+                
+                // &:active {
+                //     background: var(--Layer-01, #CDCDCD);
+                    
+                // }
+            }
+        }
+    }
 }
 
 // logo {
