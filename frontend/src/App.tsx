@@ -125,18 +125,19 @@ const toggleTheme = () => {
                 to="/home"
                 className="header-brand--logo pr-2 overflow-hidden"
                 >
-                <embed src="./src/images/logo-large.svg" className='mask-clip-border' />
+                <img src="/images/logo-large.svg" className='mask-clip-border' />
               </Link>
             </div>
-              
+            <div className="block lg:hidden">  
               <MenuBtn 
                 className="header-brand--menu-btn" 
                 onClick={handleClick} //  => setIsOpen(!isOpen) 
                 // children= "string"
               />
+            </div>
           </div>
           { isOpen && (
-            <div className="menu">
+            <div className="menu block lg:hidden">
               <div className={`menu-container bg-white dark:bg-gray-100 text-brand-80 dark:text-brand-10 align-right`}>
                 <div className="menu-container--list align-flex-end justify-end flex flex-col space-y-2">
                   <Link
@@ -144,15 +145,15 @@ const toggleTheme = () => {
                   className={`${classMenuItem}`}
                   >
                   <Home className="w-5 h-5 mr-2" />
-                  Weekly Goals
+                  Goals
                   </Link>
-                  <Link
+                  {/* <Link
                   to="/goals"
                   className={`${classMenuItem}`}
                   >
                   <Calendar className="w-5 h-5 mr-2" />
                   All Goals
-                  </Link>
+                  </Link> */}
                   <Link
                   to="/accomplishments"
                   className={`${classMenuItem}`}
@@ -184,7 +185,8 @@ const toggleTheme = () => {
         </div>
         <GoalsProvider>
           <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="tabs">
+            <div className="hidden lg:flex">
+              <div className="tabs">
               <div className={`tabs-container text-brand-80 dark:text-brand-10`}>
                 <div className="tabs-container--list align-flex-end justify-end flex flex-col">
                   <Link
@@ -192,15 +194,15 @@ const toggleTheme = () => {
                     className={`${classTabItem}`}
                   >
                     <Home className="w-5 h-5 mr-2" />
-                    Weekly Goals
+                    Goals
                   </Link>
-                  <Link
+                  {/* <Link
                     to="/goals"
                     className={`${classTabItem}`}
                   >
                     <Calendar className="w-5 h-5 mr-2" />
                     All Goals
-                  </Link>
+                  </Link> */}
                   <Link
                     to="/accomplishments"
                     className={`${classTabItem}`}
@@ -225,10 +227,11 @@ const toggleTheme = () => {
                   </Link>
                 </div>
               </div>
+              </div>
             </div>
             <Routes>
               <Route path="/" element={<WeeklyGoals />} />
-              <Route path="/goals" element={<AllGoals />} />
+              {/* <Route path="/goals" element={<AllGoals />} /> */}
               <Route path="/accomplishments" element={<AllAccomplishments />} />
               <Route path="/summaries" element={<AllSummaries />} />
             </Routes>

@@ -1,6 +1,6 @@
 import React,{ useState } from 'react';
-import menuIcon from '../images/button-menu.svg';
-import menuOpenIcon from '../images/button-menu-open.svg';
+import menuIcon from '/images/button-menu.svg';
+import menuOpenIcon from '/images/button-menu-open.svg';
 import CSSTransition from 'react-transition-group/CSSTransition';
 // import { is } from 'date-fns/locale';
 // import { Calendar, Award, LogOut, Home, Text } from 'lucide-react';

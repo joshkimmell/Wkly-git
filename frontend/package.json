@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite && node -r tsx server.ts",
-    "build": "vite build && tsc",
+    "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "start": "node -r tsconfig-paths/register dist/server.js"
