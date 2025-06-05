@@ -82,6 +82,25 @@ const toggleTheme = () => {
     text-sm 
     font-medium
   `;
+  const classTabItem = `
+    tabs-container--list--item 
+    text-brand-80 
+    dark:text-brand-10 
+    hover:text-brand-90 
+    dark:hover:text-brand-20 
+    hover:bg-gray-20 
+    dark:hover:bg-gray-80 
+    flex 
+    items-center 
+    px-3 
+    py-2 
+    text-sm 
+    font-medium
+    focus:outline-none
+    active:bg-gray-30
+    active:border-transparent
+    dark:active:bg-gray-70
+  `;
 
   if (!session) {
     return <Auth />;
@@ -121,7 +140,7 @@ const toggleTheme = () => {
               <div className={`menu-container bg-white dark:bg-gray-100 text-brand-80 dark:text-brand-10 align-right`}>
                 <div className="menu-container--list align-flex-end justify-end flex flex-col space-y-2">
                   <Link
-                  to="/home"
+                  to="/"
                   className={`${classMenuItem}`}
                   >
                   <Home className="w-5 h-5 mr-2" />
@@ -165,8 +184,50 @@ const toggleTheme = () => {
         </div>
         <GoalsProvider>
           <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="tabs">
+              <div className={`tabs-container text-brand-80 dark:text-brand-10`}>
+                <div className="tabs-container--list align-flex-end justify-end flex flex-col">
+                  <Link
+                    to="/"
+                    className={`${classTabItem}`}
+                  >
+                    <Home className="w-5 h-5 mr-2" />
+                    Weekly Goals
+                  </Link>
+                  <Link
+                    to="/goals"
+                    className={`${classTabItem}`}
+                  >
+                    <Calendar className="w-5 h-5 mr-2" />
+                    All Goals
+                  </Link>
+                  <Link
+                    to="/accomplishments"
+                    className={`${classTabItem}`}
+                  >
+                    <Award className="w-5 h-5 mr-2" />
+                    Accomplishments
+                  </Link>
+                  <Link
+                    to="/summaries"
+                    className={`${classTabItem}`}
+                  >
+                    <Text className="w-5 h-5 mr-2" />
+                    Summaries
+                  </Link>
+                  <Link
+                    to="/auth"
+                    onClick={handleLogout}
+                    className={`${classTabItem}`}
+                  >
+                    <LogOut className="w-5 h-5 mr-2" />
+                    Log out
+                  </Link>
+                </div>
+              </div>
+            </div>
             <Routes>
-              <Route path="/home" element={<WeeklyGoals />} />
+              <Route path="/" element={<WeeklyGoals />} />
               <Route path="/goals" element={<AllGoals />} />
               <Route path="/accomplishments" element={<AllAccomplishments />} />
               <Route path="/summaries" element={<AllSummaries />} />

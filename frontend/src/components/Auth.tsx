@@ -119,7 +119,7 @@ export default Login;
 // export default AuthComponent;
 
 // import React, { useState } from 'react';
-// import supabase from '@lib/supabase';
+// import supabase from '../../frontend/src/lib/supabase';
 // // import { useAuth  } from '@hooks';
 
 // const Login = () => {

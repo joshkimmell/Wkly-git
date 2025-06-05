@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 // import ReactMarkdown, { MarkdownAsync } from 'react-markdown'; // Import react-markdown
-// import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
+// import supabase from '../../frontend/src/lib/supabase'; // Ensure this is the correct path to your Supabase client
 // import { handleDeleteGoal } from '@utils/functions';
 import { Summary } from '@utils/goalUtils'; // Adjust the import path as necessary
 import { Trash, Edit } from 'lucide-react';
