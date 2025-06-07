@@ -51,10 +51,30 @@ svg {
         &--logo {
             display: flex;
             width: 22rem;
-            height: 110px;
+            height: 6.8rem;
             flex-direction: column;
             align-items: flex-start;
             gap: 8px;
+            
+            @media screen and (max-width: 768px) {
+                width: 16rem;
+                height: 5rem;
+            }
+            @media screen and (max-width: 480px) {
+                width: 12rem;
+                height: 4rem;
+            }
+            @media screen and (max-width: 320px) {
+                width: 10rem;
+                height: 3.5rem;
+            }
+            & img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                object-position: top;
+            }
+
 
         }
         
@@ -171,17 +191,17 @@ svg {
             // align-self: stretch;
                 
                 
-            &--item {
-                display: flex;
-                min-width: 180px;
-                max-width: 320px;
-                padding: 8px 16px;
-                align-items: center;
-                // gap: 8px;
-                align-self: stretch;
-                border-radius: 8px;
-                border:focus 1px solid transparent;
-                border: 1px solid transparent;
+            // &--item {
+            //     display: flex;
+            //     min-width: 180px;
+            //     max-width: 320px;
+            //     padding: 8px 16px;
+            //     align-items: center;
+            //     // gap: 8px;
+            //     align-self: stretch;
+            //     border-radius: 8px;
+            //     border:focus 1px solid transparent;
+            //     border: 1px solid transparent;
                 
                 // &:hover {
                 //     background: var(--color-gray-80, #e5e5e5);
@@ -191,7 +211,7 @@ svg {
                 //     background: var(--Layer-01, #CDCDCD);
                     
                 // }
-            }
+            // }
         }
     }
 }

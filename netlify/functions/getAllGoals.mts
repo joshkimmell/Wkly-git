@@ -2,8 +2,6 @@ import { Handler } from '@netlify/functions';
 import supabase from '../../lib/supabase';
 
 export const handler: Handler = async (event) => {
-  // const supabaseUrl = process.env.VITE_SUPABASE_URL;
-  // const supabaseRoleKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
   const user_id = event.queryStringParameters?.user_id;
   const week_start = event.queryStringParameters?.week_start;
 
