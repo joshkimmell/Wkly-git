@@ -1,29 +1,31 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, Link } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { GoalsProvider } from '@context/GoalsContext';
-import MenuBtn from '@components/menu-btn';
+import { classTabItem } from '@styles/classes';
 import WeeklyGoals from '@components/WeeklyGoals';
-// import { SessionContextProvider } from '@supabase/auth-helpers-react';
+import Header from '@components/Header';
+import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import supabase from '@lib/supabase';
-import Auth from '@components/Auth';
 import useAuth from '@hooks/useAuth';
-import AllGoals from '@components/AllGoals';
+import Auth from '@components/Auth';
 import AllSummaries from '@components/AllSummaries';
 import AllAccomplishments from '@components/AllAccomplishments';
-import { Calendar, Award, LogOut, Home, Text, Sun, Moon } from 'lucide-react';
-// import { on } from 'events';
+import { Award, LogOut, Home, Text } from 'lucide-react';
+import LoadingSpinner from '@components/LoadingSpinner';
+
+
 
 function App() {
-  const { session } = useAuth();
-  const [isOpen, setIsOpen] = useState(false);
-  // const [icon, setIcon] = useState<'icon-menu' | 'icon-close'>(
-  //   isOpen ? 'icon-close' : 'icon-menu'
-  // );
-  // Initialize theme based on user's preference
+  const { session, isLoading } = useAuth();
+  const navigate = useNavigate();
   const [theme, setTheme] = useState<'theme-dark' | 'theme-light'>(
     window.matchMedia('(prefers-color-scheme: dark)').matches ? 'theme-dark' : 'theme-light'
   );
-  
+  const [isOpen, setIsOpen] = useState(false);
+
+  const toggleTheme = () => setTheme(prev => (prev === 'theme-dark' ? 'theme-light' : 'theme-dark'));
+
+
   const handleLogout = async () => {
     try {
       if (!supabase) {
@@ -39,18 +41,18 @@ function App() {
     }
   };
 
-    const handleClick = () => {
-      // Toggle the menu open/close state
-      if (!isOpen) {
-        setIsOpen(true);
-        // setIcon('icon-close');
-      } else {
-        setIsOpen(false);
-        // setIcon('icon-menu');
-      }
-      // Call the onClick prop to trigger the menu toggle
-      // onClick();
-    };
+//     const handleClick = () => {
+//       // Toggle the menu open/close state
+//       if (!isOpen) {
+//         setIsOpen(true);
+//         // setIcon('icon-close');
+//       } else {
+//         setIsOpen(false);
+//         // setIcon('icon-menu');
+//       }
+//       // Call the onClick prop to trigger the menu toggle
+//       // onClick();
+//     };
 
   useEffect(() => {
   if (theme === 'theme-dark') {
@@ -60,60 +62,46 @@ function App() {
   }
 }, [theme]);
 
-const toggleTheme = () => {
-  setTheme(prev => (prev === 'theme-dark' ? 'theme-light' : 'theme-dark'));
-};
+// const toggleTheme = () => {
+//   setTheme(prev => (prev === 'theme-dark' ? 'theme-light' : 'theme-dark'));
+// };
 
-  const current = theme === 'theme-dark' ? 'dark' : 'light';
-  // const themePrefix = theme === 'theme-dark' ? 'dark:' : '';
+  const current = theme;
 
-  const classMenuItem = `
-    menu-container--list--item 
-    text-brand-80 
-    dark:text-brand-10 
-    hover:text-brand-90 
-    dark:hover:text-brand-20 
-    hover:bg-gray-20 
-    dark:hover:bg-gray-80 
-    flex 
-    items-center 
-    px-3 
-    py-2 
-    text-sm 
-    font-medium
-  `;
-  const classTabItem = `
-    tabs-container--list--item 
-    text-brand-80 
-    dark:text-brand-10 
-    hover:text-brand-90 
-    dark:hover:text-brand-20 
-    hover:bg-gray-20 
-    dark:hover:bg-gray-80 
-    flex 
-    items-center 
-    px-3 
-    py-2 
-    text-sm 
-    font-medium
-    focus:outline-none
-    active:bg-gray-30
-    active:border-transparent
-    dark:active:bg-gray-70
-  `;
 
+  
+  
+  // All hooks are called above, now conditionally render UI:
+   // Redirect to "/" after login if currently on "/auth"
+  useEffect(() => {
+    if (session && window.location.pathname === '/auth') {
+      navigate('/');
+    }
+  }, [session, navigate]);
+  
+  if (isLoading) return <LoadingSpinner />; 
   if (!session) {
-    return <Auth />;
+    return (
+      <Routes>
+        <Route path="/auth" element={<Auth />} />
+        <Route path="*" element={<Auth />} />
+      </Routes>
+    );
   }
 
   return (
-    // <SessionContextProvider supabaseClient={supabase}>
+    <SessionContextProvider supabaseClient={supabase}>
     <div className={`${current}`}>
       <div className={`min-h-screen bg-gray-10 dark:bg-gray-90 text-gray-90 dark:text-gray-10`}>
-        <div className="header flex items-center"> 
+        <Header   
+          theme={theme}
+          toggleTheme={toggleTheme}
+          isOpen={isOpen}
+          handleLogout={handleLogout}
+          />
+        {/* <div className="header flex items-center"> 
           <div className="header-brand">
             <div className='header-brand--logo-container relative pr-6'>
-            {/* Theme Switcher */}
               <button
                 onClick={toggleTheme}
                 className="ml-4 p-2 rounded absolute top-0 right-0"
@@ -122,13 +110,13 @@ const toggleTheme = () => {
                 {theme === 'theme-dark' ? <Sun className="w-5 h-5 stroke-gray-10 hover:stroke-gray-30 focus:outline-none" /> : <Moon className="w-5 h-5 stroke-gray-10 hover:stroke-gray-30 focus:outline-none" />}
               </button>
               <Link
-                to="/home"
-                className="header-brand--logo pr-2 overflow-hidden"
+                to="/"
+                className="header-brand--logo pr-2 overflow-hidden w-full sm:w-auto h-12 sm:h-16 flex items-center justify-center"
                 >
                 <img src="/images/logo-large.svg" className='mask-clip-border' />
               </Link>
             </div>
-            <div className="block lg:hidden">  
+            <div className="block sm:hidden">  
               <MenuBtn 
                 className="header-brand--menu-btn" 
                 onClick={handleClick} //  => setIsOpen(!isOpen) 
@@ -137,7 +125,7 @@ const toggleTheme = () => {
             </div>
           </div>
           { isOpen && (
-            <div className="menu block lg:hidden">
+            <div className="menu block sm:hidden">
               <div className={`menu-container bg-white dark:bg-gray-100 text-brand-80 dark:text-brand-10 align-right`}>
                 <div className="menu-container--list align-flex-end justify-end flex flex-col space-y-2">
                   <Link
@@ -147,13 +135,6 @@ const toggleTheme = () => {
                   <Home className="w-5 h-5 mr-2" />
                   Goals
                   </Link>
-                  {/* <Link
-                  to="/goals"
-                  className={`${classMenuItem}`}
-                  >
-                  <Calendar className="w-5 h-5 mr-2" />
-                  All Goals
-                  </Link> */}
                   <Link
                   to="/accomplishments"
                   className={`${classMenuItem}`}
@@ -168,78 +149,64 @@ const toggleTheme = () => {
                   <Text className="w-5 h-5 mr-2" />
                   Summaries
                   </Link>
-                  {/* <div className="flex space-x-8"> */}
-                    <Link
-                        to="/auth"
-                        onClick={handleLogout}
-                        className={`${classMenuItem}`}
-                    >
-                        <LogOut className="w-5 h-5 mr-2" />
-                        Log out
-                    </Link>
-                  {/* </div> */}
+                  <Link
+                      to="#"
+                      onClick={handleLogout}
+                      className={`${classMenuItem}`}
+                  >
+                      <LogOut className="w-5 h-5 mr-2" />
+                      Log out
+                  </Link>
                 </div>
               </div>
             </div>
           )}
-        </div>
+        </div> */}
         <GoalsProvider>
           <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="hidden lg:flex">
-              <div className="tabs">
-              <div className={`tabs-container text-brand-80 dark:text-brand-10`}>
-                <div className="tabs-container--list align-flex-end justify-end flex flex-col">
-                  <Link
-                    to="/"
-                    className={`${classTabItem}`}
-                  >
-                    <Home className="w-5 h-5 mr-2" />
-                    Goals
-                  </Link>
-                  {/* <Link
-                    to="/goals"
-                    className={`${classTabItem}`}
-                  >
-                    <Calendar className="w-5 h-5 mr-2" />
-                    All Goals
-                  </Link> */}
-                  <Link
-                    to="/accomplishments"
-                    className={`${classTabItem}`}
-                  >
-                    <Award className="w-5 h-5 mr-2" />
-                    Accomplishments
-                  </Link>
-                  <Link
-                    to="/summaries"
-                    className={`${classTabItem}`}
-                  >
-                    <Text className="w-5 h-5 mr-2" />
-                    Summaries
-                  </Link>
-                  <Link
-                    to="/auth"
-                    onClick={handleLogout}
-                    className={`${classTabItem}`}
-                  >
-                    <LogOut className="w-5 h-5 mr-2" />
-                    Log out
-                  </Link>
+            <div className="hidden sm:flex">
+              <div className="tabs w-full justify-between">
+                <div className="border-b border-gray-20 dark:border-gray-70">
+                    <ul className="flex flex-wrap -mb-px text-sm font-medium text-center">
+                        <li className="me-2">
+                            <a href="/" className={`${classTabItem} ${window.location.pathname === '/' ? ' active' : ''}`}>
+                              <Home className="w-5 h-5 mr-2" />
+                              Goals
+                            </a>
+                        </li>
+                        <li className="me-2">
+                            <a href="/accomplishments" className={`${classTabItem} ${window.location.pathname === '/accomplishments' ? ' active' : ''}`} aria-current="page">
+                              <Award className="w-5 h-5 mr-2" />
+                              Accomplishments
+                            </a>
+                        </li>
+                        <li className="me-2">
+                            <a href="/summaries" className={`${classTabItem} ${window.location.pathname === '/summaries' ? ' active' : ''}`} aria-current="page">
+                              <Text className="w-5 h-5 mr-2" />
+                              Summaries
+                            </a>
+                        </li>
+                    </ul>
                 </div>
-              </div>
+                <div className="me-2 align-flex-end justify-end flex no-wrap">
+                    <a href="#" onClick={handleLogout} className="btn-ghost align-flex-end justify-end flex items-center px-3 py-2 text-sm font-medium text-brand-80 dark:text-brand-10 hover:text-brand-90 dark:hover:text-brand-20 hover:bg-gray-20 dark:hover:bg-gray-80 focus:outline-none active:bg-gray-30 active:border-transparent dark:active:bg-gray-70">
+                      <LogOut className="w-5 h-5 mr-2" />
+                      <span className='whitespace-nowrap'>Log out</span>
+                    </a>
+                </div>
               </div>
             </div>
             <Routes>
               <Route path="/" element={<WeeklyGoals />} />
-              {/* <Route path="/goals" element={<AllGoals />} /> */}
               <Route path="/accomplishments" element={<AllAccomplishments />} />
               <Route path="/summaries" element={<AllSummaries />} />
+              <Route path="/auth" element={<Navigate to="/" replace />} />
             </Routes>
           </main>
         </GoalsProvider>
       </div>
     </div>
-    // </SessionContextProvider>
+    </SessionContextProvider>
   );
 }
 

@@ -11,19 +11,9 @@ import supabase from '@lib/supabase';
 import SummaryGenerator from '@components/SummaryGenerator';
 import saveSummary from '@components/SummaryGenerator';
 import SummaryEditor from '@components/SummaryEditor';
-// import SummaryCard from './SummaryCard';
 import { modalClasses } from '@styles/classes';
-// import ReactMarkdown from 'react-markdown';
 import 'react-datepicker/dist/react-datepicker.css';
-// import { startOfWeek } from 'date-fns'; // Import helper to calculate Monday
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-// import { ThemeMinimal } from '@supabase/auth-ui-shared';
-// import { m } from 'react-router/dist/development/fog-of-war-BLArG-qZ';
-// import { c } from 'vite/dist/node/moduleRunnerTransport.d-DJ_mE5sf';
-// import { set } from 'lodash';
-// import { data } from 'react-router';
-// import { set } from 'lodash';
-// import { User } from 'lucide-react';
 
 
 
@@ -49,6 +39,7 @@ const WeeklyGoals = () => {
     description: '',
     category: 'Technical skills',
     week_start: '',
+    created_at: '',
   });
   
   
@@ -131,6 +122,12 @@ const WeeklyGoals = () => {
     hasFetchedData.current = true; // Set the flag to true after fetching data
   }, [userId]);
 
+// const fetchGoals = async () => {
+//   // ...fetch logic...
+//   setGoals(fetchedGoals);
+//   setFilteredGoals(filterGoalsByWeek(fetchedGoals, selectedWeek));
+// };
+
   const refreshGoals = async () => {
     if (!selectedWeek) {
       console.error('Selected week is not set');
@@ -204,6 +201,7 @@ useEffect(() => {
         description: '',
         category: 'Technical skills',
         week_start: getWeekStartDate(),
+        created_at: '',
       }); // Reset the form
       await refreshGoals(); // Refresh the goals list
     } catch (error) {
@@ -247,7 +245,10 @@ useEffect(() => {
       setFilteredGoals((prevFilteredGoals) =>
         prevFilteredGoals.filter((goal) => goal.id !== goalId)
       ); // Update filtered goals
-      await refreshGoals(); // Refresh goals after deleting
+      // setGoals((prev) => prev.filter((goal) => goal.id !== goalId));
+      // setFilteredGoals((prev) => prev.filter((goal) => goal.id !== goalId));
+      console.log('Goal deleted successfully');
+      // await refreshGoals(); // Refresh goals after deleting
     } catch (error) {
       console.error('Error deleting goal:', error);
     }
@@ -351,56 +352,52 @@ const sortedGoals = [...filteredGoals].sort((a, b) => {
 
   return (
     <div className={`space-y-6`}>
-      <div className="flex justify-between items-center">
-        {/* <h1 className="text-2xl font-bold text-gray-900">Weekly Goals</h1> */}
+      <div className="flex justify-between items-center w-full">
+        <h1 className="text-2xl font-bold text-gray-90 block sm:hidden">Weekly Goals</h1>
+      </div>
+
+      {/* Week Selector */}
+      <div className="flex items-center justify-between space-x-4">
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={handlePreviousWeek}
+            disabled={weekOptions.findIndex((week) => week.getTime() === selectedWeek?.getTime()) === 0}
+            className="btn-ghost disabled:opacity-50"
+            >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <select
+            value={selectedWeek?.toISOString().split('T')[0] || ''}
+            onChange={(e) => handleWeekChange(e.target.value)}
+            className="px-4 py-2 border rounded-md"
+            >
+            {weekOptions.map((week) => (
+            <option key={week.toISOString()} value={week.toISOString().split('T')[0]}>
+              {week.toLocaleDateString()} {/* Format week_start */}
+            </option>
+           ))}
+          </select>
+          <button
+            onClick={handleNextWeek}
+            disabled={weekOptions.findIndex((week) => week.getTime() === selectedWeek?.getTime()) === weekOptions.length - 1}
+            className="btn-ghost disabled:opacity-50 hover:disabled:cursor-not-allowed"
+            >
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+
+            
+          
         <button
           onClick={openGoalModal}
-          className="btn-primary"
+          className="btn-primary sm:block ml-auto pr-4"
         >
           Add Goal
         </button>
       </div>
 
-      {/* Week Selector */}
-      <div className="flex items-center space-x-4">
-        <button
-          onClick={handlePreviousWeek}
-          disabled={weekOptions.findIndex((week) => week.getTime() === selectedWeek?.getTime()) === 0}
-          className="btn-ghost disabled:opacity-50"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </button>
-        <select
-          value={selectedWeek?.toISOString().split('T')[0] || ''}
-          onChange={(e) => handleWeekChange(e.target.value)}
-          className="px-4 py-2 border rounded-md"
-        >
-          {weekOptions.map((week) => (
-            <option key={week.toISOString()} value={week.toISOString().split('T')[0]}>
-              {week.toLocaleDateString()} {/* Format week_start */}
-            </option>
-          ))}
-        </select>
-
-          <button
-            onClick={() => setSortDirection(dir => (dir === 'asc' ? 'desc' : 'asc'))}
-            className="border rounded px-2 py-1"
-            title="Toggle sort direction"
-          >
-            {sortDirection === 'asc' ? '↑' : '↓'}
-          </button>
-        
-        <button
-          onClick={handleNextWeek}
-          disabled={weekOptions.findIndex((week) => week.getTime() === selectedWeek?.getTime()) === weekOptions.length - 1}
-          className="btn-ghost disabled:opacity-50 hover:disabled:cursor-not-allowed"
-        >
-          <ArrowRight className="w-4 h-4" />
-        </button>
-      </div>
-
       {/* Filter Input */}
-      <div className="mt-4 h-10">
+      <div className="mt-4 h-10 flex items-center space-x-2">
         <input
           type="text"
           value={filter}
@@ -408,6 +405,13 @@ const sortedGoals = [...filteredGoals].sort((a, b) => {
           placeholder="Filter by title, category, or impact"
           className="block w-full h-10 p-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
         />
+        <button
+          onClick={() => setSortDirection(dir => (dir === 'asc' ? 'desc' : 'asc'))}
+          className="border rounded px-2 py-1"
+          title="Toggle sort direction"
+        >
+          {sortDirection === 'asc' ? '↑' : '↓'}
+        </button>
       </div>
 
       {/* Goals List */}

@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import Modal from 'react-modal';
 import { Summary } from '@utils/goalUtils'; // Adjust the import path as necessary
-import { deleteSummary, setSummary, saveSummary } from '@utils/functions'; // Adjust the import path as necessary
+import { fetchSummaries, createSummary, deleteSummary, setSummary, saveSummary } from '@utils/functions'; // Adjust the import path as necessary
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 import SummaryCard from '@components/SummaryCard';
 import SummaryEditor from '@components/SummaryEditor';
 // import SummaryGenerator from '@components/SummaryGenerator';
 import { modalClasses } from '@styles/classes'; // Adjust the import path as necessary
+import ReactQuill from 'react-quill';
 
 Modal.setAppElement('#root');
 
@@ -15,18 +16,47 @@ const AllSummaries = () => {
   const [filteredSummaries, setFilteredSummaries] = useState<Summary[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   // Removed unused summaryType state
-    const [newSummary, setNewSummary] = useState<Summary>({
-    id: '',
+  const [newSummary, setNewSummary] = useState<Summary>({
+    id:   '',
     title: '',
     content: '',
     type: '', 
     week_start: '',
     user_id: '',
+    created_at: '',
   });
+  const [content, setContent] = useState(''); // For ReactQuill editor content
   const [localSummaryId, setLocalSummaryId] = useState<string | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [selectedSummary, setSelectedSummary] = useState<Summary | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<Date>(new Date()); // Default to current week
+  const [sortField] = useState<'created_at'>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+    // Fetch all summaries for the logged-in user
+    const handleFetchSummaries = async () => {
+    try {
+      // Get the current user ID (if needed)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('User is not authenticated');
+        return;
+      }
+  
+      // Call your Netlify function
+      const response = await fetch(`/.netlify/functions/getSummaries?user_id=${user.id}`);
+      if (!response.ok) {
+        console.error('Error fetching summaries:', await response.text());
+        return;
+      }
+  
+      const data = await response.json();
+      setSummaries(data || []);
+      setFilteredSummaries(data || []);
+    } catch (err) {
+      console.error('Unexpected error fetching summaries:', err);
+    }
+  };
 
   function openEditor(summary: Summary) {
     setSelectedSummary(summary);
@@ -51,108 +81,132 @@ const AllSummaries = () => {
       console.error('Error saving edited summary:', error);
     }
   };
-    const handleDeleteSummary = async (summaryId: string) => {
-      try {
-        await deleteSummary(summaryId); // Use the summary ID passed as argument
-        
-        setNewSummary({
-          id: summaryId,
-          title: '',
-          content: '',
-          type: 'User',
-          week_start: '',
-          user_id: '',
-        }); // Reset newSummary state
-        setIsEditorOpen(false); // Close editor if open
-        console.log('Summary deleted successfully');
-        fetchSummaries(); // Refresh summaries after deleting
-      } catch (error) {
-        console.error('Error deleting summary:', error);
-      }
-    };
-  const [filter, setFilter] = useState<string>(''); // For filtering summaries
-
   
-
-  // Fetch all summaries for the logged-in user
-  const fetchSummaries = async () => {
+  const handleDeleteSummary = async (summaryId: string) => {
+    if (!summaryId) {
+      console.error('No summary ID provided to deleteSummary');
+      return;
+    }
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error('User is not authenticated');
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('summaries')
-        .select('*')
-        .eq('user_id', user.id);
-
-      if (error) {
-        console.error('Error fetching summaries:', error.message);
-        return;
-      }
-
-      setSummaries(data || []);
-      setFilteredSummaries(data || []); // Initialize filtered summaries
-    } catch (err) {
-      console.error('Unexpected error fetching summaries:', err);
+      await deleteSummary(summaryId); // Use the summary ID passed as argument
+      
+      setNewSummary({
+        id: summaryId,
+        title: '',
+        content: '',
+        type: 'User',
+        week_start: '',
+        user_id: '',
+        created_at: '',
+      }); // Reset newSummary state
+      setIsEditorOpen(false); // Close editor if open
+      console.log('Summary deleted successfully');
+      handleFetchSummaries(); // Refresh summaries after deleting
+    } catch (error) {
+      console.error('Error deleting summary:', error);
     }
   };
 
-  // Add a new summary
+  const [filter, setFilter] = useState<string>(''); // For filtering summaries
+  
+  
+
+
+
+  const sortedSummaries = [...filteredSummaries].sort((a, b) => {
+    let aValue: string | number = a[sortField] ?? '';
+    let bValue: string | number = b[sortField] ?? '';
+  
+    if (sortField === 'created_at') {
+      const aDate = aValue ? new Date(aValue as string) : null;
+      const bDate = bValue ? new Date(bValue as string) : null;
+      const aTime = aDate && !isNaN(aDate.getTime()) ? aDate.getTime() : 0;
+      const bTime = bDate && !isNaN(bDate.getTime()) ? bDate.getTime() : 0;
+  
+      if (aTime < bTime) return sortDirection === 'asc' ? -1 : 1;
+      if (aTime > bTime) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    } else {
+      const aStr = (aValue || '').toString().toLowerCase();
+      const bStr = (bValue || '').toString().toLowerCase();
+  
+      if (aStr < bStr) return sortDirection === 'asc' ? -1 : 1;
+      if (aStr > bStr) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    }
+  });
+
+
+
+// const handleAddSummary = async () => {
+//   try {
+//     await createSummary({
+//       user_id,
+//       content,
+//       summary_type,
+//       week_start,
+//       title,
+//     });
+//     // ...refresh or update state
+//   } catch (error) {
+//     console.error('Error adding summary:', error);
+//   }
+// };
+
   const handleAddSummary = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error('User is not authenticated');
-        return;
-      }
-
-      const { error } = await supabase.from('summaries').insert({
-        ...newSummary,
-        user_id: user.id,
-        created_at: new Date().toISOString(),
+      await fetch('/.netlify/functions/createSummary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          summary_id: newSummary.id,
+          content,
+          summary_type: newSummary.type || 'User', // Default to 'User' if not set
+          title: newSummary.title,
+        }),
       });
-
-      if (error) {
-        console.error('Error adding summary:', error.message);
-        return;
-      }
-
-      fetchSummaries(); // Refresh summaries after adding
-      setIsModalOpen(false);
-      setNewSummary({
-        id: '',
-        title: '',
-        content: '',
-        type: 'AI',
-        week_start: '',
-        user_id: '',
-      });
-    } catch (err) {
+    }
+    catch (err) {
       console.error('Unexpected error adding summary:', err);
     }
   };
 
-  // Delete a summary
-  // const handleDeleteSummary = async (summaryId: string) => {
-  //   try {
-  //     const { error } = await supabase
-  //       .from('summaries')
-  //       .delete()
-  //       .eq('id', summaryId);
 
-  //     if (error) {
-  //       console.error('Error deleting summary:', error.message);
+  // const handleAddSummary = async () => {
+  //   try {
+  //     const { data: { user } } = await supabase.auth.getUser();
+  //     if (!user) {
+  //       console.error('User is not authenticated');
   //       return;
   //     }
 
-  //     fetchSummaries(); // Refresh summaries after deleting
+  //     const { error } = await supabase.from('summaries').insert({
+  //       ...newSummary,
+  //       user_id: user.id,
+  //       created_at: new Date().toISOString(),
+  //     });
+
+  //     if (error) {
+  //       console.error('Error adding summary:', error.message);
+  //       return;
+  //     }
+
+  //     handleFetchSummaries(); // Refresh summaries after adding
+  //     setIsModalOpen(false);
+  //     setNewSummary({
+  //       id: '',
+  //       title: '',
+  //       content: '',
+  //       type: 'AI',
+  //       week_start: '',
+  //       user_id: '',
+  //       created_at: '',
+  //     });
   //   } catch (err) {
-  //     console.error('Unexpected error deleting summary:', err);
+  //     console.error('Unexpected error adding summary:', err);
   //   }
   // };
+
 
   // Filter summaries based on the filter state
   const handleFilterChange = (filterValue: string) => {
@@ -169,101 +223,87 @@ const AllSummaries = () => {
   };
 
   // AI-generate a summary
-  const handleAIGenerateSummary = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error('User is not authenticated');
-        return;
-      }
+  // const handleAIGenerateSummary = async () => {
+  //   try {
+  //     const { data: { user } } = await supabase.auth.getUser();
+  //     if (!user) {
+  //       console.error('User is not authenticated');
+  //       return;
+  //     }
 
-      // Simulate AI generation (replace with actual AI API call)
-      const aiGeneratedContent = 'This is an AI-generated summary.';
+  //     // Simulate AI generation (replace with actual AI API call)
+  //     const aiGeneratedContent = 'This is an AI-generated summary.';
 
-      const { error } = await supabase.from('summaries').insert({
-        title: 'AI Summary',
-        content: aiGeneratedContent,
-        type: 'AI-generated',
-        user_id: user.id,
-        created_at: new Date().toISOString(),
-      });
+  //     const { error } = await supabase.from('summaries').insert({
+  //       title: 'AI Summary',
+  //       content: aiGeneratedContent,
+  //       type: 'AI-generated',
+  //       user_id: user.id,
+  //       created_at: new Date().toISOString(),
+  //     });
 
-      if (error) {
-        console.error('Error generating AI summary:', error.message);
-        return;
-      }
+  //     if (error) {
+  //       console.error('Error generating AI summary:', error.message);
+  //       return;
+  //     }
 
-      fetchSummaries(); // Refresh summaries after generating
-    } catch (err) {
-      console.error('Unexpected error generating AI summary:', err);
-    }
-  };
+  //     fetchSummaries(); // Refresh summaries after generating
+  //   } catch (err) {
+  //     console.error('Unexpected error generating AI summary:', err);
+  //   }
+  // };
 
   useEffect(() => {
-    fetchSummaries();
+    handleFetchSummaries();
   }, []);
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">All Summaries</h1>
-        <div className="space-x-4">
-          <button
-            onClick={handleAIGenerateSummary}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-          >
-            AI Generate Summary
-          </button>
+        <h1 className=" block sm:hidden">All Summaries</h1>
+        <div className="space-x-4 py-4 w-full justify-end flex">
           <button
             onClick={() => setIsModalOpen(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            className="btn-primary"
           >
             Add Summary
           </button>
         </div>
-      </div>
+      </div> 
 
       {/* Filter Input */}
-      <div className="mt-4">
+      <div className="mt-4 h-10 flex items-center space-x-2">
         <input
           type="text"
           value={filter}
           onChange={(e) => handleFilterChange(e.target.value)}
-          placeholder="Filter by title or type"
-          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          placeholder="Filter by title, category, or impact"
+          className="block w-full h-10 p-2 rounded-md border-gray-30 shadow-sm focus:border-brand-50 focus:ring-brand-50 sm:text-sm"
         />
+        <button
+          onClick={() => setSortDirection(dir => (dir === 'asc' ? 'desc' : 'asc'))}
+          className="border rounded px-2 py-1"
+          title="Toggle sort direction"
+        >
+          {sortDirection === 'asc' ? '↑' : '↓'}
+        </button>
       </div>
 
       {/* Summaries List */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {filteredSummaries.map((summary) => (
-          // <div key={summary.id} className="bg-white shadow-sm border rounded-lg p-4">
-          //   <h4 className="text-lg font-medium text-gray-900">{summary.title}</h4>
-          //   <p className="text-gray-600 mt-1">{summary.content}</p>
-          //   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 mt-2">
-          //     {summary.type}
-          //   </span>
-          //   <div className="mt-4 flex justify-end space-x-2">
-          //     <button
-          //       onClick={() => handleDeleteSummary(summary.id)}
-          //       className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-          //     >
-          //       Delete
-          //     </button>
-          //   </div>
-          // </div>
-
-          
-          // <SummaryCard
-          // // summary={summary}
-          //   key={summary.id}
+        {sortedSummaries.map((summary) =>
           <SummaryCard
             key={summary.id}
-            summary={summary}
+            content={summary.content}
+            title={summary.title}
+            type={summary.type}
+            id={summary.id}
+            created_at={summary.created_at}
+            week_start={summary.week_start}
             handleDelete={() => handleDeleteSummary(summary.id)}
             handleEdit={() => openEditor(summary)}
           />
-        ))}
+        )}
       </div>
       {isEditorOpen && selectedSummary && ( 
         <Modal
@@ -272,7 +312,7 @@ const AllSummaries = () => {
           className="fixed inset-0 flex items-center justify-center z-50"
           overlayClassName="fixed inset-0 bg-gray-500 bg-opacity-75"
         > 
-          <div className={modalClasses}>
+          {/* <div className={modalClasses}> */}
            <div className={`${modalClasses}`}>
               <SummaryEditor
                 // summaryId={selectedSummary?.id || ''} // Pass the correct summary ID
@@ -285,7 +325,7 @@ const AllSummaries = () => {
                     await saveSummary(setLocalSummaryId, editedContent, 'User', selectedWeek);
                     closeEditor(); // Close the modal after saving
                     setSummary(editedContent); // Update the local state
-                    // await refreshGoals(); // Refetch goals if needed
+                    handleFetchSummaries(); // Refresh summaries
                     console.log('Edited summary saved successfully');
                   } catch (error) {
                     console.error('Error saving edited summary:', error);
@@ -294,7 +334,7 @@ const AllSummaries = () => {
               />
             </div>
             
-            <div className='flex flex-row justify-end mt-4 gap-2'>
+            {/* <div className='flex flex-row justify-end mt-4 gap-2'>
               <button
                 onClick={() => closeEditor()}
                 className="btn-secondary"
@@ -310,8 +350,8 @@ const AllSummaries = () => {
                 Save edited summary
               </button> 
               
-            </div>
-          </div>
+            </div> */}
+          {/* </div> */}
         </Modal> 
        )}
         
@@ -324,7 +364,7 @@ const AllSummaries = () => {
           className="fixed inset-0 flex items-center justify-center z-50"
           overlayClassName="fixed inset-0 bg-gray-500 bg-opacity-75"
         >
-          <div className="bg-white rounded-lg shadow-lg p-6 w-96">
+          <div className={`${modalClasses}`}>
             <h3 className="text-lg font-medium text-gray-900 mb-4">Add Summary</h3>
             <div className="space-y-4">
               <div>
@@ -340,39 +380,26 @@ const AllSummaries = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Content</label>
-                <textarea
-                  value={newSummary.content}
-                  onChange={(e) =>
-                    setNewSummary({ ...newSummary, content: e.target.value })
-                  }
-                  rows={4}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                <ReactQuill
+                    id={newSummary.id}
+                    value={newSummary.content}
+                    onChange={(value) =>
+                      setNewSummary({ ...newSummary, content: value })
+                    }
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Type</label>
-                <select
-                  value={newSummary.type}
-                  onChange={(e) =>
-                    setNewSummary({ ...newSummary, type: e.target.value as 'AI-generated' | 'Edited' })
-                  }
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                >
-                  <option value="AI-generated">AI-generated</option>
-                  <option value="Edited">Edited</option>
-                </select>
               </div>
             </div>
             <div className="mt-6 flex justify-end space-x-4">
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="btn-secondary"
+                aria-label="Cancel"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAddSummary}
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="btn-primary"
               >
                 Add
               </button>

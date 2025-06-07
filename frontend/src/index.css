@@ -27,12 +27,20 @@
     @apply text-brand-70 dark:text-brand-10;
   }
 
+  .ql-snow button {
+    @apply stroke-gray-70 dark:stroke-gray-40 hover:stroke-gray-90 dark:hover:stroke-gray-10 hover:bg-gray-20 dark:hover:bg-gray-80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-70;
+  }
+  
   .ql-snow .ql-stroke  {
     @apply stroke-gray-70 dark:stroke-gray-40 hover:stroke-gray-90 dark:hover:stroke-gray-10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-70 !important;
   }
 
   .ql-editor p {
     @apply text-gray-90 dark:text-gray-10;
+  }
+
+  .tabs li a.active {
+    @apply text-brand-60 border-brand-60 dark:text-brand-10 dark:border-brand-10 border-b-2;
   }
 
 }
@@ -120,8 +128,28 @@
     @apply mt-4 flex justify-end;
   }
 
+  /* Example animation: fade and slide down */
+.menu-enter {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+.menu-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+.menu-exit {
+  opacity: 1;
+  transform: translateY(0);
+}
+.menu-exit-active {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
   .ql-stroke {
-    @apply stroke-gray-40 dark:stroke-gray-70;
+    @apply stroke-gray-40 dark:stroke-gray-70 ;
   }
   .ql-fill {
     @apply fill-gray-70 dark:fill-gray-40;

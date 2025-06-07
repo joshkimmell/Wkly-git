@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import Modal from 'react-modal';
+import { cardClasses, modalClasses } from '@styles/classes';
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
+import { DeleteIcon, Trash } from 'lucide-react';
 
 Modal.setAppElement('#root');
 
@@ -30,7 +32,11 @@ const AllAccomplishments = () => {
     created_at: '',
   });
   const [filter, setFilter] = useState<string>(''); // For filtering accomplishments
+  const [sortField] = useState<'created_at'>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
+
+  
   // Fetch all accomplishments for the logged-in user
   const fetchAccomplishments = async () => {
     try {
@@ -56,6 +62,29 @@ const AllAccomplishments = () => {
       console.error('Unexpected error fetching accomplishments:', err);
     }
   };
+
+  const sortedAccomplishments = [...filteredAccomplishments].sort((a, b) => {
+  let aValue: string | number = a[sortField] ?? '';
+  let bValue: string | number = b[sortField] ?? '';
+
+  if (sortField === 'created_at') {
+    const aDate = aValue ? new Date(aValue as string) : null;
+    const bDate = bValue ? new Date(bValue as string) : null;
+    const aTime = aDate && !isNaN(aDate.getTime()) ? aDate.getTime() : 0;
+    const bTime = bDate && !isNaN(bDate.getTime()) ? bDate.getTime() : 0;
+
+    if (aTime < bTime) return sortDirection === 'asc' ? -1 : 1;
+    if (aTime > bTime) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  } else {
+    const aStr = (aValue || '').toString().toLowerCase();
+    const bStr = (bValue || '').toString().toLowerCase();
+
+    if (aStr < bStr) return sortDirection === 'asc' ? -1 : 1;
+    if (aStr > bStr) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  }
+});
 
   // Add a new accomplishment
   const handleAddAccomplishment = async () => {
@@ -145,7 +174,7 @@ const AllAccomplishments = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">All Accomplishments</h1>
+        <h1 className=" block sm:hidden">All Accomplishments</h1>
         <button
           onClick={openModal}
           className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -155,7 +184,23 @@ const AllAccomplishments = () => {
       </div>
 
       {/* Filter Input */}
-      <div className="mt-4">
+      <div className="mt-4 h-10 flex items-center space-x-2">
+        <input
+          type="text"
+          value={filter}
+          onChange={(e) => handleFilterChange(e.target.value)}
+          placeholder="Filter by title, category, or impact"
+          className="block w-full h-10 p-2 rounded-md border-gray-30 shadow-sm focus:border-brand-50 focus:ring-brand-50 sm:text-sm"
+        />
+        <button
+          onClick={() => setSortDirection(dir => (dir === 'asc' ? 'desc' : 'asc'))}
+          className="border rounded px-2 py-1"
+          title="Toggle sort direction"
+        >
+          {sortDirection === 'asc' ? '↑' : '↓'}
+        </button>
+      </div>
+      {/* <div className="mt-4">
         <input
           type="text"
           value={filter}
@@ -163,24 +208,26 @@ const AllAccomplishments = () => {
           placeholder="Filter by title, category, or impact"
           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
         />
-      </div>
+      </div> */}
 
       {/* Accomplishments List */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {filteredAccomplishments.map((accomplishment) => (
-          <div key={accomplishment.id} className="bg-white shadow-sm border rounded-lg p-4">
-            <h4 className="text-lg font-medium text-gray-900">{accomplishment.title}</h4>
-            <p className="text-gray-600 mt-1">{accomplishment.description}</p>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 mt-2">
-              {accomplishment.category}
-            </span>
-            <p className="text-sm text-gray-500 mt-2">{accomplishment.impact}</p>
+        {sortedAccomplishments.map((accomplishment) => (
+          <div key={accomplishment.id} className={`${cardClasses}`}>
+            <div className="tabs flex flex-row items-center justify-end w-full">
+              <span className="flex flex-col w-auto items-left px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-10 text-brand-90 my-0 mb-2">
+                {accomplishment.category || 'Uncategorized'}
+              </span>
+            </div>
+            <h4 >{accomplishment.title}</h4>
+            <p>{accomplishment.description}</p>
+            <p className="text-sm text-gray-60 dark:text-gray-40 mt-2">{accomplishment.impact}</p>
             <div className="mt-4 flex justify-end space-x-2">
               <button
                 onClick={() => handleDeleteAccomplishment(accomplishment.id)}
-                className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                className="btn-ghost hover:bg-gray-20 dark:hover:bg-gray-70"
               >
-                Delete
+                <Trash className="h-5 w-5" />
               </button>
             </div>
           </div>

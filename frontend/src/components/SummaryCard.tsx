@@ -7,15 +7,18 @@ import { Trash, Edit } from 'lucide-react';
 import { cardClasses } from '@styles/classes';
 
 interface SummaryCardProps {
-  // id: (summaryId: string) => void; // Corrected type
-  summary: Summary;
-  // summaryType: '';
-  handleDelete: (summaryId: string) => void; // Corrected type
+  id: Summary["id"]; // Corrected type
+  title: Summary["title"]; // Optional title property
+  content: Summary["content"];
+  type: Summary["type"];
+  week_start?: string; // Optional property for week start
+  handleDelete: (id: string) => void; // Corrected type
   handleEdit: (openEditor: any) => void;
+  created_at?: string; // Optional property for created date
 }
 
 // const GoalCard: React.FC<GoalCardProps> = ({ goal }) => {
-const SummaryCard: React.FC<SummaryCardProps> = ({ summary, handleDelete, handleEdit }) => {
+const SummaryCard: React.FC<SummaryCardProps> = ({ id, title, content, type, handleDelete, handleEdit }) => {
   // const handleDeleteSummary = (summaryId: string) => {
   //   // Implement the delete logic here
     // console.log(`Deleting goal with ID: ${goal.id}`);
@@ -43,12 +46,12 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ summary, handleDelete, handle
   
   return (
     <div>
-      <div key={summary.id} className={`flex flex-col text-left w-full space-y-4 ${cardClasses} mt-4`}>
+      <div key={id} className={`flex flex-col text-left w-full space-y-4 ${cardClasses} mt-4 relative`}>
         <div className={`flex flex-row w-full items-center justify-between`}>  
-          <h4 className="w-full text-lg font-bold text-gray-90">{summary.title}</h4>
-          <div className="tabs flex flex-row justify-between">
+          <h4 className="w-full text-lg font-bold text-gray-90">{title}</h4>
+          <div className="flex flex-row justify-between">
             <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-10 text-brand-100 mt-2">
-              {summary.type}
+              {type} 
             </span>
           </div>
         </div>
@@ -60,19 +63,19 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ summary, handleDelete, handle
           {!isExpanded ? (
             // <ChevronUp className="w-5 h-5" />
               <div className='flex flex-col text-left'
-                dangerouslySetInnerHTML={{ __html:summary.content.substring(0, 200) + (summary.content.length > 200 ? '...' : '')}}
+                dangerouslySetInnerHTML={{ __html:content.substring(0, 200) + (content.length > 200 ? '...' : '')}}
               />
               // {summary.content.substring(0, 200) + (summary.content.length > 200 ? '...' : '')}
             ) : (
               <div 
                 className='flex flex-col text-left'
-                dangerouslySetInnerHTML={{ __html: summary.content }}
+                dangerouslySetInnerHTML={{ __html: content }}
               />
           )}
         </button>
 
         
-        <div className="mt-4 flex justify-end space-x-2">
+        <footer className="mt-4 flex justify-end absolute bottom-0 left-0 w-full space-x-2">
           <button
             // onClick={handleEdit.bind(null, summary.id)} // Pass the summary ID to the handleEdit function
             onClick={() => handleEdit(true)} // Open the editor modal
@@ -82,13 +85,13 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ summary, handleDelete, handle
           </button>
             <button
             // onClick={() => handleDelete.bind(null, summary.id)} // Pass the summary ID to the handleDelete function
-            onClick={() => handleDelete(summary.id)}
+            onClick={() => handleDelete(id)}
             // onClick={handleDelete.bind (summary.id)}
             className="btn-ghost"
           >
             <Trash />
           </button>
-        </div>
+        </footer>
       </div>
       
     </div>

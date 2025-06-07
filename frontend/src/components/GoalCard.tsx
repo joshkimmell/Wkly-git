@@ -98,24 +98,8 @@ const GoalCard: React.FC<GoalCardProps> = ({ goal, handleDelete, handleEdit }) =
       <div className="flex flex-col flex-grow">
         <div className='card-content flex flex-col h-full'>
           <div className="goal-header flex flex-row w-full justify-between items-center">
-            <div className='flex flex-row w-full justify-right align-right'>
-              <button
-                onClick={() => {
-                  console.log('Deleting Goal ID:', goal.id); // Log the goal ID
-                  handleDelete(goal.id);
-                }}
-                className="btn-ghost w-auto"
-                >
-                <Trash className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => handleEdit(goal.id)}
-                className="btn-ghost w-auto"
-                >
-                <Edit className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="tabs flex flex-row items-center justify-between w-full">
+            
+            <div className="tabs flex flex-row items-center justify-end w-full">
               <span className="flex flex-col w-auto items-left px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-10 text-brand-90 mt-2">
                 {goal.category || 'Uncategorized'}
               </span>
@@ -170,6 +154,23 @@ const GoalCard: React.FC<GoalCardProps> = ({ goal, handleDelete, handleEdit }) =
               >
               Add Accomplishment
             </button>
+            <div className='flex flex-row w-full justify-end'>
+              <button
+                onClick={() => {
+                  console.log('Deleting Goal ID:', goal.id); // Log the goal ID
+                  handleDelete(goal.id);
+                }}
+                className="btn-ghost w-auto"
+                >
+                <Trash className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => handleEdit(goal.id)}
+                className="btn-ghost w-auto"
+                >
+                <Edit className="w-5 h-5" />
+              </button>
+            </div>
         </footer>
           
       {/* Modal */}

@@ -39,6 +39,7 @@ export interface Accomplishment {
     category: string;
     week_start: string;
     user_id: string;
+    created_at: string;
   };
   export interface Summary {
     id: string;
@@ -47,6 +48,7 @@ export interface Accomplishment {
     type: string;
     week_start: string;
     user_id: string;
+    created_at: string;
   };
 
 

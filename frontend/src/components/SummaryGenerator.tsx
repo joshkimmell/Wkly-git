@@ -4,10 +4,8 @@
 import React, { useState } from 'react';
 import { handleGenerate, saveSummary, deleteSummary } from '@utils/functions';
 import supabase from '@lib/supabase';
-// import openEditorModal from '@components/SummaryEditor'; // Import the function to open the modal
 import SummaryEditor from '@components/SummaryEditor';
 import Modal from 'react-modal';
-// import { Edit } from 'lucide-react';
 import SummaryCard from '@components/SummaryCard';
 import { modalClasses } from '@styles/classes';
 
@@ -47,8 +45,8 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ summaryType: initia
       }));
 
       const generatedSummary = await handleGenerate(userId, weekStart, goalsWithAccomplishments);
-      setSummary(generatedSummary);
-      setLocalSummaryId(generatedSummary.id); // Make sure you get this from your backend!
+      setSummary(generatedSummary.content); // or whatever field holds the summary text
+      setLocalSummaryId(generatedSummary.id); // Use .id, not .summary_id
       setSummaryType('AI');
       // saveSummary(generatedSummary || '', 'AI');
     } catch (error) {
@@ -56,44 +54,16 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ summaryType: initia
     }
   };
 
-  // const saveSummary = async (summaryContent: string, summaryType: string) => {
-  //   try {
-  //     const { data: { user } } = await supabase.auth.getUser();
-  //     if (!user) throw new Error('User is not authenticated');
-  
-  //     const userId = user.id;
-  //     const weekStart = getWeekStartDate(selectedWeek); // Get Monday as YYYY-MM-DD
-  
-  //     const requestBody = {
-  //       user_id: userId,
-  //       week_start: weekStart,
-  //       content: summaryContent,
-  //       summary_type: summaryType, // "User" for edited summaries
-  //     };
-  
-  //     console.log('Request body:', requestBody);
-  
-  //     const { error } = await supabase.from('summaries').insert(requestBody);
-  
-  //     if (error) {
-  //       console.error('Error saving summary:', error.message);
-  //       throw new Error('Failed to save summary');
-  //     }
-  
-  //     console.log('Summary saved successfully');
-  //   } catch (error) {
-  //     console.error('Error saving summary:', error);
-  //   }
-  // };
   const handleSave = async (editedContent: string) => {
   try {
     // const weekStart = selectedWeek.toISOString().split('T')[0];
-    const { summary_id: id } = await saveSummary(setLocalSummaryId, editedContent, summaryType || 'User', selectedWeek);
+    const { summary_id } = await saveSummary(setLocalSummaryId, editedContent, summaryType || 'User', selectedWeek);
+    setLocalSummaryId(summary_id);
 
     closeEditor();
     // Refresh displayed summary with saved summary
     console.log('Edited summary:', editedContent);
-    setLocalSummaryId(id); // Ensure you set the local summary ID after saving
+    setLocalSummaryId(summary_id); // Ensure you set the local summary ID after saving
     setSummaryType('AI'); // Set the summary type to 'User' after saving
     setSummary(editedContent);
   } catch (error) {
@@ -104,10 +74,6 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ summaryType: initia
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
 
-  // function openEditor(event: React.MouseEvent<HTMLButtonElement, MouseEvent>): void {
-  //   event.preventDefault();
-  //   setIsEditorOpen(true);
-  // }
   console.log('isEditorOpen:', isEditorOpen);
 
   function closeEditor() {
@@ -142,17 +108,14 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ summaryType: initia
       {summary && (
         
           <SummaryCard
-            summary={{
-              id: localSummaryId || '', // Use localSummaryId for the ID
-              user_id: '',
-              title: `Summary for week of ${selectedWeek.toLocaleDateString()}`,
-              content: summary,
-              type: summaryType || '',
-              week_start: selectedWeek.toISOString().split('T')[0],
-            }}
-
-            handleDelete={handleDeleteSummary} // <-- This handles the delete action
-            handleEdit={() => setIsEditorOpen(true)} // <-- This sets the editor open
+            id={localSummaryId || ''}
+            title={`Summary for week of ${selectedWeek.toLocaleDateString()}`}
+            content={summary}
+            type={summaryType || ''}
+            week_start={selectedWeek.toISOString().split('T')[0]}
+            created_at={new Date().toISOString()}
+            handleDelete={handleDeleteSummary}
+            handleEdit={() => setIsEditorOpen(true)}
           />
         
       )}
