@@ -1,34 +1,23 @@
 {
-  // "files": [],
-  // "references": [
-  //   { "path": "./tsconfig.app.json" },
-  //   { "path": "./tsconfig.node.json" }
-  // ]
-    "compilerOptions": {
+  "compilerOptions": {
       "baseUrl": "./",
       "paths": {       
-        // "@/*": ["src/*"],
         "@components/*": ["src/components/*"],
         "@context/*": ["src/context/*"],
         "@lib/*": ["src/lib/*"],
         "@utils/*": ["src/utils/*"],
         "@hooks/*": ["src/hooks/*"],
         "@styles/*": ["src/styles/*"],
-        // "@dist/*": ["src/dist/*"],
-        // "@server/*": ["server/*"],
-        // "@routes/*": ["src/routes/*"],
       },
-      "target": "ES2022",
-      "lib": ["ES2023", "DOM", "DOM.Iterable"],
+      "target": "ESNext",
+      // "target": "es2023",
+      "lib": ["ES2023", "DOM", "DOM.Iterable", "ESNext"],
       "useDefineForClassFields": true,
       "module": "ESNext",
       "skipLibCheck": true,
       
-      /* Bundler mode */
-      // "moduleResolution": "bundler",
       "moduleResolution": "node",
       "allowImportingTsExtensions": true,
-      // "allowSyntheticDefaultImports": false,
       "esModuleInterop": true,
       "isolatedModules": true,
       "moduleDetection": "force",

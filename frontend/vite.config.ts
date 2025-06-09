@@ -19,11 +19,12 @@ export default defineConfig({
          // ... other aliases
       },
    },
-   server: {
-     proxy: {
-       '/api': 'http://localhost:3001', // or whatever your backend port is
-     },
-   },
+   // server: {
+   //   proxy: {
+   //     '/api': 'http://localhost:3001', // or whatever your backend port is
+   //   },
+   // },
+   assetsInclude: ['**/*.svg', '**/*.png'],
 });
 
 

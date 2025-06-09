@@ -4,26 +4,28 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
 interface SummaryEditorProps {
-    initialTitle: string;
-    initialContent: string;
+    id: string;
+    title: string;
+    content: string;
+    type: 'AI' | 'User'; // Assuming you have a type field to distinguish between AI and User summaries
     onRequestClose: () => void;
     onSave: (updatedContent: string, updatedTitle: string) => Promise<void>;
 }
 
 const SummaryEditor: React.FC<SummaryEditorProps> = ({
-    initialTitle,
-    initialContent,
+    id, 
+    title: initialTitle,
+    content: initialContent,
+    type,
     onRequestClose,
     onSave,
 }) => {
 
     const [title, setTitle] = useState(initialTitle); // If you want to edit the title as well
     const [content, setContent] = useState(initialContent);
+    const [summaryId, setSummaryId] = useState(id); // If you want to edit the ID as well, though usually IDs are not edited  
+    // const 
 
-    // const handleSave = async () => {
-    //     await onSave(title, content); // Pass the latest content
-    //     onRequestClose();
-    // };
     const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         try {
@@ -65,51 +67,7 @@ const SummaryEditor: React.FC<SummaryEditorProps> = ({
             <button className="btn btn-secondary" onClick={onRequestClose}>Cancel</button>
             <button type='submit' className="btn btn-primary">Save</button>
         </div>
-    </ form>
-   
-        // <div>
-        //     <label className="block text-sm font-medium text-gray-700">Content</label>
-        //     <ReactQuill
-        //         id={newSummary.id}
-        //         value={newSummary.content}
-        //         className=""
-                
-        //         onChange={(value) =>
-        //         setNewSummary({ ...newSummary, content: value })
-        //         }
-        //         // ReactQuill does not support the "name" prop directly,
-        //         // but you can add a hidden input to include it in form data:
-        //     />
-        //     <input
-        //         type="hidden"
-        //         name="summary_type"
-        //         value={newSummary.summary_type}
-        //         readOnly
-        //     />  
-        //     <input
-        //         type="hidden"
-        //         name="content"
-        //         value={newSummary.content}
-        //         readOnly
-        //     />
-        //     <div className="mt-6 flex justify-end space-x-4">
-        //         <button
-        //             onClick={() => setIsModalOpen(false)}
-        //             className="btn-secondary"
-        //             aria-label="Cancel"
-        //             >
-        //             Cancel
-        //         </button>
-        //         <button
-        //             type="submit"
-        //             className="btn-primary"
-        //             >
-        //             Add
-        //         </button>
-        //     </div>
-        // </div>
-         
-        
+    </ form>  
            
     );
 };

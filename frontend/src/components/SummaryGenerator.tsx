@@ -26,40 +26,40 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ summaryType: initia
   const [summaryType, setSummaryType] = useState<null | 'AI' | 'User'>(initialSummaryType || 'AI');
   
   
-  const handleGenerateClick = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User is not authenticated');
+  // const handleGenerateClick = async () => {
+  //   try {
+  //     const { data: { user } } = await supabase.auth.getUser();
+  //     if (!user) throw new Error('User is not authenticated');
 
-      const userId = user.id;
-      const weekStart = selectedWeek.toISOString().split('T')[0];
+  //     const userId = user.id;
+  //     const weekStart = selectedWeek.toISOString().split('T')[0];
 
-      const goalsWithAccomplishments = filteredGoals.map(goal => ({
-        title: goal.title,
-        description: goal.description,
-        category: goal.category || 'Technical skills',
-        accomplishments: (goal.accomplishments || []).map(accomplishment => ({
-          title: accomplishment,
-          description: accomplishment,
-          impact: 'Medium',
-        })),
-      }));
+  //     const goalsWithAccomplishments = filteredGoals.map(goal => ({
+  //       title: goal.title,
+  //       description: goal.description,
+  //       category: goal.category || 'Technical skills',
+  //       accomplishments: (goal.accomplishments || []).map(accomplishment => ({
+  //         title: accomplishment,
+  //         description: accomplishment,
+  //         impact: 'Medium',
+  //       })),
+  //     }));
 
-      const generatedSummary = await handleGenerate(
-        localSummaryId || '',
-        summaryTitle || `Summary for week of ${selectedWeek.toLocaleDateString()}`,
-        userId,
-        weekStart,
-        goalsWithAccomplishments,
-      );
-      setSummary(generatedSummary); // or whatever field holds the summary text
-      setLocalSummaryId(generatedSummary.id); // Use .id, not .summary_id
-      setSummaryType('AI');
-      // saveSummary(generatedSummary || '', 'AI');
-    } catch (error) {
-      console.error('Error generating summary:', error);
-    }
-  };
+  //     const generatedSummary = await handleGenerate(
+  //       localSummaryId || '',
+  //       summaryTitle || `Summary for week of ${selectedWeek.toLocaleDateString()}`,
+  //       userId,
+  //       weekStart,
+  //       goalsWithAccomplishments,
+  //     );
+  //     setSummary(generatedSummary); // or whatever field holds the summary text
+  //     setLocalSummaryId(generatedSummary.id); // Use .id, not .summary_id
+  //     setSummaryType('AI');
+  //     // saveSummary(generatedSummary || '', 'AI');
+  //   } catch (error) {
+  //     console.error('Error generating summary:', error);
+  //   }
+  // };
 
 // const handleSave = async (editedContent: string, editedTitle: string) => {
 //   try {
@@ -81,6 +81,50 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ summaryType: initia
 //     console.error('Error saving edited summary:', error);
 //   }
 // };
+const handleGenerateClick = async () => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User is not authenticated');
+
+    const userId = user.id;
+    const weekStart = selectedWeek.toISOString().split('T')[0];
+
+    const goalsWithAccomplishments = filteredGoals.map(goal => ({
+      title: goal.title,
+      description: goal.description,
+      category: goal.category || 'Technical skills',
+      accomplishments: (goal.accomplishments || []).map(accomplishment => ({
+        title: accomplishment,
+        description: accomplishment,
+        impact: 'Medium',
+      })),
+    }));
+
+    // 1. Generate the summary content
+    const generatedSummary = await handleGenerate(
+      localSummaryId || '',
+      summaryTitle || `Summary for week of ${selectedWeek.toLocaleDateString()}`,
+      userId,
+      weekStart,
+      goalsWithAccomplishments,
+    );
+    setSummary(generatedSummary);
+
+    // 2. Save the summary and get the summary_id
+    const { summary_id } = await saveSummary(
+      setLocalSummaryId,
+      summaryTitle || `Summary for week of ${selectedWeek.toLocaleDateString()}`,
+      generatedSummary,
+      'AI',
+      selectedWeek
+    );
+    setLocalSummaryId(summary_id);
+    setSummaryType('AI');
+  } catch (error) {
+    console.error('Error generating summary:', error);
+  }
+};
+
 const handleSave = async (editedContent: string, editedTitle: string) => {
   try {
     const { summary_id } = await saveSummary(
@@ -115,6 +159,7 @@ const handleSave = async (editedContent: string, editedTitle: string) => {
         console.error('No summary ID to delete');
         return;
       }
+      console.log('Deleting summary with ID:', localSummaryId);
       await deleteSummary(localSummaryId); // Pass the ID, not the content!
       setSummary(null);
       setLocalSummaryId(null);
@@ -160,27 +205,13 @@ const handleSave = async (editedContent: string, editedTitle: string) => {
           <div className={ `${modalClasses} gap-4` }>
             
             <SummaryEditor
-              // summaryId={localSummaryId || ''} // Pass the summary ID if needed, or keep it empty for new summaries
-              initialTitle={`Summary for week of ${selectedWeek.toLocaleDateString()}`}
-              initialContent={summary || ''}
+              id={localSummaryId || ''} // Pass the summary ID if needed, or keep it empty for new summaries
+              title={`Summary for week of ${selectedWeek.toLocaleDateString()}`}
+              content={summary || ''}
+              type={summaryType || 'User'} // Default to 'AI' if not set
               onRequestClose={closeEditor}
               onSave={handleSave}
             />
-            {/* <div className='flex flex-row justify-end mt-4 gap-2'>
-              <button
-                onClick={() => closeEditor()}
-                className="btn-secondary"
-              >
-                Cancel
-              </button> 
-              <button
-                onClick={() => handleSave(summary || '')} // Save as 'User' type
-                className="btn-primary"
-              >
-                Save edited summary
-              </button> 
-              
-            </div> */}
           </div>
         </Modal> 
        )}

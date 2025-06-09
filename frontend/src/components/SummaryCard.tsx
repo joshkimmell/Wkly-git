@@ -3,9 +3,9 @@ import React, { useState } from 'react';
 // import supabase from '../../frontend/src/lib/supabase'; // Ensure this is the correct path to your Supabase client
 // import { handleDeleteGoal } from '@utils/functions';
 import { Summary } from '@utils/goalUtils'; // Adjust the import path as necessary
-import { Trash, Edit } from 'lucide-react';
+import { Trash, Edit, Copy } from 'lucide-react';
 import { cardClasses } from '@styles/classes';
-
+import { notifySuccess, notifyError } from '@components/ToastyNotification';
 interface SummaryCardProps {
   id: Summary["id"]; // Corrected type
   title: Summary["title"]; // Optional title property
@@ -32,6 +32,23 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ id, title, content, type, han
   // const [isModalOpen, setIsModalOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false); // State to track expansion
   
+  function handleCopy(content: string): void {
+    if (navigator && navigator.clipboard) {
+      navigator.clipboard.writeText(content).then(
+        () => {
+          // Optionally, show a success message or toast here
+          console.log('Copied!');
+          notifySuccess('Content copied to clipboard!'); 
+          
+        },
+        () => {
+          notifyError('Error copying content to clipboard'); // Show error if copy fails
+          // Optionally, handle error (e.g., show an error message)
+        }
+      );
+    }
+  }
+
 //  const [isEditorOpen, setIsEditorOpen] = useState(false);
  
 //    function openEditor(event: React.MouseEvent<HTMLButtonElement, MouseEvent>): void {
@@ -57,7 +74,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ id, title, content, type, han
         </div>
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="btn-ghost flex flex-row items-center justify-between w-full rounded-lg p-4"
+          className="btn-summary flex flex-row items-center justify-between w-full rounded-lg p-4"
           type="button"   
         >
           {!isExpanded ? (
@@ -76,6 +93,14 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ id, title, content, type, han
 
         
         <footer className="mt-4 flex justify-end absolute bottom-0 left-0 w-full space-x-2">
+           <button
+            // onClick={() => handleDelete.bind(null, summary.id)} // Pass the summary ID to the handleDelete function
+            onClick={() => handleCopy(content)}
+            // onClick={handleDelete.bind (summary.id)}
+            className="btn-ghost"
+            >
+            <Copy />
+          </button>
           <button
             // onClick={handleEdit.bind(null, summary.id)} // Pass the summary ID to the handleEdit function
             onClick={() => handleEdit(true)} // Open the editor modal
@@ -83,12 +108,12 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ id, title, content, type, han
           >
             <Edit />
           </button>
-            <button
+          <button
             // onClick={() => handleDelete.bind(null, summary.id)} // Pass the summary ID to the handleDelete function
             onClick={() => handleDelete(id)}
             // onClick={handleDelete.bind (summary.id)}
             className="btn-ghost"
-          >
+            >
             <Trash />
           </button>
         </footer>

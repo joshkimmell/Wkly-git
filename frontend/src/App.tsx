@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { GoalsProvider } from '@context/GoalsContext';
 import { classTabItem } from '@styles/classes';
+import ToastNotification, { notifySuccess, notifyError } from '@components/ToastyNotification';
 import WeeklyGoals from '@components/WeeklyGoals';
 import Header from '@components/Header';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
@@ -25,7 +26,10 @@ function App() {
 
   const toggleTheme = () => setTheme(prev => (prev === 'theme-dark' ? 'theme-light' : 'theme-dark'));
 
-
+  const handleToast = () => {
+    notifySuccess('Action completed successfully!');
+    notifyError('Something went wrong!');
+  };
   const handleLogout = async () => {
     try {
       if (!supabase) {
@@ -34,9 +38,10 @@ function App() {
       }
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-      console.log('User logged out successfully');
+      notifySuccess('Logged out successfully');
       window.location.href = '/auth'; // Redirect to the auth route
     } catch (error) {
+      notifyError('Error logging out.');
       console.error('Error logging out:', error);
     }
   };
@@ -204,6 +209,7 @@ function App() {
             </Routes>
           </main>
         </GoalsProvider>
+        <ToastNotification />
       </div>
     </div>
     </SessionContextProvider>

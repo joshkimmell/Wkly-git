@@ -52,14 +52,16 @@ const WeeklyGoals = () => {
     setIsEditorOpen(false);
   };
   
-  const [selectedSummary, setSelectedSummary] = useState<{
-    id: string;
-    title: string;
-    content: string;
-  } | null>(null); // State for selected summary
-  
   const [userId, setUserId] = useState<string | null>(null);
   // Initialize theme based on user's preference
+  
+  const [selectedSummary, setSelectedSummary] = useState<{
+    id: string;
+    user_id: string;
+    content: string;
+    type: string;
+    title: string;
+  } | null>(null); // State for selected summary
 
 
 // TODO: Replace this with your actual theme logic or context
@@ -208,29 +210,7 @@ useEffect(() => {
       console.error('Error adding goal:', error);
     }
   };
-  //   const handleAddGoal = async () => {
-  //   try {
-  //     if (!userId) {
-  //       console.error('User is not authenticated');
-  //       return;
-  //     }
 
-  //     const goalToAdd = { ...newGoal, user_id: userId };
-  //     await addGoal(goalToAdd); // Use addGoal from functions.ts
-  //     setNewGoal({
-  //       id: '',
-  //       user_id: '',
-  //       title: '',
-  //       description: '',
-  //       category: 'Technical skills',
-  //       week_start: '',
-  //     }); // Reset newGoal state to default
-  //     setIsGoalModalOpen(false); // Close the modal
-  //     await refreshGoals(); // Refresh goals after adding
-  //   } catch (error) {
-  //     console.error('Error adding goal:', error);
-  //   }
-  // };
 
   // Delete a goal
   const handleDeleteGoal = async (goalId: string) => {
@@ -454,8 +434,10 @@ const sortedGoals = [...filteredGoals].sort((a, b) => {
           >
             <div className={`${modalClasses}`}>
               <SummaryEditor
-                initialTitle={selectedSummary.title} // Pass the initial title
-                initialContent={selectedSummary.content} // Pass the initial content
+                id={selectedSummary.id} // Pass the summary,
+                content={selectedSummary.content} // Pass the initial content
+                type={selectedSummary.type === 'AI' || selectedSummary.type === 'User' ? selectedSummary.type : 'User'} // Pass the summary type
+                title={selectedSummary.title} // Pass the initial title
                 onRequestClose={() => setSelectedSummary(null)} // Close the modal
                 onSave={async (editedContent) => {
                   try {

@@ -295,8 +295,10 @@ const AllSummaries = () => {
           >
             <div className={`${modalClasses}`}>
               <SummaryEditor
-                initialTitle={selectedSummary.title} // Pass the initial title
-                initialContent={selectedSummary.content} // Pass the initial content
+                id={selectedSummary.id}
+                type='User' // Assuming 'User' is the type for user-edited summaries  
+                title={selectedSummary.title} // Pass the initial title
+                content={selectedSummary.content} // Pass the initial content
                 onRequestClose={() => setSelectedSummary(null)} // Close the modal
                 onSave={async (editedContent, editedTitle) => {
                   try {

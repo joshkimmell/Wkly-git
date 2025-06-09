@@ -263,7 +263,7 @@ export const handleGenerate = async (
         // Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`, // Pass the API key here
       },
       body: JSON.stringify({ 
-        // summary_id: id, 
+        summary_id: id, 
         user_id: userId, 
         week_start: weekStart, 
         goalsWithAccomplishments, 
@@ -272,7 +272,7 @@ export const handleGenerate = async (
 });
 
     console.log('Request body:',{
-        // id: id,
+        id: id,
         user_id: userId,
         week_start: weekStart,
         goalsWithAccomplishments,
