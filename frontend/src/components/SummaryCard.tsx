@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { Summary } from '@utils/goalUtils'; // Adjust the import path as necessary
 import { Trash, Edit, Copy } from 'lucide-react';
 import { cardClasses } from '@styles/classes';
-
+import { notifySuccess, notifyError } from '@components/ToastyNotification';
 interface SummaryCardProps {
   id: Summary["id"]; // Corrected type
   title: Summary["title"]; // Optional title property
@@ -37,8 +37,12 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ id, title, content, type, han
       navigator.clipboard.writeText(content).then(
         () => {
           // Optionally, show a success message or toast here
+          console.log('Copied!');
+          notifySuccess('Content copied to clipboard!'); 
+          
         },
         () => {
+          notifyError('Error copying content to clipboard'); // Show error if copy fails
           // Optionally, handle error (e.g., show an error message)
         }
       );

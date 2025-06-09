@@ -13,6 +13,9 @@
     "bottleneck": "^2.19.5",
     "openai": "^5.1.1",
     "punycode": "^2.3.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-toastify": "^11.0.5",
     "react-transition-group": "^4.4.5",
     "supabase": "^2.24.3",
     "tailwindcss": "^4.1.8"
