@@ -454,7 +454,7 @@ const sortedGoals = [...filteredGoals].sort((a, b) => {
           >
             <div className={`${modalClasses}`}>
               <SummaryEditor
-                // summaryId={selectedSummary?.id || ''} // Pass the correct summary ID
+                initialTitle={selectedSummary.title} // Pass the initial title
                 initialContent={selectedSummary.content} // Pass the initial content
                 onRequestClose={() => setSelectedSummary(null)} // Close the modal
                 onSave={async (editedContent) => {
@@ -469,7 +469,7 @@ const sortedGoals = [...filteredGoals].sort((a, b) => {
                       summaryType: 'User', // or the appropriate summary type
                     });
                     closeEditor(); // Close the modal after saving
-                    setSummary(editedContent); // Update the local state
+                    setSummary(editedContent, selectedSummary.title, 'User'); // Update the local state
                     // await refreshGoals(); // Refetch goals if needed
                     console.log('Edited summary saved successfully');
                   } catch (error) {

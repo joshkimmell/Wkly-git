@@ -244,7 +244,8 @@ export const getWeekStartDate = (date: Date = new Date()): string => {
 
 // Generate a summary using OpenAI
 export const handleGenerate = async (
-  // id: string,  
+  id: string,  
+  title: string,
   userId: string, 
   weekStart: string, 
   goalsWithAccomplishments: {
@@ -259,24 +260,28 @@ export const handleGenerate = async (
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`, // Pass the API key here
+        // Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`, // Pass the API key here
       },
       body: JSON.stringify({ 
         // summary_id: id, 
         user_id: userId, 
         week_start: weekStart, 
         goalsWithAccomplishments, 
+        title,
     }),
 });
 
     console.log('Request body:',{
-        // summary_id: id,
+        // id: id,
         user_id: userId,
         week_start: weekStart,
         goalsWithAccomplishments,
+        title,
       });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error generating summary:', errorText);
       throw new Error('Failed to generate summary');
     }
 
@@ -291,6 +296,7 @@ export const handleGenerate = async (
 // Save a summary to the database
 export const saveSummary = async (
   setLocalSummaryId: (id: string) => void,
+  summaryTitle: string,
   summaryContent: string,
   summaryType: string,
   selectedWeek: Date
@@ -304,6 +310,7 @@ export const saveSummary = async (
 
     const requestBody = {
       user_id: userId,
+      title: summaryTitle,
       week_start: weekStart,
       content: summaryContent,
       summary_type: summaryType,
@@ -416,8 +423,8 @@ export const deleteSummary = async (summary_id: string) => {
 }
 
 // Set the summary in the local state or perform any other action
-export function setSummary(summary: string) {
-    console.log("Generated Summary:", summary);
+export function setSummary(content: string, title: string, type: string) {
+    console.log("Generated Summary:", content, title, type);
     // This function could be expanded to update a state or perform other actions
     // For now, it simply logs the summary to the console
 }

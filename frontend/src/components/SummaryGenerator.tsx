@@ -21,6 +21,7 @@ interface SummaryGeneratorProps {
 
 const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ summaryType: initialSummaryType, selectedWeek, filteredGoals }) => {
   const [summary, setSummary] = useState<string | null>(null);
+  const [summaryTitle, setSummaryTitle] = useState<string | null>(null);
   const [localSummaryId, setLocalSummaryId] = useState<string | null>(null);
   const [summaryType, setSummaryType] = useState<null | 'AI' | 'User'>(initialSummaryType || 'AI');
   
@@ -44,8 +45,14 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ summaryType: initia
         })),
       }));
 
-      const generatedSummary = await handleGenerate(userId, weekStart, goalsWithAccomplishments);
-      setSummary(generatedSummary.content); // or whatever field holds the summary text
+      const generatedSummary = await handleGenerate(
+        localSummaryId || '',
+        summaryTitle || `Summary for week of ${selectedWeek.toLocaleDateString()}`,
+        userId,
+        weekStart,
+        goalsWithAccomplishments,
+      );
+      setSummary(generatedSummary); // or whatever field holds the summary text
       setLocalSummaryId(generatedSummary.id); // Use .id, not .summary_id
       setSummaryType('AI');
       // saveSummary(generatedSummary || '', 'AI');
@@ -54,23 +61,45 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ summaryType: initia
     }
   };
 
-  const handleSave = async (editedContent: string) => {
-  try {
-    // const weekStart = selectedWeek.toISOString().split('T')[0];
-    const { summary_id } = await saveSummary(setLocalSummaryId, editedContent, summaryType || 'User', selectedWeek);
-    setLocalSummaryId(summary_id);
+// const handleSave = async (editedContent: string, editedTitle: string) => {
+//   try {
+//     // Use a default or generated title since only content is passed
+//     const editedTitle = summaryTitle || `Summary for week of ${selectedWeek.toLocaleDateString()}`;
+//     const { summary_id } = await saveSummary(setLocalSummaryId, editedTitle, editedContent, summaryType || 'User', selectedWeek);
+//     setLocalSummaryId(summary_id);
 
-    closeEditor();
-    // Refresh displayed summary with saved summary
-    console.log('Edited summary:', editedContent);
-    setLocalSummaryId(summary_id); // Ensure you set the local summary ID after saving
-    setSummaryType('AI'); // Set the summary type to 'User' after saving
+//     closeEditor();
+//     // Refresh displayed summary with saved summary
+//     // console.log('Edited summary:', editedContent);
+//     setLocalSummaryId(summary_id); // Ensure you set the local summary ID after saving
+//     setSummaryType('User'); // Set the summary type to 'User' after saving
+//     const editedSummary = editedContent && editedTitle ? editedContent : 'No content provided'; // Ensure you have a valid summary content
+//     setSummary(editedSummary); // Update the summary state with the edited content
+//     // setSummary(editedTitle && editedContent);
+//     console.log('Summary title saved successfully:', editedTitle);
+//   } catch (error) {
+//     console.error('Error saving edited summary:', error);
+//   }
+// };
+const handleSave = async (editedContent: string, editedTitle: string) => {
+  try {
+    const { summary_id } = await saveSummary(
+      setLocalSummaryId,
+      editedTitle, // Use the actual edited title from the editor!
+      editedContent,
+      summaryType || 'User',
+      selectedWeek
+    );
+    setLocalSummaryId(summary_id);
+    setSummaryType('User');
     setSummary(editedContent);
+    setSummaryTitle(editedTitle);
+    closeEditor();
+    // console.log('Summary title saved successfully:', editedTitle);
   } catch (error) {
     console.error('Error saving edited summary:', error);
   }
 };
-
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
 
@@ -109,7 +138,7 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ summaryType: initia
         
           <SummaryCard
             id={localSummaryId || ''}
-            title={`Summary for week of ${selectedWeek.toLocaleDateString()}`}
+            title={summaryTitle || `Summary for week of ${selectedWeek.toLocaleDateString()}`}
             content={summary}
             type={summaryType || ''}
             week_start={selectedWeek.toISOString().split('T')[0]}
@@ -132,6 +161,7 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({ summaryType: initia
             
             <SummaryEditor
               // summaryId={localSummaryId || ''} // Pass the summary ID if needed, or keep it empty for new summaries
+              initialTitle={`Summary for week of ${selectedWeek.toLocaleDateString()}`}
               initialContent={summary || ''}
               onRequestClose={closeEditor}
               onSave={handleSave}

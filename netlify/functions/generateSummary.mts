@@ -52,6 +52,13 @@ const generateSummary = async (prompt: string) => {
 };
 
 export const handler: Handler = async (event) => {
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: 'Method Not Allowed' }),
+    };
+  }
+
   try {
     const { user_id, week_start, goalsWithAccomplishments } = JSON.parse(event.body || '{}');
 
@@ -62,6 +69,7 @@ export const handler: Handler = async (event) => {
       };
     }
 
+    // Format week dates
     const weekStartDate = new Date(week_start);
     const weekEndDate = new Date(weekStartDate);
     weekEndDate.setDate(weekStartDate.getDate() + 6);
@@ -77,6 +85,7 @@ export const handler: Handler = async (event) => {
       day: '2-digit',
     });
 
+    // Build prompt
     const prompt = `
       Summarize the following goals with their accomplishments into a concise self-reflection no more than 480 characters. Format for use with ReactQuill.
       Do not include the goals or accomplishments list in the summary. Instead, focus on the overall progress and impact of the goals and accomplishments.
@@ -107,6 +116,7 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({ summary }),
     };
   } catch (error: any) {
+    console.error('Error in generateSummary function:', error);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error.message || 'Failed to generate summary.' }),
