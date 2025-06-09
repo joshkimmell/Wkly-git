@@ -96,6 +96,9 @@
   .btn-ghost {
     @apply text-gray-90 dark:text-gray-30 hover:text-gray-100 hover:dark:text-gray-10 bg-transparent hover:bg-gray-10 dark:hover:bg-gray-80 border-none;
   }
+  .btn-summary {
+    @apply bg-transparent border-none text-gray-90 dark:text-gray-30 hover:text-gray-100 dark:hover:text-gray-10 hover:bg-gray-10 dark:hover:bg-gray-80 focus:outline-none focus:bg-gray-20 focus:dark:bg-gray-70 focus:ring-offset-2 focus:ring-brand-70 font-normal text-base;
+  }
 }
 
 
