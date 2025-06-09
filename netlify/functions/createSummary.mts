@@ -48,6 +48,7 @@ export const handler: Handler = async (event) => {
       ...data,
       id: data.summary_id,
       type: data.summary_type,
+      title: data.title,
     };
 
     return {

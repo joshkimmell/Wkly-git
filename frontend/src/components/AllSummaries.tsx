@@ -8,6 +8,7 @@ import SummaryEditor from '@components/SummaryEditor';
 // import SummaryGenerator from '@components/SummaryGenerator';
 import { modalClasses } from '@styles/classes'; // Adjust the import path as necessary
 import ReactQuill from 'react-quill';
+// import Editor from '@components/Editor';
 
 Modal.setAppElement('#root');
 
@@ -31,7 +32,7 @@ const AllSummaries = () => {
   const [selectedSummary, setSelectedSummary] = useState<Summary | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<Date>(new Date()); // Default to current week
   const [sortField] = useState<'created_at'>('created_at');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
     // Fetch all summaries for the logged-in user
     const handleFetchSummaries = async () => {
@@ -70,17 +71,33 @@ const AllSummaries = () => {
   }
   
   // Save the edited summary
-  const handleSave = async (editedContent: string) => {
+  const handleSave = async (editedContent: string, editedTitle: string) => {
     try {
-     await saveSummary(setLocalSummaryId, editedContent, 'User', selectedWeek);
-      setSummary(editedContent);
-      setSelectedWeek(selectedWeek);
-      closeEditor();
-      console.log('Local summary ID set:', localSummaryId);
+      await saveSummary(setLocalSummaryId, selectedSummary?.title || '', editedContent, 'User', selectedWeek);
+        setSummary(editedContent, editedTitle, selectedSummary?.type || 'User');
+        setSelectedWeek(selectedWeek);
+        closeEditor();
+        handleFetchSummaries(); // Refresh summaries after adding
+        console.log('Local summary ID set:', localSummaryId);
     } catch (error) {
       console.error('Error saving edited summary:', error);
     }
   };
+
+//   const handleSave = async (editedContent: string, editedTitle: string) => {
+//   try {
+//     await editSummary({
+//       summary_id: selectedSummary.id,
+//       content: editedContent,
+//       title: editedTitle, // Pass the edited title here
+//       summary_type: selectedSummary.type,
+//       week_start: selectedSummary.week_start,
+//     });
+//     // ...update state, close modal, etc.
+//   } catch (error) {
+//     console.error('Error saving edited summary:', error);
+//   }
+// };
   
   const handleDeleteSummary = async (summaryId: string) => {
     if (!summaryId) {
@@ -153,59 +170,45 @@ const AllSummaries = () => {
 //   }
 // };
 
-  const handleAddSummary = async () => {
-    try {
-      await fetch('/.netlify/functions/createSummary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          summary_id: newSummary.id,
-          content,
-          summary_type: newSummary.type || 'User', // Default to 'User' if not set
-          title: newSummary.title,
-        }),
+  const handleAddSummary = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+
+    const title = formData.get('title') as string;
+    const content = formData.get('content') as string;
+    const week_start = formData.get('week_start') as string;
+    // const summary_type = formData.get('summary_type') as string;
+
+    // Get user_id from your auth/session context
+    const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('User is not authenticated');
+        return;
+      }
+    const user_id = user; // Ensure user_id is defined
+      await createSummary({
+        user_id,        
+        content,        // string, not undefined
+        summary_type: 'User',   
+        week_start,     // string, e.g. '2025-06-02'
+        title,
       });
-    }
-    catch (err) {
-      console.error('Unexpected error adding summary:', err);
-    }
+      setNewSummary({
+        id: '',
+        title: '',
+        content: '',
+        type: 'User',
+        week_start: '',
+        user_id: user.id,
+        created_at: new Date().toISOString(), // Set created_at to current time
+      });
+      setIsModalOpen(false); // Close the modal after adding
+      handleFetchSummaries(); // Refresh summaries after adding
+      console.log('Summary added successfully');
+    // Reset the form fields
+    form.reset();
   };
-
-
-  // const handleAddSummary = async () => {
-  //   try {
-  //     const { data: { user } } = await supabase.auth.getUser();
-  //     if (!user) {
-  //       console.error('User is not authenticated');
-  //       return;
-  //     }
-
-  //     const { error } = await supabase.from('summaries').insert({
-  //       ...newSummary,
-  //       user_id: user.id,
-  //       created_at: new Date().toISOString(),
-  //     });
-
-  //     if (error) {
-  //       console.error('Error adding summary:', error.message);
-  //       return;
-  //     }
-
-  //     handleFetchSummaries(); // Refresh summaries after adding
-  //     setIsModalOpen(false);
-  //     setNewSummary({
-  //       id: '',
-  //       title: '',
-  //       content: '',
-  //       type: 'AI',
-  //       week_start: '',
-  //       user_id: '',
-  //       created_at: '',
-  //     });
-  //   } catch (err) {
-  //     console.error('Unexpected error adding summary:', err);
-  //   }
-  // };
 
 
   // Filter summaries based on the filter state
@@ -222,36 +225,13 @@ const AllSummaries = () => {
     }
   };
 
-  // AI-generate a summary
-  // const handleAIGenerateSummary = async () => {
-  //   try {
-  //     const { data: { user } } = await supabase.auth.getUser();
-  //     if (!user) {
-  //       console.error('User is not authenticated');
-  //       return;
-  //     }
+  
 
-  //     // Simulate AI generation (replace with actual AI API call)
-  //     const aiGeneratedContent = 'This is an AI-generated summary.';
-
-  //     const { error } = await supabase.from('summaries').insert({
-  //       title: 'AI Summary',
-  //       content: aiGeneratedContent,
-  //       type: 'AI-generated',
-  //       user_id: user.id,
-  //       created_at: new Date().toISOString(),
-  //     });
-
-  //     if (error) {
-  //       console.error('Error generating AI summary:', error.message);
-  //       return;
-  //     }
-
-  //     fetchSummaries(); // Refresh summaries after generating
-  //   } catch (err) {
-  //     console.error('Unexpected error generating AI summary:', err);
-  //   }
+  // const Editor: React.FC<EditorProps> = ({ id, value, className, onChange }) => {
+  //   // ...implementation
+  //   return null; // placeholder
   // };
+
 
   useEffect(() => {
     handleFetchSummaries();
@@ -307,25 +287,31 @@ const AllSummaries = () => {
       </div>
       {isEditorOpen && selectedSummary && ( 
         <Modal
-          isOpen={isEditorOpen}
-          onRequestClose={closeEditor}
-          className="fixed inset-0 flex items-center justify-center z-50"
-          overlayClassName="fixed inset-0 bg-gray-500 bg-opacity-75"
-        > 
-          {/* <div className={modalClasses}> */}
-           <div className={`${modalClasses}`}>
+            key={selectedSummary.id} // Use the summary ID as the key
+            isOpen={!!selectedSummary} // Ensure modal is open only when selectedSummary is set
+            onRequestClose={() => setSelectedSummary(null)} // Close the modal properly
+            className={`fixed inset-0 flex items-center justify-center z-50`}
+            overlayClassName="fixed inset-0 bg-gray-50 dark:bg-gray-80 dark:bg-opacity-75"
+          >
+            <div className={`${modalClasses}`}>
               <SummaryEditor
-                // summaryId={selectedSummary?.id || ''} // Pass the correct summary ID
+                initialTitle={selectedSummary.title} // Pass the initial title
                 initialContent={selectedSummary.content} // Pass the initial content
                 onRequestClose={() => setSelectedSummary(null)} // Close the modal
-                onSave={async (editedContent) => {
+                onSave={async (editedContent, editedTitle) => {
                   try {
                     // Save the edited summary as a new entry with summary_type === 'User'
                     // Optionally, you can also update the local state or refetch the summaries
-                    await saveSummary(setLocalSummaryId, editedContent, 'User', selectedWeek);
+                    saveSummary(
+                      setLocalSummaryId,
+                      selectedSummary?.title || editedTitle,
+                      editedContent,
+                      'User',
+                      selectedWeek || new Date()
+                    );
                     closeEditor(); // Close the modal after saving
-                    setSummary(editedContent); // Update the local state
-                    handleFetchSummaries(); // Refresh summaries
+                    setSummary(editedContent, editedTitle, 'User'); // Update the local state
+                    handleFetchSummaries(); // Refresh summaries after adding
                     console.log('Edited summary saved successfully');
                   } catch (error) {
                     console.error('Error saving edited summary:', error);
@@ -333,26 +319,7 @@ const AllSummaries = () => {
                 }}
               />
             </div>
-            
-            {/* <div className='flex flex-row justify-end mt-4 gap-2'>
-              <button
-                onClick={() => closeEditor()}
-                className="btn-secondary"
-              >
-                Cancel
-              </button> 
-              <button
-                onClick={() => handleSave(
-                  selectedSummary.content,
-                )} // Save as 'User' type
-                className="btn-primary"
-              >
-                Save edited summary
-              </button> 
-              
-            </div> */}
-          {/* </div> */}
-        </Modal> 
+          </Modal> 
        )}
         
 
@@ -364,12 +331,15 @@ const AllSummaries = () => {
           className="fixed inset-0 flex items-center justify-center z-50"
           overlayClassName="fixed inset-0 bg-gray-500 bg-opacity-75"
         >
-          <div className={`${modalClasses}`}>
+          
+          {/* Uncomment this section if you want to use the form directly */}
+          <form id="summaryForm" onSubmit={handleAddSummary} className={`${modalClasses}`}>
             <h3 className="text-lg font-medium text-gray-900 mb-4">Add Summary</h3>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Title</label>
                 <input
+                  name="title"
                   type="text"
                   value={newSummary.title}
                   onChange={(e) =>
@@ -379,13 +349,36 @@ const AllSummaries = () => {
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700">Select timeframe</label>
+                <input
+                  name="week_start"
+                  type="date"
+                  value={newSummary.week_start}
+                  onChange={(e) =>
+                    setNewSummary({ ...newSummary, week_start: e.target.value })
+                  }
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700">Content</label>
                 <ReactQuill
-                    id={newSummary.id}
-                    value={newSummary.content}
-                    onChange={(value) =>
-                      setNewSummary({ ...newSummary, content: value })
-                    }
+                  id={newSummary.id}
+                  value={newSummary.content}
+                  className=""
+                  
+                  onChange={(value) =>
+                    setNewSummary({ ...newSummary, content: value })
+                  }
+                  // ReactQuill does not support the "name" prop directly,
+                  // but you can add a hidden input to include it in form data:
+                />
+                
+                <input
+                  type="hidden"
+                  name="content"
+                  value={newSummary.content}
+                  readOnly
                 />
               </div>
             </div>
@@ -398,13 +391,13 @@ const AllSummaries = () => {
                 Cancel
               </button>
               <button
-                onClick={handleAddSummary}
+                type="submit"
                 className="btn-primary"
               >
                 Add
               </button>
             </div>
-          </div>
+          </form>
         </Modal>
        )}
     </div>
