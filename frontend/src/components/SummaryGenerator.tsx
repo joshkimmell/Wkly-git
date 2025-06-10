@@ -202,7 +202,7 @@ const handleSave = async (editedContent: string, editedTitle: string) => {
           className="fixed inset-0 flex items-center justify-center z-50"
           overlayClassName="fixed inset-0 bg-gray-500 bg-opacity-75"
         > 
-          <div className={ `${modalClasses} gap-4` }>
+          {/* <div className={ `${modalClasses} gap-4` }> */}
             
             <SummaryEditor
               id={localSummaryId || ''} // Pass the summary ID if needed, or keep it empty for new summaries
@@ -212,7 +212,7 @@ const handleSave = async (editedContent: string, editedTitle: string) => {
               onRequestClose={closeEditor}
               onSave={handleSave}
             />
-          </div>
+          {/* </div> */}
         </Modal> 
        )}
     </div>

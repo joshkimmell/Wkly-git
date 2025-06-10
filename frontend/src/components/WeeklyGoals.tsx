@@ -1,35 +1,37 @@
 import { useEffect, useState, useRef } from 'react';
-import { fetchGoals, filterGoalsByWeek, addGoal, deleteGoal, updateGoal, getWeekStartDate, setSummary } from '@utils/functions';
+import { fetchGoals, filterGoalsByWeek, filterGoalsByMonth, filterGoalsByYear, addGoal, deleteGoal, updateGoal, getWeekStartDate, setSummary, saveSummary } from '@utils/functions';
 import GoalCard from '@components/GoalCard';
+import Pagination from '@components/Pagination';
 import Modal from 'react-modal';
 import { Goal as BaseGoal } from '@utils/goalUtils';
 
-type Goal = BaseGoal & {
-  created_at?: string;
-};
 import supabase from '@lib/supabase';
 import SummaryGenerator from '@components/SummaryGenerator';
-import saveSummary from '@components/SummaryGenerator';
+// import saveSummary from '@components/SummaryGenerator';
 import SummaryEditor from '@components/SummaryEditor';
 import { modalClasses } from '@styles/classes';
 import 'react-datepicker/dist/react-datepicker.css';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 
 
+Modal.setAppElement('#root');
 
+type Goal = BaseGoal & {
+  created_at?: string;
+};
 const WeeklyGoals = () => {
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [filteredGoals, setFilteredGoals] = useState<Goal[]>([]);
+  const [weekOptions, setWeekOptions] = useState<Date[]>([]);
+  const [selectedWeek, setSelectedWeek] = useState<Date | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<Date | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [scope, setScope] = useState<'week' | 'month' | 'year'>('week');
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const hasFetchedData = useRef(false);
-  const [goals, setGoals] = useState<Goal[]>([]);
-  // const [summary, setSummary] = useState<string | null>(null); // Summary state
-  // const [error, setError] = useState<string | null>(null); // Error state
-  const [filteredGoals, setFilteredGoals] = useState<Goal[]>([]);
-  const [weekOptions, setWeekOptions] = useState<Date[]>([]); // Store weeks as Date objects
-  const [selectedWeek, setSelectedWeek] = useState<Date | null>(null); // Default to null until fetched
-  const [filter, setFilter] = useState<string>(''); // For filtering goals
   const [sortField] = useState<'created_at'>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [isLoading, setIsLoading] = useState<boolean>(true); // Loading state
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false); // Modal state
   const [isEditorOpen, setIsEditorOpen] = useState(false); // Editor modal state
   const [newGoal, setNewGoal] = useState<Goal>({
@@ -42,16 +44,6 @@ const WeeklyGoals = () => {
     created_at: '',
   });
   
-  
-  // console.log('User ID:', userId); // Log the user ID for debugging
-
-  // const openEditor = () => {
-  //   setIsEditorOpen(true);
-  // };
-  const closeEditor = () => {
-    setIsEditorOpen(false);
-  };
-  
   const [userId, setUserId] = useState<string | null>(null);
   // Initialize theme based on user's preference
   
@@ -62,6 +54,8 @@ const WeeklyGoals = () => {
     type: string;
     title: string;
   } | null>(null); // State for selected summary
+
+  const [filter, setFilter] = useState<string>('');
 
 
 // TODO: Replace this with your actual theme logic or context
@@ -110,7 +104,9 @@ const WeeklyGoals = () => {
         // Fetch goals for the most recent week
         const weekStart = mostRecentWeek.toISOString().split('T')[0]; // Convert to YYYY-MM-DD
         const fetchedGoals = await fetchGoals(weekStart);
-        setGoals(fetchedGoals);
+        if (JSON.stringify(goals) !== JSON.stringify(fetchedGoals)) {
+          setGoals(fetchedGoals);
+        }
         setSelectedWeek(mostRecentWeek);
         // Do NOT call setFilteredGoals here; let useEffect handle it
       } catch (error) {
@@ -130,24 +126,100 @@ const WeeklyGoals = () => {
 //   setFilteredGoals(filterGoalsByWeek(fetchedGoals, selectedWeek));
 // };
 
+  // USE THIS FOR WEEKLY GOALS ONLY
+  // const refreshGoals = async () => {
+  //   if (!selectedWeek) {
+  //     console.error('Selected week is not set');
+  //     return;
+  //   }
+  
+  //   try {
+  //     // const weekStart = getWeekStartDate(selectedWeek); // Get Monday as YYYY-MM-DD
+  //     const weekStart = selectedWeek.toISOString().split('T')[0]; // Convert to YYYY-MM-DD format
+  //     const fetchedGoals = await fetchGoals(weekStart); // Fetch goals for the week
+  //     setGoals(fetchedGoals);
+  
+  //     const filtered = filterGoalsByWeek(fetchedGoals, selectedWeek);
+  //     setFilteredGoals(filtered);
+  //   } catch (error) {
+  //     console.error('Error refreshing goals:', error);
+  //   }
+  // };
+
   const refreshGoals = async () => {
-    if (!selectedWeek) {
-      console.error('Selected week is not set');
-      return;
-    }
-  
     try {
-      // const weekStart = getWeekStartDate(selectedWeek); // Get Monday as YYYY-MM-DD
-      const weekStart = selectedWeek.toISOString().split('T')[0]; // Convert to YYYY-MM-DD format
-      const fetchedGoals = await fetchGoals(weekStart); // Fetch goals for the week
-      setGoals(fetchedGoals);
-  
-      const filtered = filterGoalsByWeek(fetchedGoals, selectedWeek);
-      setFilteredGoals(filtered);
+      let fetchedGoals = [];
+      let filtered = [];
+
+      switch (scope) {
+        case 'month':
+          if (!selectedMonth) return;
+          fetchedGoals = await fetchGoals(selectedMonth.toISOString().split('T')[0]);
+          filtered = filterGoalsByMonth(fetchedGoals, selectedMonth);
+          break;
+        case 'year':
+          if (!selectedYear) return;
+          fetchedGoals = await fetchGoals(`${selectedYear}-01-01`); // Fetch goals for the year
+          filtered = filterGoalsByYear(fetchedGoals, new Date(selectedYear, 0, 1));
+          break;
+        default:
+          if (!selectedWeek) return;
+          fetchedGoals = await fetchGoals(selectedWeek.toISOString().split('T')[0]);
+          filtered = filterGoalsByWeek(fetchedGoals, selectedWeek);
+      }
+
+      if (JSON.stringify(goals) !== JSON.stringify(fetchedGoals)) {
+        setGoals(fetchedGoals);
+      }
+
+      if (JSON.stringify(filteredGoals) !== JSON.stringify(filtered)) {
+        setFilteredGoals(filtered);
+      }
     } catch (error) {
       console.error('Error refreshing goals:', error);
     }
   };
+
+  // Refresh goals whenever the scope or selected time period changes
+  useEffect(() => {
+    if (scope === 'week' && selectedWeek) {
+      refreshGoals();
+    } else if (scope === 'month' && selectedMonth) {
+      refreshGoals();
+    } else if (scope === 'year' && selectedYear) {
+      refreshGoals();
+    }
+  }, [scope, selectedWeek, selectedMonth, selectedYear]);
+
+  // Handle scope change
+  const handleScopeChange = (newScope: 'week' | 'month' | 'year') => {
+    setScope(newScope);
+
+    // Reset the selected time period for the new scope
+    switch (newScope) {
+      case 'month':
+        setSelectedMonth(new Date());
+        break;
+      case 'year':
+        setSelectedYear(new Date().getFullYear());
+        break;
+      default:
+        setSelectedWeek(new Date());
+    }
+  };
+
+  // Handle month change
+  const handleMonthChange = (month: string) => {
+    setSelectedMonth(new Date(month));
+  };
+
+  // Handle year change
+  const handleYearChange = (year: number) => {
+    setSelectedYear(year);
+  };
+
+  // Handle week change
+  // (Removed duplicate handleWeekChange to fix redeclaration error)
 
   // console.log('Goals fetched:', goals);
   // console.log('Selected week:', selectedWeek); // Log the user ID for debugging
@@ -166,9 +238,14 @@ useEffect(() => {
     try {
       const weekStart = selectedWeek.toISOString().split('T')[0];
       const fetchedGoals = await fetchGoals(weekStart);
-      const filtered = filterGoalsByWeek(fetchedGoals, weekStart);
-      setGoals(fetchedGoals);
-      setFilteredGoals(filtered); // Set filtered goals to fetched goals
+      const filtered = filterGoalsByWeek(fetchedGoals, selectedWeek);
+      if (JSON.stringify(goals) !== JSON.stringify(fetchedGoals)) {
+        setGoals(fetchedGoals);
+      }
+
+      if (JSON.stringify(filteredGoals) !== JSON.stringify(filtered)) {
+        setFilteredGoals(filtered);
+      }
     } catch (error) {
       console.error('Error fetching goals for week:', error);
     } finally {
@@ -176,7 +253,7 @@ useEffect(() => {
     }
   };
   fetchAndSetGoals();
-}, [selectedWeek]);
+}, [selectedWeek, scope]);
 
   // Handle week selection from the dropdown
   const handleWeekChange = (selectedWeek: string) => {
@@ -302,8 +379,8 @@ useEffect(() => {
   const closeGoalModal = () => {
     setIsGoalModalOpen(false);
   };
-console.log('Weeks fetched:', weekOptions);
-console.log('Selected week:', selectedWeek); // Log the selected week for debugging
+// console.log('Weeks fetched:', weekOptions);
+// console.log('Selected week:', selectedWeek); // Log the selected week for debugging
 // console.log('Current:', current);
 
 const sortedGoals = [...filteredGoals].sort((a, b) => {
@@ -330,14 +407,119 @@ const sortedGoals = [...filteredGoals].sort((a, b) => {
 });
 
 
+  // Sets the selected summary ID and opens the editor modal
+  function setLocalSummaryId(id: string): void {
+    setSelectedSummary((prev) => prev ? { ...prev, id } : prev);
+    setIsEditorOpen(true);
+  }
+  function closeEditor() {
+    setIsEditorOpen(false);
+  }
+
+  const getPagesWithData = (scope: 'week' | 'month' | 'year') => {
+    switch (scope) {
+      case 'week':
+        return weekOptions
+          .filter((week) => goals.some((goal) => new Date(goal.week_start).getTime() === week.getTime()))
+          .map((week) => week.toISOString().split('T')[0]); // Convert to YYYY-MM-DD
+      case 'month':
+        return Array.from(new Set(goals.map((goal) => goal.week_start.slice(0, 7)))); // Extract unique months (YYYY-MM)
+      case 'year':
+        return Array.from(new Set(goals.map((goal) => goal.week_start.slice(0, 4)))); // Extract unique years (YYYY)
+      default:
+        return [];
+    }
+  };
+
+
+  const handlePageChange = (page: string) => {
+    switch (scope) {
+      case 'week':
+        setSelectedWeek(new Date(page));
+        break;
+      case 'month':
+        setSelectedMonth(new Date(`${page}-01`)); // Convert YYYY-MM to Date
+        break;
+      case 'year':
+        setSelectedYear(Number(page));
+        break;
+      default:
+        break;
+    }
+  };
+  // };
+  const pagesWithData = getPagesWithData(scope);
+
+  const getMonthName = (dateString: string): string => {
+  const [year, month] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1); // Convert to Date object
+  return `${new Intl.DateTimeFormat('en-US', { month: 'long' }).format(date)} ${year}`;
+};
+
+const formattedPagesWithData = pagesWithData.map((page) => {
+  if (scope === 'month') {
+    return getMonthName(page); // Format month names
+  }
+  return page; // Keep other scopes as-is
+});
+
   return (
     <div className={`space-y-6`}>
       <div className="flex justify-between items-center w-full">
-        <h1 className="text-2xl font-bold text-gray-90 block sm:hidden">Weekly Goals</h1>
+        <h1 className="text-2xl font-bold text-gray-90 block sm:hidden">{scope}ly goals</h1>
       </div>
+
+      {/* Scope Selector */}
+      <div className="flex items-center space-x-4">
+        {/* <label htmlFor="scope" className="text-sm font-medium text-gray-700">
+          Scope:
+        </label> */}
+        <div id="scope" className="flex space-x-2">
+          {scope !== 'week' ? (
+            <button value="week" className="btn-ghost" onClick={() => handleScopeChange('week')}>W</button>
+          ) : (
+            <button value="week" className="btn-ghost font-bold underline">W</button>
+          )}
+          {scope !== 'month' ? (
+            <button value="month" className="btn-ghost" onClick={() => handleScopeChange('month')}>M</button>
+          ) : (
+            <button value="month" className="btn-ghost font-bold underline">M</button>
+          )}
+          {scope !== 'year' ? (
+            <button value="year" className="btn-ghost" onClick={() => handleScopeChange('year')}>Y</button>
+          ) : (
+            <button value="year" className="btn-ghost font-bold underline">Y</button>
+          )}
+        </div>
+      </div>
+
+      {/* Pagination */}
+      <Pagination
+        pages={formattedPagesWithData}
+        currentPage={
+          scope === 'week'
+            ? selectedWeek?.toISOString().split('T')[0] || ''
+            : scope === 'month'
+            ? getMonthName(selectedMonth?.toISOString().slice(0, 7) || '')
+            : scope === 'year'
+            ? selectedYear?.toString() || ''
+            : ''
+        }
+        onPageChange={(page) => {
+          if (scope === 'month') {
+            const [monthName, year] = page.split(' ');
+            const monthIndex = new Date(`${monthName} 1, ${year}`).getMonth() + 1;
+            handleMonthChange(`${year}-${String(monthIndex).padStart(2, '0')}`);
+          } else {
+            handlePageChange(page);
+          }
+        }}
+      />
+
 
       {/* Week Selector */}
       <div className="flex items-center justify-between space-x-4">
+        {scope === 'week' && (
         <div className="flex items-center space-x-4">
           <button
             onClick={handlePreviousWeek}
@@ -365,6 +547,28 @@ const sortedGoals = [...filteredGoals].sort((a, b) => {
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
+        )}
+        {scope === 'month' && (
+        <div className="flex items-center space-x-4">
+          <input
+            type="month"
+            value={selectedMonth?.toISOString().slice(0, 7) || ''}
+            onChange={(e) => handleMonthChange(e.target.value)}
+            className="px-4 py-2 border rounded-md"
+          />
+        </div>
+        )}
+        {scope === 'year' && (
+        <div className="flex items-center space-x-4">
+          <input
+            type="number"
+            value={selectedYear || ''}
+            onChange={(e) => handleYearChange(Number(e.target.value))}
+            className="px-4 py-2 border rounded-md"
+            placeholder="Year"
+          />
+        </div>
+        )}
 
             
           
@@ -421,7 +625,8 @@ const sortedGoals = [...filteredGoals].sort((a, b) => {
             summaryId={selectedSummary?.id || ''} 
             selectedWeek={selectedWeek || new Date()}
             filteredGoals={filteredGoals}
-            summaryType='AI' // or the appropriate summary type
+            summaryType={selectedSummary?.type === 'AI' || selectedSummary?.type === 'User' ? selectedSummary?.type : 'User'} // 
+            // summaryType={selectedSummary?.type || 'AI'}
           />
 
           {selectedSummary && isEditorOpen && (
@@ -443,13 +648,13 @@ const sortedGoals = [...filteredGoals].sort((a, b) => {
                   try {
                     // Save the edited summary as a new entry with summary_type === 'User'
                     // Optionally, you can also update the local state or refetch the summaries
-                    saveSummary({
-                      summaryId: selectedSummary?.id || '',
-                      content: editedContent,
-                      selectedWeek: selectedWeek || new Date(),
-                      filteredGoals: filteredGoals,
-                      summaryType: 'User', // or the appropriate summary type
-                    });
+                    saveSummary(
+                      setLocalSummaryId,
+                      selectedSummary.title,
+                      editedContent,
+                      'User',
+                      selectedWeek || new Date()
+                    );
                     closeEditor(); // Close the modal after saving
                     setSummary(editedContent, selectedSummary.title, 'User'); // Update the local state
                     // await refreshGoals(); // Refetch goals if needed

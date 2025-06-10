@@ -293,7 +293,7 @@ const AllSummaries = () => {
             className={`fixed inset-0 flex items-center justify-center z-50`}
             overlayClassName="fixed inset-0 bg-gray-50 dark:bg-gray-80 dark:bg-opacity-75"
           >
-            <div className={`${modalClasses}`}>
+            {/* <div className={`${modalClasses}`}> */}
               <SummaryEditor
                 id={selectedSummary.id}
                 type='User' // Assuming 'User' is the type for user-edited summaries  
@@ -320,7 +320,7 @@ const AllSummaries = () => {
                   }
                 }}
               />
-            </div>
+            {/* </div> */}
           </Modal> 
        )}
         

@@ -16,7 +16,7 @@ import LoadingSpinner from '@components/LoadingSpinner';
 
 
 
-function App() {
+const App: React.FC = () => {
   const { session, isLoading } = useAuth();
   const navigate = useNavigate();
   const [theme, setTheme] = useState<'theme-dark' | 'theme-light'>(
@@ -209,7 +209,7 @@ function App() {
             </Routes>
           </main>
         </GoalsProvider>
-        <ToastNotification />
+        <ToastNotification theme={theme} />
       </div>
     </div>
     </SessionContextProvider>

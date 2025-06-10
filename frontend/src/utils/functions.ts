@@ -9,6 +9,7 @@ import React from "react";
 import { Goal, Summary } from "@utils/goalUtils";
 // import axios from "axios";
 import supabase from "@lib/supabase";
+import { notifyError, notifySuccess } from "@components/ToastyNotification";
 // import { set } from "lodash";
 
 const backend = '/.netlify/functions';
@@ -96,6 +97,37 @@ export const fetchGoals = async (weekStart: string): Promise<Goal[]> => {
   return goals;
 };
 
+// export const fetchGoals = async (weekStart: string): Promise<Goal[]> => {
+//   const { data: { user } } = await supabase.auth.getUser();
+//   if (!user) throw new Error('User is not authenticated');
+//   const userId = user.id;
+
+//   const response = await fetch(`${backend}/getGoals?user_id=${userId}&week_start=${weekStart}`, {
+//     method: 'GET',
+//     headers: {
+//       'Content-Type': 'application/json',
+//       Authorization: `Bearer ${userId}`,
+//     },
+//   });
+//   // const text = await response.text();
+//   // console.log(text); // See what you actually got
+//   // const data = JSON.parse(text); // Only if it's valid JSON
+//   // console.log('Response data:', data); // Log the parsed data
+
+//   if (!response.ok) {
+//     const errorText = await response.text();
+//     console.error('Error fetching goals:', errorText);
+//     throw new Error('Failed to fetch goals');
+//   }
+
+//   // return response.json();
+//   const goals = await response.json();
+//   // Sort by created date ascending
+//   goals.sort((a: { created_at: string | number | Date; }, b: { created_at: string | number | Date; }) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+//   console.log('Fetched goals:', goals);
+//   return goals;
+// };
+
 // Add a new goal
 export const addGoal = async (newGoal: any) => {
   const { data: { user } } = await supabase.auth.getUser();
@@ -105,7 +137,7 @@ export const addGoal = async (newGoal: any) => {
   // Ensure user_id is included in the body if your backend expects it
   const goalToSend = { ...newGoal, user_id: userId };
 
-  console.log('addGoal request:', goalToSend);
+  // console.log('addGoal request:', goalToSend);
 
   const response = await fetch(`${backend}/createGoal?user_id=${userId}`, {
     method: 'POST',
@@ -119,9 +151,11 @@ export const addGoal = async (newGoal: any) => {
   if (!response.ok) {
     const errorText = await response.text();
     console.error('Error adding goal:', errorText);
+    notifyError('Failed to add goal');
     throw new Error('Failed to add goal');
   }
 
+  notifySuccess('Goal added successfully!');
   return response.json();
 };
 export const handleSubmit = async (
@@ -172,9 +206,10 @@ export const deleteGoal = async (goalId: string) => {
   });
 
   if (!response.ok) {
+    notifyError('Failed to delete goal');
     throw new Error('Failed to delete goal');
   }
-
+  notifySuccess('Goal deleted successfully!');
   return response.json();
 };
 export const handleDeleteGoal = async (
@@ -217,17 +252,29 @@ export const updateGoal = async (goalId: string, updatedGoal: any) => {
 };                    
 
 // Filter goals by week
-export const filterGoalsByWeek = (goals: Goal[], selectedWeek: string | Date): Goal[] => {
-  const startOfWeek = new Date(selectedWeek);
-  startOfWeek.setHours(0, 0, 0, 0);
+// export const filterGoalsByWeek = (goals: Goal[], selectedWeek: string | Date): Goal[] => {
+//   const startOfWeek = new Date(selectedWeek);
+//   startOfWeek.setHours(0, 0, 0, 0);
 
-  const endOfWeek = new Date(selectedWeek);
-  endOfWeek.setDate(endOfWeek.getDate() + 6);
-  endOfWeek.setHours(23, 59, 59, 999);
+//   const endOfWeek = new Date(selectedWeek);
+//   endOfWeek.setDate(endOfWeek.getDate() + 6);
+//   endOfWeek.setHours(23, 59, 59, 999);
+
+//   return goals.filter((goal) => {
+//     const goalDate = new Date(goal.week_start);
+//     return goalDate >= startOfWeek && goalDate <= endOfWeek;
+//   });
+// };
+
+export const filterGoalsByWeek = (goals: Goal[], selectedWeek: Date) => {
+  const weekStart = new Date(selectedWeek);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Get the start of the week (Sunday)
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6); // Get the end of the week (Saturday)
 
   return goals.filter((goal) => {
     const goalDate = new Date(goal.week_start);
-    return goalDate >= startOfWeek && goalDate <= endOfWeek;
+    return goalDate >= weekStart && goalDate <= weekEnd;
   });
 };
 
@@ -240,6 +287,36 @@ export const getWeekStartDate = (date: Date = new Date()): string => {
   d.setDate(diff);
   d.setHours(0, 0, 0, 0);
   return d.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+};
+
+export const filterGoalsByMonth = (goals: Goal[], selectedDate: Date) => {
+  const month = selectedDate.getMonth();
+  const year = selectedDate.getFullYear();
+
+  return goals.filter((goal) => {
+    const goalDate = new Date(goal.week_start);
+    return goalDate.getMonth() === month && goalDate.getFullYear() === year;
+  });
+};
+
+export const filterGoalsByQuarter = (goals: Goal[], selectedDate: Date) => {
+  const quarterStartMonth = Math.floor(selectedDate.getMonth() / 3) * 3; // Get the start month of the quarter
+  const year = selectedDate.getFullYear();
+
+  return goals.filter((goal) => {
+    const goalDate = new Date(goal.week_start);
+    const goalQuarterStartMonth = Math.floor(goalDate.getMonth() / 3) * 3;
+    return goalQuarterStartMonth === quarterStartMonth && goalDate.getFullYear() === year;
+  });
+};
+
+export const filterGoalsByYear = (goals: Goal[], selectedDate: Date) => {
+  const year = selectedDate.getFullYear();
+
+  return goals.filter((goal) => {
+    const goalDate = new Date(goal.week_start);
+    return goalDate.getFullYear() === year;
+  });
 };
 
 // Generate a summary using OpenAI
@@ -268,30 +345,33 @@ export const handleGenerate = async (
         week_start: weekStart, 
         goalsWithAccomplishments, 
         title,
-    }),
-});
-
-    console.log('Request body:',{
-        id: id,
-        user_id: userId,
-        week_start: weekStart,
-        goalsWithAccomplishments,
-        title,
-      });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error generating summary:', errorText);
-      throw new Error('Failed to generate summary');
+      }),
+    });
+    
+    // console.log('Request body:',{
+      //     id: id,
+      //     user_id: userId,
+      //     week_start: weekStart,
+      //     goalsWithAccomplishments,
+      //     title,
+      //   });
+      notifySuccess('Summary generated successfully!'); // Notify success
+      // console.log('Response status:', response.status); // Log the response status
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error generating summary:', errorText);
+        notifyError('Failed to generate summary'); // Notify error
+        throw new Error('Failed to generate summary');
+      }
+      
+      const data = await response.json();
+      return data.summary;
+    } catch (error) {
+      console.error('Error generating summary:', error);
+      throw error;
     }
-
-    const data = await response.json();
-    return data.summary;
-  } catch (error) {
-    console.error('Error generating summary:', error);
-    throw error;
-  }
-};
+  };
 
 // Save a summary to the database
 export const saveSummary = async (
@@ -324,9 +404,11 @@ export const saveSummary = async (
 
     if (error) {
       console.error('Supabase error:', error); // <--- log the actual error
+      notifyError('Failed to save summary'); // Notify error
       throw new Error('Failed to save summary');
     }
     setLocalSummaryId(data.summary_id); // <-- Set the actual ID from the backend
+    notifySuccess('Summary saved successfully!'); // Notify success
     return data; // Return the inserted row (including id)
   } catch (error) {
     throw error;
@@ -417,8 +499,10 @@ export const deleteSummary = async (summary_id: string) => {
     // setSummary(null); // Remove summary from local state
     // setIsEditorOpen(false); // Close editor if open
     console.log('Summary deleted successfully');
+    notifySuccess('Summary deleted successfully!'); 
   } catch (error) {
     console.error('Error deleting summary:', error);
+    notifyError('Failed to delete summary');
   }
 }
 
