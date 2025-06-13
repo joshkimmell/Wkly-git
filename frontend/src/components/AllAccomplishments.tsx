@@ -174,14 +174,18 @@ const AllAccomplishments = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className=" block sm:hidden">All Accomplishments</h1>
-        <button
-          onClick={openModal}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          Add Accomplishment
-        </button>
-      </div>
+        <h1 className=" block sm:hidden">All accomplishments</h1>
+        <div className="space-x-4 py-4 w-full justify-end flex">
+          <button
+            onClick={() => openModal()}
+            className="btn-primary"
+            title="Add Accomplishment"
+            aria-label="Add Accomplishment"
+            >
+            Add Accomplishment
+          </button>
+        </div>
+      </div> 
 
       {/* Filter Input */}
       <div className="mt-4 h-10 flex items-center space-x-2">

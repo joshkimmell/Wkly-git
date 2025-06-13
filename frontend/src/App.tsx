@@ -3,7 +3,8 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { GoalsProvider } from '@context/GoalsContext';
 import { classTabItem } from '@styles/classes';
 import ToastNotification, { notifySuccess, notifyError } from '@components/ToastyNotification';
-import WeeklyGoals from '@components/WeeklyGoals';
+// import WeeklyGoals from '@components/WeeklyGoals';
+import AllGoals from '@components/AllGoals';
 import Header from '@components/Header';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import supabase from '@lib/supabase';
@@ -16,7 +17,7 @@ import LoadingSpinner from '@components/LoadingSpinner';
 
 
 
-function App() {
+const App: React.FC = () => {
   const { session, isLoading } = useAuth();
   const navigate = useNavigate();
   const [theme, setTheme] = useState<'theme-dark' | 'theme-light'>(
@@ -202,14 +203,15 @@ function App() {
               </div>
             </div>
             <Routes>
-              <Route path="/" element={<WeeklyGoals />} />
+              {/* <Route path="/" element={<WeeklyGoals />} /> */}
+              <Route path="/" element={<AllGoals />} />
               <Route path="/accomplishments" element={<AllAccomplishments />} />
               <Route path="/summaries" element={<AllSummaries />} />
               <Route path="/auth" element={<Navigate to="/" replace />} />
             </Routes>
           </main>
         </GoalsProvider>
-        <ToastNotification />
+        <ToastNotification theme={theme} />
       </div>
     </div>
     </SessionContextProvider>

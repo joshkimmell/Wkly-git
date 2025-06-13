@@ -1,15 +1,8 @@
-// DO NOT USE STATE IN THIS FILE
-// This file contains utility functions for handling goals and accomplishments.
-// It should not contain any React state or hooks.
-// Instead, pass any necessary state and functions as parameters to the functions defined here.
-//
-
 import React from "react";
-// import { Goal, FetchGoalsParams }from "@utils/goalUtils";
 import { Goal, Summary } from "@utils/goalUtils";
-// import axios from "axios";
 import supabase from "@lib/supabase";
-// import { set } from "lodash";
+import { notifyError, notifySuccess } from "@components/ToastyNotification";
+import { v4 as uuidv4 } from "uuid";
 
 const backend = '/.netlify/functions';
 export const backendUrl = backend + '/api/summaries';
@@ -65,36 +58,183 @@ export const handleSignOut = async (setError: React.Dispatch<React.SetStateActio
 
 
 // Fetch all goals
-export const fetchGoals = async (weekStart: string): Promise<Goal[]> => {
+// export const fetchGoals = async (weekStart: string): Promise<Goal[]> => {
+//   const { data: { user } } = await supabase.auth.getUser();
+//   if (!user) throw new Error('User is not authenticated');
+//   const userId = user.id;
+
+//   const response = await fetch(`${backend}/getGoals?user_id=${userId}&week_start=${weekStart}`, {
+//     method: 'GET',
+//     headers: {
+//       'Content-Type': 'application/json',
+//       Authorization: `Bearer ${userId}`,
+//     },
+//   });
+//   // const text = await response.text();
+//   // // console.log(text); // See what you actually got
+//   // const data = JSON.parse(text); // Only if it's valid JSON
+//   // // console.log('Response data:', data); // Log the parsed data
+
+//   if (!response.ok) {
+//     const errorText = await response.text();
+//     console.error('Error fetching goals:', errorText);
+//     throw new Error('Failed to fetch goals');
+//   }
+
+//   // return response.json();
+//   const goals = await response.json();
+//   // Sort by created date ascending
+//   goals.sort((a: { created_at: string | number | Date; }, b: { created_at: string | number | Date; }) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+//   // console.log('Fetched goals:', goals);
+//   return goals;
+// };
+
+export const fetchAllGoals = async (): Promise<Goal[]> => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User is not authenticated');
   const userId = user.id;
 
-  const response = await fetch(`${backend}/getGoals?user_id=${userId}&week_start=${weekStart}`, {
+  const response = await fetch(`${backend}/getAllGoals?user_id=${userId}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${userId}`,
     },
   });
-  // const text = await response.text();
-  // console.log(text); // See what you actually got
-  // const data = JSON.parse(text); // Only if it's valid JSON
-  // console.log('Response data:', data); // Log the parsed data
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('Error fetching goals:', errorText);
-    throw new Error('Failed to fetch goals');
+    console.error('Error fetching all goals:', errorText);
+    throw new Error('Failed to fetch all goals');
   }
 
-  // return response.json();
   const goals = await response.json();
   // Sort by created date ascending
-  goals.sort((a: { created_at: string | number | Date; }, b: { created_at: string | number | Date; }) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-  console.log('Fetched goals:', goals);
+  goals.sort((a: { created_at: string | number | Date }, b: { created_at: string | number | Date }) =>
+    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
+  // console.log('Fetched all goals:', goals);
+  // // console.log('Request Query Parameters:', response.body);
+  // // console.log('User ID:', userId);
   return goals;
 };
+
+export const indexDataByScope = <T extends { week_start: string }>(
+  data: T[],
+  scope: 'week' | 'month' | 'year'
+): Record<string, T[]> => {
+  const indexedData: Record<string, T[]> = {};
+
+  data.forEach((item) => {
+    const itemDate = new Date(item.week_start);
+    let key: string;
+
+    switch (scope) {
+      case 'week':
+        key = item.week_start; // Use the exact week_start date
+        break;
+      case 'month':
+        key = `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}`; // Format as YYYY-MM
+        break;
+      case 'year':
+        key = `${itemDate.getFullYear()}`; // Use the year
+        break;
+      default:
+        throw new Error('Invalid scope');
+    }
+
+    if (!indexedData[key]) {
+      indexedData[key] = [];
+    }
+    indexedData[key].push(item);
+  });
+
+  return indexedData;
+};
+
+export const getPagesFromIndexedData = <T>( indexedData: Record<string, T[]> ): string[] => {
+  return Object.keys(indexedData).sort(); // Sort keys to ensure chronological order
+};
+
+// const fetchAllGoalsIndexed = async (scope: string) => {
+//   try {
+//     const response = await fetch(`/getAllGoals?scope=${scope}`);
+//     if (!response.ok) {
+//       throw new Error(`API returned status ${response.status}`);
+//     }
+//     const data = await response.json();
+//     return data;
+//   } catch (error) {
+//     console.error('Error fetching goals:', error);
+//     throw error;
+//   }
+// };
+
+export const fetchAllGoalsIndexed = async (
+  scope: 'week' | 'month' | 'year'
+): Promise<{ indexedGoals: Record<string, Goal[]>; pages: string[] }> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User is not authenticated');
+  const userId = user.id;
+
+  try {
+    const response = await fetch(`/getAllGoals?user_id=${userId}`);
+    if (!response.ok) {
+      const errorText = await response.text(); // Read the body once for error logging
+      console.error('Error fetching all goals:', errorText);
+      // // console.log('Fetching goals from:', `/getAllGoals?user_id=${userId}`);
+      throw new Error(`API returned status ${response.status}`);
+    }
+
+    const goals: Goal[] = await response.json(); // Read the body once for JSON parsing
+    // // console.log('Fetched all goals:', goals);
+
+    // Sort goals by created date descending
+    goals.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    // Index goals by the selected scope
+    const indexedGoals = indexDataByScope(goals, scope);
+
+    // Get pages sorted in descending order
+    const pages = Object.keys(indexedGoals).sort((a, b) => (a > b ? -1 : 1));
+
+    return { indexedGoals, pages };
+  } catch (error) {
+    console.error('Error in fetchAllGoalsIndexed:', error);
+    throw error;
+  }
+};
+
+// export const fetchGoals = async (weekStart: string): Promise<Goal[]> => {
+//   const { data: { user } } = await supabase.auth.getUser();
+//   if (!user) throw new Error('User is not authenticated');
+//   const userId = user.id;
+
+//   const response = await fetch(`${backend}/getGoals?user_id=${userId}&week_start=${weekStart}`, {
+//     method: 'GET',
+//     headers: {
+//       'Content-Type': 'application/json',
+//       Authorization: `Bearer ${userId}`,
+//     },
+//   });
+//   // const text = await response.text();
+//   // // console.log(text); // See what you actually got
+//   // const data = JSON.parse(text); // Only if it's valid JSON
+//   // // console.log('Response data:', data); // Log the parsed data
+
+//   if (!response.ok) {
+//     const errorText = await response.text();
+//     console.error('Error fetching goals:', errorText);
+//     throw new Error('Failed to fetch goals');
+//   }
+
+//   // return response.json();
+//   const goals = await response.json();
+//   // Sort by created date ascending
+//   goals.sort((a: { created_at: string | number | Date; }, b: { created_at: string | number | Date; }) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+//   // console.log('Fetched goals:', goals);
+//   return goals;
+// };
 
 // Add a new goal
 export const addGoal = async (newGoal: any) => {
@@ -105,7 +245,7 @@ export const addGoal = async (newGoal: any) => {
   // Ensure user_id is included in the body if your backend expects it
   const goalToSend = { ...newGoal, user_id: userId };
 
-  console.log('addGoal request:', goalToSend);
+  // // console.log('addGoal request:', goalToSend);
 
   const response = await fetch(`${backend}/createGoal?user_id=${userId}`, {
     method: 'POST',
@@ -119,9 +259,11 @@ export const addGoal = async (newGoal: any) => {
   if (!response.ok) {
     const errorText = await response.text();
     console.error('Error adding goal:', errorText);
+    notifyError('Failed to add goal');
     throw new Error('Failed to add goal');
   }
 
+  notifySuccess('Goal added successfully!');
   return response.json();
 };
 export const handleSubmit = async (
@@ -172,9 +314,10 @@ export const deleteGoal = async (goalId: string) => {
   });
 
   if (!response.ok) {
+    notifyError('Failed to delete goal');
     throw new Error('Failed to delete goal');
   }
-
+  notifySuccess('Goal deleted successfully!');
   return response.json();
 };
 export const handleDeleteGoal = async (
@@ -217,34 +360,77 @@ export const updateGoal = async (goalId: string, updatedGoal: any) => {
 };                    
 
 // Filter goals by week
-export const filterGoalsByWeek = (goals: Goal[], selectedWeek: string | Date): Goal[] => {
-  const startOfWeek = new Date(selectedWeek);
-  startOfWeek.setHours(0, 0, 0, 0);
+// export const filterGoalsByWeek = (goals: Goal[], selectedWeek: string | Date): Goal[] => {
+//   const startOfWeek = new Date(selectedWeek);
+//   startOfWeek.setHours(0, 0, 0, 0);
 
-  const endOfWeek = new Date(selectedWeek);
-  endOfWeek.setDate(endOfWeek.getDate() + 6);
-  endOfWeek.setHours(23, 59, 59, 999);
+//   const endOfWeek = new Date(selectedWeek);
+//   endOfWeek.setDate(endOfWeek.getDate() + 6);
+//   endOfWeek.setHours(23, 59, 59, 999);
+
+//   return goals.filter((goal) => {
+//     const goalDate = new Date(goal.week_start);
+//     return goalDate >= startOfWeek && goalDate <= endOfWeek;
+//   });
+// };
+
+export const filterGoalsByWeek = (goals: Goal[], selectedWeek: Date) => {
+  const weekStart = new Date(selectedWeek);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Get the start of the week (Sunday)
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6); // Get the end of the week (Saturday)
 
   return goals.filter((goal) => {
     const goalDate = new Date(goal.week_start);
-    return goalDate >= startOfWeek && goalDate <= endOfWeek;
+    return goalDate >= weekStart && goalDate <= weekEnd;
   });
 };
 
 // Get the start date of the week (Monday)
 export const getWeekStartDate = (date: Date = new Date()): string => {
+  if (isNaN(date.getTime())) {
+    console.error('Invalid date passed to getWeekStartDate:', date);
+    return new Date().toISOString().split('T')[0]; // Fallback to current date
+  }
   const d = new Date(date);
   const day = d.getDay();
-  // Calculate how many days to subtract to get to Monday (1)
-  const diff = d.getDate() - ((day === 0 ? 6 : day - 1));
+  const diff = d.getDate() - (day === 0 ? 6 : day - 1); // Adjust when day is Sunday (0)
   d.setDate(diff);
-  d.setHours(0, 0, 0, 0);
   return d.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+};
+
+// export const getMonday = (date: Date): string => {
+//   const day = date.getDay(); // Get the day of the week (0 = Sunday, 1 = Monday, etc.)
+//   const diff = day === 0 ? -6 : 1 - day; // Calculate the difference to the previous Monday
+//   const monday = new Date(date);
+//   monday.setDate(date.getDate() + diff); // Adjust the date to the previous Monday
+//   return monday.toISOString().split('T')[0]; // Return the date in YYYY-MM-DD format
+// };
+
+export const filterGoalsByMonth = (goals: Goal[], selectedDate: Date) => {
+  const month = selectedDate.getMonth();
+  const year = selectedDate.getFullYear();
+
+  return goals.filter((goal) => {
+    const goalDate = new Date(goal.week_start);
+    return goalDate.getMonth() === month && goalDate.getFullYear() === year;
+  });
+};
+
+
+export const filterGoalsByYear = (goals: Goal[], selectedDate: Date) => {
+  const year = selectedDate.getFullYear();
+
+  return goals.filter((goal) => {
+    const goalDate = new Date(goal.week_start);
+    return goalDate.getFullYear() === year;
+  });
 };
 
 // Generate a summary using OpenAI
 export const handleGenerate = async (
   id: string,  
+  scope: 'week' | 'month' | 'year', // Add scope to the parameters
   title: string,
   userId: string, 
   weekStart: string, 
@@ -253,45 +439,53 @@ export const handleGenerate = async (
       description: string;
       category: string;
       accomplishments: { title: string; description: string; impact: string; }[];
-    }[]
+    }[],
 ) => {
     try {
-    const response = await fetch(`${backend}/generateSummary`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`, // Pass the API key here
-      },
-      body: JSON.stringify({ 
-        summary_id: id, 
-        user_id: userId, 
-        week_start: weekStart, 
-        goalsWithAccomplishments, 
-        title,
-    }),
-});
+      // Generate a new UUID if no summary_id is provided
+      const summaryId = id || uuidv4();
 
-    console.log('Request body:',{
-        id: id,
+      console.log('Request body:', {
+        summary_id: summaryId,
+        scope,
+        summaryTitle: title,
         user_id: userId,
         week_start: weekStart,
         goalsWithAccomplishments,
-        title,
       });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error generating summary:', errorText);
-      throw new Error('Failed to generate summary');
+      
+      const response = await fetch(`${backend}/generateSummary`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          summary_id: summaryId,
+          scope,
+          summaryTitle: title, 
+          user_id: userId, 
+          week_start: weekStart, 
+          goalsWithAccomplishments, 
+        }),
+      });
+      
+      notifySuccess(`{Summary for ${scope} generated successfully!}`); // Notify success
+      // // console.log('Response status:', response.status); // Log the response status
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error generating summary:', errorText);
+        notifyError('Failed to generate summary'); // Notify error
+        throw new Error('Failed to generate summary');
+      }
+      
+      const data = await response.json();
+      return data.summary;
+    } catch (error) {
+      console.error('Error generating summary:', error);
+      throw error;
     }
-
-    const data = await response.json();
-    return data.summary;
-  } catch (error) {
-    console.error('Error generating summary:', error);
-    throw error;
-  }
-};
+  };
 
 // Save a summary to the database
 export const saveSummary = async (
@@ -299,14 +493,14 @@ export const saveSummary = async (
   summaryTitle: string,
   summaryContent: string,
   summaryType: string,
-  selectedWeek: Date
+  selectedRange: Date
 ) => {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User is not authenticated');
 
     const userId = user.id;
-    const weekStart = getWeekStartDate(selectedWeek);
+    const weekStart = getWeekStartDate(selectedRange);
 
     const requestBody = {
       user_id: userId,
@@ -324,9 +518,11 @@ export const saveSummary = async (
 
     if (error) {
       console.error('Supabase error:', error); // <--- log the actual error
+      notifyError('Failed to save summary'); // Notify error
       throw new Error('Failed to save summary');
     }
     setLocalSummaryId(data.summary_id); // <-- Set the actual ID from the backend
+    notifySuccess('Summary saved successfully!'); // Notify success
     return data; // Return the inserted row (including id)
   } catch (error) {
     throw error;
@@ -358,7 +554,7 @@ export const fetchSummaries = async (userId: string, id: string): Promise<Summar
   const summaries = await response.json();
   // Sort by created date ascending
   summaries.sort((a: { created_at: string | number | Date; }, b: { created_at: string | number | Date; }) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-  console.log('Fetched summaries:', summaries);
+  // console.log('Fetched summaries:', summaries);
   return summaries;
 };
 
@@ -371,7 +567,7 @@ export const createSummary = async (newSummary: any) => {
   // Ensure user_id is included in the body if your backend expects it
   const summaryToSend = { ...newSummary, user_id: userId };
 
-  console.log('addSummary request:', summaryToSend);
+  // console.log('addSummary request:', summaryToSend);
 
   const response = await fetch(`${backend}/createSummary?user_id=${userId}`, {
     method: 'POST',
@@ -416,15 +612,17 @@ export const deleteSummary = async (summary_id: string) => {
 
     // setSummary(null); // Remove summary from local state
     // setIsEditorOpen(false); // Close editor if open
-    console.log('Summary deleted successfully');
+    // console.log('Summary deleted successfully');
+    notifySuccess('Summary deleted successfully!'); 
   } catch (error) {
     console.error('Error deleting summary:', error);
+    notifyError('Failed to delete summary');
   }
 }
 
 // Set the summary in the local state or perform any other action
 export function setSummary(content: string, title: string, type: string) {
-    console.log("Generated Summary:", content, title, type);
+    // console.log("Generated Summary:", content, title, type);
     // This function could be expanded to update a state or perform other actions
     // For now, it simply logs the summary to the console
 }

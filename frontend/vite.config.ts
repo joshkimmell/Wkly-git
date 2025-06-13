@@ -19,11 +19,15 @@ export default defineConfig({
          // ... other aliases
       },
    },
-   // server: {
-   //   proxy: {
-   //     '/api': 'http://localhost:3001', // or whatever your backend port is
-   //   },
-   // },
+   server: {
+    proxy: {
+      '/getAllGoals': {
+        target: 'http://localhost:8888/.netlify/functions',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/getAllGoals/, '/getAllGoals'),
+      },
+    },
+  },
    assetsInclude: ['**/*.svg', '**/*.png'],
 });
 
