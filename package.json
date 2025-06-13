@@ -7,6 +7,7 @@
     "build": "npm run build --prefix frontend"
   },
   "dependencies": {
+    "@headlessui/react": "^2.2.4",
     "@netlify/functions": "^4.1.2",
     "@supabase/supabase-js": "^2.49.10",
     "axios": "^1.9.0",
@@ -18,7 +19,8 @@
     "react-toastify": "^11.0.5",
     "react-transition-group": "^4.4.5",
     "supabase": "^2.24.3",
-    "tailwindcss": "^4.1.8"
+    "tailwindcss": "^4.1.8",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@types/axios": "^0.14.4",

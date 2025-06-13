@@ -3,7 +3,8 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { GoalsProvider } from '@context/GoalsContext';
 import { classTabItem } from '@styles/classes';
 import ToastNotification, { notifySuccess, notifyError } from '@components/ToastyNotification';
-import WeeklyGoals from '@components/WeeklyGoals';
+// import WeeklyGoals from '@components/WeeklyGoals';
+import AllGoals from '@components/AllGoals';
 import Header from '@components/Header';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import supabase from '@lib/supabase';
@@ -202,7 +203,8 @@ const App: React.FC = () => {
               </div>
             </div>
             <Routes>
-              <Route path="/" element={<WeeklyGoals />} />
+              {/* <Route path="/" element={<WeeklyGoals />} /> */}
+              <Route path="/" element={<AllGoals />} />
               <Route path="/accomplishments" element={<AllAccomplishments />} />
               <Route path="/summaries" element={<AllSummaries />} />
               <Route path="/auth" element={<Navigate to="/" replace />} />

@@ -43,6 +43,7 @@ export interface Accomplishment {
   };
   export interface Summary {
     id: string;
+    scope: string;
     title: string;
     content: string;
     type: string;

@@ -20,6 +20,8 @@ const ToastNotification: React.FC<ToastNotificationProps> = ({ theme }) => {
         draggable
         pauseOnHover
         theme={theme}
+        className="z-50" // Ensure the toast is above other elements
+        toastClassName="bg-gray-10 text-gray-100 dark:bg-gray-100 dark:text-gray-10 rounded-lg shadow-lg"
       />
     </div>
   );

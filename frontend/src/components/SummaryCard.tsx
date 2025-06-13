@@ -7,18 +7,28 @@ import { Trash, Edit, Copy } from 'lucide-react';
 import { cardClasses } from '@styles/classes';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
 interface SummaryCardProps {
-  id: Summary["id"]; // Corrected type
+  id: Summary["id"]; // Corrected type to inherit summary_id
+  scope?: 'week' | 'month' | 'year'; // Optional property for scope
+  week_start?: string; // Optional property for week start
+  formattedRange?: string; // Optional property for formatted range
   title: Summary["title"]; // Optional title property
   content: Summary["content"];
   type: Summary["type"];
-  week_start?: string; // Optional property for week start
   handleDelete: (id: string) => void; // Corrected type
   handleEdit: (openEditor: any) => void;
   created_at?: string; // Optional property for created date
 }
 
 // const GoalCard: React.FC<GoalCardProps> = ({ goal }) => {
-const SummaryCard: React.FC<SummaryCardProps> = ({ id, title, content, type, handleDelete, handleEdit }) => {
+const SummaryCard: React.FC<SummaryCardProps> = ({ 
+  id, 
+  scope, 
+  title, 
+  content, 
+  type, 
+  handleDelete, 
+  handleEdit 
+}) => {
   // const handleDeleteSummary = (summaryId: string) => {
   //   // Implement the delete logic here
     // console.log(`Deleting goal with ID: ${goal.id}`);
@@ -48,18 +58,6 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ id, title, content, type, han
       );
     }
   }
-
-//  const [isEditorOpen, setIsEditorOpen] = useState(false);
- 
-//    function openEditor(event: React.MouseEvent<HTMLButtonElement, MouseEvent>): void {
-//      event.preventDefault();
-//      setIsEditorOpen(true);
-//    }
-//    console.log('isEditorOpen:', isEditorOpen);
- 
-//    function closeEditor() {
-//      setIsEditorOpen(false);
-//    }
   
   return (
     <div>
@@ -94,24 +92,19 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ id, title, content, type, han
         
         <footer className="mt-4 flex justify-end absolute bottom-0 left-0 w-full space-x-2">
            <button
-            // onClick={() => handleDelete.bind(null, summary.id)} // Pass the summary ID to the handleDelete function
             onClick={() => handleCopy(content)}
-            // onClick={handleDelete.bind (summary.id)}
             className="btn-ghost"
             >
             <Copy />
           </button>
           <button
-            // onClick={handleEdit.bind(null, summary.id)} // Pass the summary ID to the handleEdit function
             onClick={() => handleEdit(true)} // Open the editor modal
             className="btn-ghost" 
           >
             <Edit />
           </button>
           <button
-            // onClick={() => handleDelete.bind(null, summary.id)} // Pass the summary ID to the handleDelete function
             onClick={() => handleDelete(id)}
-            // onClick={handleDelete.bind (summary.id)}
             className="btn-ghost"
             >
             <Trash />
@@ -124,20 +117,3 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ id, title, content, type, han
   };
       
       export default SummaryCard;
-
-      // <div key={goal.id} className="bg-white shadow-sm border rounded-lg p-4">
-      //   <h4 className="text-lg font-medium text-gray-900">{goal.title}</h4>
-      //   <p className="text-gray-600 mt-1">{goal.description}</p>
-      //   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 mt-2">
-      //     {goal.category}
-      //   </span>
-      //   {/* <p className="text-sm text-gray-500 mt-2">{goal.impact}</p> */}
-      //   <div className="mt-4 flex justify-end space-x-2">
-      //     <button
-      //       onClick={() => handleDeleteGoal(goal.id)}
-      //       className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-      //     >
-      //       Delete
-      //     </button>
-      //   </div>
-      // </div>

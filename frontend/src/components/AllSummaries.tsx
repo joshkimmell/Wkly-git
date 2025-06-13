@@ -19,6 +19,7 @@ const AllSummaries = () => {
   // Removed unused summaryType state
   const [newSummary, setNewSummary] = useState<Summary>({
     id:   '',
+    scope: 'week', // Default scope
     title: '',
     content: '',
     type: '', 
@@ -109,6 +110,7 @@ const AllSummaries = () => {
       
       setNewSummary({
         id: summaryId,
+        scope: 'week', // Default scope
         title: '',
         content: '',
         type: 'User',
@@ -196,6 +198,7 @@ const AllSummaries = () => {
       });
       setNewSummary({
         id: '',
+        scope: 'week', // Default scope
         title: '',
         content: '',
         type: 'User',

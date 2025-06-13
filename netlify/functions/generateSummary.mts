@@ -60,35 +60,53 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const { user_id, week_start, goalsWithAccomplishments } = JSON.parse(event.body || '{}');
-
-    if (!user_id || !week_start || !goalsWithAccomplishments) {
+    const { summary_id, user_id, week_start, goalsWithAccomplishments, summaryTitle, scope } = JSON.parse(event.body || '{}');
+    
+    // Validate required fields
+    if (!summary_id || !user_id || !week_start || !goalsWithAccomplishments || !summaryTitle || !scope) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Missing required fields.' }),
+        body: JSON.stringify({ 
+          error: 'Missing required fields.',
+          missingFields: {
+            summary_id: !summary_id,
+            scope: !scope,
+            summaryTitle: !summaryTitle,
+            user_id: !user_id,
+            week_start: !week_start,
+            goalsWithAccomplishments: !goalsWithAccomplishments,
+          }, 
+        }),
+      };
+    }
+    
+    
+    // Parse week_start into a Date object
+    const startDate = new Date(week_start);
+
+    if (isNaN(startDate.getTime())) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Invalid date.' }),
       };
     }
 
-    // Format week dates
-    const weekStartDate = new Date(week_start);
-    const weekEndDate = new Date(weekStartDate);
-    weekEndDate.setDate(weekStartDate.getDate() + 6);
+    // Format the date
+    // Format the date based on the scope
+    const formattedDate =
+      scope === 'week'
+        ? startDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) // e.g., June 5, 2025
+        : scope === 'month'
+        ? startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) // e.g., June 2025
+        : scope === 'year'
+        ? `${startDate.getFullYear()}` // e.g., 2025
+        : ''; // Fallback for unexpected scope values
 
-    const weekStartDateFormatted = weekStartDate.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-    const weekEndDateFormatted = weekEndDate.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-
-    // Build prompt
+    // Build the prompt using summaryTitle
     const prompt = `
       Summarize the following goals with their accomplishments into a concise self-reflection no more than 480 characters. Format for use with ReactQuill.
       Do not include the goals or accomplishments list in the summary. Instead, focus on the overall progress and impact of the goals and accomplishments.
+      Title: ${summaryTitle}
       ${goalsWithAccomplishments
         .map(
           (goal: any, index: number) => `
@@ -106,14 +124,15 @@ export const handler: Handler = async (event) => {
         )
         .join('\n\n')}    
 
-      'Weekly Reflection for ${weekStartDateFormatted} to ${weekEndDateFormatted}'  
+      Reflection for ${scope}: ${formattedDate}:
     `;
+
 
     const summary = await limiter.schedule(() => generateSummary(prompt));
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ summary }),
+      body: JSON.stringify({ summary, summary_id }),
     };
   } catch (error: any) {
     console.error('Error in generateSummary function:', error);
