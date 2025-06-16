@@ -1,12 +1,10 @@
-[build]
-  command = "npm run build --prefix frontend"
-  publish = "frontend/dist"
-  functions = "netlify/functions"
-
 [dev]
   command = "npm run dev --prefix frontend"
-  targetPort = 5173
+
+[build]
+  command = "npm run build"
   publish = "frontend/dist"
+  functions = "netlify/functions"
 
 [[redirects]]
   from = "/api/*"

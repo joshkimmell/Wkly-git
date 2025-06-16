@@ -1,5 +1,5 @@
 import { Handler } from '@netlify/functions';
-import supabase from '../../lib/supabase';
+import supabase from './lib/supabase';
 
 export const handler: Handler = async (event) => {
   const body = JSON.parse(event.body || '{}');

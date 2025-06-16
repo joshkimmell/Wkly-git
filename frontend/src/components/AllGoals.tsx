@@ -44,6 +44,9 @@ const GoalsComponent = () => {
     } | null>(null); // State for selected summary
     const [filter, setFilter] = useState<string>('');
 
+    // Simple error state for displaying errors in the UI
+    const [error, setError] = useState<string | null>(null);
+
     // const formattedDate = selectedRange.toISOString().split('T')[0]; // YYYY-MM-DD format
 
     useEffect(() => {
@@ -58,6 +61,7 @@ const GoalsComponent = () => {
                 }
             } catch (error) {
                 console.error('Error fetching goals:', error);
+                setError('Failed to fetch goals. Please try again later.');
             }
         };
         fetchGoals();
@@ -277,19 +281,19 @@ const GoalsComponent = () => {
                     type={selectedSummary.type === 'AI' || selectedSummary.type === 'User' ? selectedSummary.type : 'User'} // Pass the summary type
                     title={selectedSummary.title} // Pass the initial title
                     onRequestClose={() => setSelectedSummary(null)} // Close the modal
-                    onSave={async (editedContent) => {
+                    onSave={async (editedTitle, editedContent) => {
                     try {
                         // Save the edited summary as a new entry with summary_type === 'User'
                         // Optionally, you can also update the local state or refetch the summaries
                         saveSummary(
                         setLocalSummaryId,
-                        selectedSummary.title,
+                        editedTitle || selectedSummary.title, // Use the edited title or the original title
                         editedContent,
                         'User',
                         selectedRange || new Date()
                         );
                         closeEditor(); // Close the modal after saving
-                        setSummary(editedContent, selectedSummary.title, 'User'); // Update the local state
+                        setSummary(editedContent, editedTitle, 'User'); // Update the local state
                         // await refreshGoals(); // Refetch goals if needed
                         // console.log('Edited summary saved successfully');
                     } catch (error) {
@@ -399,3 +403,4 @@ const GoalsComponent = () => {
 };
 
 export default GoalsComponent;
+

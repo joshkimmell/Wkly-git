@@ -27,10 +27,10 @@ const App: React.FC = () => {
 
   const toggleTheme = () => setTheme(prev => (prev === 'theme-dark' ? 'theme-light' : 'theme-dark'));
 
-  const handleToast = () => {
-    notifySuccess('Action completed successfully!');
-    notifyError('Something went wrong!');
-  };
+  // const handleToast = () => {
+  //   notifySuccess('Action completed successfully!');
+  //   notifyError('Something went wrong!');
+  // };
   const handleLogout = async () => {
     try {
       if (!supabase) {
@@ -47,19 +47,6 @@ const App: React.FC = () => {
     }
   };
 
-//     const handleClick = () => {
-//       // Toggle the menu open/close state
-//       if (!isOpen) {
-//         setIsOpen(true);
-//         // setIcon('icon-close');
-//       } else {
-//         setIsOpen(false);
-//         // setIcon('icon-menu');
-//       }
-//       // Call the onClick prop to trigger the menu toggle
-//       // onClick();
-//     };
-
   useEffect(() => {
   if (theme === 'theme-dark') {
     document.body.classList.add('dark');
@@ -67,10 +54,6 @@ const App: React.FC = () => {
     document.body.classList.remove('dark');
   }
 }, [theme]);
-
-// const toggleTheme = () => {
-//   setTheme(prev => (prev === 'theme-dark' ? 'theme-light' : 'theme-dark'));
-// };
 
   const current = theme;
 
@@ -105,69 +88,6 @@ const App: React.FC = () => {
           isOpen={isOpen}
           handleLogout={handleLogout}
           />
-        {/* <div className="header flex items-center"> 
-          <div className="header-brand">
-            <div className='header-brand--logo-container relative pr-6'>
-              <button
-                onClick={toggleTheme}
-                className="ml-4 p-2 rounded absolute top-0 right-0"
-                aria-label="Toggle theme"
-              >
-                {theme === 'theme-dark' ? <Sun className="w-5 h-5 stroke-gray-10 hover:stroke-gray-30 focus:outline-none" /> : <Moon className="w-5 h-5 stroke-gray-10 hover:stroke-gray-30 focus:outline-none" />}
-              </button>
-              <Link
-                to="/"
-                className="header-brand--logo pr-2 overflow-hidden w-full sm:w-auto h-12 sm:h-16 flex items-center justify-center"
-                >
-                <img src="/images/logo-large.svg" className='mask-clip-border' />
-              </Link>
-            </div>
-            <div className="block sm:hidden">  
-              <MenuBtn 
-                className="header-brand--menu-btn" 
-                onClick={handleClick} //  => setIsOpen(!isOpen) 
-                // children= "string"
-              />
-            </div>
-          </div>
-          { isOpen && (
-            <div className="menu block sm:hidden">
-              <div className={`menu-container bg-white dark:bg-gray-100 text-brand-80 dark:text-brand-10 align-right`}>
-                <div className="menu-container--list align-flex-end justify-end flex flex-col space-y-2">
-                  <Link
-                  to="/"
-                  className={`${classMenuItem}`}
-                  >
-                  <Home className="w-5 h-5 mr-2" />
-                  Goals
-                  </Link>
-                  <Link
-                  to="/accomplishments"
-                  className={`${classMenuItem}`}
-                  >
-                  <Award className="w-5 h-5 mr-2" />
-                  Accomplishments
-                  </Link>
-                  <Link
-                  to="/summaries"
-                  className={`${classMenuItem}`}
-                  >
-                  <Text className="w-5 h-5 mr-2" />
-                  Summaries
-                  </Link>
-                  <Link
-                      to="#"
-                      onClick={handleLogout}
-                      className={`${classMenuItem}`}
-                  >
-                      <LogOut className="w-5 h-5 mr-2" />
-                      Log out
-                  </Link>
-                </div>
-              </div>
-            </div>
-          )}
-        </div> */}
         <GoalsProvider>
           <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="hidden sm:flex">

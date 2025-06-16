@@ -18,17 +18,19 @@ export default defineConfig({
          // src: "/src",
          // ... other aliases
       },
+      extensions: ['.js', '.ts', '.jsx', '.tsx'],
    },
    server: {
-    proxy: {
-      '/getAllGoals': {
-        target: 'http://localhost:8888/.netlify/functions',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/getAllGoals/, '/getAllGoals'),
+      proxy: {
+         '/api': {
+            target: 'http://localhost:8888',
+            changeOrigin: true,
+            rewrite: (path) => path.replace(/^\/api/, '/.netlify/functions'),
+            secure: false, // Set to false if your local server is not using HTTPS
+         },
       },
-    },
   },
-   assetsInclude: ['**/*.svg', '**/*.png'],
+   assetsInclude: ['**/*.svg', '**/*.png', '**/*.html'],
 });
 
 
