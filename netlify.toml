@@ -1,5 +1,5 @@
 [build]
-  command = "npm run build --prefix frontend"
+  command = "npm run build"
   publish = "frontend/dist"
   functions = "netlify/functions"
 
@@ -8,6 +8,11 @@
   targetPort = 5173
   port = 8888
   command = "npm run dev --prefix frontend"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
 
 [[redirects]]
   from = "/api/*"
