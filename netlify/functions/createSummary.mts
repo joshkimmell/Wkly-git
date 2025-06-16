@@ -1,6 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { v4 as uuidv4 } from 'uuid'; // Make sure to install uuid: npm install uuid
-import supabase from '../../lib/supabase';
+import supabase from './lib/supabase';
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== 'POST') {

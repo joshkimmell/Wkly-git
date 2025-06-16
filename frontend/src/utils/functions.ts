@@ -4,12 +4,11 @@ import supabase from "@lib/supabase";
 import { notifyError, notifySuccess } from "@components/ToastyNotification";
 import { v4 as uuidv4 } from "uuid";
 
-const backend = '/.netlify/functions';
-export const backendUrl = backend + '/api/summaries';
+const backend = '/api';
+// export const backendUrl = backend + '/api/summaries';
 export const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
 export const supabaseKey = (import.meta as any).env.VITE_SUPABASE_KEY;
 export const openaiApiKey = (import.meta as any).env.VITE_OPENAI_API_KEY;
-
 
 export const handleError = (error: any, setError: React.Dispatch<React.SetStateAction<string | null>>) => {
     console.error(error);
@@ -54,40 +53,6 @@ export const handleSignOut = async (setError: React.Dispatch<React.SetStateActio
     }
 };
 
-
-
-
-// Fetch all goals
-// export const fetchGoals = async (weekStart: string): Promise<Goal[]> => {
-//   const { data: { user } } = await supabase.auth.getUser();
-//   if (!user) throw new Error('User is not authenticated');
-//   const userId = user.id;
-
-//   const response = await fetch(`${backend}/getGoals?user_id=${userId}&week_start=${weekStart}`, {
-//     method: 'GET',
-//     headers: {
-//       'Content-Type': 'application/json',
-//       Authorization: `Bearer ${userId}`,
-//     },
-//   });
-//   // const text = await response.text();
-//   // // console.log(text); // See what you actually got
-//   // const data = JSON.parse(text); // Only if it's valid JSON
-//   // // console.log('Response data:', data); // Log the parsed data
-
-//   if (!response.ok) {
-//     const errorText = await response.text();
-//     console.error('Error fetching goals:', errorText);
-//     throw new Error('Failed to fetch goals');
-//   }
-
-//   // return response.json();
-//   const goals = await response.json();
-//   // Sort by created date ascending
-//   goals.sort((a: { created_at: string | number | Date; }, b: { created_at: string | number | Date; }) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-//   // console.log('Fetched goals:', goals);
-//   return goals;
-// };
 
 export const fetchAllGoals = async (): Promise<Goal[]> => {
   const { data: { user } } = await supabase.auth.getUser();
@@ -178,12 +143,17 @@ export const fetchAllGoalsIndexed = async (
   const userId = user.id;
 
   try {
-    const response = await fetch(`/getAllGoals?user_id=${userId}`);
+    const response = await fetch(`${backend}/getAllGoals?user_id=${userId}&scope=${scope}`);
     if (!response.ok) {
       const errorText = await response.text(); // Read the body once for error logging
       console.error('Error fetching all goals:', errorText);
       // // console.log('Fetching goals from:', `/getAllGoals?user_id=${userId}`);
       throw new Error(`API returned status ${response.status}`);
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error('Invalid response format: Expected JSON');
     }
 
     const goals: Goal[] = await response.json(); // Read the body once for JSON parsing
@@ -536,7 +506,7 @@ export const fetchSummaries = async (userId: string, id: string): Promise<Summar
   if (!user) throw new Error('User is not authenticated');
 
 
-  const response = await fetch(`${backend}/getSummaries?summary_id=${id}&user_id=${userId}`, {
+  const response = await fetch(`${backend}/getSummaries?user_id=${userId}&summary_id=${id}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',

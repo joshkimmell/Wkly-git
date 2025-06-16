@@ -36,29 +36,29 @@ const AllSummaries = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
     // Fetch all summaries for the logged-in user
-    const handleFetchSummaries = async () => {
-    try {
-      // Get the current user ID (if needed)
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error('User is not authenticated');
-        return;
-      }
+  //   const handleFetchSummaries = async () => {
+  //   try {
+  //     // Get the current user ID (if needed)
+  //     const { data: { user } } = await supabase.auth.getUser();
+  //     if (!user) {
+  //       console.error('User is not authenticated');
+  //       return;
+  //     }
   
-      // Call your Netlify function
-      const response = await fetch(`/.netlify/functions/getSummaries?user_id=${user.id}`);
-      if (!response.ok) {
-        console.error('Error fetching summaries:', await response.text());
-        return;
-      }
+  //     // Call your Netlify function
+  //     const response = await fetchSummaries(user.id, localSummaryId);
+  //     if (!response) {
+  //       console.error('Error fetching summaries:', await response.text());
+  //       return;
+  //     }
   
-      const data = await response.json();
-      setSummaries(data || []);
-      setFilteredSummaries(data || []);
-    } catch (err) {
-      console.error('Unexpected error fetching summaries:', err);
-    }
-  };
+  //     const data = await response.json();
+  //     setSummaries(data || []);
+  //     setFilteredSummaries(data || []);
+  //   } catch (err) {
+  //     console.error('Unexpected error fetching summaries:', err);
+  //   }
+  // };
 
   function openEditor(summary: Summary) {
     setSelectedSummary(summary);
@@ -70,6 +70,27 @@ const AllSummaries = () => {
     setIsEditorOpen(false);
     setSelectedSummary(null);
   }
+  const handleFetchSummaries = async () => {
+    try {
+      // Get the current user ID
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('User is not authenticated');
+        return;
+      }
+      // Fetch summaries from the server
+      const response = await fetchSummaries(user.id, localSummaryId ?? ''); // Pass user ID and localSummaryId if needed
+      if (!response) {
+        console.error('Error fetching summaries:', response);
+        return;
+      }
+      const data = response;
+      setSummaries(data || []);
+      setFilteredSummaries(data || []);
+    } catch (err) {
+      console.error('Unexpected error fetching summaries:', err);
+    }
+  };
   
   // Save the edited summary
   const handleSave = async (editedContent: string, editedTitle: string) => {
@@ -84,21 +105,6 @@ const AllSummaries = () => {
       console.error('Error saving edited summary:', error);
     }
   };
-
-//   const handleSave = async (editedContent: string, editedTitle: string) => {
-//   try {
-//     await editSummary({
-//       summary_id: selectedSummary.id,
-//       content: editedContent,
-//       title: editedTitle, // Pass the edited title here
-//       summary_type: selectedSummary.type,
-//       week_start: selectedSummary.week_start,
-//     });
-//     // ...update state, close modal, etc.
-//   } catch (error) {
-//     console.error('Error saving edited summary:', error);
-//   }
-// };
   
   const handleDeleteSummary = async (summaryId: string) => {
     if (!summaryId) {
@@ -154,23 +160,6 @@ const AllSummaries = () => {
       return 0;
     }
   });
-
-
-
-// const handleAddSummary = async () => {
-//   try {
-//     await createSummary({
-//       user_id,
-//       content,
-//       summary_type,
-//       week_start,
-//       title,
-//     });
-//     // ...refresh or update state
-//   } catch (error) {
-//     console.error('Error adding summary:', error);
-//   }
-// };
 
   const handleAddSummary = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -309,7 +298,7 @@ const AllSummaries = () => {
                     // Optionally, you can also update the local state or refetch the summaries
                     saveSummary(
                       setLocalSummaryId,
-                      selectedSummary?.title || editedTitle,
+                      editedTitle || selectedSummary.title,
                       editedContent,
                       'User',
                       selectedWeek || new Date()

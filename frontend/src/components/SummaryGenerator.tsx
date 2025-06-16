@@ -2,7 +2,7 @@
 // This component allows users to generate summaries based on a selected period (weekly, quarterly, yearly).
 
 import React, { useState, useEffect } from 'react';
-import { handleGenerate, saveSummary, deleteSummary } from '@utils/functions';
+import { handleGenerate, saveSummary, deleteSummary, getWeekStartDate } from '@utils/functions';
 import supabase from '@lib/supabase';
 import SummaryEditor from '@components/SummaryEditor';
 import Modal from 'react-modal';
@@ -32,26 +32,39 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
   const [summaryType, setSummaryType] = useState<string>('AI'); // Default to 'AI' if not provided
   const [summaryTitle, setSummaryTitle] = useState<string | null>(initialSummaryTitle);
 
-  // Compute a formatted range string for rendering and logic
+  // // Compute a formatted range string for rendering and logic
   const formattedRange =
     scope === 'week'
-      ? selectedRange.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) // e.g., June 5, 2025
+      ? selectedRange.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) // e.g., June 16, 2025
       : scope === 'month'
       ? selectedRange.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) // e.g., June 2025
       : scope === 'year'
       ? selectedRange.toLocaleDateString('en-US', { year: 'numeric' }) // e.g., 2025
       : ''; // Fallback for unexpected scope values
 
-  const summaryTitleToUse = summaryTitle || `Summary for ${scope}: ${formattedRange}`;
-  console.log('Summary title to use:', summaryTitleToUse);
-  
+  // Dynamically generate the summary title based on the scope
+  const generatedSummaryTitle = `Summary for ${scope}: ${formattedRange}`;
+
   // Reset summary state when scope changes
   useEffect(() => {
+    // const newFormattedRange =
+    //   scope === 'week'
+    //     ? selectedRange.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    //     : scope === 'month'
+    //     ? selectedRange.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    //     : scope === 'year'
+    //     ? selectedRange.toLocaleDateString('en-US', { year: 'numeric' })
+    //     : '';
+
+    const newGeneratedSummaryTitle = `Summary for ${scope}: ${formattedRange}`;
     console.log('Scope changed to:', scope);
+    console.log('New Formatted Range:', formattedRange);
+    console.log('New Generated Summary Title:', newGeneratedSummaryTitle);
+
     setSummary(null); // Clear the current summary
     setLocalSummaryId(null); // Reset the summary ID
-    setSummaryTitle(initialSummaryTitle || `Summary for ${scope}: ${formattedRange}`); // Update the title
-  }, [scope, initialSummaryTitle, formattedRange]);
+    setSummaryTitle(initialSummaryTitle || newGeneratedSummaryTitle); // Update the title
+  }, [scope, selectedRange, initialSummaryTitle]);
 
   const handleGenerateClick = async () => {
     try {
@@ -72,22 +85,35 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
         })),
       }));
 
+      // Calculate the correct week_start value
+      const weekStart =
+        scope === 'week'
+          ? getWeekStartDate(selectedRange) // Start of the week (Monday)
+          : scope === 'month'
+          ? new Date(selectedRange.getFullYear(), selectedRange.getMonth(), 1).toISOString().split('T')[0] // First day of the month
+          : scope === 'year'
+          ? new Date(selectedRange.getFullYear(), 0, 1).toISOString().split('T')[0] // First day of the year
+          : '';
+
+      console.log('Scope:', scope);
+      console.log('selectedRange:', selectedRange);
+
       const generatedSummary = await handleGenerate(
         localSummaryId || '',
         scope, // Pass the scope (week, month, year)
-        summaryTitle || `Summary for ${scope}: ${formattedRange}`,
+        summaryTitle || generatedSummaryTitle,
         userId,
-        selectedRange.toISOString(), // Pass the selected range as ISO string
+        weekStart, // Pass the corrected week_start value
         goalsWithAccomplishments,
       );
 
       setSummary(generatedSummary);
       saveSummary(
         setLocalSummaryId,
-        summaryTitle || `Summary for ${scope}: ${formattedRange}`,
+        summaryTitle || generatedSummaryTitle,
         generatedSummary,
         'AI', // Set type to 'AI' for generated summaries
-        new Date(selectedRange.toISOString())
+        new Date(weekStart)
       );
       setSummaryType('AI');
     } catch (error) {
@@ -97,26 +123,26 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
 
   const handleSave = async (updatedContent: string, updatedTitle: string) => {
     try {
-        // Save the updated summary to the database or state
-        await saveSummary(
-            setLocalSummaryId,
-            updatedTitle, // Save the updated title
-            updatedContent, // Save the updated content
-            summaryType || 'User', // Use the current summary type
-            selectedRange // Pass the selected range
-        );
-        setSummary(updatedContent); // Update the summary state
-        setSummaryTitle(updatedTitle); // Update the title state
-        console.log('Summary saved successfully');
+      // Save the updated summary to the database or state
+      await saveSummary(
+        setLocalSummaryId,
+        updatedTitle, // Save the updated title
+        updatedContent, // Save the updated content
+        summaryType || 'User', // Use the current summary type
+        selectedRange // Pass the selected range
+      );
+      setSummary(updatedContent); // Update the summary state
+      setSummaryTitle(updatedTitle); // Update the title state
+      console.log('formatted range:', formattedRange);
+      console.log('Summary saved successfully');
     } catch (error) {
-        console.error('Error saving summary:', error);
+      console.error('Error saving summary:', error);
     }
-};
+  };
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
 
-  console.log('filtered goals:', filteredGoals);
-  console.log('selected range:', selectedRange);
+
 
   function closeEditor() {
     setIsEditorOpen(false);
@@ -149,10 +175,9 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
         <SummaryCard
           id={summaryId}
           scope={scope}
-          title={summaryTitle || `Summary for ${scope}: ${formattedRange}`}
+          title={generatedSummaryTitle}
           content={summary}
           type={summaryType || ''}
-          week_start={formattedRange}
           created_at={new Date().toISOString()}
           handleDelete={handleDeleteSummary}
           handleEdit={() => setIsEditorOpen(true)}
@@ -169,7 +194,7 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
         >
           <SummaryEditor
             id={localSummaryId || ''}
-            title={summaryTitle || `Summary for ${scope}: ${formattedRange}`}
+            title={summaryTitle || generatedSummaryTitle}
             content={summary || ''}
             type={'User'}
             onRequestClose={closeEditor}
