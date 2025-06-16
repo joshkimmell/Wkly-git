@@ -2,7 +2,7 @@
   command = "npm run dev --prefix frontend"
 
 [build]
-  command = "npm run build"
+  command = "npm run build --prefix frontend"
   publish = "frontend/dist"
   functions = "netlify/functions"
 
