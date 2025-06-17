@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "dev": "netlify dev --prefix frontend",
-    "build": "echo 'Building frontend...' && npm run build --prefix frontend",
+    "preinstall": "cd frontend && npm install",
+    "build": "npm run build --prefix frontend",
     "preview": "npm run preview --prefix frontend"
   },
   "dependencies": {
