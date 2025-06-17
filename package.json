@@ -3,8 +3,8 @@
   "private": true,
   "scripts": {
     "dev": "netlify dev --prefix frontend",
-    "build": "vite build --prefix frontend",
-    "preview": "vite preview --prefix frontend"
+    "build": "echo 'Building frontend...' && npm run build --prefix frontend",
+    "preview": "npm run preview --prefix frontend"
   },
   "dependencies": {
     "@netlify/functions": "^4.1.5"
