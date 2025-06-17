@@ -175,37 +175,6 @@ export const fetchAllGoalsIndexed = async (
   }
 };
 
-// export const fetchGoals = async (weekStart: string): Promise<Goal[]> => {
-//   const { data: { user } } = await supabase.auth.getUser();
-//   if (!user) throw new Error('User is not authenticated');
-//   const userId = user.id;
-
-//   const response = await fetch(`${backend}/getGoals?user_id=${userId}&week_start=${weekStart}`, {
-//     method: 'GET',
-//     headers: {
-//       'Content-Type': 'application/json',
-//       Authorization: `Bearer ${userId}`,
-//     },
-//   });
-//   // const text = await response.text();
-//   // // console.log(text); // See what you actually got
-//   // const data = JSON.parse(text); // Only if it's valid JSON
-//   // // console.log('Response data:', data); // Log the parsed data
-
-//   if (!response.ok) {
-//     const errorText = await response.text();
-//     console.error('Error fetching goals:', errorText);
-//     throw new Error('Failed to fetch goals');
-//   }
-
-//   // return response.json();
-//   const goals = await response.json();
-//   // Sort by created date ascending
-//   goals.sort((a: { created_at: string | number | Date; }, b: { created_at: string | number | Date; }) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-//   // console.log('Fetched goals:', goals);
-//   return goals;
-// };
-
 // Add a new goal
 export const addGoal = async (newGoal: any) => {
   const { data: { user } } = await supabase.auth.getUser();
