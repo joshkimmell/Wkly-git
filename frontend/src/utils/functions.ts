@@ -4,6 +4,7 @@ import supabase from "@lib/supabase";
 import { notifyError, notifySuccess } from "@components/ToastyNotification";
 import { v4 as uuidv4 } from "uuid";
 
+const baseUrl = import.meta.env.DEV ? 'http://localhost:8888' : ''; // Use localhost for dev, empty for production
 const backend = '/api';
 // export const backendUrl = backend + '/api/summaries';
 export const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
@@ -59,7 +60,7 @@ export const fetchAllGoals = async (): Promise<Goal[]> => {
   if (!user) throw new Error('User is not authenticated');
   const userId = user.id;
 
-  const response = await fetch(`${backend}/getAllGoals?user_id=${userId}`, {
+  const response = await fetch(`${baseUrl}${backend}/getAllGoals?user_id=${userId}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -121,19 +122,7 @@ export const getPagesFromIndexedData = <T>( indexedData: Record<string, T[]> ): 
   return Object.keys(indexedData).sort(); // Sort keys to ensure chronological order
 };
 
-// const fetchAllGoalsIndexed = async (scope: string) => {
-//   try {
-//     const response = await fetch(`/getAllGoals?scope=${scope}`);
-//     if (!response.ok) {
-//       throw new Error(`API returned status ${response.status}`);
-//     }
-//     const data = await response.json();
-//     return data;
-//   } catch (error) {
-//     console.error('Error fetching goals:', error);
-//     throw error;
-//   }
-// };
+// Fetch all goals indexed by week, month, or year
 
 export const fetchAllGoalsIndexed = async (
   scope: 'week' | 'month' | 'year'
@@ -143,12 +132,11 @@ export const fetchAllGoalsIndexed = async (
   const userId = user.id;
 
   try {
-    const response = await fetch(`${backend}/getAllGoals?user_id=${userId}&scope=${scope}`);
+    const response = await fetch(`${baseUrl}${backend}/getAllGoals?user_id=${userId}&scope=${scope}`);
     if (!response.ok) {
       const errorText = await response.text(); // Read the body once for error logging
       console.error('Error fetching all goals:', errorText);
-      // // console.log('Fetching goals from:', `/getAllGoals?user_id=${userId}`);
-      throw new Error(`API returned status ${response.status}`);
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const contentType = response.headers.get('content-type');
@@ -168,6 +156,8 @@ export const fetchAllGoalsIndexed = async (
     // Get pages sorted in descending order
     const pages = Object.keys(indexedGoals).sort((a, b) => (a > b ? -1 : 1));
 
+    console.log('Indexed goals:', indexedGoals);
+    console.log('Pages:', pages);
     return { indexedGoals, pages };
   } catch (error) {
     console.error('Error in fetchAllGoalsIndexed:', error);
