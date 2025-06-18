@@ -11,23 +11,7 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
-        "npm:@headlessui/react@^2.2.4",
-        "npm:@netlify/functions@^4.1.2",
-        "npm:@supabase/supabase-js@^2.49.10",
-        "npm:@types/axios@^0.14.4",
-        "npm:@types/react-transition-group@^4.4.12",
-        "npm:axios@^1.9.0",
-        "npm:bottleneck@^2.19.5",
-        "npm:concurrently@^8.2.2",
-        "npm:openai@^5.1.1",
-        "npm:punycode@^2.3.1",
-        "npm:react-dom@^19.1.0",
-        "npm:react-toastify@^11.0.5",
-        "npm:react-transition-group@^4.4.5",
-        "npm:react@^19.1.0",
-        "npm:sass-embedded@^1.89.0",
-        "npm:supabase@^2.24.3",
-        "npm:tailwindcss@^4.1.8"
+        "npm:@netlify/functions@^4.1.5"
       ]
     }
   }

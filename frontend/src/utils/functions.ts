@@ -132,7 +132,8 @@ export const fetchAllGoalsIndexed = async (
   const userId = user.id;
 
   try {
-    const response = await fetch(`${baseUrl}${backend}/getAllGoals?user_id=${userId}&scope=${scope}`);
+    // const response = await fetch(`${baseUrl}${backend}/getAllGoals?user_id=${userId}&scope=${scope}`);
+    const response = await fetch(`/api/getAllGoals?user_id=${userId}&scope=${scope}`);
     if (!response.ok) {
       const errorText = await response.text(); // Read the body once for error logging
       console.error('Error fetching all goals:', errorText);
@@ -176,7 +177,7 @@ export const addGoal = async (newGoal: any) => {
 
   // // console.log('addGoal request:', goalToSend);
 
-  const response = await fetch(`${backend}/createGoal?user_id=${userId}`, {
+  const response = await fetch(`${baseUrl}${backend}/createGoal?user_id=${userId}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -234,7 +235,7 @@ export const deleteGoal = async (goalId: string) => {
   if (!user) throw new Error('User is not authenticated');
   const userId = user.id;
 
-  const response = await fetch(`${backend}/deleteGoal?goal_id=${goalId}&user_id=${userId}`, {
+  const response = await fetch(`${baseUrl}${backend}/deleteGoal?goal_id=${goalId}&user_id=${userId}`, {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',
@@ -272,7 +273,7 @@ export const updateGoal = async (goalId: string, updatedGoal: any) => {
   if (!user) throw new Error('User is not authenticated');
   const userId = user.id;
 
-  const response = await fetch(`${backend}/updateGoal/${goalId}?user_id=${userId}`, {
+  const response = await fetch(`${baseUrl}${backend}/updateGoal/${goalId}?user_id=${userId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -383,7 +384,7 @@ export const handleGenerate = async (
         goalsWithAccomplishments,
       });
       
-      const response = await fetch(`${backend}/generateSummary`, {
+      const response = await fetch(`${baseUrl}${backend}/generateSummary`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -465,7 +466,7 @@ export const fetchSummaries = async (userId: string, id: string): Promise<Summar
   if (!user) throw new Error('User is not authenticated');
 
 
-  const response = await fetch(`${backend}/getSummaries?user_id=${userId}&summary_id=${id}`, {
+  const response = await fetch(`${baseUrl}${backend}/getSummaries?user_id=${userId}&summary_id=${id}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -498,7 +499,7 @@ export const createSummary = async (newSummary: any) => {
 
   // console.log('addSummary request:', summaryToSend);
 
-  const response = await fetch(`${backend}/createSummary?user_id=${userId}`, {
+  const response = await fetch(`${baseUrl}${backend}/createSummary?user_id=${userId}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
