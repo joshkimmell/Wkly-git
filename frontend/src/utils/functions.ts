@@ -132,7 +132,8 @@ export const fetchAllGoalsIndexed = async (
   const userId = user.id;
 
   try {
-    const response = await fetch(`${baseUrl}${backend}/getAllGoals?user_id=${userId}&scope=${scope}`);
+    // const response = await fetch(`${baseUrl}${backend}/getAllGoals?user_id=${userId}&scope=${scope}`);
+    const response = await fetch(`/api/getAllGoals?user_id=${userId}&scope=${scope}`);
     if (!response.ok) {
       const errorText = await response.text(); // Read the body once for error logging
       console.error('Error fetching all goals:', errorText);
