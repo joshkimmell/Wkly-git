@@ -165,6 +165,25 @@ export const fetchAllGoalsIndexed = async (
     throw error;
   }
 };
+// export const fetchAllGoalsIndexed = async ( scope: 'week' | 'month' | 'year'
+// ): Promise<{ indexedGoals: Record<string, Goal[]>; pages: string[] }> => {
+//   const { data: { user } } = await supabase.auth.getUser();
+//   if (!user) throw new Error('User is not authenticated');
+//   const userId = user.id;
+  
+//   try {
+//     const response = await fetch(`/api/getAllGoals?user_id=${userId}&scope=${scope}`);
+//     if (!response.ok) {
+//       throw new Error(`HTTP error! status: ${response.status}`);
+//     }
+
+//     const data = await response.json();
+//     return data;
+//   } catch (error) {
+//     console.error("Error in fetchAllGoalsIndexed:", error);
+//     throw error;
+//   }
+// };
 
 // Add a new goal
 export const addGoal = async (newGoal: any) => {
