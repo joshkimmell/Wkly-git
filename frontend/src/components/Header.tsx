@@ -1,17 +1,17 @@
 import MenuBtn from '@components/menu-btn';
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Sun, Moon, Home, Award, Text, LogOut } from 'lucide-react';
 import { classMenuItem } from '@styles/classes';
 import supabase from '@lib/supabase';
 
-type HeaderProps = {
+// Update `HeaderProps` to make `isOpen` optional
+interface HeaderProps {
   theme: 'theme-dark' | 'theme-light';
   toggleTheme: () => void;
-//   onClick: () => void;
-  isOpen: boolean;
-  handleLogout: () => Promise<void>;
-};
+  isOpen?: boolean; // Made optional
+  handleLogout?: () => Promise<void>; // Optional logout function
+}
 
 interface ThemeState {
     theme: 'theme-dark' | 'theme-light';
@@ -21,15 +21,16 @@ interface MenuState {
     isOpen: boolean;
 }
 
-interface HeaderInternalProps extends HeaderProps {}
-
-const Header = ({}: HeaderInternalProps) => {
+// Update the `Header` component to conditionally require `handleLogout`
+const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     const [themeState, setTheme] = useState<ThemeState['theme']>(
         window.matchMedia('(prefers-color-scheme: dark)').matches ? 'theme-dark' : 'theme-light'
     );
-    const [menuOpen, setIsOpen] = useState<MenuState['isOpen']>(false);
+    const [menuOpen, setIsOpen] = useState<MenuState['isOpen']>(isOpen);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
 
     const handleLogoutInternal = async (): Promise<void> => {
+        if (!isAuthenticated || !props.handleLogout) return;
         try {
             if (!supabase) {
                 console.error('Supabase client is not initialized');
@@ -45,11 +46,7 @@ const Header = ({}: HeaderInternalProps) => {
     };
 
     const handleClick = (): void => {
-        if (!menuOpen) {
-            setIsOpen(true);
-        } else {
-            setIsOpen(false);
-        }
+        setIsOpen((prev) => !prev);
     };
 
     useEffect(() => {
@@ -59,6 +56,14 @@ const Header = ({}: HeaderInternalProps) => {
             document.body.classList.remove('dark');
         }
     }, [themeState]);
+
+    useEffect(() => {
+        const checkAuthStatus = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            setIsAuthenticated(!!user);
+        };
+        checkAuthStatus();
+    }, []);
 
     const toggleThemeInternal = (): void => {
         setTheme((prev) => (prev === 'theme-dark' ? 'theme-light' : 'theme-dark'));
@@ -92,14 +97,16 @@ const Header = ({}: HeaderInternalProps) => {
                         />
                     </Link>
                 </div>
-                <div className="block sm:hidden">
-                    <MenuBtn
-                        className="header-brand--menu-btn btn-ghost justify-end"
-                        onClick={handleClick}
-                    />
-                </div>
+                {isAuthenticated && (
+                    <div className="block sm:hidden">
+                        <MenuBtn
+                            className="header-brand--menu-btn btn-ghost justify-end"
+                            onClick={handleClick}
+                        />
+                    </div>
+                )}
             </div>
-            {menuOpen && (
+            {menuOpen && isAuthenticated && (
                 <div className="menu block sm:hidden">
                     <div className={`menu-container bg-white dark:bg-gray-100 text-brand-80 dark:text-brand-10 align-right`}>
                         <div className="menu-container--list align-flex-end justify-end flex flex-col space-y-2">
