@@ -225,47 +225,52 @@ svg {
 //     gap: 8px;
 //     flex-shrink: 0;
 // }
+// @media (prefers-color-scheme: light) {
+//     .ql-toolbar.ql-snow .ql-picker-label,
+//     .ql-toolbar.ql-snow .ql-stroke,
+//     .ql-snow .ql-picker {
+//         stroke: variables.$gray-70;
+//         color: variables.$gray-70;
+//     }
+//     .ql-toolbar.ql-snow .ql-picker-label:hover,
+//     .ql-toolbar.ql-snow .ql-stroke:hover,
+//     .ql-snow .ql-picker:hover {
+//         stroke: variables.$gray-90;
+//         color: variables.$gray-90;
+//     }
+// }
+// @media (prefers-color-scheme: dark) {
+//     .ql-toolbar.ql-snow .ql-picker-label,
+//     .ql-toolbar.ql-snow .ql-stroke,
+//     .ql-snow .ql-picker {
+//         stroke: variables.$gray-40;
+//         color: variables.$gray-40;
+//     }
+//     .ql-toolbar.ql-snow .ql-picker-label:hover,
+//     .ql-toolbar.ql-snow .ql-stroke:hover,
+//     .ql-snow .ql-picker:hover {
+//         stroke: variables.$gray-10;
+//         color: variables.$gray-10;
+//     }
+// }
+// @media (prefers-color-scheme: light) {
+//     .ql-toolbar.ql-snow .ql-picker-options {
+//         background-color: #fff; // Replace with $gray-0 if defined in your variables
+//     }
+// }
+// @media (prefers-color-scheme: dark) {
+//     .ql-toolbar.ql-snow .ql-picker-options {
+//         background-color: #1a1a1a; // Replace with $gray-100 if defined in your variables
+//     }
+// }
+// @media (prefers-color-scheme: light) {
+//     .ql-editor p {
+//         color: variables.$gray-90;
+//     }
+// }
 
-.ql-toolbar.ql-snow .ql-picker-label,
-.ql-toolbar.ql-snow .ql-stroke,
-.ql-snow .ql-picker {
-    stroke: variables.$gray-70;
-    color: variables.$gray-70;
-}
-.ql-toolbar.ql-snow .ql-picker-label:hover,
-.ql-toolbar.ql-snow .ql-stroke:hover,
-.ql-snow .ql-picker:hover {
-    stroke: variables.$gray-90;
-    color: variables.$gray-90;
-}
-@media (prefers-color-scheme: dark) {
-    .ql-toolbar.ql-snow .ql-picker-label,
-    .ql-toolbar.ql-snow .ql-stroke,
-    .ql-snow .ql-picker {
-        stroke: variables.$gray-40;
-        color: variables.$gray-40;
-    }
-    .ql-toolbar.ql-snow .ql-picker-label:hover,
-    .ql-toolbar.ql-snow .ql-stroke:hover,
-    .ql-snow .ql-picker:hover {
-        stroke: variables.$gray-10;
-        color: variables.$gray-10;
-    }
-}
-.ql-toolbar.ql-snow .ql-picker-options {
-    background-color: #fff; // Replace with $gray-0 if defined in your variables
-}
-@media (prefers-color-scheme: dark) {
-    .ql-toolbar.ql-snow .ql-picker-options {
-        background-color: #1a1a1a; // Replace with $gray-100 if defined in your variables
-    }
-}
-.ql-editor p {
-    color: variables.$gray-90;
-}
-
-@media (prefers-color-scheme: dark) {
-    .ql-editor p {
-        color: variables.$gray-10;
-    }
-}
+// @media (prefers-color-scheme: dark) {
+//     .ql-editor p {
+//         color: variables.$gray-10;
+//     }
+// }

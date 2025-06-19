@@ -24,7 +24,8 @@ interface MenuState {
 // Update the `Header` component to conditionally require `handleLogout`
 const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     const [themeState, setTheme] = useState<ThemeState['theme']>(
-        window.matchMedia('(prefers-color-scheme: dark)').matches ? 'theme-dark' : 'theme-light'
+        localStorage.getItem('theme') as ThemeState['theme'] ||
+        (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
     );
     const [menuOpen, setIsOpen] = useState<MenuState['isOpen']>(isOpen);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -50,6 +51,9 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     };
 
     useEffect(() => {
+        // Set the initial `data-theme` attribute based on the theme state
+        document.documentElement.setAttribute('data-theme', themeState);
+
         if (themeState === 'theme-dark') {
             document.body.classList.add('dark');
         } else {
@@ -59,14 +63,37 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
 
     useEffect(() => {
         const checkAuthStatus = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            setIsAuthenticated(!!user);
+            try {
+                const { data: session, error: sessionError } = await supabase.auth.getSession();
+                if (sessionError || !session?.session) {
+                    console.error('No active session found:', sessionError?.message);
+                    setIsAuthenticated(false);
+                    return;
+                }
+
+                const { data: { user }, error: userError } = await supabase.auth.getUser();
+                if (userError) {
+                    console.error('Error fetching user:', userError.message);
+                    setIsAuthenticated(false);
+                    return;
+                }
+
+                setIsAuthenticated(!!user);
+            } catch (err) {
+                console.error('Unexpected error during auth check:', err);
+                setIsAuthenticated(false);
+            }
         };
         checkAuthStatus();
     }, []);
 
     const toggleThemeInternal = (): void => {
-        setTheme((prev) => (prev === 'theme-dark' ? 'theme-light' : 'theme-dark'));
+        const newTheme = themeState === 'theme-dark' ? 'theme-light' : 'theme-dark';
+        setTheme(newTheme);
+        localStorage.setItem('theme', newTheme);
+
+        // Update the `data-theme` attribute on the `html` element
+        document.documentElement.setAttribute('data-theme', newTheme);
     };
 
     return (

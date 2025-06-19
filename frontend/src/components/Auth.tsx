@@ -4,7 +4,7 @@ import supabase from '@lib/supabase'; // Import supabase client
 import Header from '@components/Header';
 import Modal from 'react-modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
-import { notifySuccess, notifyError } from '@components/ToastyNotification'; 
+import ToastNotification, { notifySuccess, notifyError } from '@components/ToastyNotification'; 
 // import e from 'cors';
 
 const Login = () => {
@@ -78,35 +78,41 @@ const Login = () => {
         const { user } = data;
     
         if (user && user.id) {
-          // Check if profile already exists
-          const { data: existingProfile, error: fetchError } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('id', user.id)
-            .single();
-    
-          if (fetchError && fetchError.code !== 'PGRST116') { // Ignore "not found" error
-            console.error('Error checking existing profile:', fetchError.message);
-            setError(fetchError.message);
-            return null;
-          }
-    
-          if (existingProfile) {
-            console.log('Profile already exists for user ID:', user.id);
-          } else {
-            const { error: profileError } = await supabase
+          try {
+            // Check if profile already exists
+            const { data: existingProfile, error: fetchError } = await supabase
               .from('profiles')
-              .insert({
-                id: user.id, // Ensure this matches the user ID from the `auth.users` table
-                username: username || null, // Insert username if provided
-                full_name: fullName || null, // Insert full_name if provided
-              });
+              .select('id')
+              .eq('id', user.id)
+              .single();
     
-            if (profileError) {
-              console.error('Error saving user profile:', profileError.message);
-              setError(profileError.message);
+            if (fetchError && fetchError.code !== 'PGRST116') { // Ignore "not found" error
+              console.error('Error checking existing profile:', fetchError.message);
+              setError(fetchError.message);
               return null;
             }
+    
+            if (existingProfile) {
+              console.log('Profile already exists for user ID:', user.id);
+            } else {
+              const { error: profileError } = await supabase
+                .from('profiles')
+                .insert({
+                  id: user.id, // Ensure this matches the user ID from the `auth.users` table
+                  username: username || null, // Optional field
+                  full_name: fullName || null, // Optional field
+                });
+    
+              if (profileError) {
+                console.error('Error saving user profile:', profileError.message);
+                setError(profileError.message);
+                return null;
+              }
+            }
+          } catch (err) {
+            console.error('Unexpected error during profile creation:', err);
+            setError('Unexpected error occurred while creating profile.');
+            return null;
           }
         } else {
           console.error('User creation failed: No user ID returned.');
@@ -136,6 +142,7 @@ const Login = () => {
       }
       console.log('Registration successful:', result);
       notifySuccess('Registration successful! Please check your email for verification.');
+      closeModal(); // Close the modal after successful registration
     };
 
     const handlePasswordReset = async (email: string) => {
@@ -323,6 +330,7 @@ const Login = () => {
           </main>
         </div>
       </div>
+      <ToastNotification theme={theme} />
     </SessionContextProvider>
     );
     

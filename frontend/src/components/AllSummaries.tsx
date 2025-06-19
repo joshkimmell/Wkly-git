@@ -6,7 +6,7 @@ import supabase from '@lib/supabase'; // Ensure this is the correct path to your
 import SummaryCard from '@components/SummaryCard';
 import SummaryEditor from '@components/SummaryEditor';
 // import SummaryGenerator from '@components/SummaryGenerator';
-import { modalClasses } from '@styles/classes'; // Adjust the import path as necessary
+import { modalClasses, overlayClasses } from '@styles/classes'; // Adjust the import path as necessary
 import ReactQuill from 'react-quill';
 // import Editor from '@components/Editor';
 
@@ -261,7 +261,7 @@ const AllSummaries = () => {
             isOpen={!!selectedSummary} // Ensure modal is open only when selectedSummary is set
             onRequestClose={() => setSelectedSummary(null)} // Close the modal properly
             className={`fixed inset-0 flex items-center justify-center z-50`}
-            overlayClassName="fixed inset-0 bg-gray-50 dark:bg-gray-80 dark:bg-opacity-75"
+            overlayClassName={`${overlayClasses}`}
           >
             {/* <div className={`${modalClasses}`}> */}
               <SummaryEditor
