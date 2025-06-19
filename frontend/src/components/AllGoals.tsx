@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { fetchAllGoalsIndexed, addGoal, deleteSummary, deleteGoal, updateGoal, getWeekStartDate, setSummary, saveSummary } from '../utils/functions';
+import { useEffect, useState } from 'react';
+import { fetchAllGoalsIndexed, addGoal, deleteGoal, updateGoal, getWeekStartDate, setSummary, saveSummary } from '../utils/functions';
 import Pagination from './Pagination';
 import  GoalCard from '@components/GoalCard';
 import Modal from 'react-modal';
@@ -18,9 +18,6 @@ const GoalsComponent = () => {
     const [pages, setPages] = useState<string[]>([]);
     const [currentPage, setCurrentPage] = useState<string>('');
     const [scope, setScope] = useState<'week' | 'month' | 'year'>('week');
-    const [filteredGoals, setFilteredGoals] = useState<Goal[]>([]);
-    const [goals, setGoals] = useState<Goal[]>([]);
-    const [sortField] = useState<'created_at'>('created_at');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [isGoalModalOpen, setIsGoalModalOpen] = useState(false); // Modal state
     const [isEditorOpen, setIsEditorOpen] = useState(false); // Editor modal state
@@ -33,8 +30,6 @@ const GoalsComponent = () => {
         week_start: getWeekStartDate(new Date()),
         created_at: '',
     });
-    const [selectedRange, setSelectedRange] = useState<Date>(new Date());
-    const [userId, setUserId] = useState<string | null>(null);
     const [selectedSummary, setSelectedSummary] = useState<{
         id: string;
         user_id: string;
@@ -43,9 +38,6 @@ const GoalsComponent = () => {
         title: string;
     } | null>(null); // State for selected summary
     const [filter, setFilter] = useState<string>('');
-
-    // Simple error state for displaying errors in the UI
-    const [error, setError] = useState<string | null>(null);
 
     // const formattedDate = selectedRange.toISOString().split('T')[0]; // YYYY-MM-DD format
 
@@ -61,7 +53,6 @@ const GoalsComponent = () => {
                 }
             } catch (error) {
                 console.error('Error fetching goals:', error);
-                setError('Failed to fetch goals. Please try again later.');
             }
         };
         fetchGoals();
@@ -154,15 +145,15 @@ const GoalsComponent = () => {
   const handleFilterChange = (filterValue: string) => {
     setFilter(filterValue);
     if (filterValue) {
-      const filtered = goals.filter((goal) =>
+      const filtered = (indexedGoals[currentPage] || []).filter((goal) =>
         goal.title.toLowerCase().includes(filterValue.toLowerCase()) ||
         goal.category.toLowerCase().includes(filterValue.toLowerCase()) ||
         goal.description.toLowerCase().includes(filterValue.toLowerCase()) ||
         goal.week_start.toLowerCase().includes(filterValue.toLowerCase())
       );
-      setFilteredGoals(filtered);
+      setIndexedGoals((prev) => ({ ...prev, [currentPage]: filtered }));
     } else {
-      setFilteredGoals(goals); // Reset to all goals if no filter
+      refreshGoals(); // Reset to all goals if no filter
     }
   };
 
@@ -173,6 +164,25 @@ const GoalsComponent = () => {
     // console.log('Indexed Goals:', indexedGoals);
     // console.log('Filtered Goals:', filteredGoals);
     // console.log('Formatted date:', formattedDate);
+
+  // Update the Goals list rendering logic to apply filtering and sorting
+  const sortedAndFilteredGoals = (indexedGoals[currentPage] || [])
+    .filter((goal) => {
+      if (!filter) return true;
+      return (
+        goal.title.toLowerCase().includes(filter.toLowerCase()) ||
+        goal.category.toLowerCase().includes(filter.toLowerCase()) ||
+        goal.description.toLowerCase().includes(filter.toLowerCase()) ||
+        goal.week_start.toLowerCase().includes(filter.toLowerCase())
+      );
+    })
+    .sort((a, b) => {
+      if (sortDirection === 'asc') {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      } else {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+    });
 
   return (
     <div className={`space-y-6`}>
@@ -229,22 +239,20 @@ const GoalsComponent = () => {
 
         {/* Goals List */}
         <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'>
-            {indexedGoals[currentPage]?.map((goal) => (
+            {sortedAndFilteredGoals.map((goal) => (
             <GoalCard
                 key={goal.id}
                 goal={goal}
                 handleDelete={(goalId) => {
-                // console.log('Parent Component - Deleting Goal ID:', goalId); // Log the goal ID in the parent
                 handleDeleteGoal(goalId);
                 }}
                 handleEdit={(goalId) => {
-                // console.log('Parent Component - Editing Goal ID:', goalId); // Log the goal ID in the parent
                 updateGoal(goalId, goal);
                 }}
             />
             ))}
         </div>
-        {indexedGoals[currentPage]?.length === 0 && (
+        {sortedAndFilteredGoals.length === 0 && (
             <div className="text-center text-gray-500 mt-4">
             No goals found for this {scope}.
             </div>
@@ -260,8 +268,8 @@ const GoalsComponent = () => {
             {/* {scope}: {selectedRange.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} */}
             <SummaryGenerator 
                 summaryId={selectedSummary?.id || ''} 
-                summaryTitle={selectedSummary?.title || `Summary for ${scope}: ${selectedRange.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}
-                selectedRange={selectedRange}
+                summaryTitle={selectedSummary?.title || `Summary for ${scope}: ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}
+                selectedRange={new Date()}
                 filteredGoals={indexedGoals[currentPage] || []} // Pass the goals for the current page
                 scope={scope}
             />
@@ -290,7 +298,7 @@ const GoalsComponent = () => {
                         editedTitle || selectedSummary.title, // Use the edited title or the original title
                         editedContent,
                         'User',
-                        selectedRange || new Date()
+                        new Date()
                         );
                         closeEditor(); // Close the modal after saving
                         setSummary(editedContent, editedTitle, 'User'); // Update the local state

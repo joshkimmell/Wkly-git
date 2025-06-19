@@ -27,38 +27,39 @@ const AllSummaries = () => {
     user_id: '',
     created_at: '',
   });
-  const [content, setContent] = useState(''); // For ReactQuill editor content
   const [localSummaryId, setLocalSummaryId] = useState<string | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [selectedSummary, setSelectedSummary] = useState<Summary | null>(null);
-  const [selectedWeek, setSelectedWeek] = useState<Date>(new Date()); // Default to current week
   const [sortField] = useState<'created_at'>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-    // Fetch all summaries for the logged-in user
-  //   const handleFetchSummaries = async () => {
-  //   try {
-  //     // Get the current user ID (if needed)
-  //     const { data: { user } } = await supabase.auth.getUser();
-  //     if (!user) {
-  //       console.error('User is not authenticated');
-  //       return;
-  //     }
+  const [filter, setFilter] = useState<string>(''); // For filtering summaries
   
-  //     // Call your Netlify function
-  //     const response = await fetchSummaries(user.id, localSummaryId);
-  //     if (!response) {
-  //       console.error('Error fetching summaries:', await response.text());
-  //       return;
-  //     }
-  
-  //     const data = await response.json();
-  //     setSummaries(data || []);
-  //     setFilteredSummaries(data || []);
-  //   } catch (err) {
-  //     console.error('Unexpected error fetching summaries:', err);
-  //   }
-  // };
+  useEffect(() => {
+    setFilteredSummaries(summaries); // Initialize filteredSummaries with summaries
+  }, [summaries]);
+
+  // Removed scope-related state and logic
+
+  // Corrected fetchSummaries call with required arguments
+  const fetchSummariesData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('User is not authenticated');
+        return;
+      }
+      const response = await fetchSummaries(user.id, ''); // Provided required arguments
+      setSummaries(response || []);
+      setFilteredSummaries(response || []);
+    } catch (error) {
+      console.error('Error fetching summaries:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchSummariesData();
+  }, []);
 
   function openEditor(summary: Summary) {
     setSelectedSummary(summary);
@@ -86,23 +87,8 @@ const AllSummaries = () => {
       }
       const data = response;
       setSummaries(data || []);
-      setFilteredSummaries(data || []);
     } catch (err) {
       console.error('Unexpected error fetching summaries:', err);
-    }
-  };
-  
-  // Save the edited summary
-  const handleSave = async (editedContent: string, editedTitle: string) => {
-    try {
-      await saveSummary(setLocalSummaryId, selectedSummary?.title || '', editedContent, 'User', selectedWeek);
-        setSummary(editedContent, editedTitle, selectedSummary?.type || 'User');
-        setSelectedWeek(selectedWeek);
-        closeEditor();
-        handleFetchSummaries(); // Refresh summaries after adding
-        console.log('Local summary ID set:', localSummaryId);
-    } catch (error) {
-      console.error('Error saving edited summary:', error);
     }
   };
   
@@ -131,35 +117,6 @@ const AllSummaries = () => {
       console.error('Error deleting summary:', error);
     }
   };
-
-  const [filter, setFilter] = useState<string>(''); // For filtering summaries
-  
-  
-
-
-
-  const sortedSummaries = [...filteredSummaries].sort((a, b) => {
-    let aValue: string | number = a[sortField] ?? '';
-    let bValue: string | number = b[sortField] ?? '';
-  
-    if (sortField === 'created_at') {
-      const aDate = aValue ? new Date(aValue as string) : null;
-      const bDate = bValue ? new Date(bValue as string) : null;
-      const aTime = aDate && !isNaN(aDate.getTime()) ? aDate.getTime() : 0;
-      const bTime = bDate && !isNaN(bDate.getTime()) ? bDate.getTime() : 0;
-  
-      if (aTime < bTime) return sortDirection === 'asc' ? -1 : 1;
-      if (aTime > bTime) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    } else {
-      const aStr = (aValue || '').toString().toLowerCase();
-      const bStr = (bValue || '').toString().toLowerCase();
-  
-      if (aStr < bStr) return sortDirection === 'asc' ? -1 : 1;
-      if (aStr > bStr) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    }
-  });
 
   const handleAddSummary = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -202,14 +159,14 @@ const AllSummaries = () => {
     form.reset();
   };
 
-
-  // Filter summaries based on the filter state
+  // Updated handleFilterChange to include filtering by content
   const handleFilterChange = (filterValue: string) => {
     setFilter(filterValue);
     if (filterValue) {
       const filtered = summaries.filter((summary) =>
         summary.title.toLowerCase().includes(filterValue.toLowerCase()) ||
-        summary.type.toLowerCase().includes(filterValue.toLowerCase())
+        summary.type.toLowerCase().includes(filterValue.toLowerCase()) ||
+        summary.content.toLowerCase().includes(filterValue.toLowerCase()) // Added content filtering
       );
       setFilteredSummaries(filtered);
     } else {
@@ -217,17 +174,33 @@ const AllSummaries = () => {
     }
   };
 
-  
-
-  // const Editor: React.FC<EditorProps> = ({ id, value, className, onChange }) => {
-  //   // ...implementation
-  //   return null; // placeholder
-  // };
-
-
   useEffect(() => {
     handleFetchSummaries();
   }, []);
+
+  // Update the Summaries list rendering logic to apply filtering and sorting
+  const sortedAndFilteredSummaries = filteredSummaries.sort((a, b) => {
+    if (sortField === 'created_at') {
+      const aDate = new Date(a.created_at);
+      const bDate = new Date(b.created_at);
+      return sortDirection === 'asc'
+        ? aDate.getTime() - bDate.getTime()
+        : bDate.getTime() - aDate.getTime();
+    } else {
+      const aStr = (a[sortField] as string)?.toLowerCase() || '';
+      const bStr = (b[sortField] as string)?.toLowerCase() || '';
+      return sortDirection === 'asc'
+        ? aStr.localeCompare(bStr)
+        : bStr.localeCompare(aStr);
+    }
+  });
+
+  // Add a function to highlight filtered words
+  const applyHighlight = (text: string, filter: string) => {
+    if (!filter) return text;
+    const regex = new RegExp(`(${filter})`, 'gi');
+    return text.replace(regex, '<span class="bg-brand-10 text-brand-90 inline-block">$1</span>');
+  };
 
   return (
     <div className="space-y-6">
@@ -263,20 +236,25 @@ const AllSummaries = () => {
 
       {/* Summaries List */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {sortedSummaries.map((summary) =>
+        {sortedAndFilteredSummaries.map((summary) => (
           <SummaryCard
             key={summary.id}
-            content={summary.content}
-            title={summary.title}
-            type={summary.type}
+            content={applyHighlight(summary.content, filter)}
+            title={applyHighlight(summary.title, filter)}
+            type={applyHighlight(summary.type, filter)}
             id={summary.id}
             created_at={summary.created_at}
             week_start={summary.week_start}
             handleDelete={() => handleDeleteSummary(summary.id)}
             handleEdit={() => openEditor(summary)}
           />
-        )}
+        ))}
       </div>
+      {sortedAndFilteredSummaries.length === 0 && (
+        <div className="text-center text-gray-500 mt-4">
+          No summaries found.
+        </div>
+      )}
       {isEditorOpen && selectedSummary && ( 
         <Modal
             key={selectedSummary.id} // Use the summary ID as the key
@@ -301,7 +279,7 @@ const AllSummaries = () => {
                       editedTitle || selectedSummary.title,
                       editedContent,
                       'User',
-                      selectedWeek || new Date()
+                      new Date()
                     );
                     closeEditor(); // Close the modal after saving
                     setSummary(editedContent, editedTitle, 'User'); // Update the local state

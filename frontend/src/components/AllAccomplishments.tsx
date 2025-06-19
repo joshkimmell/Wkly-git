@@ -1,22 +1,29 @@
 import { useState, useEffect } from 'react';
 import Modal from 'react-modal';
-import { cardClasses, modalClasses } from '@styles/classes';
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
-import { DeleteIcon, Trash } from 'lucide-react';
+import { fetchAllAccomplishmentsIndexed } from '@utils/functions';
+import { Accomplishment } from '@utils/goalUtils'; // Adjust the import path as necessary
+import AccomplishmentCard from './AccomplishmentCard';
+import { modalClasses, overlayClasses } from '@styles/classes';
+import { over } from 'lodash';
 
 Modal.setAppElement('#root');
 
-interface Accomplishment {
-  id: string;
-  title: string;
-  description: string;
-  impact: string;
-  category: string;
-  goal_id: string;
-  user_id: string;
-  created_at: string;
-}
+// interface Accomplishment {
+//   id: string;
+//   title: string;
+//   description: string;
+//   impact: string;
+//   category: string;
+//   goal_id: string;
+//   user_id: string;
+//   created_at: string;
+//   content: string;
+//   type: string;
+//   week_start: string;
+// }
 
+// Corrected assignment to use `indexedAccomplishments`
 const AllAccomplishments = () => {
   const [accomplishments, setAccomplishments] = useState<Accomplishment[]>([]);
   const [filteredAccomplishments, setFilteredAccomplishments] = useState<Accomplishment[]>([]);
@@ -30,13 +37,30 @@ const AllAccomplishments = () => {
     goal_id: '',
     user_id: '',
     created_at: '',
+    // content: '',
+    // type: '',
+    // week_start: '',
   });
   const [filter, setFilter] = useState<string>(''); // For filtering accomplishments
-  const [sortField] = useState<'created_at'>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
+  const [scope, setScope] = useState<'week' | 'month' | 'year'>('week');
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [selectedAccomplishment, setSelectedAccomplishment] = useState<Accomplishment | null>(null);
 
-  
+  useEffect(() => {
+    const fetchAccomplishments = async () => {
+      try {
+        const fetchedAccomplishments = await fetchAllAccomplishmentsIndexed(scope);
+        const accomplishmentsArray = Object.values(fetchedAccomplishments.indexedAccomplishments).flat();
+        setFilteredAccomplishments(accomplishmentsArray);
+      } catch (error) {
+        console.error('Error fetching accomplishments:', error);
+      }
+    };
+    fetchAccomplishments();
+  }, [scope]);
+
   // Fetch all accomplishments for the logged-in user
   const fetchAccomplishments = async () => {
     try {
@@ -62,29 +86,6 @@ const AllAccomplishments = () => {
       console.error('Unexpected error fetching accomplishments:', err);
     }
   };
-
-  const sortedAccomplishments = [...filteredAccomplishments].sort((a, b) => {
-  let aValue: string | number = a[sortField] ?? '';
-  let bValue: string | number = b[sortField] ?? '';
-
-  if (sortField === 'created_at') {
-    const aDate = aValue ? new Date(aValue as string) : null;
-    const bDate = bValue ? new Date(bValue as string) : null;
-    const aTime = aDate && !isNaN(aDate.getTime()) ? aDate.getTime() : 0;
-    const bTime = bDate && !isNaN(bDate.getTime()) ? bDate.getTime() : 0;
-
-    if (aTime < bTime) return sortDirection === 'asc' ? -1 : 1;
-    if (aTime > bTime) return sortDirection === 'asc' ? 1 : -1;
-    return 0;
-  } else {
-    const aStr = (aValue || '').toString().toLowerCase();
-    const bStr = (bValue || '').toString().toLowerCase();
-
-    if (aStr < bStr) return sortDirection === 'asc' ? -1 : 1;
-    if (aStr > bStr) return sortDirection === 'asc' ? 1 : -1;
-    return 0;
-  }
-});
 
   // Add a new accomplishment
   const handleAddAccomplishment = async () => {
@@ -117,6 +118,9 @@ const AllAccomplishments = () => {
         goal_id: '',
         user_id: '',
         created_at: '',
+        // content: '',
+        // type: '',
+        // week_start: '',
       });
     } catch (err) {
       console.error('Unexpected error adding accomplishment:', err);
@@ -167,6 +171,16 @@ const AllAccomplishments = () => {
     setIsModalOpen(false);
   };
 
+  function openEditor(accomplishment: Accomplishment) {
+    setSelectedAccomplishment(accomplishment);
+    setIsEditorOpen(true);
+  }
+
+  function closeEditor() {
+    setIsEditorOpen(false);
+    setSelectedAccomplishment(null);
+  }
+
   useEffect(() => {
     fetchAccomplishments();
   }, []);
@@ -186,6 +200,35 @@ const AllAccomplishments = () => {
           </button>
         </div>
       </div> 
+
+      {/* Scope Selector */}
+        <div>
+            {['week', 'month', 'year'].map((s) => (
+            <button
+                key={s}
+                onClick={() => setScope(s as 'week' | 'month' | 'year')}
+                className={`btn-ghost ${scope === s ? 'font-bold underline' : ''}`}
+            >
+                {s.charAt(0).toUpperCase() + s.slice(1)}
+            </button>
+            ))}
+        </div>
+        <div className="flex justify-between items-center w-full mb-4">
+            {/* Pagination */}
+            {/* <Pagination
+                pages={pages}
+                currentPage={currentPage}
+                onPageChange={handlePageChange}
+                scope={scope}
+            />
+
+            <button
+                onClick={openGoalModal}
+                className="btn-primary sm:block ml-auto pr-4"
+                >
+                Add Goal
+            </button> */}
+        </div>
 
       {/* Filter Input */}
       <div className="mt-4 h-10 flex items-center space-x-2">
@@ -214,28 +257,43 @@ const AllAccomplishments = () => {
         />
       </div> */}
 
-      {/* Accomplishments List */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {sortedAccomplishments.map((accomplishment) => (
-          <div key={accomplishment.id} className={`${cardClasses}`}>
-            <div className="tabs flex flex-row items-center justify-end w-full">
-              <span className="flex flex-col w-auto items-left px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-10 text-brand-90 my-0 mb-2">
-                {accomplishment.category || 'Uncategorized'}
-              </span>
-            </div>
-            <h4 >{accomplishment.title}</h4>
-            <p>{accomplishment.description}</p>
-            <p className="text-sm text-gray-60 dark:text-gray-40 mt-2">{accomplishment.impact}</p>
-            <div className="mt-4 flex justify-end space-x-2">
-              <button
-                onClick={() => handleDeleteAccomplishment(accomplishment.id)}
-                className="btn-ghost hover:bg-gray-20 dark:hover:bg-gray-70"
-              >
-                <Trash className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
+      {/* Scope Selector */}
+      {/* <div>
+        {['week', 'month', 'year'].map((s) => (
+          <button
+            key={s}
+            onClick={() => setScope(s as 'week' | 'month' | 'year')}
+            className={`btn ${scope === s ? 'font-bold underline' : ''}`}
+          >
+            {s.charAt(0).toUpperCase() + s.slice(1)}
+          </button>
         ))}
+      </div> */}
+
+      {/* Accomplishments List */}
+      <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'>
+        {filteredAccomplishments.map((accomplishment) => (
+          <AccomplishmentCard
+            key={accomplishment.id}
+            id={accomplishment.id}
+            title={accomplishment.title}
+            description={accomplishment.description}
+            impact={accomplishment.impact}
+            // content={accomplishment.content}
+            // type={accomplishment.type}
+            created_at={accomplishment.created_at}
+            // week_start={accomplishment.week_start}
+            handleDelete={() => handleDeleteAccomplishment(accomplishment.id)}
+            handleEdit={() => openEditor(accomplishment)}
+          />
+        ))}
+        {isEditorOpen && (
+          <Modal isOpen={isEditorOpen} onRequestClose={closeEditor}>
+            <h2>Edit Accomplishment</h2>
+            <p>{selectedAccomplishment?.title}</p>
+            <button onClick={closeEditor}>Close</button>
+          </Modal>
+        )}
       </div>
 
       {/* Add Accomplishment Modal */}
@@ -244,10 +302,10 @@ const AllAccomplishments = () => {
           isOpen={isModalOpen}
           onRequestClose={closeModal}
           className="fixed inset-0 flex items-center justify-center z-50"
-          overlayClassName="fixed inset-0 bg-gray-500 bg-opacity-75"
+          overlayClassName={`${overlayClasses}`}
           ariaHideApp={false} // Disable automatic aria-hidden management
         >
-          <div className="bg-white rounded-lg shadow-lg p-6 w-96">
+          <div className={`${modalClasses}`}>
             <h3 className="text-lg font-medium text-gray-900 mb-4">Add Accomplishment</h3>
             <div className="space-y-4">
               <div>
@@ -315,6 +373,18 @@ const AllAccomplishments = () => {
               </button>
             </div>
           </div>
+        </Modal>
+      )}
+
+      {isEditorOpen && (
+        <Modal 
+          isOpen={isEditorOpen} 
+          onRequestClose={closeEditor}
+          className="fixed inset-0 flex items-center justify-center z-50"
+          overlayClassName={`${overlayClasses}`}>
+          <h2>Edit Accomplishment</h2>
+          <p>{selectedAccomplishment?.title}</p>
+          <button onClick={closeEditor}>Close</button>
         </Modal>
       )}
     </div>

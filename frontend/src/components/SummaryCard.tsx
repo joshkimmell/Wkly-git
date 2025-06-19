@@ -63,7 +63,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
     <div>
       <div key={id} className={`flex flex-col text-left w-full space-y-4 ${cardClasses} mt-4 relative`}>
         <div className={`flex flex-row w-full items-center justify-between`}>  
-          <h4 className="w-full text-lg font-bold text-gray-90">{title}</h4>
+          <h4 className="w-full text-lg font-bold text-gray-90" dangerouslySetInnerHTML={{ __html: title }}></h4>
           <div className="flex flex-row justify-between">
             <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-10 text-brand-100 mt-2">
               {type} 
@@ -76,16 +76,14 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
           type="button"   
         >
           {!isExpanded ? (
-            // <ChevronUp className="w-5 h-5" />
-              <div className='flex flex-col text-left'
-                dangerouslySetInnerHTML={{ __html:content.substring(0, 200) + (content.length > 200 ? '...' : '')}}
-              />
-              // {summary.content.substring(0, 200) + (summary.content.length > 200 ? '...' : '')}
-            ) : (
-              <div 
-                className='flex flex-col text-left'
-                dangerouslySetInnerHTML={{ __html: content }}
-              />
+            <div className='flex flex-col text-left'
+              dangerouslySetInnerHTML={{ __html: content.substring(0, 200) + (content.length > 200 ? '...' : '') }}
+            />
+          ) : (
+            <div 
+              className='flex flex-col text-left'
+              dangerouslySetInnerHTML={{ __html: content }}
+            />
           )}
         </button>
 

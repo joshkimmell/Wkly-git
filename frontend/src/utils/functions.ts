@@ -1,5 +1,4 @@
 import React from "react";
-import { Goal, Summary } from "@utils/goalUtils";
 import supabase from "@lib/supabase";
 import { notifyError, notifySuccess } from "@components/ToastyNotification";
 import { v4 as uuidv4 } from "uuid";
@@ -85,7 +84,44 @@ export const fetchAllGoals = async (): Promise<Goal[]> => {
   return goals;
 };
 
-export const indexDataByScope = <T extends { week_start: string }>(
+// Refined type definitions for `Goal`, `Summary`, and `Accomplishment`
+interface Goal {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  user_id: string;
+  created_at: string;
+  week_start: string;
+}
+
+// Added missing `description` property to `Summary` type
+interface Summary {
+  id: string;
+  scope: string;
+  title: string;
+  description: string;
+  content: string;
+  type: string;
+  user_id: string;
+  created_at: string;
+  week_start: string;
+}
+
+interface Accomplishment {
+  id: string;
+  title: string;
+  description: string;
+  impact: string;
+  category: string;
+  goal_id: string;
+  user_id: string;
+  created_at: string;
+  week_start: string;
+}
+
+// Ensured `scope` is always defined in `indexDataByScope`
+export const indexDataByScope = <T extends { week_start: string; id: string; title: string; description: string; category?: string; user_id?: string; created_at?: string; content?: string; type?: string; impact?: string; goal_id?: string; scope: string }>(
   data: T[],
   scope: 'week' | 'month' | 'year'
 ): Record<string, T[]> => {
@@ -112,7 +148,7 @@ export const indexDataByScope = <T extends { week_start: string }>(
     if (!indexedData[key]) {
       indexedData[key] = [];
     }
-    indexedData[key].push(item);
+    indexedData[key].push({ ...item, scope });
   });
 
   return indexedData;
@@ -152,7 +188,8 @@ export const fetchAllGoalsIndexed = async (
     goals.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     // Index goals by the selected scope
-    const indexedGoals = indexDataByScope(goals, scope);
+    const goalsWithScope = goals.map((goal) => ({ ...goal, scope }));
+    const indexedGoals = indexDataByScope(goalsWithScope, scope);
 
     // Get pages sorted in descending order
     const pages = Object.keys(indexedGoals).sort((a, b) => (a > b ? -1 : 1));
@@ -571,10 +608,70 @@ export const deleteSummary = async (summary_id: string) => {
 
 // Set the summary in the local state or perform any other action
 export function setSummary(content: string, title: string, type: string) {
-    // console.log("Generated Summary:", content, title, type);
-    // This function could be expanded to update a state or perform other actions
-    // For now, it simply logs the summary to the console
+  console.log("Summary Content:", content);
+  console.log("Summary Title:", title);
+  console.log("Summary Type:", type);
 }
+
+// Implement fetchAllSummariesIndexed
+// Updated `fetchAllSummariesIndexed` to ensure `content` is always defined
+export const fetchAllSummariesIndexed = async (
+  scope: 'week' | 'month' | 'year'
+): Promise<{ indexedSummaries: Record<string, Summary[]>; pages: string[] }> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User is not authenticated');
+  const userId = user.id;
+
+  try {
+    const response = await fetch(`/api/getSummaries?user_id=${userId}&scope=${scope}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error fetching summaries: ${errorText}`);
+    }
+
+    const summaries: Summary[] = await response.json();
+    const summariesWithScope = summaries.map((summary) => ({
+      ...summary,
+      scope,
+      content: summary.content || '', // Ensure `content` is always defined
+      description: summary.description || '', // Ensure `description` is always defined
+    }));
+    const indexedSummaries = indexDataByScope(summariesWithScope, scope);
+    const pages = getPagesFromIndexedData(indexedSummaries);
+
+    return { indexedSummaries, pages };
+  } catch (error) {
+    console.error('Error fetching summaries:', error);
+    throw error;
+  }
+};
+
+// Implement fetchAllAccomplishmentsIndexed
+export const fetchAllAccomplishmentsIndexed = async (
+  scope: 'week' | 'month' | 'year'
+): Promise<{ indexedAccomplishments: Record<string, Accomplishment[]>; pages: string[] }> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User is not authenticated');
+  const userId = user.id;
+
+  try {
+    const response = await fetch(`/api/getAllAccomplishments?user_id=${userId}&scope=${scope}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error fetching accomplishments: ${errorText}`);
+    }
+
+    const accomplishments: Accomplishment[] = await response.json();
+    const accomplishmentsWithScope = accomplishments.map((accomplishment) => ({ ...accomplishment, scope }));
+    const indexedAccomplishments = indexDataByScope(accomplishmentsWithScope, scope);
+    const pages = getPagesFromIndexedData(indexedAccomplishments);
+
+    return { indexedAccomplishments, pages };
+  } catch (error) {
+    console.error('Error fetching accomplishments:', error);
+    throw error;
+  }
+};
 
 
 
