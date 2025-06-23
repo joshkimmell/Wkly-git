@@ -1,17 +1,17 @@
 import MenuBtn from '@components/menu-btn';
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Sun, Moon, Home, Award, Text, LogOut } from 'lucide-react';
 import { classMenuItem } from '@styles/classes';
 import supabase from '@lib/supabase';
 
-type HeaderProps = {
+// Update `HeaderProps` to make `isOpen` optional
+interface HeaderProps {
   theme: 'theme-dark' | 'theme-light';
   toggleTheme: () => void;
-//   onClick: () => void;
-  isOpen: boolean;
-  handleLogout: () => Promise<void>;
-};
+  isOpen?: boolean; // Made optional
+  handleLogout?: () => Promise<void>; // Optional logout function
+}
 
 interface ThemeState {
     theme: 'theme-dark' | 'theme-light';
@@ -21,15 +21,17 @@ interface MenuState {
     isOpen: boolean;
 }
 
-interface HeaderInternalProps extends HeaderProps {}
-
-const Header = ({}: HeaderInternalProps) => {
+// Update the `Header` component to conditionally require `handleLogout`
+const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     const [themeState, setTheme] = useState<ThemeState['theme']>(
-        window.matchMedia('(prefers-color-scheme: dark)').matches ? 'theme-dark' : 'theme-light'
+        localStorage.getItem('theme') as ThemeState['theme'] ||
+        (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
     );
-    const [menuOpen, setIsOpen] = useState<MenuState['isOpen']>(false);
+    const [menuOpen, setIsOpen] = useState<MenuState['isOpen']>(isOpen);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
 
     const handleLogoutInternal = async (): Promise<void> => {
+        if (!isAuthenticated || !props.handleLogout) return;
         try {
             if (!supabase) {
                 console.error('Supabase client is not initialized');
@@ -45,14 +47,13 @@ const Header = ({}: HeaderInternalProps) => {
     };
 
     const handleClick = (): void => {
-        if (!menuOpen) {
-            setIsOpen(true);
-        } else {
-            setIsOpen(false);
-        }
+        setIsOpen((prev) => !prev);
     };
 
     useEffect(() => {
+        // Set the initial `data-theme` attribute based on the theme state
+        document.documentElement.setAttribute('data-theme', themeState);
+
         if (themeState === 'theme-dark') {
             document.body.classList.add('dark');
         } else {
@@ -60,8 +61,39 @@ const Header = ({}: HeaderInternalProps) => {
         }
     }, [themeState]);
 
+    useEffect(() => {
+        const checkAuthStatus = async () => {
+            try {
+                const { data: session, error: sessionError } = await supabase.auth.getSession();
+                if (sessionError || !session?.session) {
+                    console.error('No active session found:', sessionError?.message);
+                    setIsAuthenticated(false);
+                    return;
+                }
+
+                const { data: { user }, error: userError } = await supabase.auth.getUser();
+                if (userError) {
+                    console.error('Error fetching user:', userError.message);
+                    setIsAuthenticated(false);
+                    return;
+                }
+
+                setIsAuthenticated(!!user);
+            } catch (err) {
+                console.error('Unexpected error during auth check:', err);
+                setIsAuthenticated(false);
+            }
+        };
+        checkAuthStatus();
+    }, []);
+
     const toggleThemeInternal = (): void => {
-        setTheme((prev) => (prev === 'theme-dark' ? 'theme-light' : 'theme-dark'));
+        const newTheme = themeState === 'theme-dark' ? 'theme-light' : 'theme-dark';
+        setTheme(newTheme);
+        localStorage.setItem('theme', newTheme);
+
+        // Update the `data-theme` attribute on the `html` element
+        document.documentElement.setAttribute('data-theme', newTheme);
     };
 
     return (
@@ -92,14 +124,16 @@ const Header = ({}: HeaderInternalProps) => {
                         />
                     </Link>
                 </div>
-                <div className="block sm:hidden">
-                    <MenuBtn
-                        className="header-brand--menu-btn btn-ghost justify-end"
-                        onClick={handleClick}
-                    />
-                </div>
+                {isAuthenticated && (
+                    <div className="block sm:hidden">
+                        <MenuBtn
+                            className="header-brand--menu-btn btn-ghost justify-end"
+                            onClick={handleClick}
+                        />
+                    </div>
+                )}
             </div>
-            {menuOpen && (
+            {menuOpen && isAuthenticated && (
                 <div className="menu block sm:hidden">
                     <div className={`menu-container bg-white dark:bg-gray-100 text-brand-80 dark:text-brand-10 align-right`}>
                         <div className="menu-container--list align-flex-end justify-end flex flex-col space-y-2">

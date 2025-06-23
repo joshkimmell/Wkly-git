@@ -1,24 +1,24 @@
+[dev]
+  framework = "vite"
+  targetPort = 5173
+  port = 8888
+  command = "npm run dev --prefix frontend"
+
 [build]
   command = "npm run build"
   publish = "frontend/dist"
   functions = "netlify/functions"
-
-[build.environment]
-  SECRETS_SCAN_OMIT_PATHS = "frontend/dist/assets/"
-  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_SERVICE_ROLE_KEY"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
 
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
 
-[dev]
-  framework = "vite"
-  targetPort = 5173
-  port = 8888
-  command = "npm run dev --prefix frontend"
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[build.environment]
+  SECRETS_SCAN_OMIT_PATHS = "frontend/dist/assets/"
+  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_SERVICE_ROLE_KEY"
