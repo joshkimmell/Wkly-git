@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react';
-import { fetchAllGoalsIndexed, addGoal, deleteGoal, updateGoal, getWeekStartDate, setSummary, saveSummary } from '../utils/functions';
+import { fetchAllGoalsIndexed, addGoal, deleteGoal, updateGoal, setSummary, saveSummary, UserCategories, initializeUserCategories, addCategory } from '../utils/functions'; // Removed unused imports
 import Pagination from './Pagination';
-import  GoalCard from '@components/GoalCard';
+import GoalCard from '@components/GoalCard';
+import GoalForm from '@components/GoalForm';
 import Modal from 'react-modal';
 import SummaryGenerator from '@components/SummaryGenerator';
 import SummaryEditor from '@components/SummaryEditor';
+import GoalEditor from '@components/GoalEditor';
 import { modalClasses, overlayClasses } from '@styles/classes';
-import { Goal as BaseGoal } from '@utils/goalUtils';
+import { Goal as GoalUtilsGoal } from '@utils/goalUtils';
+// import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
 
-type Goal = BaseGoal & {
+
+type Goal = GoalUtilsGoal & {
   created_at?: string;
 };
 
@@ -23,13 +27,22 @@ const GoalsComponent = () => {
     const [isEditorOpen, setIsEditorOpen] = useState(false); // Editor modal state
     const [newGoal, setNewGoal] = useState<Goal>({
         id: '',
-        user_id: '',
         title: '',
         description: '',
-        category: 'Technical skills',
-        week_start: getWeekStartDate(new Date()),
+        category: '',
+        week_start: '',
+        user_id: '',
         created_at: '',
     });
+    const [selectedGoal, setSelectedGoal] = useState<{
+        id: string;
+        user_id: string;
+        title: string;
+        description: string;
+        category: string;
+        week_start: string;
+        created_at: string;
+    } | null>(null);
     const [selectedSummary, setSelectedSummary] = useState<{
         id: string;
         user_id: string;
@@ -56,7 +69,28 @@ const GoalsComponent = () => {
             }
         };
         fetchGoals();
+        // const fetchCategories = async () => {
+        //     await initializeUserCategories();
+        //     console.log('UserCategories:', UserCategories); // Log the categories for debugging
+        // };
+        // fetchCategories();
     }, [scope]);
+
+    useEffect(() => {
+            const fetchAndSetCategories = async () => {
+                await initializeUserCategories();
+                // Removed unused `categories` state
+            };
+            fetchAndSetCategories();
+        }, []);
+
+    // useEffect(() => {
+    //     const initializeCategories = async () => {
+    //         await initializeDefaultCategories();
+    //         setCategories([...DefaultCategories]);
+    //     };
+    //     initializeCategories();
+    // }, []);
 
     const openGoalModal = () => {
         if (!isGoalModalOpen) {
@@ -101,20 +135,28 @@ const GoalsComponent = () => {
     }, [scope]);
   
 // Add a new goal
-    const handleAddGoal = async () => {
+    const handleAddGoal = async (event: React.FormEvent) => {
+        event.preventDefault(); // Prevent default form submission
         try {
+            // Validation: Ensure all required fields are populated
+            if (!newGoal.title || !newGoal.description || !newGoal.category || !newGoal.week_start) {
+                console.error('All fields are required.');
+                return;
+            }
+            console.log('New goal being added:', newGoal);
+
         await addGoal(newGoal); // Add the new goal
-        setIsGoalModalOpen(false); // Close the modal
         setNewGoal({
             id: '',
-            user_id: '',
             title: '',
             description: '',
-            category: 'Technical skills',
-            week_start: getWeekStartDate(new Date()), 
+            category: '',
+            week_start: '',
+            user_id: '',
             created_at: '',
         }); 
-          await refreshGoals(); // Refresh the goals list
+        setIsGoalModalOpen(false); // Close the modal
+        await refreshGoals(); // Refresh the goals list
         } catch (error) {
         console.error('Error adding goal:', error);
         }
@@ -122,22 +164,20 @@ const GoalsComponent = () => {
 // Delete a goal
     const handleDeleteGoal = async (goalId: string) => {
         try {
-        //   if (!userId) {
-        //     console.error('User is not authenticated');
-        //     return;
-        //   }
-
         await deleteGoal(goalId);
-        //   setGoals((prevGoals) => prevGoals.filter((goal) => goal.id !== goalId)); // Remove the deleted goal from state
-        //   setFilteredGoals((prevFilteredGoals) =>
-        //     prevFilteredGoals.filter((goal) => goal.id !== goalId)
-        //   ); // Update filtered goals
-        // setGoals((prev) => prev.filter((goal) => goal.id !== goalId));
-        // setFilteredGoals((prev) => prev.filter((goal) => goal.id !== goalId));
-        // console.log('Goal deleted successfully');
         await refreshGoals(); // Refresh goals after deleting
         } catch (error) {
         console.error('Error deleting goal:', error);
+        }
+    };
+
+// Update a goal
+    const handleUpdateGoal = async (goalId: string, updatedGoal: Goal) => {
+        try {
+        await updateGoal(goalId, updatedGoal);
+        await refreshGoals(); // Refresh goals after deleting
+        } catch (error) {
+        console.error('Error updating goal:', error);
         }
     };
 
@@ -183,6 +223,15 @@ const GoalsComponent = () => {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       }
     });
+
+    // Add a function to highlight filtered words
+//   const applyHighlight = (text: string, filter: string) => {
+//     if (!filter) return text;
+//     // Escape special characters in the filter string
+//     const escapedFilter = filter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+//     const regex = new RegExp(`(${escapedFilter})`, 'gi');
+//     return text.replace(regex, '<span class="bg-brand-10 text-brand-90 inline-block">$1</span>');
+//   };
 
   return (
     <div className={`space-y-6`}>
@@ -244,11 +293,20 @@ const GoalsComponent = () => {
                 key={goal.id}
                 goal={goal}
                 handleDelete={(goalId) => {
-                handleDeleteGoal(goalId);
+                    handleDeleteGoal(goalId);
                 }}
                 handleEdit={(goalId) => {
-                updateGoal(goalId, goal);
+                    handleUpdateGoal(goalId, {
+                        ...goal,
+                        title: goal.title,
+                        description: goal.description,
+                        category: goal.category,
+                        week_start: goal.week_start,
+                    });
+                    setSelectedGoal(goal);
+                    setIsEditorOpen(true);
                 }}
+                filter={filter} // Pass the filter prop
             />
             ))}
         </div>
@@ -325,84 +383,62 @@ const GoalsComponent = () => {
                 overlayClassName={`${overlayClasses}`}
             >
             <div className={`${modalClasses}`}>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Add Goal</h3>
-                <div className="space-y-4">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700">Title</label>
-                    <input
-                    type="text"
-                    value={newGoal.title}
-                    onChange={(e) =>
-                        setNewGoal({ ...newGoal, title: e.target.value })
-                    }
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                    />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700">Description</label>
-                    <textarea
-                    value={newGoal.description}
-                    onChange={(e) =>
-                        setNewGoal({ ...newGoal, description: e.target.value })
-                    }
-                    rows={4}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                    />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700">Week Start</label>
-                    <input
-                    type="date"
-                    value={newGoal.week_start}
-                    onChange={(e) => {
-                        const selectedDate = new Date(e.target.value);
-                        // console.log(`Selected date: ${selectedDate.toISOString().split('T')[0]}`);
-
-                        // Check if the selected date is already a Monday
-                        if (selectedDate.getDay() === 0) {
-                        // console.log(`Selected date is already Monday: ${selectedDate.toISOString().split('T')[0]}`);
-                        setNewGoal({ ...newGoal, week_start: selectedDate.toISOString().split('T')[0] });
-                        } else {
-                        const calculatedMonday = getWeekStartDate(selectedDate);
-                        // console.log(`Calculated week_start: ${calculatedMonday}`);
-                        setNewGoal({ ...newGoal, week_start: calculatedMonday });
+                <GoalForm
+                    newGoal={newGoal}
+                    setNewGoal={setNewGoal}
+                    handleAddGoal={handleAddGoal}
+                    handleClose={closeGoalModal}
+                    categories={UserCategories.map((cat: any) => typeof cat === 'string' ? cat : cat.name)} // Combine default and user categories
+                    onAddCategory= {(newCategory: string) => {
+                        setNewGoal((prevGoal) => ({ ...prevGoal, category: newCategory }));
+                    }}
+                />
+                
+            </div>
+            </Modal>
+        )}
+        {/* Goal Editor Modal */}
+        {isEditorOpen && (
+            <Modal
+                isOpen={isEditorOpen}
+                onRequestClose={closeEditor}
+                className={`fixed inset-0 flex items-center justify-center z-50`}
+                overlayClassName={`${overlayClasses}`}
+            >
+                <GoalEditor
+                    title={selectedGoal?.title || ''}
+                    description={selectedGoal?.description || ''}
+                    category={selectedGoal?.category || ''}
+                    week_start={selectedGoal?.week_start || ''}
+                    onAddCategory={async (newCategory: string) => {
+                        try {
+                            await addCategory(newCategory); // Ensure backend consistency
+                            setSelectedGoal((prevGoal) =>
+                                prevGoal ? { ...prevGoal, category: newCategory } : null
+                            );
+                        } catch (error) {
+                            console.error('Error adding category:', error);
                         }
                     }}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                    />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700">Category</label>
-                    <select
-                    value={newGoal.category}
-                    onChange={(e) =>
-                        setNewGoal({ ...newGoal, category: e.target.value })
-                    }
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                    >
-                    <option value="Technical skills">Technical skills</option>
-                    <option value="Business">Business</option>
-                    <option value="Eminence">Eminence</option>
-                    <option value="Concepts">Concepts</option>
-                    <option value="Community">Community</option>
-                    </select>
-                </div>
-                </div>
-                <div className="mt-6 flex justify-end space-x-4">
-                <button
-                    onClick={closeGoalModal}
-                    className="btn-secondary"
-                >
-                    Cancel
-                </button>
-                <button
-                    onClick={handleAddGoal}
-                    className="btn-primary"
-                >
-                    Add
-                </button>
-                </div>
-            </div>
+                    onRequestClose={closeEditor}
+                    onSave={async (updatedDescription, updatedTitle, updatedCategory, updatedWeekStart) => {
+                        try {
+                            await updateGoal(
+                                selectedGoal?.id || '',
+                                {
+                                    title: updatedTitle,
+                                    description: updatedDescription,
+                                    category: updatedCategory,
+                                    week_start: updatedWeekStart
+                                }
+                            );
+                            closeEditor();
+                            await refreshGoals();
+                        } catch (error) {
+                            console.error('Error saving edited goal:', error);
+                        }
+                    }}
+                />
             </Modal>
         )}
         </div>
