@@ -1,5 +1,5 @@
 import React from 'react';
-import { cardClasses, modalClasses } from '@styles/classes'; // Adjust the import path as necessary
+import { cardClasses } from '@styles/classes'; // Adjust the import path as necessary
 import { TrashIcon, EditIcon } from 'lucide-react';
 
 interface AccomplishmentCardProps {

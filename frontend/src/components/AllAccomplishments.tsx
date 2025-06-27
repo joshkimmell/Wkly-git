@@ -5,7 +5,7 @@ import { fetchAllAccomplishmentsIndexed } from '@utils/functions';
 import { Accomplishment } from '@utils/goalUtils'; // Adjust the import path as necessary
 import AccomplishmentCard from './AccomplishmentCard';
 import { modalClasses, overlayClasses } from '@styles/classes';
-import { over } from 'lodash';
+// import { over } from 'lodash';
 
 Modal.setAppElement('#root');
 
@@ -33,7 +33,7 @@ const AllAccomplishments = () => {
     title: '',
     description: '',
     impact: '',
-    category: 'Technical skills',
+    // category: 'Technical skills',
     goal_id: '',
     user_id: '',
     created_at: '',
@@ -114,7 +114,7 @@ const AllAccomplishments = () => {
         title: '',
         description: '',
         impact: '',
-        category: 'Technical skills',
+        // category: 'Technical skills',
         goal_id: '',
         user_id: '',
         created_at: '',
@@ -152,7 +152,7 @@ const AllAccomplishments = () => {
     if (filterValue) {
       const filtered = accomplishments.filter((accomplishment) =>
         accomplishment.title.toLowerCase().includes(filterValue.toLowerCase()) ||
-        accomplishment.category.toLowerCase().includes(filterValue.toLowerCase()) ||
+        accomplishment.description.toLowerCase().includes(filterValue.toLowerCase()) ||
         accomplishment.impact.toLowerCase().includes(filterValue.toLowerCase())
       );
       setFilteredAccomplishments(filtered);
@@ -202,7 +202,7 @@ const AllAccomplishments = () => {
       </div> 
 
       {/* Scope Selector */}
-        <div>
+        {/* <div>
             {['week', 'month', 'year'].map((s) => (
             <button
                 key={s}
@@ -213,7 +213,7 @@ const AllAccomplishments = () => {
             </button>
             ))}
         </div>
-        <div className="flex justify-between items-center w-full mb-4">
+        <div className="flex justify-between items-center w-full mb-4"> */}
             {/* Pagination */}
             {/* <Pagination
                 pages={pages}
@@ -228,7 +228,7 @@ const AllAccomplishments = () => {
                 >
                 Add Goal
             </button> */}
-        </div>
+        {/* </div> */}
 
       {/* Filter Input */}
       <div className="mt-4 h-10 flex items-center space-x-2">
@@ -341,7 +341,7 @@ const AllAccomplishments = () => {
                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                 />
               </div>
-              <div>
+              {/* <div>
                 <label className="block text-sm font-medium text-gray-700">Category</label>
                 <select
                   value={newAccomplishment.category}
@@ -356,7 +356,7 @@ const AllAccomplishments = () => {
                   <option value="Concepts">Concepts</option>
                   <option value="Community">Community</option>
                 </select>
-              </div>
+              </div> */}
             </div>
             <div className="mt-6 flex justify-end space-x-4">
               <button

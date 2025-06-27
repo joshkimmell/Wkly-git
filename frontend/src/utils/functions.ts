@@ -2,6 +2,8 @@ import React from "react";
 import supabase from "@lib/supabase";
 import { notifyError, notifySuccess } from "@components/ToastyNotification";
 import { v4 as uuidv4 } from "uuid";
+import { Category, Goal } from "@utils/goalUtils"; // Adjust the import path as necessary
+// import { error } from "console";
 
 const baseUrl = import.meta.env.DEV ? 'http://localhost:8888' : ''; // Use localhost for dev, empty for production
 const backend = '/api';
@@ -84,16 +86,16 @@ export const fetchAllGoals = async (): Promise<Goal[]> => {
   return goals;
 };
 
-// Refined type definitions for `Goal`, `Summary`, and `Accomplishment`
-interface Goal {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  user_id: string;
-  created_at: string;
-  week_start: string;
-}
+// // Refined type definitions for `Goal`, `Summary`, and `Accomplishment`
+// interface Goal {
+//   id: string;
+//   title: string;
+//   description: string;
+//   category: string;
+//   user_id: string;
+//   created_at: string;
+//   week_start: string;
+// }
 
 // Added missing `description` property to `Summary` type
 interface Summary {
@@ -113,7 +115,7 @@ interface Accomplishment {
   title: string;
   description: string;
   impact: string;
-  category: string;
+  // category: string;
   goal_id: string;
   user_id: string;
   created_at: string;
@@ -161,66 +163,175 @@ export const getPagesFromIndexedData = <T>( indexedData: Record<string, T[]> ): 
 // Fetch all goals indexed by week, month, or year
 
 export const fetchAllGoalsIndexed = async (
-  scope: 'week' | 'month' | 'year'
-): Promise<{ indexedGoals: Record<string, Goal[]>; pages: string[] }> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('User is not authenticated');
-  const userId = user.id;
+    scope: 'week' | 'month' | 'year'
+): Promise<{ indexedGoals: Record<string, Goal[]>; pages: string[] }> => 
+  {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User is not authenticated');
+    const userId = user.id;
 
+    try {
+      // const response = await fetch(`${baseUrl}${backend}/getAllGoals?user_id=${userId}&scope=${scope}`);
+      const response = await fetch(`/api/getAllGoals?user_id=${userId}&scope=${scope}`);
+      if (!response.ok) {
+        const errorText = await response.text(); // Read the body once for error logging
+        console.error('Error fetching all goals:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Invalid response format: Expected JSON');
+      }
+
+      const goals: Goal[] = await response.json(); // Read the body once for JSON parsing
+      // // console.log('Fetched all goals:', goals);
+
+      // Sort goals by created date descending
+      goals.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      // Index goals by the selected scope
+      const goalsWithScope = goals.map((goal) => ({ ...goal, scope }));
+      const indexedGoals = indexDataByScope(goalsWithScope, scope);
+
+      // Get pages sorted in descending order
+      const pages = Object.keys(indexedGoals).sort((a, b) => (a > b ? -1 : 1));
+
+      console.log('Indexed goals:', indexedGoals);
+      console.log('Pages:', pages);
+      return { indexedGoals, pages };
+    } catch (error) {
+      console.error('Error in fetchAllGoalsIndexed:', error);
+      throw error;
+    }
+  };
+  // export const DefaultCategories: string[] = [
+  //   'Technical skills',
+  //   'Business',
+  //   'Eminence',
+  //   'Concepts',
+  //   'Community'
+  // ];
+
+  // export const fetchUserCategories = async (): Promise<string[]> => {
+  //   try {
+  //     const { data, error } = await supabase.from('categories').select('name');
+  //     if (error) {
+  //       console.error('Error fetching user categories:', error.message);
+  //       return [];
+  //     }
+
+  //     return data.map((category) => category.name);
+  //   } catch (err) {
+  //     console.error('Unexpected error fetching user categories:', err);
+  //     return [];
+  //   }
+  // };
+
+
+export const addCategory = async (newCategory: string): Promise<void> => {
   try {
-    // const response = await fetch(`${baseUrl}${backend}/getAllGoals?user_id=${userId}&scope=${scope}`);
-    const response = await fetch(`/api/getAllGoals?user_id=${userId}&scope=${scope}`);
+    // Normalize the category name (trim and convert to lowercase)
+    const normalizedCategory = newCategory.trim().toLowerCase();
+
+    // Get the current user ID
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      console.error('Error fetching user ID:', userError?.message || 'User not authenticated');
+      notifyError('User not authenticated. Please log in.');
+      return;
+    }
+
+    const userId = user.id;
+
+    // Debug log for payload
+    const payload = { name: normalizedCategory, user_id: userId };
+    console.log('Payload being sent to Netlify function:', payload);
+
+    // Call the Netlify function to create the category
+    const response = await fetch(`${baseUrl}${backend}/createCategory`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userId}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
     if (!response.ok) {
-      const errorText = await response.text(); // Read the body once for error logging
-      console.error('Error fetching all goals:', errorText);
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      console.error('Error adding category via Netlify function:', errorText);
+      notifyError('Failed to add category.');
+      return;
     }
 
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      throw new Error('Invalid response format: Expected JSON');
-    }
+    const insertedCategory = await response.json();
+    console.log('New category added via Netlify function:', insertedCategory);
 
-    const goals: Goal[] = await response.json(); // Read the body once for JSON parsing
-    // // console.log('Fetched all goals:', goals);
-
-    // Sort goals by created date descending
-    goals.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-    // Index goals by the selected scope
-    const goalsWithScope = goals.map((goal) => ({ ...goal, scope }));
-    const indexedGoals = indexDataByScope(goalsWithScope, scope);
-
-    // Get pages sorted in descending order
-    const pages = Object.keys(indexedGoals).sort((a, b) => (a > b ? -1 : 1));
-
-    console.log('Indexed goals:', indexedGoals);
-    console.log('Pages:', pages);
-    return { indexedGoals, pages };
-  } catch (error) {
-    console.error('Error in fetchAllGoalsIndexed:', error);
-    throw error;
+    // Refresh the UserCategories list
+    await initializeUserCategories();
+    console.log('Category added and UserCategories refreshed:', UserCategories);
+    notifySuccess('Category added successfully.');
+  } catch (err) {
+    console.error('Unexpected error adding category:', err);
   }
 };
-// export const fetchAllGoalsIndexed = async ( scope: 'week' | 'month' | 'year'
-// ): Promise<{ indexedGoals: Record<string, Goal[]>; pages: string[] }> => {
-//   const { data: { user } } = await supabase.auth.getUser();
-//   if (!user) throw new Error('User is not authenticated');
-//   const userId = user.id;
-  
-//   try {
-//     const response = await fetch(`/api/getAllGoals?user_id=${userId}&scope=${scope}`);
-//     if (!response.ok) {
-//       throw new Error(`HTTP error! status: ${response.status}`);
-//     }
 
-//     const data = await response.json();
-//     return data;
-//   } catch (error) {
-//     console.error("Error in fetchAllGoalsIndexed:", error);
-//     throw error;
-//   }
-// };
+
+
+export const fetchCategories = async (): Promise<{ UserCategories: Record<string, Category[]>; }> => {
+  try {
+    const { data, error } = await supabase.from('categories').select('*');
+    console.log('Supabase raw data:', data);
+    if (error) {
+      console.error('Error fetching categories:', error.message);
+      return { UserCategories: {} };
+    }
+
+    if (!data || !Array.isArray(data)) {
+      console.error('Unexpected data format:', data);
+      return { UserCategories: {} };
+    }
+
+    const categoriesRecord: Record<string, Category[]> = {};
+    data.forEach((category) => {
+      if (category && category.name) {
+        categoriesRecord[category.name] = []; // Initialize with an empty array or appropriate value
+      } else {
+        console.warn('Invalid category entry:', category);
+      }
+    });
+
+    console.log('Fetched categories:', categoriesRecord);
+    return { UserCategories: categoriesRecord };
+  } catch (err) {
+    console.error('Unexpected error fetching categories:', err);
+    return { UserCategories: {} };
+  }
+};
+
+
+// Extract the `name` field from the `data` and set it as a `UserCategories` array that can be accessed globally
+export let UserCategories: { id: string; name: string }[] = [];
+
+export const initializeUserCategories = async (): Promise<void> => {
+  try {
+    const { data, error } = await supabase.from('categories').select('cat_id, name');
+    if (error) {
+      console.error('Error fetching user categories:', error.message);
+      UserCategories = [];
+      return;
+    }
+
+    UserCategories = data.map((category) => ({ id: category.cat_id, name: category.name }));
+    console.log('User categories initialized:', UserCategories);
+  } catch (err) {
+    console.error('Unexpected error initializing user categories:', err);
+    UserCategories = [];
+  }
+};
+
 
 // Add a new goal
 export const addGoal = async (newGoal: any) => {
@@ -228,10 +339,13 @@ export const addGoal = async (newGoal: any) => {
   if (!user) throw new Error('User is not authenticated');
   const userId = user.id;
 
-  // Ensure user_id is included in the body if your backend expects it
-  const goalToSend = { ...newGoal, user_id: userId };
+  // Exclude unnecessary fields like id and created_at
+  const { id, created_at, ...filteredGoal } = newGoal;
+  const goalToSend = { ...filteredGoal, user_id: userId };
 
   // // console.log('addGoal request:', goalToSend);
+  console.log('addGoal payload:', goalToSend);
+  console.log('Payload sent to createGoal:', goalToSend);
 
   const response = await fetch(`${baseUrl}${backend}/createGoal?user_id=${userId}`, {
     method: 'POST',
@@ -245,41 +359,48 @@ export const addGoal = async (newGoal: any) => {
   if (!response.ok) {
     const errorText = await response.text();
     console.error('Error adding goal:', errorText);
+    console.log('error response:', errorText);
     notifyError('Failed to add goal');
     throw new Error('Failed to add goal');
   }
 
-  notifySuccess('Goal added successfully!');
+  notifySuccess(`Goal "${newGoal.title}" added successfully!`);
+  console.log(`Goal "${newGoal.title}" added successfully!`);
   return response.json();
 };
-export const handleSubmit = async (
-    event: React.FormEvent,
-    supabase: any,
-    newGoal: Omit<any, 'id'>,
-    fetchGoals: () => Promise<void>,
-    setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>,
-    resetNewGoal: () => void,
-    setError: React.Dispatch<React.SetStateAction<string | null>>
-) => {
-    event.preventDefault();
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User is not authenticated');
-      const userId = user.id;
+
+
+
+
+// export const handleSubmit = async (
+//     event: React.FormEvent,
+//     supabase: any,
+//     newGoal: Omit<any, 'id'>,
+//     fetchGoals: () => Promise<void>,
+//     setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>,
+//     resetNewGoal: () => void,
+//     setError: React.Dispatch<React.SetStateAction<string | null>>
+// ) => {
+//     event.preventDefault();
+//     try {
+//       const { data: { user } } = await supabase.auth.getUser();
+//       if (!user) throw new Error('User is not authenticated');
+//       const userId = user.id;
         
-      const { error } = await supabase.from('goals').insert({
-          ...newGoal,
-          user_id: userId,
-      });
-      if (error) throw new Error(error.message);
+//       const { error } = await supabase.from('goals').insert({
+//           ...newGoal,
+//           user_id: userId,
+//       });
+//       if (error) throw new Error(error.message);
       
-      setIsModalOpen(false);
-      resetNewGoal();
-      await fetchGoals();
-    } catch (err) {
-        handleError(err, setError);
-    }
-};
+//       setIsModalOpen(false);
+//       resetNewGoal();
+//       await fetchGoals();
+//     } catch (err) {
+//         handleError(err, setError);
+//     }
+// };
+
 // Set goals in the local state or perform any other action
 export function setGoals(_data: any) {
     throw new Error("Function not implemented.");
@@ -323,27 +444,88 @@ export const handleDeleteGoal = async (
     }
 };
 
-// Update a goal
 export const updateGoal = async (goalId: string, updatedGoal: any) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User is not authenticated');
   const userId = user.id;
 
-  const response = await fetch(`${baseUrl}${backend}/updateGoal/${goalId}?user_id=${userId}`, {
+  if (!goalId) {
+    console.error('Goal ID is missing');
+    throw new Error('Goal ID is required');
+  }
+
+  const payload = JSON.stringify({ id: goalId, ...updatedGoal });
+  console.log('Payload being sent to updateGoal:', payload);
+  console.log('Goal ID being sent to updateGoal:', goalId);
+
+  const response = await fetch(`${baseUrl}${backend}/updateGoal?goal_id=${goalId}&user_id=${userId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${userId}`,
     },
-    body: JSON.stringify(updatedGoal),
+    body: payload,
   });
 
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Error response from updateGoal:', errorText);
+    notifyError('Failed to update goal');
     throw new Error('Failed to update goal');
   }
 
-  return response.json();
-};                    
+  const responseData = await response.json();
+  console.log('Response from updateGoal:', responseData);
+  notifySuccess('Goal updated successfully!');
+  return responseData;
+};
+
+
+ // Add a function to highlight filtered words
+  export const applyHighlight = (text: string, filter: string) => {
+    if (!filter) return text;
+    // Escape special characters in the filter string
+    const escapedFilter = filter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedFilter})`, 'gi');
+    return text.replace(regex, '<span class="highlight">$1</span>');
+  };
+// export const handleUpdateGoal = async (
+//     supabase: any,
+//     goalId: string,
+//     _setFilteredGoals: React.Dispatch<React.SetStateAction<Goal[]>>,
+//     fetchGoals: () => Promise<void>,
+//     setError: React.Dispatch<React.SetStateAction<string | null>>
+// ) => {
+//     try {
+//         const { error } = await supabase.from('goals').update().eq('id', goalId);
+//         if (error) throw new Error(error.message);
+        
+//         await fetchGoals();
+//     } catch (err) {
+//         handleError(err, setError);
+//     }
+// };
+// Update a goal
+// export const updateGoal = async (goalId: string, updatedGoal: any) => {
+//   const { data: { user } } = await supabase.auth.getUser();
+//   if (!user) throw new Error('User is not authenticated');
+//   const userId = user.id;
+
+//   const response = await fetch(`${baseUrl}${backend}/updateGoal/${goalId}?user_id=${userId}`, {
+//     method: 'PUT',
+//     headers: {
+//       'Content-Type': 'application/json',
+//       Authorization: `Bearer ${userId}`,
+//     },
+//     body: JSON.stringify(updatedGoal),
+//   });
+
+//   if (!response.ok) {
+//     throw new Error('Failed to update goal');
+//   }
+
+//   return response.json();
+// };                    
 
 // Filter goals by week
 // export const filterGoalsByWeek = (goals: Goal[], selectedWeek: string | Date): Goal[] => {
@@ -608,9 +790,9 @@ export const deleteSummary = async (summary_id: string) => {
 
 // Set the summary in the local state or perform any other action
 export function setSummary(content: string, title: string, type: string) {
-  console.log("Summary Content:", content);
-  console.log("Summary Title:", title);
-  console.log("Summary Type:", type);
+  // console.log("Summary Content:", content);
+  // console.log("Summary Title:", title);
+  // console.log("Summary Type:", type);
 }
 
 // Implement fetchAllSummariesIndexed
@@ -633,8 +815,8 @@ export const fetchAllSummariesIndexed = async (
     const summariesWithScope = summaries.map((summary) => ({
       ...summary,
       scope,
-      content: summary.content || '', // Ensure `content` is always defined
-      description: summary.description || '', // Ensure `description` is always defined
+      title: summary.title || '', // Ensure `content` is always defined
+      content: summary.content || '', // Ensure `description` is always defined
     }));
     const indexedSummaries = indexDataByScope(summariesWithScope, scope);
     const pages = getPagesFromIndexedData(indexedSummaries);
@@ -662,7 +844,11 @@ export const fetchAllAccomplishmentsIndexed = async (
     }
 
     const accomplishments: Accomplishment[] = await response.json();
-    const accomplishmentsWithScope = accomplishments.map((accomplishment) => ({ ...accomplishment, scope }));
+    const accomplishmentsWithScope = accomplishments.map((accomplishment) => ({
+      ...accomplishment,
+      scope,
+      impact: accomplishment.impact ?? "", // Ensure impact is always a string
+    }));
     const indexedAccomplishments = indexDataByScope(accomplishmentsWithScope, scope);
     const pages = getPagesFromIndexedData(indexedAccomplishments);
 
@@ -672,6 +858,7 @@ export const fetchAllAccomplishmentsIndexed = async (
     throw error;
   }
 };
+
 
 
 

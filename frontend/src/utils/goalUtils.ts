@@ -7,49 +7,46 @@
 // import React from "react";
 import { Session } from "@supabase/auth-helpers-react";
 import { SupabaseClient } from "@supabase/supabase-js";
+// import supabase from '@lib/supabase';
 
 
-export const Categories = [
-    'Technical skills',
-    'Business',
-    'Eminence',
-    'Concepts',
-    'Community'
-  ] as Array<string>;
 
 export interface FetchGoalsParams {
-    backendUrl: string;
-    supabase: SupabaseClient;
-    session: Session | null;
+  backendUrl: string;
+  supabase: SupabaseClient;
+  session: Session | null;
 }
 export interface Accomplishment {
-    id: string;
-    title: string;
-    description: string;
-    impact: string;
-    category: string;
-    goal_id: string;
-    user_id: string;
-    created_at: string;
-  }
-  export interface Goal {
-    id: string;
-    title: string;
-    description: string;
-    category: string;
-    week_start: string;
-    user_id: string;
-    created_at: string;
-  };
-  export interface Summary {
-    id: string;
-    scope: string;
-    title: string;
-    content: string;
-    type: string;
-    week_start: string;
-    user_id: string;
-    created_at: string;
-  };
-
+  id: string;
+  title: string;
+  description: string;
+  impact: string;
+  // category: string;
+  goal_id: string;
+  user_id: string;
+  created_at: string;
+}
+export interface Goal {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  week_start: string;
+  user_id: string;
+  created_at: string;
+};
+export interface Summary {
+  id: string;
+  scope: string;
+  title: string;
+  content: string;
+  type: string;
+  week_start: string;
+  user_id: string;
+  created_at: string;
+};
+export interface Category {
+  // id: string;
+  name: string;
+};
 

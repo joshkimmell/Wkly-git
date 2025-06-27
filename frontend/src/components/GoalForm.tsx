@@ -1,31 +1,42 @@
 import React, { useEffect } from 'react';
-import { getWeekStartDate } from '@utils/functions'; // Adjust the import path as necessary
+import { getWeekStartDate, addCategory, setGoals, fetchCategories } from '@utils/functions'; // Adjust the import path as necessary
+import { Category, Goal } from '@utils/goalUtils'; // Import the addCategory function
+import supabase from '@lib/supabase'; // Import Supabase client
+import { initializeUserCategories, UserCategories } from '@utils/functions'; // Correct import path
 
-export const Categories = [
-  'Technical skills',
-  'Business',
-  'Eminence',
-  'Concepts',
-  'Community'
-] as Array<string>;
+// export const Categories = [
+//   'Technical skills',
+//   'Business',
+//   'Eminence',
+//   'Concepts',
+//   'Community'
+// ] as Array<string>;
 
-export interface Goal {
-  id: string; // Ensure this matches the primary key in your Supabase table
-  title: string;
-  description: string;
-  category: string;
-  week_start: string; // Ensure this matches the `week_start` column in your table
-  user_id: string; // Ensure this matches the `user_id` column in your table
-}
+// export interface Goal {
+//   id: string; // Ensure this matches the primary key in your Supabase table
+//   title: string;
+//   description: string;
+//   category: string;
+//   week_start: string; // Ensure this matches the `week_start` column in your table
+//   user_id: string; // Ensure this matches the `user_id` column in your table
+// }
 
 export interface AddGoalProps {
-  newGoal: Omit<Goal, 'id'>;
-  setNewGoal: React.Dispatch<React.SetStateAction<Omit<Goal, 'id'>>>;
-  handleSubmit: (e: React.FormEvent) => Promise<void>;
+  newGoal: Goal; // Updated to use the full Goal type
+  setNewGoal: React.Dispatch<React.SetStateAction<Goal>>; // Updated to match the full Goal type
+  // handleSubmit: (e: React.FormEvent) => Promise<void>;
+  handleAddGoal: (event: React.FormEvent) => void;
+  handleClose: () => void; // Added handleClose prop to allow closing the modal
   categories: string[];
+  onAddCategory: (newCategory: string) => void;
 }
 
-const AddGoal: React.FC<AddGoalProps> = ({ handleSubmit, newGoal, setNewGoal, categories }) => {
+
+const AddGoal: React.FC<AddGoalProps> = ({ handleAddGoal, newGoal, setNewGoal, onAddCategory, handleClose }) => {
+  const [newCategory, setNewCategory] = React.useState('');
+  const [isAddingCategory, setIsAddingCategory] = React.useState(false);
+  const [categories, setCategories] = React.useState<{ id: string; name: string }[]>([]); // Update state type to match the expected structure
+
   // Set the default `week_start` to the current week's Monday
   useEffect(() => {
     if (!newGoal.week_start) {
@@ -35,29 +46,61 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleSubmit, newGoal, setNewGoal, ca
       }));
     }
   }, [newGoal.week_start, setNewGoal]);
-  // useEffect(() => {
-  //   const getCurrentWeekStart = () => {
-  //     const now = new Date();
-  //     const dayOfWeek = now.getDay(); // 0 (Sunday) to 6 (Saturday)
-  //     const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust to Monday
-  //     const monday = new Date(now.setDate(diff));
-  //     return monday.toISOString().split('T')[0]; // Format as YYYY-MM-DD
-  //   };
 
-  //   if (!newGoal.week_start) {
-  //     setNewGoal((prevGoal) => ({
-  //       ...prevGoal,
-  //       week_start: getCurrentWeekStart(),
-  //     }));
+  // Fetch categories on component mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      await initializeUserCategories();
+      setCategories([...UserCategories]); // Ensure categories are set as objects with `id` and `name`
+    };
+    fetchCategories();
+  }, []); // Fetch categories on component mount
+
+  const handleAddCategory = async () => {
+    if (newCategory.trim()) {
+      try {
+        const { error } = await supabase
+          .from('categories')
+          .insert({ name: newCategory.trim() });
+
+        if (error) {
+          console.error('Error adding category:', error.message);
+          return;
+        }
+
+        addCategory(newCategory.trim()); // Add to local categories
+        setNewGoal((prevGoal) => ({ ...prevGoal, category: newCategory.trim() }));
+        setNewCategory(''); // Clear the input field
+        setIsAddingCategory(false); // Hide the "Add new category" section
+        onAddCategory(newCategory.trim()); // Call the onAddCategory prop
+      } catch (err) {
+        console.error('Unexpected error adding category:', err);
+        console.log('category added:', newCategory.trim());
+      }
+    }
+  };
+
+  // function closeGoalModal(event: React.MouseEvent<HTMLButtonElement, MouseEvent>): void {
+  //   event.preventDefault();
+  //   // If you want to reset the form, you can do so here, e.g.:
+  //   // setNewGoal({ ... }); // Reset to initial state if needed
+  //   // Then close the modal:
+  //   if (typeof onAddCategory === 'function') {
+  //     setIsAddingCategory(false);
+  //     setNewCategory('');
   //   }
-  // }, [newGoal.week_start, setNewGoal]);
-  console.log('addGoal week_start:', newGoal.week_start);
-  console.log('addGoal request:', newGoal);
-  console.log('addGoal categories:', categories);
+  //   // If you have a prop to close the modal, call it:
+  //   if (typeof (AddGoal as any).defaultProps?.closeGoalModal === 'function') {
+  //     (AddGoal as any).defaultProps.closeGoalModal();
+  //   }
+  // }
+  // console.log('addGoal week_start:', newGoal.week_start);
+  // console.log('addGoal request:', newGoal);
+  // console.log('addGoal categories:', categories);
   
   
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleAddGoal} className="space-y-4">
       <div>
         <label htmlFor="title" className="block text-sm font-medium text-gray-700">
           Title
@@ -65,9 +108,10 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleSubmit, newGoal, setNewGoal, ca
         <input
           type="text"
           id="title"
+          autoFocus
           value={newGoal.title}
           onChange={(e) => setNewGoal({ ...newGoal, title: e.target.value })}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="mt-1 block w-full rounded-md border-gray-30 shadow-sm focus:border-brand-50 focus:ring-brand-50 sm:text-sm"
           required
         />
       </div>
@@ -81,7 +125,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleSubmit, newGoal, setNewGoal, ca
           value={newGoal.description}
           onChange={(e) => setNewGoal({ ...newGoal, description: e.target.value })}
           rows={3}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="mt-1 block w-full rounded-md border-gray-30 shadow-sm focus:border-brand-50 focus:ring-brand-50 sm:text-sm"
         />
       </div>
 
@@ -92,16 +136,50 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleSubmit, newGoal, setNewGoal, ca
         <select
           id="category"
           value={newGoal.category}
-          onChange={(e) => setNewGoal({ ...newGoal, category: e.target.value })}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value === 'create-new') {
+              setIsAddingCategory(true);
+            } else {
+              setIsAddingCategory(false);
+              setNewGoal({ ...newGoal, category: value });
+            }
+          }}
+          className="mt-1 block w-full rounded-md border-gray-30 shadow-sm focus:border-brand-50 focus:ring-brand-50 sm:text-sm"
         >
+          <option value="" disabled>-- Select a category --</option>
+          <option value="create-new">Add a new category</option>
           {categories.map((category) => (
-            <option key={category} value={category}>
-              {category}
+            <option key={category.id} value={category.name}>
+              {category.name}
             </option>
           ))}
         </select>
       </div>
+
+      {isAddingCategory && (
+        <div>
+          <label htmlFor="new-category" className="block text-sm font-medium text-gray-70">
+            Add New Category
+          </label>
+          <div className="flex items-center space-x-2">
+            <input
+              type="text"
+              id="new-category"
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+            <button
+              type="button"
+              onClick={handleAddCategory}
+              className="btn-ghost"
+             >
+              Add category
+            </button>
+          </div>
+        </div>
+      )}
 
       <div>
         <label htmlFor="week_start" className="block text-sm font-medium text-gray-700">
@@ -111,18 +189,38 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleSubmit, newGoal, setNewGoal, ca
           type="date"
           id="week_start"
           value={newGoal.week_start}
-          onChange={(e) => setNewGoal({ ...newGoal, week_start: e.target.value })}
+          onChange={(e) => {
+              const selectedDate = new Date(e.target.value);
+              // console.log(`Selected date: ${selectedDate.toISOString().split('T')[0]}`);
+
+              // Check if the selected date is already a Monday
+              if (selectedDate.getDay() === 0) {
+                  setNewGoal({ ...newGoal, week_start: selectedDate.toISOString().split('T')[0] });
+              } else {
+                  const calculatedMonday = getWeekStartDate(selectedDate);
+                  setNewGoal({ ...newGoal, week_start: calculatedMonday });
+              }
+          }}
           className="mt-1 block w-full rounded-md"
           required
         />
       </div>
+      <div className="mt-6 flex justify-end space-x-4">
+        <button
+            onClick={handleClose}
+            className="btn-secondary"
+         >
+            Cancel
+        </button>
+        <button
+            type="submit"
+            // onClick={() => handleAddGoal()}
+            className="btn-primary"
+         >
+            Add goal
+        </button>
+      </div>
 
-      <button
-        type="submit"
-        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-      >
-        Add Goal
-      </button>
     </form>
   );
 };

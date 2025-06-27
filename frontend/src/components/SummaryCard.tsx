@@ -62,11 +62,10 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
   return (
     <div>
       <div key={id} className={`flex flex-col text-left w-full space-y-4 ${cardClasses} mt-4 relative`}>
-        <div className={`flex flex-row w-full items-center justify-between`}>  
+        <div className={`flex flex-row w-full items-center justify-between gap-4 align-top`}>  
           <h4 className="w-full text-lg font-bold text-gray-90" dangerouslySetInnerHTML={{ __html: title }}></h4>
           <div className="flex flex-row justify-between">
-            <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-10 text-brand-100 mt-2">
-              {type} 
+            <span dangerouslySetInnerHTML={{ __html: type }} className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-10 text-brand-100 mt-2">
             </span>
           </div>
         </div>

@@ -214,63 +214,15 @@ svg {
             // }
         }
     }
-}
+};
 
-// logo {
-//     display: flex;
-//     width: 380px;
-//     height: 110px;
-//     flex-direction: column;
-//     align-items: flex-start;
-//     gap: 8px;
-//     flex-shrink: 0;
-// }
-// @media (prefers-color-scheme: light) {
-//     .ql-toolbar.ql-snow .ql-picker-label,
-//     .ql-toolbar.ql-snow .ql-stroke,
-//     .ql-snow .ql-picker {
-//         stroke: variables.$gray-70;
-//         color: variables.$gray-70;
-//     }
-//     .ql-toolbar.ql-snow .ql-picker-label:hover,
-//     .ql-toolbar.ql-snow .ql-stroke:hover,
-//     .ql-snow .ql-picker:hover {
-//         stroke: variables.$gray-90;
-//         color: variables.$gray-90;
-//     }
-// }
-// @media (prefers-color-scheme: dark) {
-//     .ql-toolbar.ql-snow .ql-picker-label,
-//     .ql-toolbar.ql-snow .ql-stroke,
-//     .ql-snow .ql-picker {
-//         stroke: variables.$gray-40;
-//         color: variables.$gray-40;
-//     }
-//     .ql-toolbar.ql-snow .ql-picker-label:hover,
-//     .ql-toolbar.ql-snow .ql-stroke:hover,
-//     .ql-snow .ql-picker:hover {
-//         stroke: variables.$gray-10;
-//         color: variables.$gray-10;
-//     }
-// }
-// @media (prefers-color-scheme: light) {
-//     .ql-toolbar.ql-snow .ql-picker-options {
-//         background-color: #fff; // Replace with $gray-0 if defined in your variables
-//     }
-// }
-// @media (prefers-color-scheme: dark) {
-//     .ql-toolbar.ql-snow .ql-picker-options {
-//         background-color: #1a1a1a; // Replace with $gray-100 if defined in your variables
-//     }
-// }
-// @media (prefers-color-scheme: light) {
-//     .ql-editor p {
-//         color: variables.$gray-90;
-//     }
-// }
-
-// @media (prefers-color-scheme: dark) {
-//     .ql-editor p {
-//         color: variables.$gray-10;
-//     }
-// }
+.card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: left;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    padding: 16px;
+    gap: 16px;
+};

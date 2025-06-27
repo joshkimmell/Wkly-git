@@ -42,6 +42,32 @@
   .tabs li a.active {
     @apply text-brand-60 border-brand-60 dark:text-brand-10 dark:border-brand-10 border-b-2;
   }
+  .goal-title {
+        @apply text-lg text-gray-90 dark:text-gray-10 font-medium;
+    }
+
+  .goal-description {
+      @apply text-gray-60 dark:text-gray-40 mt-1;
+  }
+
+  .goal-category {
+      @apply flex flex-col w-auto px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-10 text-brand-90 mt-2;
+  }
+
+  .goal-week-start {
+      @apply hidden;
+  }
+
+  .highlight {
+    @apply inline bg-brand-10 text-brand-90 dark:bg-brand-10 dark:text-brand-80;
+  }
+
+  .card-category {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-10 text-brand-90 mt-2;
+  }
+  .card-category span.highlight {
+    @apply inline bg-brand-30 text-brand-80 ;
+  }
 
 }
 

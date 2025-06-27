@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 import supabase from '@lib/supabase';
-import { handleSubmit, handleDeleteGoal, filterGoalsByWeek } from '@utils/functions';
-// import { Categories } from '@components/GoalForm';
+import { addGoal, handleDeleteGoal, filterGoalsByWeek } from '@utils/functions';
 
 interface Goal {
   id: string;
@@ -16,13 +15,27 @@ interface GoalsContextProps {
   filteredGoals: Goal[];
   setFilteredGoals: React.Dispatch<React.SetStateAction<Goal[]>>;
   fetchGoals: () => Promise<void>;
-  handleSubmit: typeof handleSubmit;
+  handleSubmit: typeof addGoal;
   handleDeleteGoal: typeof handleDeleteGoal;
   filterGoalsByWeek: typeof filterGoalsByWeek;
   error: string | null;
   setError: React.Dispatch<React.SetStateAction<string | null>>;
 };
 const GoalsContext = createContext<GoalsContextProps | undefined>(undefined);
+
+const fetchGoals = async (setError: React.Dispatch<React.SetStateAction<string | null>>) => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw new Error('User is not authenticated');
+    }
+    // Add logic to fetch goals here
+  } catch (err) {
+    console.error('Error fetching goals:', err);
+    setError(err instanceof Error ? err.message : 'An unknown error occurred');
+  }
+};
+
 export const GoalsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [goals] = useState<Goal[]>([]);
   const [filteredGoals, setFilteredGoals] = useState<Goal[]>([]);
@@ -34,21 +47,8 @@ export const GoalsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         goals,
         filteredGoals,
         setFilteredGoals,
-        fetchGoals: async () => {
-          try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-              throw new Error('User is not authenticated');
-            }
-            // const userId = session.user.id;
-          
-            
-          } catch (err) {
-            console.error('Error fetching goals:', err);
-            setError(err instanceof Error ? err.message : 'An unknown error occurred');
-          }
-        },
-        handleSubmit,
+        fetchGoals: () => fetchGoals(setError),
+        handleSubmit: addGoal,
         handleDeleteGoal,
         filterGoalsByWeek,
         error,
