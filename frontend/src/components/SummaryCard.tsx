@@ -22,7 +22,7 @@ interface SummaryCardProps {
 // const GoalCard: React.FC<GoalCardProps> = ({ goal }) => {
 const SummaryCard: React.FC<SummaryCardProps> = ({ 
   id, 
-  scope, 
+  // scope, 
   title, 
   content, 
   type, 

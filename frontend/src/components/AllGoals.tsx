@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchAllGoalsIndexed, addGoal, deleteGoal, updateGoal, setSummary, saveSummary, UserCategories, initializeUserCategories, addCategory } from '../utils/functions'; // Removed unused imports
+import { fetchAllGoalsIndexed, addGoal, deleteGoal, updateGoal, saveSummary, UserCategories, initializeUserCategories, addCategory } from '../utils/functions'; // Removed unused imports
 import Pagination from './Pagination';
 import GoalCard from '@components/GoalCard';
 import GoalForm from '@components/GoalForm';
@@ -52,45 +52,27 @@ const GoalsComponent = () => {
     } | null>(null); // State for selected summary
     const [filter, setFilter] = useState<string>('');
 
-    // const formattedDate = selectedRange.toISOString().split('T')[0]; // YYYY-MM-DD format
-
     useEffect(() => {
-        const fetchGoals = async () => {
+        const fetchGoalsAndCategories = async () => {
             try {
+                // Fetch goals
                 const { indexedGoals, pages } = await fetchAllGoalsIndexed(scope);
                 setIndexedGoals(indexedGoals);
                 setPages(pages);
 
                 if (pages.length > 0) {
-                setCurrentPage(pages[0]); // Set the first page as the default
+                    setCurrentPage(pages[0]); // Set the first page as the default
                 }
+
+                // Initialize user categories
+                await initializeUserCategories();
             } catch (error) {
-                console.error('Error fetching goals:', error);
+                console.error('Error fetching goals or initializing categories:', error);
             }
         };
-        fetchGoals();
-        // const fetchCategories = async () => {
-        //     await initializeUserCategories();
-        //     console.log('UserCategories:', UserCategories); // Log the categories for debugging
-        // };
-        // fetchCategories();
+
+        fetchGoalsAndCategories();
     }, [scope]);
-
-    useEffect(() => {
-            const fetchAndSetCategories = async () => {
-                await initializeUserCategories();
-                // Removed unused `categories` state
-            };
-            fetchAndSetCategories();
-        }, []);
-
-    // useEffect(() => {
-    //     const initializeCategories = async () => {
-    //         await initializeDefaultCategories();
-    //         setCategories([...DefaultCategories]);
-    //     };
-    //     initializeCategories();
-    // }, []);
 
     const openGoalModal = () => {
         if (!isGoalModalOpen) {
@@ -359,7 +341,7 @@ const GoalsComponent = () => {
                         new Date()
                         );
                         closeEditor(); // Close the modal after saving
-                        setSummary(editedContent, editedTitle, 'User'); // Update the local state
+                        // setSummary(editedContent, editedTitle, 'User'); // Update the local state
                         // await refreshGoals(); // Refetch goals if needed
                         // console.log('Edited summary saved successfully');
                     } catch (error) {

@@ -21,7 +21,6 @@ export interface Accomplishment {
   title: string;
   description: string;
   impact: string;
-  // category: string;
   goal_id: string;
   user_id: string;
   created_at: string;

@@ -94,7 +94,7 @@ const App: React.FC = () => {
               <div className="tabs w-full justify-between">
                 <div className="border-b border-gray-20 dark:border-gray-70">
                     <ul className="flex flex-wrap -mb-px text-sm font-medium text-center">
-                        <li className="me-2">
+                        <li className="tabs-container--list--item">
                             <a href="/" className={`${classTabItem} ${window.location.pathname === '/' ? ' active' : ''}`}>
                               <Home className="w-5 h-5 mr-2" />
                               Goals

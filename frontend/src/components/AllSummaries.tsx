@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Modal from 'react-modal';
 import { Summary } from '@utils/goalUtils'; // Adjust the import path as necessary
-import { fetchSummaries, createSummary, deleteSummary, setSummary, saveSummary } from '@utils/functions'; // Adjust the import path as necessary
+import { fetchSummaries, createSummary, deleteSummary, saveSummary } from '@utils/functions'; // Adjust the import path as necessary
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 import SummaryCard from '@components/SummaryCard';
 import SummaryEditor from '@components/SummaryEditor';
@@ -282,7 +282,7 @@ const AllSummaries = () => {
                       new Date()
                     );
                     closeEditor(); // Close the modal after saving
-                    setSummary(editedContent, editedTitle, 'User'); // Update the local state
+                    // setSummary(editedContent, editedTitle, 'User'); // Update the local state
                     handleFetchSummaries(); // Refresh summaries after adding
                     console.log('Edited summary saved successfully');
                   } catch (error) {

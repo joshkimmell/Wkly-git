@@ -57,9 +57,9 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
     //     : '';
 
     const newGeneratedSummaryTitle = `Summary for ${scope}: ${formattedRange}`;
-    console.log('Scope changed to:', scope);
-    console.log('New Formatted Range:', formattedRange);
-    console.log('New Generated Summary Title:', newGeneratedSummaryTitle);
+    // console.log('Scope changed to:', scope);
+    // console.log('New Formatted Range:', formattedRange);
+    // console.log('New Generated Summary Title:', newGeneratedSummaryTitle);
 
     setSummary(null); // Clear the current summary
     setLocalSummaryId(null); // Reset the summary ID
@@ -95,8 +95,8 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
           ? new Date(selectedRange.getFullYear(), 0, 1).toISOString().split('T')[0] // First day of the year
           : '';
 
-      console.log('Scope:', scope);
-      console.log('selectedRange:', selectedRange);
+      // console.log('Scope:', scope);
+      // console.log('selectedRange:', selectedRange);
 
       const generatedSummary = await handleGenerate(
         localSummaryId || '',
@@ -133,8 +133,8 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
       );
       setSummary(updatedContent); // Update the summary state
       setSummaryTitle(updatedTitle); // Update the title state
-      console.log('formatted range:', formattedRange);
-      console.log('Summary saved successfully');
+      // console.log('formatted range:', formattedRange);
+      // console.log('Summary saved successfully');
     } catch (error) {
       console.error('Error saving summary:', error);
     }
@@ -154,12 +154,12 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
         console.error('No summary ID to delete');
         return;
       }
-      console.log('Deleting summary with ID:', localSummaryId);
+      // console.log('Deleting summary with ID:', localSummaryId);
       await deleteSummary(localSummaryId); // Pass the ID, not the content!
       setSummary(null);
       setLocalSummaryId(null);
       setIsEditorOpen(false);
-      console.log('Summary deleted successfully');
+      // console.log('Summary deleted successfully');
     } catch (error) {
       console.error('Error deleting summary:', error);
     }
