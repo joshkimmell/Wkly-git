@@ -13,7 +13,7 @@ interface SummaryEditorProps {
 }
 
 const SummaryEditor: React.FC<SummaryEditorProps> = ({
-    id, 
+    // id, 
     title: initialTitle,
     content: initialContent,
     type,

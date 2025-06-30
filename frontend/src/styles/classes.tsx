@@ -7,20 +7,13 @@ export const classTabItem = `
     items-center 
     justify-center 
     p-4 
-    border-0
-    border-transparent 
-    active:border-b-2 
-    focus:border-transparent
-    rounded-t-lg 
     text-gray-80
     dark:text-gray-20
     hover:text-gray-90 
     dark:hover:text-gray-10
-    hover:border-gray-30 
     active:text-brand-60 
-    active:border-brand-60 
     dark:active:text-brand-50 
-    dark:active:border-brand-50
+    active:border-0
     group
   `;
 

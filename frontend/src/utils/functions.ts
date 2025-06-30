@@ -789,11 +789,11 @@ export const deleteSummary = async (summary_id: string) => {
 }
 
 // Set the summary in the local state or perform any other action
-export function setSummary(content: string, title: string, type: string) {
-  // console.log("Summary Content:", content);
-  // console.log("Summary Title:", title);
-  // console.log("Summary Type:", type);
-}
+// export function setSummary(content: string, title: string, type: string) {
+//   // console.log("Summary Content:", content);
+//   // console.log("Summary Title:", title);
+//   // console.log("Summary Type:", type);
+// }
 
 // Implement fetchAllSummariesIndexed
 // Updated `fetchAllSummariesIndexed` to ensure `content` is always defined

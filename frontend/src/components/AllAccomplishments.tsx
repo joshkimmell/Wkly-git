@@ -4,24 +4,11 @@ import supabase from '@lib/supabase'; // Ensure this is the correct path to your
 import { fetchAllAccomplishmentsIndexed } from '@utils/functions';
 import { Accomplishment } from '@utils/goalUtils'; // Adjust the import path as necessary
 import AccomplishmentCard from './AccomplishmentCard';
+import AccomplishmentEditor from './AccomplishmentEditor';
 import { modalClasses, overlayClasses } from '@styles/classes';
 // import { over } from 'lodash';
 
 Modal.setAppElement('#root');
-
-// interface Accomplishment {
-//   id: string;
-//   title: string;
-//   description: string;
-//   impact: string;
-//   category: string;
-//   goal_id: string;
-//   user_id: string;
-//   created_at: string;
-//   content: string;
-//   type: string;
-//   week_start: string;
-// }
 
 // Corrected assignment to use `indexedAccomplishments`
 const AllAccomplishments = () => {
@@ -33,18 +20,14 @@ const AllAccomplishments = () => {
     title: '',
     description: '',
     impact: '',
-    // category: 'Technical skills',
     goal_id: '',
     user_id: '',
     created_at: '',
-    // content: '',
-    // type: '',
-    // week_start: '',
   });
   const [filter, setFilter] = useState<string>(''); // For filtering accomplishments
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  const [scope, setScope] = useState<'week' | 'month' | 'year'>('week');
+  const [scope] = useState<'week' | 'month' | 'year'>('week');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [selectedAccomplishment, setSelectedAccomplishment] = useState<Accomplishment | null>(null);
 
@@ -201,35 +184,6 @@ const AllAccomplishments = () => {
         </div>
       </div> 
 
-      {/* Scope Selector */}
-        {/* <div>
-            {['week', 'month', 'year'].map((s) => (
-            <button
-                key={s}
-                onClick={() => setScope(s as 'week' | 'month' | 'year')}
-                className={`btn-ghost ${scope === s ? 'font-bold underline' : ''}`}
-            >
-                {s.charAt(0).toUpperCase() + s.slice(1)}
-            </button>
-            ))}
-        </div>
-        <div className="flex justify-between items-center w-full mb-4"> */}
-            {/* Pagination */}
-            {/* <Pagination
-                pages={pages}
-                currentPage={currentPage}
-                onPageChange={handlePageChange}
-                scope={scope}
-            />
-
-            <button
-                onClick={openGoalModal}
-                className="btn-primary sm:block ml-auto pr-4"
-                >
-                Add Goal
-            </button> */}
-        {/* </div> */}
-
       {/* Filter Input */}
       <div className="mt-4 h-10 flex items-center space-x-2">
         <input
@@ -247,28 +201,6 @@ const AllAccomplishments = () => {
           {sortDirection === 'asc' ? '↑' : '↓'}
         </button>
       </div>
-      {/* <div className="mt-4">
-        <input
-          type="text"
-          value={filter}
-          onChange={(e) => handleFilterChange(e.target.value)}
-          placeholder="Filter by title, category, or impact"
-          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-        />
-      </div> */}
-
-      {/* Scope Selector */}
-      {/* <div>
-        {['week', 'month', 'year'].map((s) => (
-          <button
-            key={s}
-            onClick={() => setScope(s as 'week' | 'month' | 'year')}
-            className={`btn ${scope === s ? 'font-bold underline' : ''}`}
-          >
-            {s.charAt(0).toUpperCase() + s.slice(1)}
-          </button>
-        ))}
-      </div> */}
 
       {/* Accomplishments List */}
       <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'>
@@ -341,22 +273,6 @@ const AllAccomplishments = () => {
                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                 />
               </div>
-              {/* <div>
-                <label className="block text-sm font-medium text-gray-700">Category</label>
-                <select
-                  value={newAccomplishment.category}
-                  onChange={(e) =>
-                    setNewAccomplishment({ ...newAccomplishment, category: e.target.value })
-                  }
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                >
-                  <option value="Technical skills">Technical skills</option>
-                  <option value="Business">Business</option>
-                  <option value="Eminence">Eminence</option>
-                  <option value="Concepts">Concepts</option>
-                  <option value="Community">Community</option>
-                </select>
-              </div> */}
             </div>
             <div className="mt-6 flex justify-end space-x-4">
               <button
@@ -376,7 +292,7 @@ const AllAccomplishments = () => {
         </Modal>
       )}
 
-      {isEditorOpen && (
+      {/* {isEditorOpen && (
         <Modal 
           isOpen={isEditorOpen} 
           onRequestClose={closeEditor}
@@ -386,7 +302,58 @@ const AllAccomplishments = () => {
           <p>{selectedAccomplishment?.title}</p>
           <button onClick={closeEditor}>Close</button>
         </Modal>
-      )}
+      )} */}
+      {/* Accomplishment Editor Modal */}
+        {isEditorOpen && (
+            <Modal
+              isOpen={isEditorOpen}
+              onRequestClose={closeEditor}
+              className={`fixed inset-0 flex items-center justify-center z-50`}
+              overlayClassName={`${overlayClasses}`}
+            >
+              <AccomplishmentEditor
+                id={selectedAccomplishment ? selectedAccomplishment.id : ''}
+                title={selectedAccomplishment ? selectedAccomplishment.title : ''}
+                description={selectedAccomplishment ? selectedAccomplishment.description : ''}
+                impact={selectedAccomplishment ? selectedAccomplishment.impact : ''}
+                goal_id={selectedAccomplishment ? selectedAccomplishment.goal_id : ''}
+                onRequestClose={closeEditor as () => void}
+                onSave={async (updatedDescription: string, updatedTitle: string, updatedImpact: string) => {
+                  if (!selectedAccomplishment) return;
+                  const updatedAccomplishment = {
+                    ...selectedAccomplishment,
+                    description: updatedDescription,
+                    title: updatedTitle,
+                    impact: updatedImpact,
+                  };
+                  setFilteredAccomplishments((prev: Accomplishment[]) =>
+                    prev.map((accomplishment: Accomplishment) =>
+                      accomplishment.id === updatedAccomplishment.id
+                        ? updatedAccomplishment
+                        : accomplishment
+                    )
+                  );
+                  closeEditor();
+                }}
+                onUpdate={(updatedAccomplishment: Accomplishment) => {
+                  setFilteredAccomplishments((prev: Accomplishment[]) =>
+                    prev.map((accomplishment: Accomplishment) =>
+                      accomplishment.id === updatedAccomplishment.id
+                        ? updatedAccomplishment
+                        : accomplishment
+                    )
+                  );
+                  closeEditor();
+                }}
+                onDelete={(id: string) => {
+                  setFilteredAccomplishments((prev: Accomplishment[]) =>
+                    prev.filter((accomplishment: Accomplishment) => accomplishment.id !== id)
+                  );
+                  closeEditor();
+                }}
+              />
+            </Modal>
+        )}
     </div>
   );
 };
