@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Modal from 'react-modal';
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
-import { fetchAllAccomplishmentsIndexed } from '@utils/functions';
+import { fetchAllAccomplishmentsIndexed, applyHighlight } from '@utils/functions';
 import { Accomplishment } from '@utils/goalUtils'; // Adjust the import path as necessary
 import AccomplishmentCard from './AccomplishmentCard';
 import AccomplishmentEditor from './AccomplishmentEditor';
@@ -26,7 +26,7 @@ const AllAccomplishments = () => {
   });
   const [filter, setFilter] = useState<string>(''); // For filtering accomplishments
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-
+  const [sortField] = useState<'created_at'>('created_at');
   const [scope] = useState<'week' | 'month' | 'year'>('week');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [selectedAccomplishment, setSelectedAccomplishment] = useState<Accomplishment | null>(null);
@@ -99,8 +99,8 @@ const AllAccomplishments = () => {
         impact: '',
         // category: 'Technical skills',
         goal_id: '',
-        user_id: '',
-        created_at: '',
+        user_id: user.id,
+        created_at: new Date().toISOString(),
         // content: '',
         // type: '',
         // week_start: '',
@@ -143,6 +143,23 @@ const AllAccomplishments = () => {
       setFilteredAccomplishments(accomplishments); // Reset to all accomplishments if no filter
     }
   };
+
+  // Update the Summaries list rendering logic to apply filtering and sorting
+  const sortedAndFilteredAccomplishments = filteredAccomplishments.sort((a, b) => {
+    if (sortField === 'created_at') {
+      const aDate = new Date(a.created_at);
+      const bDate = new Date(b.created_at);
+      return sortDirection === 'asc'
+        ? aDate.getTime() - bDate.getTime()
+        : bDate.getTime() - aDate.getTime();
+    } else {
+      const aStr = (a[sortField] as string)?.toLowerCase() || '';
+      const bStr = (b[sortField] as string)?.toLowerCase() || '';
+      return sortDirection === 'asc'
+        ? aStr.localeCompare(bStr)
+        : bStr.localeCompare(aStr);
+    }
+  });
 
   const openModal = () => {
     if (!isModalOpen) {
@@ -204,13 +221,13 @@ const AllAccomplishments = () => {
 
       {/* Accomplishments List */}
       <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'>
-        {filteredAccomplishments.map((accomplishment) => (
+        {sortedAndFilteredAccomplishments.map((accomplishment) => (
           <AccomplishmentCard
             key={accomplishment.id}
             id={accomplishment.id}
-            title={accomplishment.title}
-            description={accomplishment.description}
-            impact={accomplishment.impact}
+            title={applyHighlight(accomplishment.title, filter)}
+            description={applyHighlight(accomplishment.description, filter)}
+            impact={applyHighlight(accomplishment.impact, filter)}
             // content={accomplishment.content}
             // type={accomplishment.type}
             created_at={accomplishment.created_at}
@@ -219,13 +236,6 @@ const AllAccomplishments = () => {
             handleEdit={() => openEditor(accomplishment)}
           />
         ))}
-        {isEditorOpen && (
-          <Modal isOpen={isEditorOpen} onRequestClose={closeEditor}>
-            <h2>Edit Accomplishment</h2>
-            <p>{selectedAccomplishment?.title}</p>
-            <button onClick={closeEditor}>Close</button>
-          </Modal>
-        )}
       </div>
 
       {/* Add Accomplishment Modal */}
@@ -292,17 +302,6 @@ const AllAccomplishments = () => {
         </Modal>
       )}
 
-      {/* {isEditorOpen && (
-        <Modal 
-          isOpen={isEditorOpen} 
-          onRequestClose={closeEditor}
-          className="fixed inset-0 flex items-center justify-center z-50"
-          overlayClassName={`${overlayClasses}`}>
-          <h2>Edit Accomplishment</h2>
-          <p>{selectedAccomplishment?.title}</p>
-          <button onClick={closeEditor}>Close</button>
-        </Modal>
-      )} */}
       {/* Accomplishment Editor Modal */}
         {isEditorOpen && (
             <Modal
@@ -311,6 +310,7 @@ const AllAccomplishments = () => {
               className={`fixed inset-0 flex items-center justify-center z-50`}
               overlayClassName={`${overlayClasses}`}
             >
+              <div className={`${modalClasses}`}>
               <AccomplishmentEditor
                 id={selectedAccomplishment ? selectedAccomplishment.id : ''}
                 title={selectedAccomplishment ? selectedAccomplishment.title : ''}
@@ -326,14 +326,33 @@ const AllAccomplishments = () => {
                     title: updatedTitle,
                     impact: updatedImpact,
                   };
-                  setFilteredAccomplishments((prev: Accomplishment[]) =>
-                    prev.map((accomplishment: Accomplishment) =>
-                      accomplishment.id === updatedAccomplishment.id
-                        ? updatedAccomplishment
-                        : accomplishment
-                    )
-                  );
-                  closeEditor();
+
+                  try {
+                    const { error } = await supabase
+                      .from('accomplishments')
+                      .update({
+                        description: updatedDescription,
+                        title: updatedTitle,
+                        impact: updatedImpact,
+                      })
+                      .eq('id', updatedAccomplishment.id);
+
+                    if (error) {
+                      console.error('Error updating accomplishment:', error.message);
+                      return;
+                    }
+
+                    setFilteredAccomplishments((prev: Accomplishment[]) =>
+                      prev.map((accomplishment: Accomplishment) =>
+                        accomplishment.id === updatedAccomplishment.id
+                          ? updatedAccomplishment
+                          : accomplishment
+                      )
+                    );
+                    closeEditor();
+                  } catch (err) {
+                    console.error('Unexpected error updating accomplishment:', err);
+                  }
                 }}
                 onUpdate={(updatedAccomplishment: Accomplishment) => {
                   setFilteredAccomplishments((prev: Accomplishment[]) =>
@@ -352,6 +371,7 @@ const AllAccomplishments = () => {
                   closeEditor();
                 }}
               />
+              </div>
             </Modal>
         )}
     </div>

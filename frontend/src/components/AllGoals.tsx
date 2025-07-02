@@ -278,15 +278,11 @@ const GoalsComponent = () => {
                     handleDeleteGoal(goalId);
                 }}
                 handleEdit={(goalId) => {
-                    handleUpdateGoal(goalId, {
-                        ...goal,
-                        title: goal.title,
-                        description: goal.description,
-                        category: goal.category,
-                        week_start: goal.week_start,
-                    });
-                    setSelectedGoal(goal);
-                    setIsEditorOpen(true);
+                    const goalToEdit = indexedGoals[currentPage]?.find((goal) => goal.id === goalId);
+                    if (goalToEdit) {
+                        setSelectedGoal(goalToEdit);
+                        setIsEditorOpen(true);
+                    }
                 }}
                 filter={filter} // Pass the filter prop
             />
@@ -405,17 +401,19 @@ const GoalsComponent = () => {
                     onRequestClose={closeEditor}
                     onSave={async (updatedDescription, updatedTitle, updatedCategory, updatedWeekStart) => {
                         try {
-                            await updateGoal(
-                                selectedGoal?.id || '',
-                                {
+                            if (selectedGoal) {
+                                await handleUpdateGoal(selectedGoal.id, {
+                                    id: selectedGoal.id,
+                                    user_id: selectedGoal.user_id,
+                                    created_at: selectedGoal.created_at,
                                     title: updatedTitle,
                                     description: updatedDescription,
                                     category: updatedCategory,
-                                    week_start: updatedWeekStart
-                                }
-                            );
-                            closeEditor();
-                            await refreshGoals();
+                                    week_start: updatedWeekStart,
+                                });
+                                closeEditor();
+                                await refreshGoals();
+                            }
                         } catch (error) {
                             console.error('Error saving edited goal:', error);
                         }

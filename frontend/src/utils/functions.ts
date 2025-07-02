@@ -467,6 +467,7 @@ export const updateGoal = async (goalId: string, updatedGoal: any) => {
     body: payload,
   });
 
+  // Move the success notification to after the response is validated
   if (!response.ok) {
     const errorText = await response.text();
     console.error('Error response from updateGoal:', errorText);
@@ -476,12 +477,13 @@ export const updateGoal = async (goalId: string, updatedGoal: any) => {
 
   const responseData = await response.json();
   console.log('Response from updateGoal:', responseData);
+
+  // Notify success only after the goal is successfully saved
   notifySuccess('Goal updated successfully!');
   return responseData;
 };
 
-
- // Add a function to highlight filtered words
+// Add a function to highlight filtered words
   export const applyHighlight = (text: string, filter: string) => {
     if (!filter) return text;
     // Escape special characters in the filter string
@@ -489,22 +491,14 @@ export const updateGoal = async (goalId: string, updatedGoal: any) => {
     const regex = new RegExp(`(${escapedFilter})`, 'gi');
     return text.replace(regex, '<span class="highlight">$1</span>');
   };
-// export const handleUpdateGoal = async (
-//     supabase: any,
-//     goalId: string,
-//     _setFilteredGoals: React.Dispatch<React.SetStateAction<Goal[]>>,
-//     fetchGoals: () => Promise<void>,
-//     setError: React.Dispatch<React.SetStateAction<string | null>>
-// ) => {
-//     try {
-//         const { error } = await supabase.from('goals').update().eq('id', goalId);
-//         if (error) throw new Error(error.message);
-        
-//         await fetchGoals();
-//     } catch (err) {
-//         handleError(err, setError);
-//     }
-// };
+export const handleUpdateGoal = async (goalId: string, updatedGoal: Goal) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User is not authenticated');
+    const userId = user.id;
+
+    const response = await updateGoal(goalId, { ...updatedGoal, user_id: userId });
+    return response;
+};
 // Update a goal
 // export const updateGoal = async (goalId: string, updatedGoal: any) => {
 //   const { data: { user } } = await supabase.auth.getUser();

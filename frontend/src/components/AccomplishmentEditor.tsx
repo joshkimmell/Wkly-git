@@ -1,4 +1,3 @@
-import { modalClasses } from '@styles/classes';
 import React, { useState } from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
@@ -63,7 +62,7 @@ const AccomplishmentEditor: React.FC<AccomplishmentEditorProps> = ({
     };
 
     return (
-        <form onSubmit={handleSave} id="goalEditorForm" className={modalClasses}>
+        <form onSubmit={handleSave} id="goalEditorForm">
             {/* Input for editing the title */}
             <input
                 type="text"
@@ -78,12 +77,6 @@ const AccomplishmentEditor: React.FC<AccomplishmentEditorProps> = ({
                 value={updatedAccomplishment.description}
                 onChange={(value) => handleFieldChange('description', value)} // Update description state
             />
-            {/* <input
-                type="hidden"
-                name="accomplishment_id"
-                value={updatedAccomplishment.id} // Pass the goal ID
-                readOnly
-            /> */}
           
             <div className="flex justify-end mt-4 space-x-2 text-gray-90 dark:text-gray-10">
                 <button className="btn btn-secondary" onClick={onRequestClose} type="button">

@@ -10,6 +10,9 @@
   }
   button {
     @apply appearance-none inline-flex items-center px-2 py-2 border border-gray-30 dark:border-gray-70 text-gray-80 dark:text-gray-20 text-sm font-medium rounded-md shadow-sm text-brand-0 bg-brand-60 hover:bg-brand-80 hover:text-brand-10;
+    &:disabled {
+      @apply opacity-50 cursor-not-allowed;
+    }
   }
   a {
     @apply text-brand-70 hover:text-brand-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-70;
@@ -121,6 +124,9 @@
   }
   .btn-ghost {
     @apply text-gray-90 dark:text-gray-30 hover:text-gray-100 hover:dark:text-gray-10 bg-transparent hover:bg-gray-10 dark:hover:bg-gray-80 border-none;
+  }
+  .btn-ghost:disabled {
+    @apply opacity-50 hover:bg-transparent cursor-not-allowed;
   }
   .btn-summary {
     @apply bg-transparent border-none text-gray-90 dark:text-gray-30 hover:text-gray-100 dark:hover:text-gray-10 hover:bg-gray-10 dark:hover:bg-gray-80 focus:outline-none focus:bg-gray-20 focus:dark:bg-gray-70 focus:ring-offset-2 focus:ring-brand-70 font-normal text-base;
