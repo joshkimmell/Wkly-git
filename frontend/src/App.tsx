@@ -23,7 +23,7 @@ const App: React.FC = () => {
   const [theme, setTheme] = useState<'theme-dark' | 'theme-light'>(
     window.matchMedia('(prefers-color-scheme: dark)').matches ? 'theme-dark' : 'theme-light'
   );
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, /*setIsOpen*/] = useState(false);
 
   const toggleTheme = () => setTheme(prev => (prev === 'theme-dark' ? 'theme-light' : 'theme-dark'));
 

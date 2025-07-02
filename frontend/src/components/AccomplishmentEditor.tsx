@@ -1,5 +1,5 @@
 import { modalClasses } from '@styles/classes';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { Accomplishment } from '@utils/goalUtils'; // Import the addCategory function
@@ -31,7 +31,6 @@ const AccomplishmentEditor: React.FC<AccomplishmentEditorProps> = ({
     description: initialDescription,
     impact: initialImpact,
     goal_id,
-    id: id,
     onRequestClose,
     onSave,
   }) => {

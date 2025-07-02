@@ -1,25 +1,8 @@
 import React, { useEffect } from 'react';
-import { getWeekStartDate, addCategory, setGoals, fetchCategories } from '@utils/functions'; // Adjust the import path as necessary
-import { Category, Goal } from '@utils/goalUtils'; // Import the addCategory function
+import { getWeekStartDate, addCategory, /*setGoals, fetchCategories*/ } from '@utils/functions'; // Adjust the import path as necessary
+import { Goal } from '@utils/goalUtils'; // Import the addCategory function
 import supabase from '@lib/supabase'; // Import Supabase client
 import { initializeUserCategories, UserCategories } from '@utils/functions'; // Correct import path
-
-// export const Categories = [
-//   'Technical skills',
-//   'Business',
-//   'Eminence',
-//   'Concepts',
-//   'Community'
-// ] as Array<string>;
-
-// export interface Goal {
-//   id: string; // Ensure this matches the primary key in your Supabase table
-//   title: string;
-//   description: string;
-//   category: string;
-//   week_start: string; // Ensure this matches the `week_start` column in your table
-//   user_id: string; // Ensure this matches the `user_id` column in your table
-// }
 
 export interface AddGoalProps {
   newGoal: Goal; // Updated to use the full Goal type
