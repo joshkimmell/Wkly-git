@@ -11,6 +11,7 @@ import { modalClasses, overlayClasses } from '@styles/classes';
 import { Goal as GoalUtilsGoal } from '@utils/goalUtils';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
+import { PlusSquare as SquarePlus } from 'lucide-react';
 
 
 type Goal = GoalUtilsGoal & {
@@ -244,9 +245,12 @@ const GoalsComponent = () => {
 
             <button
                 onClick={openGoalModal}
-                className="btn-primary sm:block ml-auto pr-4"
+                className="btn-primary flex ml-auto sm:pr-4 xs:pr-0"
+                title={`Add a new goal for the current ${scope}`}
+                aria-label={`Add a new goal for the current ${scope}`}
                 >
-                Add Goal
+                <SquarePlus className="w-5 h-5" />
+                <span className="hidden sm:block pl-2">Add Goal</span>
             </button>
         </div>
 

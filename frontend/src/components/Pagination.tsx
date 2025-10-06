@@ -1,7 +1,7 @@
 import React from 'react';
 import { Menu, MenuButton, MenuItems } from '@headlessui/react';
 import PageMenuItem from '@components/PageMenuItem';
-import { ArrowLeft, ArrowRight, ChevronDownIcon } from 'lucide-react'; 
+import { ArrowLeft, ArrowRight, ChevronDownIcon, CalendarCheck } from 'lucide-react'; 
 
 type PaginationProps = {
   pages: string[]; // Array of raw page values (e.g., "2025-06-06", "2025-06", "2025")
@@ -60,15 +60,20 @@ const Pagination: React.FC<PaginationProps> = ({ pages, currentPage, onPageChang
         aria-label={`Current ${scope}`}
         className="btn-ghost"
       >
-        Current {scope}
+        {/* Current {scope} */}
+        <CalendarCheck className="w-5 h-5" />
+        <span className="sr-only">Current {scope}</span>
       </button>
       
       <button
         onClick={handlePrevious}
         disabled={currentIndex <= 0}
         className="btn-ghost disabled:opacity-50"
+        title={`Next ${scope}`}
+        aria-label={`Next ${scope}`}
       >
         <ArrowLeft className="w-5 h-5" />
+        <span className="sr-only">Next {scope}</span>
       </button>
       
       <Menu as="div" className="relative inline-block text-left">
@@ -105,8 +110,11 @@ const Pagination: React.FC<PaginationProps> = ({ pages, currentPage, onPageChang
         onClick={handleNext}
         disabled={currentIndex === pages.length - 1}
         className="btn-ghost disabled:opacity-50"
+        title={`Previous ${scope}`}
+        aria-label={`Previous ${scope}`}
       >
         <ArrowRight className="w-5 h-5" />
+        <span className="sr-only">Previous {scope}</span>
       </button>
       
     </div>

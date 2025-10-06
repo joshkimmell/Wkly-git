@@ -590,64 +590,50 @@ export const filterGoalsByYear = (goals: Goal[], selectedDate: Date) => {
 };
 
 // Generate a summary using OpenAI
-export const handleGenerate = async (
-  id: string,  
-  scope: 'week' | 'month' | 'year', // Add scope to the parameters
+export const generateSummary = async (
+  id: string,
+  scope: 'week' | 'month' | 'year',
   title: string,
-  userId: string, 
-  weekStart: string, 
+  userId: string,
+  weekStart: string,
   goalsWithAccomplishments: {
-      title: string;
-      description: string;
-      category: string;
-      accomplishments: { title: string; description: string; impact: string; }[];
-    }[],
-) => {
-    try {
-      // Generate a new UUID if no summary_id is provided
-      const summaryId = id || uuidv4();
+    title: string;
+    description: string;
+    category: string;
+    accomplishments: { title: string; description: string; impact: string }[];
+  }[]
+): Promise<string> => {
+  try {
+    const summaryId = id || uuidv4();
 
-      console.log('Request body:', {
+    const response = await fetch(`${baseUrl}${backend}/generateSummary`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
         summary_id: summaryId,
         scope,
         summaryTitle: title,
         user_id: userId,
         week_start: weekStart,
         goalsWithAccomplishments,
-      });
-      
-      const response = await fetch(`${baseUrl}${backend}/generateSummary`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          summary_id: summaryId,
-          scope,
-          summaryTitle: title, 
-          user_id: userId, 
-          week_start: weekStart, 
-          goalsWithAccomplishments, 
-        }),
-      });
-      
-      notifySuccess(`{Summary for ${scope} generated successfully!}`); // Notify success
-      // // console.log('Response status:', response.status); // Log the response status
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error generating summary:', errorText);
-        notifyError('Failed to generate summary'); // Notify error
-        throw new Error('Failed to generate summary');
-      }
-      
-      const data = await response.json();
-      return data.summary;
-    } catch (error) {
-      console.error('Error generating summary:', error);
-      throw error;
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error generating summary:', errorText);
+      throw new Error('Failed to generate summary');
     }
-  };
+
+    const data = await response.json();
+    return data.summary;
+  } catch (error) {
+    console.error('Error in generateSummary:', error);
+    throw error;
+  }
+};
 
 // Save a summary to the database
 export const saveSummary = async (

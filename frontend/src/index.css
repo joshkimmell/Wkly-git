@@ -187,21 +187,51 @@
     @apply stroke-gray-40 dark:stroke-gray-70 ;
   }
   .ql-fill {
-    @apply fill-gray-70 dark:fill-gray-40;
+    @apply fill-gray-70 dark:fill-gray-40 hover:fill-gray-90 dark:hover:fill-gray-10;
   }
   .ql-editor {
     @apply bg-gray-0 dark:bg-gray-100 text-gray-90 dark:text-gray-10 border border-gray-30 dark:border-gray-70 rounded-md shadow-sm focus:border-brand-50 focus:ring-brand-70;
   }
-  .ql-toolbar {
-    @apply bg-gray-10 dark:bg-gray-90 border-b border-gray-30 dark:border-gray-70;
+ /* .ql-toolbar {
+    @apply flex flex-row bg-gray-90 dark:bg-gray-10 border border-gray-30 dark:border-gray-70 rounded shadow-sm justify-center items-center;
+  } */
+
+.ql-tooltip {
+    @apply bg-gray-90 dark:bg-gray-10;
   }
-  .ql-toolbar button {
+.ql-bubble .ql-tooltip:not(.ql-flip) .ql-tooltip-arrow {
+    @apply border-gray-90 dark:border-b-gray-10;
+    border-bottom: -6px;
+  }
+  .ql-bubble .ql-toolbar button {
+    @apply text-gray-40 dark:text-gray-70 hover:text-gray-90 dark:hover:text-gray-10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-70;
+  }
+  .ql-bubble .ql-toolbar .ql-active, .ql-bubble .ql-toolbar button:hover {
+    /* background: blue !important; */
+    @apply bg-brand-30 dark:bg-brand-60;
+}
+  /* .ql-bubble .ql-toolbar button.ql-active .ql-stroke {
+    @apply text-brand-50 dark:text-brand-80;
+  } */
+  /* .ql-bubble .ql-toolbar button.ql-active {
+    @apply text-gray-50 dark:text-gray-90;
+  } */
+  /* .ql-snow .ql-toolbar {
+    @apply bg-gray-10 dark:bg-gray-90 border border-gray-30 dark:border-gray-70 rounded-md shadow-sm flex items-center justify-between p-2;
+  }
+  .ql-snow .ql-toolbar button {
+    @apply text-gray-70 dark:text-gray-40 hover:text-gray-90 dark:hover:text-gray-10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-70;
+  }
+  .ql-snow .ql-toolbar .ql-active {
+    @apply text-brand-70 dark:text-brand-10;
+} */
+   /* .ql-toolbar button {
     @apply text-gray-70 dark:text-gray-40 hover:text-gray-90 dark:hover:text-gray-10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-70;
   }
   .ql-toolbar .ql-active {
     @apply text-brand-70 dark:text-brand-10;
-  }
-  .ql-snow .ql-picker-options {
+  } */
+  /* .ql-snow .ql-picker-options {
     @apply bg-gray-10 dark:bg-gray-90 text-gray-70 dark:text-gray-40 border border-gray-30 dark:border-gray-70;
   }
   .ql-snow .ql-picker-item {
@@ -227,7 +257,10 @@
   }
   .ql-snow .ql-tooltip.ql-hidden .ql-tooltip-editor {
     @apply hidden;  
-    }
+    } */
+  .ql-editor.ql-blank::before {
+    @apply text-gray-40 dark:text-gray-30;
+  }
   
   
 } 
