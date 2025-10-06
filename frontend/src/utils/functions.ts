@@ -467,6 +467,7 @@ export const updateGoal = async (goalId: string, updatedGoal: any) => {
     body: payload,
   });
 
+  // Move the success notification to after the response is validated
   if (!response.ok) {
     const errorText = await response.text();
     console.error('Error response from updateGoal:', errorText);
@@ -476,12 +477,13 @@ export const updateGoal = async (goalId: string, updatedGoal: any) => {
 
   const responseData = await response.json();
   console.log('Response from updateGoal:', responseData);
+
+  // Notify success only after the goal is successfully saved
   notifySuccess('Goal updated successfully!');
   return responseData;
 };
 
-
- // Add a function to highlight filtered words
+// Add a function to highlight filtered words
   export const applyHighlight = (text: string, filter: string) => {
     if (!filter) return text;
     // Escape special characters in the filter string
@@ -489,22 +491,14 @@ export const updateGoal = async (goalId: string, updatedGoal: any) => {
     const regex = new RegExp(`(${escapedFilter})`, 'gi');
     return text.replace(regex, '<span class="highlight">$1</span>');
   };
-// export const handleUpdateGoal = async (
-//     supabase: any,
-//     goalId: string,
-//     _setFilteredGoals: React.Dispatch<React.SetStateAction<Goal[]>>,
-//     fetchGoals: () => Promise<void>,
-//     setError: React.Dispatch<React.SetStateAction<string | null>>
-// ) => {
-//     try {
-//         const { error } = await supabase.from('goals').update().eq('id', goalId);
-//         if (error) throw new Error(error.message);
-        
-//         await fetchGoals();
-//     } catch (err) {
-//         handleError(err, setError);
-//     }
-// };
+export const handleUpdateGoal = async (goalId: string, updatedGoal: Goal) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User is not authenticated');
+    const userId = user.id;
+
+    const response = await updateGoal(goalId, { ...updatedGoal, user_id: userId });
+    return response;
+};
 // Update a goal
 // export const updateGoal = async (goalId: string, updatedGoal: any) => {
 //   const { data: { user } } = await supabase.auth.getUser();
@@ -596,64 +590,50 @@ export const filterGoalsByYear = (goals: Goal[], selectedDate: Date) => {
 };
 
 // Generate a summary using OpenAI
-export const handleGenerate = async (
-  id: string,  
-  scope: 'week' | 'month' | 'year', // Add scope to the parameters
+export const generateSummary = async (
+  id: string,
+  scope: 'week' | 'month' | 'year',
   title: string,
-  userId: string, 
-  weekStart: string, 
+  userId: string,
+  weekStart: string,
   goalsWithAccomplishments: {
-      title: string;
-      description: string;
-      category: string;
-      accomplishments: { title: string; description: string; impact: string; }[];
-    }[],
-) => {
-    try {
-      // Generate a new UUID if no summary_id is provided
-      const summaryId = id || uuidv4();
+    title: string;
+    description: string;
+    category: string;
+    accomplishments: { title: string; description: string; impact: string }[];
+  }[]
+): Promise<string> => {
+  try {
+    const summaryId = id || uuidv4();
 
-      console.log('Request body:', {
+    const response = await fetch(`${baseUrl}${backend}/generateSummary`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
         summary_id: summaryId,
         scope,
         summaryTitle: title,
         user_id: userId,
         week_start: weekStart,
         goalsWithAccomplishments,
-      });
-      
-      const response = await fetch(`${baseUrl}${backend}/generateSummary`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          summary_id: summaryId,
-          scope,
-          summaryTitle: title, 
-          user_id: userId, 
-          week_start: weekStart, 
-          goalsWithAccomplishments, 
-        }),
-      });
-      
-      notifySuccess(`{Summary for ${scope} generated successfully!}`); // Notify success
-      // // console.log('Response status:', response.status); // Log the response status
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error generating summary:', errorText);
-        notifyError('Failed to generate summary'); // Notify error
-        throw new Error('Failed to generate summary');
-      }
-      
-      const data = await response.json();
-      return data.summary;
-    } catch (error) {
-      console.error('Error generating summary:', error);
-      throw error;
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error generating summary:', errorText);
+      throw new Error('Failed to generate summary');
     }
-  };
+
+    const data = await response.json();
+    return data.summary;
+  } catch (error) {
+    console.error('Error in generateSummary:', error);
+    throw error;
+  }
+};
 
 // Save a summary to the database
 export const saveSummary = async (

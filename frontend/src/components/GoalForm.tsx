@@ -1,25 +1,12 @@
 import React, { useEffect } from 'react';
-import { getWeekStartDate, addCategory, setGoals, fetchCategories } from '@utils/functions'; // Adjust the import path as necessary
-import { Category, Goal } from '@utils/goalUtils'; // Import the addCategory function
+import { getWeekStartDate, addCategory, /*setGoals, fetchCategories*/ } from '@utils/functions'; // Adjust the import path as necessary
+import { Goal } from '@utils/goalUtils'; // Import the addCategory function
 import supabase from '@lib/supabase'; // Import Supabase client
 import { initializeUserCategories, UserCategories } from '@utils/functions'; // Correct import path
-
-// export const Categories = [
-//   'Technical skills',
-//   'Business',
-//   'Eminence',
-//   'Concepts',
-//   'Community'
-// ] as Array<string>;
-
-// export interface Goal {
-//   id: string; // Ensure this matches the primary key in your Supabase table
-//   title: string;
-//   description: string;
-//   category: string;
-//   week_start: string; // Ensure this matches the `week_start` column in your table
-//   user_id: string; // Ensure this matches the `user_id` column in your table
-// }
+import { PlusSquare, TagIcon } from 'lucide-react';
+import ReactQuill, { Quill } from 'react-quill';
+import 'react-quill/dist/quill.bubble.css'; // Import Quill styles
+import { has } from 'lodash';
 
 export interface AddGoalProps {
   newGoal: Goal; // Updated to use the full Goal type
@@ -105,7 +92,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleAddGoal, newGoal, setNewGoal, o
         <label htmlFor="title" className="block text-sm font-medium text-gray-700">
           Title
         </label>
-        <input
+        {/* <input
           type="text"
           id="title"
           autoFocus
@@ -113,20 +100,50 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleAddGoal, newGoal, setNewGoal, o
           onChange={(e) => setNewGoal({ ...newGoal, title: e.target.value })}
           className="mt-1 block w-full rounded-md border-gray-30 shadow-sm focus:border-brand-50 focus:ring-brand-50 sm:text-sm"
           required
-        />
+        /> */}
+        {/* ReactQuill editor for editing the content */}
+          <ReactQuill
+              id="title"
+              value={newGoal.title}
+              onChange={(value) => setNewGoal({ ...newGoal, title: value })}
+              className="quill-editor h1"
+              // formats={['bold', 'italic', 'underline', 'strike','header']}
+              placeholder="Name your goal..."
+              defaultValue="<h1></h1>"
+              theme="bubble"
+              // modules={{
+              //   toolbar: [
+              //     [{ header: [1, 2, false] }], // Header options
+              //     ['bold', 'italic', 'underline', 'strike'], // Text formatting
+              //   ],
+              // }}
+          />
       </div>
 
       <div>
         <label htmlFor="description" className="block text-sm font-medium text-gray-700">
           Description
         </label>
-        <textarea
+        {/* <textarea
           id="description"
           value={newGoal.description}
           onChange={(e) => setNewGoal({ ...newGoal, description: e.target.value })}
           rows={3}
           className="mt-1 block w-full rounded-md border-gray-30 shadow-sm focus:border-brand-50 focus:ring-brand-50 sm:text-sm"
-        />
+        /> */}
+        {/* ReactQuill editor for editing the content */}
+          <ReactQuill
+              id="description"
+              value={newGoal.description}
+              onChange={(value) => setNewGoal({ ...newGoal, description: value })}
+              className=""
+              placeholder="Describe your goal..."
+              // theme="snow"
+              theme="bubble" // Uncomment if you want a different theme
+              // modules={modules} // Uncomment if you have specific modules to pass
+              // formats={formats} // Uncomment if you have specific formats to pass
+
+          />
       </div>
 
       <div>
@@ -173,9 +190,11 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleAddGoal, newGoal, setNewGoal, o
             <button
               type="button"
               onClick={handleAddCategory}
-              className="btn-ghost"
+              className="btn-ghost text-brand-60 hover:text-brand-80 dark:text-brand-30 dark:hover:text-brand-20 dark:hover:bg-gray-80"
              >
-              Add category
+              {/* Add category */}
+              <TagIcon className="w-5 h-5" />
+              <span className="hidden sm:flex flex-row pl-2">Add</span>
             </button>
           </div>
         </div>

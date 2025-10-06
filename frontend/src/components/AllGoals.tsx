@@ -11,6 +11,7 @@ import { modalClasses, overlayClasses } from '@styles/classes';
 import { Goal as GoalUtilsGoal } from '@utils/goalUtils';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
+import { PlusSquare as SquarePlus } from 'lucide-react';
 
 
 type Goal = GoalUtilsGoal & {
@@ -244,9 +245,12 @@ const GoalsComponent = () => {
 
             <button
                 onClick={openGoalModal}
-                className="btn-primary sm:block ml-auto pr-4"
+                className="btn-primary flex ml-auto sm:pr-4 xs:pr-0"
+                title={`Add a new goal for the current ${scope}`}
+                aria-label={`Add a new goal for the current ${scope}`}
                 >
-                Add Goal
+                <SquarePlus className="w-5 h-5" />
+                <span className="hidden sm:block pl-2">Add Goal</span>
             </button>
         </div>
 
@@ -278,15 +282,11 @@ const GoalsComponent = () => {
                     handleDeleteGoal(goalId);
                 }}
                 handleEdit={(goalId) => {
-                    handleUpdateGoal(goalId, {
-                        ...goal,
-                        title: goal.title,
-                        description: goal.description,
-                        category: goal.category,
-                        week_start: goal.week_start,
-                    });
-                    setSelectedGoal(goal);
-                    setIsEditorOpen(true);
+                    const goalToEdit = indexedGoals[currentPage]?.find((goal) => goal.id === goalId);
+                    if (goalToEdit) {
+                        setSelectedGoal(goalToEdit);
+                        setIsEditorOpen(true);
+                    }
                 }}
                 filter={filter} // Pass the filter prop
             />
@@ -405,17 +405,19 @@ const GoalsComponent = () => {
                     onRequestClose={closeEditor}
                     onSave={async (updatedDescription, updatedTitle, updatedCategory, updatedWeekStart) => {
                         try {
-                            await updateGoal(
-                                selectedGoal?.id || '',
-                                {
+                            if (selectedGoal) {
+                                await handleUpdateGoal(selectedGoal.id, {
+                                    id: selectedGoal.id,
+                                    user_id: selectedGoal.user_id,
+                                    created_at: selectedGoal.created_at,
                                     title: updatedTitle,
                                     description: updatedDescription,
                                     category: updatedCategory,
-                                    week_start: updatedWeekStart
-                                }
-                            );
-                            closeEditor();
-                            await refreshGoals();
+                                    week_start: updatedWeekStart,
+                                });
+                                closeEditor();
+                                await refreshGoals();
+                            }
                         } catch (error) {
                             console.error('Error saving edited goal:', error);
                         }

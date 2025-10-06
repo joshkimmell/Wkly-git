@@ -2,12 +2,13 @@
 // This component allows users to generate summaries based on a selected period (weekly, quarterly, yearly).
 
 import React, { useState, useEffect } from 'react';
-import { handleGenerate, saveSummary, deleteSummary, getWeekStartDate } from '@utils/functions';
+import { saveSummary, deleteSummary, getWeekStartDate, generateSummary } from '@utils/functions';
 import supabase from '@lib/supabase';
 import SummaryEditor from '@components/SummaryEditor';
 import Modal from 'react-modal';
 import SummaryCard from '@components/SummaryCard';
-import { overlayClasses } from '@styles/classes';
+import { modalClasses, overlayClasses } from '@styles/classes';
+import ReactQuill from 'react-quill'; // Fix import for ReactQuill
 
 interface SummaryGeneratorProps {
   summaryId: string;
@@ -18,6 +19,8 @@ interface SummaryGeneratorProps {
   // summaryType: 'AI' | 'User';
   scope: 'week' | 'month' | 'year'; // Add scope to the props
 }
+
+
 
 const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
   summaryTitle: initialSummaryTitle,
@@ -41,6 +44,32 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
       : scope === 'year'
       ? selectedRange.toLocaleDateString('en-US', { year: 'numeric' }) // e.g., 2025
       : ''; // Fallback for unexpected scope values
+
+
+async function handleGenerateFromUtils(
+  summaryId: string,
+  scope: 'week' | 'month' | 'year',
+  summaryTitle: string,
+  userId: string,
+  weekStart: string,
+  goalsWithAccomplishments: {
+    title: string;
+    description: string;
+    category: string;
+    accomplishments: { title: string; description: string; impact: string }[];
+  }[]
+): Promise<string> {
+  // This function wraps generateSummary and returns the generated summary string.
+  // You could add additional logic here if needed.
+  return await generateSummary(
+    summaryId,
+    scope,
+    summaryTitle,
+    userId,
+    weekStart,
+    goalsWithAccomplishments
+  );
+}
 
   // Dynamically generate the summary title based on the scope
   const generatedSummaryTitle = `Summary for ${scope}: ${formattedRange}`;
@@ -66,7 +95,19 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
     setSummaryTitle(initialSummaryTitle || newGeneratedSummaryTitle); // Update the title
   }, [scope, selectedRange, initialSummaryTitle]);
 
-  const handleGenerateClick = async () => {
+  const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
+  const [additionalContext, setAdditionalContext] = useState('');
+  const [responseLength, setResponseLength] = useState(500); // Default response length
+
+  const openGenerateModal = () => {
+    setIsGenerateModalOpen(true);
+  };
+
+  const closeGenerateModal = () => {
+    setIsGenerateModalOpen(false);
+  };
+
+  const handleGenerate = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User is not authenticated');
@@ -98,7 +139,7 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
       // console.log('Scope:', scope);
       // console.log('selectedRange:', selectedRange);
 
-      const generatedSummary = await handleGenerate(
+      const generatedSummary = await handleGenerateFromUtils(
         localSummaryId || '',
         scope, // Pass the scope (week, month, year)
         summaryTitle || generatedSummaryTitle,
@@ -116,6 +157,57 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
         new Date(weekStart)
       );
       setSummaryType('AI');
+    } catch (error) {
+      console.error('Error generating summary:', error);
+    }
+  };
+
+  const handleGenerateWithParams = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User is not authenticated');
+
+      const userId = user.id;
+
+      const goalsWithAccomplishments = filteredGoals.map(goal => ({
+        title: goal.title,
+        description: `${goal.description} ${additionalContext}`, // Append additional context to the description
+        category: goal.category || 'Technical skills',
+        accomplishments: (goal.accomplishments || []).map(accomplishment => ({
+          title: accomplishment,
+          description: `${accomplishment} ${additionalContext}`, // Append additional context to accomplishments
+          impact: 'Medium',
+        })),
+      }));
+
+      const weekStart =
+        scope === 'week'
+          ? getWeekStartDate(selectedRange)
+          : scope === 'month'
+          ? new Date(selectedRange.getFullYear(), selectedRange.getMonth(), 1).toISOString().split('T')[0]
+          : scope === 'year'
+          ? new Date(selectedRange.getFullYear(), 0, 1).toISOString().split('T')[0]
+          : '';
+
+      const generatedSummary = await generateSummary(
+        localSummaryId || '',
+        scope,
+        summaryTitle || generatedSummaryTitle,
+        userId,
+        weekStart,
+        goalsWithAccomplishments
+      );
+
+      setSummary(generatedSummary);
+      saveSummary(
+        setLocalSummaryId,
+        summaryTitle || generatedSummaryTitle,
+        generatedSummary,
+        'AI',
+        new Date(weekStart)
+      );
+      setSummaryType('AI');
+      closeGenerateModal();
     } catch (error) {
       console.error('Error generating summary:', error);
     }
@@ -167,9 +259,41 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
 
   return (
     <div>
-      <button onClick={handleGenerateClick} className="btn-primary">
+      <button onClick={openGenerateModal} className="btn-primary">
         Generate Summary
       </button>
+
+      {isGenerateModalOpen && (
+        <Modal
+          isOpen={isGenerateModalOpen}
+          onRequestClose={closeGenerateModal}
+          className="fixed inset-0 flex items-center justify-center z-50"
+          overlayClassName={`${overlayClasses}`}
+        >
+          <div className={`${modalClasses}`}>
+            <h2 className="text-xl font-bold mb-4">Customize Summary Generation</h2>
+            <label className="block mb-2 font-medium">Additional Context:</label>
+            <ReactQuill value={additionalContext} onChange={setAdditionalContext} className="mb-4" />
+
+            <label className="block mb-2 font-medium">Response Length:</label>
+            <input
+              type="number"
+              value={responseLength}
+              onChange={(e) => setResponseLength(Number(e.target.value))}
+              className="block w-full p-2 border rounded mb-4"
+            />
+
+            <div className="flex justify-end space-x-4">
+              <button onClick={closeGenerateModal} className="btn-secondary">
+                Cancel
+              </button>
+              <button onClick={handleGenerateWithParams} className="btn-primary">
+                Generate
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {summary && (
         <SummaryCard
@@ -207,3 +331,4 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
 };
 
 export default SummaryGenerator;
+

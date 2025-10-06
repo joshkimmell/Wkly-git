@@ -5,6 +5,7 @@ import 'react-quill/dist/quill.snow.css';
 import { Goal } from '@utils/goalUtils'; // Import the addCategory function
 import { getWeekStartDate, addCategory, initializeUserCategories, UserCategories } from '@utils/functions';
 import { supabase } from '@lib/supabase'; // Import Supabase client
+import { TagIcon } from 'lucide-react';
 
 
 interface GoalEditorProps {
@@ -100,56 +101,84 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
     };
 
     return (
-        <form onSubmit={handleSave} id="goalEditorForm" className={modalClasses}>
+        <form onSubmit={handleSave} id="goalEditorForm" className={`${modalClasses} flex flex-col space-y-4`}>
+          <div className='flex flex-col'>
             {/* Input for editing the title */}
-            <input
+            {/* <input
                 type="text"
                 name="title"
                 value={updatedGoal.title}
                 onChange={(e) => handleFieldChange('title', e.target.value)} // Update title state
                 className="w-full p-2 mb-4 border rounded"
                 placeholder="Enter goal title"
-            />
+            /> */}
+            <label htmlFor="title" className="block text-sm font-medium text-gray-70">
+              Title
+            </label>
             {/* ReactQuill editor for editing the content */}
-            <ReactQuill
-                value={updatedGoal.description}
-                onChange={(value) => handleFieldChange('description', value)} // Update description state
-            />
-            <input
-                type="hidden"
-                name="goal_id"
-                value={updatedGoal.id} // Pass the goal ID
-                readOnly
-            />
-            <div>
-        <label htmlFor="category" className="block text-sm font-medium text-gray-700">
-          Category
-        </label>
-        <select
-          id="category"
-          value={updatedGoal.category}
-          onChange={(e) => {
-            const value = e.target.value;
-            if (value === 'create-new') {
-              setIsAddingCategory(true);
-            } else {
-              setIsAddingCategory(false);
-              setUpdatedGoal((prevGoal) => ({ ...prevGoal, category: value }));
-            }
-          }}
-          className="mt-1 block w-full rounded-md border-gray-30 shadow-sm focus:border-brand-50 focus:ring-brand-50 sm:text-sm"
-        >
-          <option value="" disabled>-- Select a category --</option>
-          <option value="create-new">Add a new category</option>
-          {localCategories.map((category) => (
-            <option key={category.id} value={category.name}>
-              {category.name}
-            </option>
-          ))}
-        </select>
-      </div>
+              <ReactQuill
+                  id="title"
+                  value={updatedGoal.title}
+                  onChange={(value) => handleFieldChange('title', value)}
+                  className="quill-editor h1"
+                  // formats={['bold', 'italic', 'underline', 'strike','header']}
+                  placeholder="Name your goal..."
+                  defaultValue="<h1></h1>"
+                  theme="bubble"
+                  // modules={{
+                  //   toolbar: [
+                  //     [{ header: [1, 2, false] }], // Header options
+                  //     ['bold', 'italic', 'underline', 'strike'], // Text formatting
+                  //   ],
+                  // }}
+              />
+            </div>
+            <div className='flex flex-col'>
+              <label htmlFor="title" className="block text-sm font-medium text-gray-70">
+                Description
+              </label>
+              {/* ReactQuill editor for editing the content */}
+              <ReactQuill
+                  value={updatedGoal.description}
+                  theme="bubble"
+                  onChange={(value) => handleFieldChange('description', value)} // Update description state
+              />
+              <input
+                  type="hidden"
+                  name="goal_id"
+                  value={updatedGoal.id} // Pass the goal ID
+                  readOnly
+              />
+            </div>
+            <div className='flex flex-col'>
+              <label htmlFor="category" className="block text-sm font-medium text-gray-70">
+                Category
+              </label>
+              <select
+                id="category"
+                value={updatedGoal.category}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === 'create-new') {
+                    setIsAddingCategory(true);
+                  } else {
+                    setIsAddingCategory(false);
+                    setUpdatedGoal((prevGoal) => ({ ...prevGoal, category: value }));
+                  }
+                }}
+                className="mt-1 block w-full rounded-md border-gray-30 shadow-sm focus:border-brand-50 focus:ring-brand-50 sm:text-sm"
+              >
+                <option value="" disabled>-- Select a category --</option>
+                <option value="create-new">Add a new category</option>
+                {localCategories.map((category) => (
+                  <option key={category.id} value={category.name}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
             {isAddingCategory && (
-                <div>
+                <div className='flex flex-col'>
                 <label htmlFor="new-category" className="block text-sm font-medium text-gray-70">
                     Add New Category
                 </label>
@@ -162,16 +191,18 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                     />
                     <button
-                    type="button"
-                    onClick={handleAddCategory}
-                    className="btn-ghost"
+                      type="button"
+                      onClick={handleAddCategory}
+                      className="btn-ghost text-brand-60 hover:text-brand-80 dark:text-brand-30 dark:hover:text-brand-20 dark:hover:bg-gray-80"
                     >
-                    Add category
+                      {/* Add category */}
+                      <TagIcon className="w-5 h-5" />
+                      <span className="hidden sm:flex flex-row pl-2">Add</span>
                     </button>
                 </div>
                 </div>
             )}
-            <div>
+            <div className='flex flex-col'>
                 <label htmlFor="week_start" className="block text-sm font-medium text-gray-700">
                     Week Start
                 </label>

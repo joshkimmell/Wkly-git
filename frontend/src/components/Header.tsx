@@ -1,6 +1,8 @@
-import MenuBtn from '@components/menu-btn';
+import MenuBtn, { MenuBtnProps } from '@components/menu-btn';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import menuClosedIcon from '/images/button-menu.svg';
+import menuOpenIcon from '/images/button-menu-open.svg';
 import { Sun, Moon, Home, Award, Text, LogOut } from 'lucide-react';
 import { classMenuItem } from '@styles/classes';
 import supabase from '@lib/supabase';
@@ -17,9 +19,9 @@ interface ThemeState {
     theme: 'theme-dark' | 'theme-light';
 }
 
-interface MenuState {
-    isOpen: boolean;
-}
+// interface MenuState {
+//     isOpen: boolean;
+// }
 
 // Update the `Header` component to conditionally require `handleLogout`
 const Header = ({ isOpen = false, ...props }: HeaderProps) => {
@@ -27,7 +29,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
         localStorage.getItem('theme') as ThemeState['theme'] ||
         (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
     );
-    const [menuOpen, setIsOpen] = useState<MenuState['isOpen']>(isOpen);
+    const [menuOpen, setIsOpen] = useState<MenuBtnProps['isOpen']>(isOpen);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
 
     const handleLogoutInternal = async (): Promise<void> => {
@@ -47,7 +49,21 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     };
 
     const handleClick = (): void => {
-        setIsOpen((prev) => !prev);
+        setIsOpen((prev) => !prev); 
+        // if (menuOpen !== true) {
+        //     setIsOpen(true);
+        // }
+        // else {
+        //     setIsOpen(false);
+        // }   
+    };
+
+    const handleMenuItemClick = (): void => {
+        setIsOpen(false); // Close the menu when a menu item is selected
+        menuClosedIcon; // Reset the menu icon to menuClosedIcon
+        handleClick;
+        console.log({isOpen});
+        // You can add any additional logic here if needed});
     };
 
     useEffect(() => {
@@ -97,7 +113,8 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     };
 
     return (
-        <div className="header flex items-center dark">
+        <div className={`header flex items-center dark relative ${menuOpen ? 'header-expanded' : ''}`} style={{ top: 0 }}>
+            {/* {menuOpen === true ? (<p>Menu Open</p>) : (<p>Menu Closed</p>)} */}
             <div className="header-brand">
                 <div className="header-brand--logo-container relative pr-6 flex items-end h-16">
                     <button
@@ -129,23 +146,58 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                         <MenuBtn
                             className="header-brand--menu-btn btn-ghost justify-end"
                             onClick={handleClick}
-                        />
+                            isOpen={menuOpen}
+                        >
+                            
+                            {/* <div className="menu left-0 top-full w-full sm:hidden"> */}
+                                {/* <div className="menu-container fixed align-left z-10 top-0 right-0 h-full w-64 bg-white dark:bg-gray-100 text-brand-80 dark:text-brand-10 shadow-lg transform transition-transform duration-300 ease-in-out" style={{ transform: menuOpen ? 'translateX(0)' : 'translateX(100%)' }}> */}
+                                {/* <div className={`menu-container bg-white dark:bg-gray-100 text-brand-80 dark:text-brand-10 align-right`}> */}
+                                    {/* <img
+                                        src={menuOpen ? menuOpenIcon : menuClosedIcon}
+                                        alt="Menu"
+                                        className="w-6 h-6"
+                                    /> */}
+                                    {/* <div className="menu-container--list align-flex-end justify-end flex flex-col space-y-2"> */}
+                                        <Link onClick={handleMenuItemClick} to="/" className={`${classMenuItem}`}>
+                                            <Home className="w-5 h-5 mr-2" />
+                                            Goals
+                                        </Link>
+                                        <Link onClick={handleMenuItemClick} to="/accomplishments" className={`${classMenuItem}`}>
+                                            <Award className="w-5 h-5 mr-2" />
+                                            Accomplishments
+                                        </Link>
+                                        <Link onClick={handleMenuItemClick} to="/summaries" className={`${classMenuItem}`}>
+                                            <Text className="w-5 h-5 mr-2" />
+                                            Summaries
+                                        </Link>
+                                        <Link
+                                            to="#"
+                                            onClick={handleLogoutInternal}
+                                            className={`${classMenuItem}`}
+                                        >
+                                            <LogOut className="w-5 h-5 mr-2" />
+                                            Log out
+                                        </Link>
+                                    {/* </div> */}
+                                {/* </div> */}
+                            {/* </div> */}
+                        </MenuBtn>
                     </div>
                 )}
             </div>
-            {menuOpen && isAuthenticated && (
-                <div className="menu block sm:hidden">
+            {/* {menuOpen && isAuthenticated && (
+                <div className="menu left-0 top-full w-full sm:hidden">
                     <div className={`menu-container bg-white dark:bg-gray-100 text-brand-80 dark:text-brand-10 align-right`}>
                         <div className="menu-container--list align-flex-end justify-end flex flex-col space-y-2">
-                            <Link to="/" className={`${classMenuItem}`}>
+                            <Link onClick={handleMenuItemClick} to="/" className={`${classMenuItem}`}>
                                 <Home className="w-5 h-5 mr-2" />
                                 Goals
                             </Link>
-                            <Link to="/accomplishments" className={`${classMenuItem}`}>
+                            <Link onClick={handleMenuItemClick} to="/accomplishments" className={`${classMenuItem}`}>
                                 <Award className="w-5 h-5 mr-2" />
                                 Accomplishments
                             </Link>
-                            <Link to="/summaries" className={`${classMenuItem}`}>
+                            <Link onClick={handleMenuItemClick} to="/summaries" className={`${classMenuItem}`}>
                                 <Text className="w-5 h-5 mr-2" />
                                 Summaries
                             </Link>
@@ -160,7 +212,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                         </div>
                     </div>
                 </div>
-            )}
+            )} */}
         </div>
     );
 };

@@ -19,11 +19,11 @@ const AccomplishmentCard: React.FC<AccomplishmentCardProps> = ({ id, title, desc
   return (
     <div className={`${cardClasses} shadow-xl`} key={id}>
         <div className="goal-content flex flex-col mt-2 flex-grow">
-            <h3>{title || 'Untitled Goal'}</h3>
-            <p className="text-gray-60 dark:text-gray-40 mt-1">{description || 'No description provided.'}</p>
-            <p className="text-sm text-gray-50 dark:text-gray-30">
-            <strong>{impact ? 'Impact:' : ''}</strong> {impact || 'No impact specified.'}
-            </p>
+            <h3 dangerouslySetInnerHTML={{ __html: title || 'Untitled Goal'}}></h3>
+            <p className="text-gray-60 dark:text-gray-40 mt-1" dangerouslySetInnerHTML={{ __html: description  || 'No description provided.' }}></p>
+            <p className="text-sm text-gray-50 dark:text-gray-30" dangerouslySetInnerHTML={{ __html: `
+              <strong>${impact ? 'Impact:' : ''}</strong> ${impact || 'No impact specified.'}
+            ` }}></p>
             <p className="hidden"><strong>Created At:</strong> {created_at}</p>
         </div>
         <footer className="mt-2 text-sm text-gray-50 dark:text-gray-30 flex flex-row items-center justify-end space-x-2">

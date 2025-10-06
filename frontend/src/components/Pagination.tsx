@@ -1,7 +1,7 @@
 import React from 'react';
 import { Menu, MenuButton, MenuItems } from '@headlessui/react';
 import PageMenuItem from '@components/PageMenuItem';
-import { ChevronDownIcon } from 'lucide-react'; 
+import { ArrowLeft, ArrowRight, ChevronDownIcon, CalendarCheck } from 'lucide-react'; 
 
 type PaginationProps = {
   pages: string[]; // Array of raw page values (e.g., "2025-06-06", "2025-06", "2025")
@@ -41,44 +41,46 @@ const Pagination: React.FC<PaginationProps> = ({ pages, currentPage, onPageChang
         return page;
     }
   };
+  // Find the current page based on today's date
+  
+  const today = new Date();
+  const currentPageFromToday = pages.find((page) => {
+    const [year, month, day] = page.split('-').map(Number); // Split and parse the date parts
+    const pageDate = new Date(year, (month || 1) - 1, day || 1); // Default month to 1 and day to 1 (month is 0-indexed)      
+    return pageDate <= today; // Check if the page date is less than or equal to today
+  });
 
   return (
     <div className="flex items-center space-x-2">
+      
+      <button
+        onClick={() => onPageChange(currentPageFromToday ?? currentPage)}
+        disabled={currentPageFromToday === currentPage}
+        title={`Current ${scope}`}
+        aria-label={`Current ${scope}`}
+        className="btn-ghost"
+      >
+        {/* Current {scope} */}
+        <CalendarCheck className="w-5 h-5" />
+        <span className="sr-only">Current {scope}</span>
+      </button>
+      
       <button
         onClick={handlePrevious}
         disabled={currentIndex <= 0}
         className="btn-ghost disabled:opacity-50"
+        title={`Next ${scope}`}
+        aria-label={`Next ${scope}`}
       >
-        Previous
+        <ArrowLeft className="w-5 h-5" />
+        <span className="sr-only">Next {scope}</span>
       </button>
-      {/* {pages.map((page) => (
-        <button
-          key={page}
-          onClick={() => onPageChange(page)}
-          className={`btn-primary ${
-            page === currentPage ? 'bg-brand-50 text-gray-10 hover:bg-brand-80 hover:text-brand-10' : 'hidden'
-          }`}
-        >
-          {formatPage(page)}
-        </button>
-      ))} */}
-      {/* Dropdown Menu for Pages */}
-      {/* <select
-        value={currentPage}
-        onChange={(e) => onPageChange(e.target.value)}
-        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-      >
-        {pages.map((page) => (
-          <option key={page} value={page}>
-            {formatPage(page)}
-          </option>
-        ))}
-      </select> */}
+      
       <Menu as="div" className="relative inline-block text-left">
       <div>
-        <MenuButton className="btn-ghost">
+        <MenuButton className="btn-ghost text-lg text-brand-60 hover:text-brand-80 dark:text-brand-30 dark:hover:text-brand-20 dark:hover:bg-gray-80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-50 flex items-center justify-between w-full">
           {formatPage(currentPage)}
-          <ChevronDownIcon aria-hidden="true" className="-mr-1 size-5 text-gray-400" />
+          <ChevronDownIcon aria-hidden="true" className="-mr-1 size-5 text-brand-60 hover:text-brand-80 dark:text-brand-30 dark:hover:text-brand-20 dark:hover:bg-gray-80" />
         </MenuButton>
       </div>
 
@@ -108,9 +110,13 @@ const Pagination: React.FC<PaginationProps> = ({ pages, currentPage, onPageChang
         onClick={handleNext}
         disabled={currentIndex === pages.length - 1}
         className="btn-ghost disabled:opacity-50"
+        title={`Previous ${scope}`}
+        aria-label={`Previous ${scope}`}
       >
-        Next
+        <ArrowRight className="w-5 h-5" />
+        <span className="sr-only">Previous {scope}</span>
       </button>
+      
     </div>
   );
 };
