@@ -8,8 +8,6 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Debug log to verify the API key
-console.log('Loaded API Key:', process.env.OPENAI_API_KEY);
 
 // Define the expected structure of a step
 interface Step {
