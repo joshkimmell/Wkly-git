@@ -12,9 +12,10 @@ const backend = '/api';
 // export const supabaseKey = (import.meta as any).env.VITE_SUPABASE_KEY;
 // export const openaiApiKey = (import.meta as any).env.VITE_OPENAI_API_KEY;
 
-export const supabaseUrl = process.env.SUPABASE_URL;
-export const supabaseKey = process.env.SUPABASE_KEY;
-export const openaiApiKey = process.env.OPENAI_API_KEY;
+export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+export const supabaseKey = import.meta.env.VITE_SUPABASE_KEY;
+export const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
+
 
 export const handleError = (error: any, setError: React.Dispatch<React.SetStateAction<string | null>>) => {
     console.error(error);
