@@ -1,9 +1,15 @@
 import { Handler } from '@netlify/functions';
 import OpenAI from 'openai';
+import dotenv from 'dotenv';
+
+dotenv.config({ path: '/Users/joshkimmell/Documents/GitHub/Wkly-git/.env' });
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+    apiKey: process.env.OPENAI_API_KEY,
 });
+
+// Debug log to verify the API key
+console.log('Loaded API Key:', process.env.OPENAI_API_KEY);
 
 // Define the expected structure of a step
 interface Step {
@@ -114,7 +120,12 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({ result: steps }),
     };
   } catch (error) {
-    console.error('Error in generatePlan function:', error);
+    // Log detailed error information for debugging
+    if (error instanceof Error) {
+      console.error('Error in generatePlan function:', error.message, error.stack);
+    } else {
+      console.error('Error in generatePlan function:', error);
+    }
     return {
       statusCode: 500,
       body: JSON.stringify({ error: 'Failed to generate plan.' }),

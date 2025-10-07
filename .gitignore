@@ -1,9 +1,6 @@
 # Local Netlify folder
 .netlify
 .DS_Store
-.env
-.env.local
-.env.*.local
 node_modules
 dist
 build
@@ -23,3 +20,7 @@ pnpm-debug.log*
 *.njsproj
 *.sln
 *.sw?
+
+# Ignore environment variable files
+.env
+.env.local

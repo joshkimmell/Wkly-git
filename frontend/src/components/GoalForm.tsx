@@ -79,6 +79,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleAddGoal, newGoal, setNewGoal, o
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ input: naturalLanguageInput }),
       });
+      // Update to use the VITE-prefixed environment variable
+      
       const data = await response.json();
       if (Array.isArray(data.result)) {
         setGeneratedPlan(data.result);
