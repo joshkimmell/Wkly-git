@@ -8,9 +8,13 @@ import { Category, Goal } from "@utils/goalUtils"; // Adjust the import path as 
 const baseUrl = import.meta.env.DEV ? 'http://localhost:8888' : ''; // Use localhost for dev, empty for production
 const backend = '/api';
 // export const backendUrl = backend + '/api/summaries';
-export const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
-export const supabaseKey = (import.meta as any).env.VITE_SUPABASE_KEY;
-export const openaiApiKey = (import.meta as any).env.VITE_OPENAI_API_KEY;
+// export const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
+// export const supabaseKey = (import.meta as any).env.VITE_SUPABASE_KEY;
+// export const openaiApiKey = (import.meta as any).env.VITE_OPENAI_API_KEY;
+
+export const supabaseUrl = process.env.SUPABASE_URL;
+export const supabaseKey = process.env.SUPABASE_KEY;
+export const openaiApiKey = process.env.OPENAI_API_KEY;
 
 export const handleError = (error: any, setError: React.Dispatch<React.SetStateAction<string | null>>) => {
     console.error(error);
