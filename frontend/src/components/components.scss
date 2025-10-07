@@ -226,3 +226,25 @@ svg {
     padding: 16px;
     gap: 16px;
 };
+
+.toggle-checkbox:checked + .toggle-label {
+    background-color: #4caf50; /* Green when toggled on */
+}
+
+.toggle-checkbox:not(:checked) + .toggle-label {
+    background-color: variables.$gray-70; /* Red when toggled off */
+}
+
+.toggle-checkbox {
+    transition: all 0.3s ease-in-out;
+}
+
+.toggle-checkbox:checked {
+    right: 0;
+    left: auto;
+}
+
+.toggle-checkbox:not(:checked) {
+    left: 0;
+    right: auto;
+}
