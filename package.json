@@ -10,6 +10,7 @@
   "dependencies": {
     "@netlify/functions": "^4.1.5",
     "autoprefixer": "^10.4.21",
+    "openai": "^6.2.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.11"
   }

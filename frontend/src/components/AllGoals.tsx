@@ -118,30 +118,26 @@ const GoalsComponent = () => {
     }, [scope]);
   
 // Add a new goal
-    const handleAddGoal = async (event: React.FormEvent) => {
+    const handleAddGoal = async (event: React.FormEvent, goal?: Goal) => {
         event.preventDefault(); // Prevent default form submission
-        try {
-            // Validation: Ensure all required fields are populated
-            if (!newGoal.title || !newGoal.description || !newGoal.category || !newGoal.week_start) {
-                console.error('All fields are required.');
-                return;
-            }
-            console.log('New goal being added:', newGoal);
 
-        await addGoal(newGoal); // Add the new goal
-        setNewGoal({
-            id: '',
-            title: '',
-            description: '',
-            category: '',
-            week_start: '',
-            user_id: '',
-            created_at: '',
-        }); 
-        setIsGoalModalOpen(false); // Close the modal
-        await refreshGoals(); // Refresh the goals list
+        const goalToAdd = goal || newGoal; // Use the passed goal or fallback to newGoal state
+
+        // Log the goal being validated
+        console.log('Validating goal:', goalToAdd);
+
+        // Validation: Ensure all required fields are populated
+        if (!goalToAdd.title || !goalToAdd.description || !goalToAdd.category || !goalToAdd.week_start || !goalToAdd.user_id) {
+            console.error('All fields are required. Missing fields:', goalToAdd);
+            return;
+        }
+
+        try {
+            console.log('Adding goal:', goalToAdd);
+            await addGoal(goalToAdd); // Add the new goal
+            await refreshGoals(); // Refresh the goals list
         } catch (error) {
-        console.error('Error adding goal:', error);
+            console.error('Error adding goal:', error);
         }
     };
 // Delete a goal
@@ -370,10 +366,11 @@ const GoalsComponent = () => {
                     setNewGoal={setNewGoal}
                     handleAddGoal={handleAddGoal}
                     handleClose={closeGoalModal}
-                    categories={UserCategories.map((cat: any) => typeof cat === 'string' ? cat : cat.name)} // Combine default and user categories
-                    onAddCategory= {(newCategory: string) => {
+                    categories={UserCategories.map((cat: any) => typeof cat === 'string' ? cat : cat.name)}
+                    onAddCategory={(newCategory: string) => {
                         setNewGoal((prevGoal) => ({ ...prevGoal, category: newCategory }));
                     }}
+                    refreshGoals={refreshGoals} // Pass the refreshGoals function
                 />
                 
             </div>
