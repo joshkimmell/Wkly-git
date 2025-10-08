@@ -65,6 +65,17 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleAddGoal, newGoal, setNewGoal, o
         setNewCategory(''); // Clear the input field
         setIsAddingCategory(false); // Hide the "Add new category" section
         onAddCategory(newCategory.trim()); // Call the onAddCategory prop
+
+        // Refresh the categories list after adding a new category
+        const updatedCategories = await supabase
+          .from('categories')
+          .select('*');
+
+        if (updatedCategories.error) {
+          console.error('Error fetching updated categories:', updatedCategories.error.message);
+        } else {
+          setCategories(updatedCategories.data || []);
+        }
       } catch (err) {
         console.error('Unexpected error adding category:', err);
         console.log('category added:', newCategory.trim());
@@ -322,13 +333,14 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleAddGoal, newGoal, setNewGoal, o
             <label htmlFor="title" className="block text-sm font-medium text-gray-700">
               Title
             </label>
-            <ReactQuill
+            <input
+              type="text"
               id="title"
               value={newGoal.title}
-              onChange={(value) => setNewGoal({ ...newGoal, title: value })}
-              className="quill-editor h1"
+              onChange={(e) => setNewGoal({ ...newGoal, title: e.target.value })}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               placeholder="Name your goal..."
-              theme='bubble'
+              required
             />
           </div>
 

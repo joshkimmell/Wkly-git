@@ -357,7 +357,7 @@ const GoalsComponent = () => {
                 isOpen={isGoalModalOpen}
                 onRequestClose={closeGoalModal}
                 // parentSelector={() => document.getElementById('app')!}
-                className={`fixed inset-0 flex items-center justify-center z-50`}
+                className={`fixed inset-0 flex md:items-center justify-center z-50`}
                 overlayClassName={`${overlayClasses}`}
             >
             <div className={`${modalClasses}`}>
