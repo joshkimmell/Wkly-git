@@ -132,6 +132,12 @@ const GoalsComponent = () => {
             return;
         }
 
+        // Revalidate week_start before adding to the database
+        if (goalToAdd.week_start) {
+          goalToAdd.week_start = goalToAdd.week_start.split('T')[0]; // Ensure no timestamp
+        }
+        console.log('Validated week_start in AllGoals:', goalToAdd.week_start);
+
         try {
             console.log('Adding goal:', goalToAdd);
             await addGoal(goalToAdd); // Add the new goal
@@ -364,13 +370,9 @@ const GoalsComponent = () => {
                 <GoalForm
                     newGoal={newGoal}
                     setNewGoal={setNewGoal}
-                    handleAddGoal={handleAddGoal}
                     handleClose={closeGoalModal}
                     categories={UserCategories.map((cat: any) => typeof cat === 'string' ? cat : cat.name)}
-                    onAddCategory={(newCategory: string) => {
-                        setNewGoal((prevGoal) => ({ ...prevGoal, category: newCategory }));
-                    }}
-                    refreshGoals={refreshGoals} // Pass the refreshGoals function
+                    refreshGoals={refreshGoals} // Pass only refreshGoals
                 />
                 
             </div>

@@ -1,49 +1,83 @@
 import { Handler } from '@netlify/functions';
 import supabase from './lib/supabase';
 
-export const handler: Handler = async (event) => {
-  try {
-    const { name } = JSON.parse(event.body || '{}');
+interface CategoryRequestBody {
+  name: string;
+  user_id: string;
+}
 
-    if (!name) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: 'Name is required.' }),
-      };
-    }
+interface Category {
+  name: string;
+  user_id: string | null;
+}
 
-    // Get the authenticated user's ID from the request headers
-    const userId = event.headers['authorization']?.replace('Bearer ', '');
+interface HandlerResponse {
+  statusCode: number;
+  body: string;
+}
 
-    if (!userId) {
-      return {
-        statusCode: 403,
-        body: JSON.stringify({ error: 'User not authenticated.' }),
-      };
-    }
+export const handler: Handler = async (event): Promise<HandlerResponse> => {
+  const { name, user_id }: CategoryRequestBody = JSON.parse(event.body as string);
 
-    // Insert the new category with the user_id and auto-generate cat_id
-    const { data, error } = await supabase
-      .from('categories')
-      .insert({ name, user_id: userId })
-      .select('cat_id, name, user_id')
-      .single();
+  // Check if the category already exists
+  const { data: existingCategory, error: fetchError }: { data: Category | null; error: any } = await supabase
+    .from('categories')
+    .select('name, user_id')
+    .eq('name', name)
+    .single();
 
-    if (error) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: error.message }),
-      };
-    }
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(data),
-    };
-  } catch (err) {
+  if (fetchError && fetchError.code !== 'PGRST116') {
+    // Ignore "No rows found" error (PGRST116), as it means the category doesn't exist
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Unexpected error occurred.' }),
+      body: JSON.stringify({ error: fetchError.message }),
     };
   }
+
+  if (existingCategory) {
+    // Check if the user_id is already associated with the category
+    if (existingCategory.user_id === user_id) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ message: `Category '${name}' already exists with the correct user_id.` }),
+      };
+    }
+
+    if (!existingCategory.user_id || existingCategory.user_id !== user_id) {
+      // Update the category to include the user_id
+      const { error: updateError } = await supabase
+        .from('categories')
+        .update({ user_id })
+        .eq('name', name);
+
+      if (updateError) {
+        return {
+          statusCode: 500,
+          body: JSON.stringify({ error: updateError.message }),
+        };
+      }
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ message: `Category '${name}' already exists and user_id updated.` }),
+      };
+    }
+  }
+
+  // Insert the new category
+  const { error }: { error: any } = await supabase
+    .from('categories')
+    .insert({ name, user_id });
+
+  if (error) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: error.message }),
+    };
+  }
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ message: 'Category added successfully.' }),
+  };
 };
