@@ -198,8 +198,8 @@ export const fetchAllGoalsIndexed = async (
       // Get pages sorted in descending order
       const pages = Object.keys(indexedGoals).sort((a, b) => (a > b ? -1 : 1));
 
-      console.log('Indexed goals:', indexedGoals);
-      console.log('Pages:', pages);
+      // console.log('Indexed goals:', indexedGoals);
+      // console.log('Pages:', pages);
       return { indexedGoals, pages };
     } catch (error) {
       console.error('Error in fetchAllGoalsIndexed:', error);
@@ -233,7 +233,8 @@ export const fetchAllGoalsIndexed = async (
 export const addCategory = async (newCategory: string): Promise<void> => {
   try {
     // Normalize the category name (trim and convert to lowercase)
-    const normalizedCategory = newCategory.trim().toLowerCase();
+    // const normalizedCategory = newCategory.trim().toLowerCase();
+    const normalizedCategory = newCategory.trim();
 
     // Get the current user ID
     const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -284,7 +285,7 @@ export const addCategory = async (newCategory: string): Promise<void> => {
 export const fetchCategories = async (): Promise<{ UserCategories: Record<string, Category[]>; }> => {
   try {
     const { data, error } = await supabase.from('categories').select('*');
-    console.log('Supabase raw data:', data);
+    // console.log('Supabase raw data:', data);
     if (error) {
       console.error('Error fetching categories:', error.message);
       return { UserCategories: {} };
@@ -304,7 +305,7 @@ export const fetchCategories = async (): Promise<{ UserCategories: Record<string
       }
     });
 
-    console.log('Fetched categories:', categoriesRecord);
+    // console.log('Fetched categories:', categoriesRecord);
     return { UserCategories: categoriesRecord };
   } catch (err) {
     console.error('Unexpected error fetching categories:', err);
@@ -312,6 +313,24 @@ export const fetchCategories = async (): Promise<{ UserCategories: Record<string
   }
 };
 
+export async function fetchCategoriesSimple() {
+    const response = await fetch(`${supabaseUrl}/rest/v1/categories`, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${supabaseKey}`
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error(`Error fetching categories: ${response.statusText}`);
+    }
+
+    return await response.json();
+}
+
+// Expose fetchCategoriesSimple for testing in the browser console
+(window as any).fetchCategoriesSimple = fetchCategoriesSimple;
 
 // Extract the `name` field from the `data` and set it as a `UserCategories` array that can be accessed globally
 export let UserCategories: { id: string; name: string }[] = [];
@@ -326,7 +345,7 @@ export const initializeUserCategories = async (): Promise<void> => {
     }
 
     UserCategories = data.map((category) => ({ id: category.cat_id, name: category.name }));
-    console.log('User categories initialized:', UserCategories);
+    // console.log('User categories initialized:', UserCategories);
   } catch (err) {
     console.error('Unexpected error initializing user categories:', err);
     UserCategories = [];
@@ -345,8 +364,8 @@ export const addGoal = async (newGoal: any) => {
   const goalToSend = { ...filteredGoal, user_id: userId };
 
   // // console.log('addGoal request:', goalToSend);
-  console.log('addGoal payload:', goalToSend);
-  console.log('Payload sent to createGoal:', goalToSend);
+  // console.log('addGoal payload:', goalToSend);
+  // console.log('Payload sent to createGoal:', goalToSend);
 
   const response = await fetch(`${baseUrl}${backend}/createGoal?user_id=${userId}`, {
     method: 'POST',
@@ -360,7 +379,7 @@ export const addGoal = async (newGoal: any) => {
   if (!response.ok) {
     const errorText = await response.text();
     console.error('Error adding goal:', errorText);
-    console.log('error response:', errorText);
+    // console.log('error response:', errorText);
     notifyError('Failed to add goal');
     throw new Error('Failed to add goal');
   }
@@ -456,8 +475,8 @@ export const updateGoal = async (goalId: string, updatedGoal: any) => {
   }
 
   const payload = JSON.stringify({ id: goalId, ...updatedGoal });
-  console.log('Payload being sent to updateGoal:', payload);
-  console.log('Goal ID being sent to updateGoal:', goalId);
+  // console.log('Payload being sent to updateGoal:', payload);
+  // console.log('Goal ID being sent to updateGoal:', goalId);
 
   const response = await fetch(`${baseUrl}${backend}/updateGoal?goal_id=${goalId}&user_id=${userId}`, {
     method: 'PUT',
@@ -477,7 +496,7 @@ export const updateGoal = async (goalId: string, updatedGoal: any) => {
   }
 
   const responseData = await response.json();
-  console.log('Response from updateGoal:', responseData);
+  // console.log('Response from updateGoal:', responseData);
 
   // Notify success only after the goal is successfully saved
   notifySuccess('Goal updated successfully!');

@@ -15,13 +15,16 @@
     }
   }
   a {
-    @apply text-brand-70 hover:text-brand-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-70;
+    @apply text-brand-70 hover:text-brand-50 focus:outline-none;
   }
   label {
     @apply block text-sm font-medium text-gray-70 dark:text-gray-40;
   }
-  input, textarea, select {
-    @apply pr-3 bg-gray-0 dark:bg-gray-100 border border-gray-30 dark:border-gray-70 focus:border-brand-50 focus:ring-brand-70 px-4 py-2 rounded-md shadow-sm text-gray-90 dark:text-gray-10 fill-gray-70 dark:fill-gray-40;
+  input, textarea {
+    @apply pr-3 bg-transparent border-b rounded-none border-gray-30 dark:border-gray-70 px-4 py-2 text-gray-90 dark:text-gray-10 fill-gray-70 dark:fill-gray-40 text-2xl ;
+  }
+  select {
+    @apply pr-3 bg-transparent border-b rounded-none border-gray-30 dark:border-gray-70 px-4 py-2 text-lg text-gray-90 dark:text-gray-10 fill-gray-70 dark:fill-gray-40;
   }
   ::-webkit-calendar-picker-indicator {
     background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="15" viewBox="0 0 24 24"><path class="fill-current" fill="%23AAAAAA" fill-rule="evenodd" d="M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 18H4V8h16v13z"/></svg>');
@@ -35,7 +38,7 @@
   }
   
   .ql-snow .ql-stroke  {
-    @apply stroke-gray-70 dark:stroke-gray-40 hover:stroke-gray-90 dark:hover:stroke-gray-10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-70 !important;
+    @apply stroke-gray-70 dark:stroke-gray-40 hover:stroke-gray-90 dark:hover:stroke-gray-10 /*focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-70 !important*/;
   }
 
   .ql-editor p {
@@ -50,7 +53,7 @@
     }
 
   .goal-description {
-      @apply text-gray-60 dark:text-gray-40 mt-1;
+      @apply text-gray-60 dark:text-gray-40 mt-1 text-xl;
   }
 
   .goal-category {
@@ -137,7 +140,7 @@
 @layer utilities {
 
   .input-field {
-    @apply mt-1 block w-full rounded-md border-gray-30 dark:border-gray-70 shadow-sm focus:border-brand-50 focus:ring-brand-70 sm:text-sm;
+    @apply mt-1 block w-full rounded-none border-b border-gray-30 dark:border-gray-70 shadow-sm focus:border-b-2 focus:border-brand-50;
   }
 
   .form-label {
@@ -148,7 +151,7 @@
 
 @layer components {
   .card {
-    @apply bg-gray-10 dark:bg-gray-90 rounded-lg shadow rounded-lg p-6;
+    @apply bg-gray-10 dark:bg-gray-90 rounded-lg shadow p-6;
   }
   
   .card-header {
@@ -190,7 +193,7 @@
     @apply fill-gray-70 dark:fill-gray-40 hover:fill-gray-90 dark:hover:fill-gray-10;
   }
   .ql-editor {
-    @apply bg-gray-0 dark:bg-gray-100 text-gray-90 dark:text-gray-10 border border-gray-30 dark:border-gray-70 rounded-md shadow-sm focus:border-brand-50 focus:ring-brand-70;
+    @apply bg-transparent text-gray-90 dark:text-gray-10 border-b border-gray-30 dark:border-gray-70 rounded-none shadow-sm sm:text-lg lg:text-2xl md:text-xl;
   }
  /* .ql-toolbar {
     @apply flex flex-row bg-gray-90 dark:bg-gray-10 border border-gray-30 dark:border-gray-70 rounded shadow-sm justify-center items-center;

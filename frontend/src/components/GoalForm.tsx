@@ -1,25 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { getWeekStartDate, addCategory } from '@utils/functions'; // Removed unused fetchAllGoals
+import { getWeekStartDate, initializeUserCategories, fetchCategoriesSimple } from '@utils/functions'; // Removed unused fetchAllGoals
 import { Goal } from '@utils/goalUtils'; // Import the addCategory function
 import supabase from '@lib/supabase'; // Import Supabase client
-import { initializeUserCategories, UserCategories } from '@utils/functions'; // Correct import path
+import { UserCategories } from '@utils/functions'; // Correct import path
 import { TagIcon } from 'lucide-react'; // Removed unused PlusSquare
 import ReactQuill from 'react-quill'; // Removed unused Quill
 import 'react-quill/dist/quill.bubble.css'; // Import Quill styles
+
+// Expose fetchCategoriesSimple for testing in the browser console
+(window as any).fetchCategoriesSimple = fetchCategoriesSimple;
 
 export interface AddGoalProps {
   newGoal: Goal; // Updated to use the full Goal type
   setNewGoal: React.Dispatch<React.SetStateAction<Goal>>; // Updated to match the full Goal type
   // handleSubmit: (e: React.FormEvent) => Promise<void>;
-  handleAddGoal: (event: React.FormEvent) => void;
   handleClose: () => void; // Added handleClose prop to allow closing the modal
   categories: string[];
-  onAddCategory: (newCategory: string) => void;
   refreshGoals: () => Promise<void>; // Added refreshGoals prop to refresh the goals
 }
 
 
-const AddGoal: React.FC<AddGoalProps> = ({ handleAddGoal, newGoal, setNewGoal, onAddCategory, handleClose, refreshGoals }) => {
+const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, refreshGoals }) => {
   const [newCategory, setNewCategory] = React.useState('');
   const [isAddingCategory, setIsAddingCategory] = React.useState(false);
   const [categories, setCategories] = React.useState<{ id: string; name: string }[]>([]); // Update state type to match the expected structure
@@ -28,6 +29,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleAddGoal, newGoal, setNewGoal, o
   const [selectedSteps, setSelectedSteps] = useState<number[]>([]);
   const [currentStep, setCurrentStep] = useState(1);
   const [showWizard, setShowWizard] = useState(true); // State to toggle between wizard and manual form
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Set the default `week_start` to the current week's Monday
   useEffect(() => {
@@ -49,37 +51,55 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleAddGoal, newGoal, setNewGoal, o
   }, []); // Fetch categories on component mount
 
   const handleAddCategory = async () => {
-    if (newCategory.trim()) {
-      try {
-        const { error } = await supabase
-          .from('categories')
-          .insert({ name: newCategory.trim() });
+    if (isSubmitting) {
+      console.warn('Category submission already in progress.');
+      return;
+    }
 
-        if (error) {
-          console.error('Error adding category:', error.message);
+    setIsSubmitting(true); // Prevent further submissions
+
+    try {
+      if (newCategory.trim()) {
+        // Fetch the authenticated user's ID
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError || !user) {
+          console.error('Error fetching user ID:', userError?.message || 'User not authenticated');
+          return;
+        }
+        const userId = user.id;
+
+        // Check if the category already exists
+        const { data: existingCategory, error: fetchError } = await supabase
+          .from('categories')
+          .select('name')
+          .eq('name', newCategory.trim())
+          .single();
+
+        if (fetchError && fetchError.code !== 'PGRST116') {
+          console.error('Error checking category existence:', fetchError.message);
           return;
         }
 
-        addCategory(newCategory.trim()); // Add to local categories
-        setNewGoal((prevGoal) => ({ ...prevGoal, category: newCategory.trim() }));
-        setNewCategory(''); // Clear the input field
-        setIsAddingCategory(false); // Hide the "Add new category" section
-        onAddCategory(newCategory.trim()); // Call the onAddCategory prop
+        if (!existingCategory) {
+          // Add the new category
+          const { error: insertError } = await supabase
+            .from('categories')
+            .insert({ name: newCategory.trim(), user_id: userId });
 
-        // Refresh the categories list after adding a new category
-        const updatedCategories = await supabase
-          .from('categories')
-          .select('*');
+          if (insertError) {
+            console.error('Error adding category:', insertError.message);
+            return;
+          }
 
-        if (updatedCategories.error) {
-          console.error('Error fetching updated categories:', updatedCategories.error.message);
+          console.log('Category added successfully.');
         } else {
-          setCategories(updatedCategories.data || []);
+          console.log('Category already exists.');
         }
-      } catch (err) {
-        console.error('Unexpected error adding category:', err);
-        console.log('category added:', newCategory.trim());
       }
+    } catch (error) {
+      console.error('Unexpected error:', error);
+    } finally {
+      setIsSubmitting(false); // Reset submission state
     }
   };
 
@@ -110,7 +130,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleAddGoal, newGoal, setNewGoal, o
   };
 
   const applyPlan = async () => {
-    const currentWeek = new Date().toISOString().split('T')[0];
+    // const currentWeek = new Date().toISOString().split('T')[0];
 
     // Fetch the authenticated user's ID
     const { data: { user }, error } = await supabase.auth.getUser();
@@ -136,7 +156,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleAddGoal, newGoal, setNewGoal, o
       const goal = {
         ...step,
         category: parentCategory, // Override category with the parent goal's category
-        week_start: currentWeek,
+        week_start: newGoal.week_start,
         user_id: userId,
       };
 
@@ -197,6 +217,86 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleAddGoal, newGoal, setNewGoal, o
   const goToNextStep = () => setCurrentStep((prev) => prev + 1);
   const goToPreviousStep = () => setCurrentStep((prev) => prev - 1);
 
+  const handleAddGoal = async (event: React.FormEvent) => {
+    event.preventDefault(); // Prevent default form submission
+    // Fetch the authenticated user's ID
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
+        console.error('Error fetching user ID:', error?.message || 'User not authenticated');
+        return;
+    }
+
+    const userId = user.id;
+
+    // const currentWeek = new Date().toISOString().split('T')[0];
+    // Wizard mode: Add multiple goals
+    if (showWizard) {
+
+
+        const stepsToSubmit = generatedPlan.filter((_, index) => selectedSteps.includes(index));
+
+        // Ensure all steps share the same category as the parent goal
+        let parentCategory = newGoal.category;
+
+        if (!parentCategory) {
+            // Default to "general" if no category is selected
+            parentCategory = "general";
+            console.warn('No category selected. Defaulting to "general".');
+        }
+
+        for (const step of stepsToSubmit) {
+            const goal = {
+                ...step,
+                category: parentCategory, // Override category with the parent goal's category
+                week_start: newGoal.week_start,
+                user_id: userId,
+            };
+
+            // Log the goal being added
+            console.log('Adding goal:', goal);
+
+            if (!goal.title || !goal.description || !goal.category || !goal.week_start || !goal.user_id) {
+                console.error('Missing required fields:', goal);
+                continue;
+            }
+
+            // Call a separate function to handle adding the goal
+            await addGoal(goal);
+        }
+
+        setGeneratedPlan([]);
+        setSelectedSteps([]);
+    } else {
+        // Manual mode: Add a single goal
+        // const goalToAdd = { ...newGoal }; // Clone the newGoal state
+
+        // Ensure week_start is formatted as YYYY-MM-DD
+        if (newGoal.week_start) {
+          newGoal.week_start = newGoal.week_start.split('T')[0];
+        }
+
+        // Create the goal payload
+        const { created_at, id, ...goalToAdd } = {
+          ...newGoal,
+          user_id: userId, // Include user_id
+        };
+
+        console.log('Adding goal:', goalToAdd);
+
+        // Insert goal into the database
+        const { error } = await supabase.from('goals').insert(goalToAdd);
+
+        if (error) {
+          console.error('Error adding goal to the database:', error.message);
+          return;
+        }
+
+        // Refresh goals and close the form
+        refreshGoals();
+        handleClose();
+    }
+  };
+
   // function closeGoalModal(event: React.MouseEvent<HTMLButtonElement, MouseEvent>): void {
   //   event.preventDefault();
   //   // If you want to reset the form, you can do so here, e.g.:
@@ -241,14 +341,14 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleAddGoal, newGoal, setNewGoal, o
         <>
           {currentStep === 1 && (
             <div>
-              <label htmlFor="natural-language-input" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="natural-language-input" className="block text-sm font-medium text-gray-70">
                 Describe your goal
               </label>
               <textarea
                 id="natural-language-input"
                 value={naturalLanguageInput}
                 onChange={(e) => setNaturalLanguageInput(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className="mt-1 block w-full border-b-gray-30 shadow-sm focus:border-b-2 sm:text-lg md:text-xl lg:text-2xl"
               />
               <div className="mt-4 space-x-2">
                 <button
@@ -282,6 +382,82 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleAddGoal, newGoal, setNewGoal, o
                   </li>
                 ))}
               </ul>
+
+
+              <div className="mt-4 space-x-2">
+                <label htmlFor="category-wizard" className="block text-sm font-medium text-gray-700">
+                  Category
+                </label>
+                <select
+                  id="category"
+                  value={newGoal.category}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === 'create-new') {
+                      setIsAddingCategory(true);
+                    } else {
+                      setIsAddingCategory(false);
+                      setNewGoal({ ...newGoal, category: value });
+                    }
+                  }}
+                  className="text-xl"
+                >
+                  <option value="" disabled>-- Select a category --</option>
+                  <option value="create-new">Add a new category</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.name}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {isAddingCategory && (
+                <div>
+                  <label htmlFor="new-category-wizard" className="block text-sm font-medium text-gray-70">
+                    Add New Category
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      id="new-category-wizard"
+                      value={newCategory}
+                      onChange={(e) => setNewCategory(e.target.value)}
+                      className="mt-1 block w-full"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCategory}
+                      className="btn-ghost text-brand-60 hover:text-brand-80 dark:text-brand-30 dark:hover:text-brand-20 dark:hover:bg-gray-80"
+                    >
+                      <TagIcon className="w-5 h-5" />
+                      <span className="hidden sm:flex flex-row pl-2">Add</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label htmlFor="week_start-wizard" className="block text-sm font-medium text-gray-700">
+                  Week Start
+                </label>
+                <input
+                  type="date"
+                  id="week_start-wizard"
+                  value={newGoal.week_start}
+                  onChange={(e) => {
+                    const selectedDate = new Date(e.target.value);
+                    if (selectedDate.getDay() === 0) {
+                      setNewGoal({ ...newGoal, week_start: selectedDate.toISOString().split('T')[0] });
+                    } else {
+                      const calculatedMonday = getWeekStartDate(selectedDate);
+                      setNewGoal({ ...newGoal, week_start: calculatedMonday });
+                    }
+                  }}
+                  className="mt-1 w-full"
+                  required
+                />
+              </div>
               <div className="mt-4 space-x-2">
                 <button
                   onClick={handleClose}
@@ -302,13 +478,14 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleAddGoal, newGoal, setNewGoal, o
           {currentStep === 3 && (
             <div>
               <h3 className="text-lg font-medium">Review Selected Steps</h3>
-              <ul className="list-disc pl-5 text-gray-90 dark:text-gray-20">
+              <ul className="list-disc pl-5 text-xl text-gray-90 dark:text-gray-20">
                 {generatedPlan.filter((_, index) => selectedSteps.includes(index)).map((step, index) => (
-                  <li key={index}>
-                    <strong>{step.title}</strong>: {step.description} (Category: {step.category})
+                  <li className='mt-4' key={index}>
+                    <h4>{step.title}</h4> <span className='block text-md text-gray-60'>{step.description}</span> <span className='text-sm'>Category: {newGoal.category} | Week Start: {newGoal.week_start}</span>
                   </li>
                 ))}
               </ul>
+
               <div className="mt-4 space-x-2">
                 <button
                   onClick={handleClose}
@@ -338,7 +515,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleAddGoal, newGoal, setNewGoal, o
               id="title"
               value={newGoal.title}
               onChange={(e) => setNewGoal({ ...newGoal, title: e.target.value })}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              className="mt-1 block w-full border-gray-30 focus:border-b-2 focus:ring-0"
               placeholder="Name your goal..."
               required
             />
@@ -348,6 +525,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleAddGoal, newGoal, setNewGoal, o
             <label htmlFor="description" className="block text-sm font-medium text-gray-700">
               Description
             </label>
+            {/* ReactQuill editor for description */}
+            {/*
             <ReactQuill
               id="description"
               value={newGoal.description}
@@ -355,6 +534,15 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleAddGoal, newGoal, setNewGoal, o
               className=""
               placeholder="Describe your goal..."
               theme='bubble'
+            />
+            */}
+            <textarea
+              id="description"
+              value={newGoal.description}
+              onChange={(e) => setNewGoal({ ...newGoal, description: e.target.value })}
+              className="w-full border-b-gray-30 shadow-sm focus:border-b-2 focus:border-brand-50 focus:ring-0"
+              placeholder="Describe your goal..."
+              rows={4}
             />
           </div>
 
@@ -374,7 +562,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleAddGoal, newGoal, setNewGoal, o
                   setNewGoal({ ...newGoal, category: value });
                 }
               }}
-              className="mt-1 block w-full rounded-md border-gray-30 shadow-sm focus:border-brand-50 focus:ring-brand-50 sm:text-sm"
+              className="text-xl"
             >
               <option value="" disabled>-- Select a category --</option>
               <option value="create-new">Add a new category</option>
@@ -397,7 +585,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleAddGoal, newGoal, setNewGoal, o
                   id="new-category"
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  className="mt-1 block w-full"
                 />
                 <button
                   type="button"
@@ -428,7 +616,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ handleAddGoal, newGoal, setNewGoal, o
                   setNewGoal({ ...newGoal, week_start: calculatedMonday });
                 }
               }}
-              className="mt-1 block w-full rounded-md"
+              className="mt-1 w-full"
               required
             />
           </div>
