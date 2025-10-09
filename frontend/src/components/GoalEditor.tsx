@@ -134,11 +134,12 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
               />
             </div>
             <div className='flex flex-col'>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-70">
+              <label htmlFor="description" className="block text-sm font-medium text-gray-70">
                 Description
               </label>
               {/* ReactQuill editor for editing the content */}
               <ReactQuill
+                  id='description'
                   value={updatedGoal.description}
                   theme="bubble"
                   onChange={(value) => handleFieldChange('description', value)} // Update description state
