@@ -31,6 +31,8 @@ const AllAccomplishments = () => {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [selectedAccomplishment, setSelectedAccomplishment] = useState<Accomplishment | null>(null);
 
+  
+
   useEffect(() => {
     const fetchAccomplishments = async () => {
       try {
@@ -91,7 +93,7 @@ const AllAccomplishments = () => {
       }
 
       fetchAccomplishments(); // Refresh accomplishments after adding
-      setIsModalOpen(false);
+      closeModal();
       setNewAccomplishment({
         id: '',
         title: '',

@@ -10,8 +10,11 @@ const backend = '/api';
 
 // export const backendUrl = backend + '/api/summaries';
 export const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
-export const supabaseKey = (import.meta as any).env.VITE_SUPABASE_KEY;
+export const supabaseKey = (import.meta as any).env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 export const openaiApiKey = (import.meta as any).env.VITE_OPENAI_API_KEY;
+// export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+// export const supabaseKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+// export const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
 
 export const handleError = (error: any, setError: React.Dispatch<React.SetStateAction<string | null>>) => {
     console.error(error);
@@ -284,53 +287,30 @@ export const addCategory = async (newCategory: string): Promise<void> => {
 
 export const fetchCategories = async (): Promise<{ UserCategories: Record<string, Category[]>; }> => {
   try {
-    const { data, error } = await supabase.from('categories').select('*');
-    // console.log('Supabase raw data:', data);
-    if (error) {
-      console.error('Error fetching categories:', error.message);
-      return { UserCategories: {} };
-    }
+    // console.log('Supabase URL:', supabaseUrl); // Debug log for Supabase URL
+    // console.log('Supabase Key:', supabaseKey); // Debug log for Supabase Key
 
-    if (!data || !Array.isArray(data)) {
-      console.error('Unexpected data format:', data);
-      return { UserCategories: {} };
-    }
-
-    const categoriesRecord: Record<string, Category[]> = {};
-    data.forEach((category) => {
-      if (category && category.name) {
-        categoriesRecord[category.name] = []; // Initialize with an empty array or appropriate value
-      } else {
-        console.warn('Invalid category entry:', category);
-      }
-    });
-
-    // console.log('Fetched categories:', categoriesRecord);
-    return { UserCategories: categoriesRecord };
-  } catch (err) {
-    console.error('Unexpected error fetching categories:', err);
-    return { UserCategories: {} };
-  }
-};
-
-export async function fetchCategoriesSimple() {
     const response = await fetch(`${supabaseUrl}/rest/v1/categories`, {
-        method: 'GET',
-        headers: {
-            'Accept': 'application/json',
-            'Authorization': `Bearer ${supabaseKey}`
-        }
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${supabaseKey}`,
+        apikey: supabaseKey, // Explicitly include the apikey header
+      },
     });
 
     if (!response.ok) {
-        throw new Error(`Error fetching categories: ${response.statusText}`);
+      console.error('Full response:', response); // Debug log for full response
+      throw new Error(`Error fetching categories: ${response.statusText}`);
     }
 
-    return await response.json();
-}
-
-// Expose fetchCategoriesSimple for testing in the browser console
-(window as any).fetchCategoriesSimple = fetchCategoriesSimple;
+    const data = await response.json();
+    return { UserCategories: data };
+  } catch (err) {
+    console.error('Error in fetchCategories:', err);
+    throw err;
+  }
+};
 
 // Extract the `name` field from the `data` and set it as a `UserCategories` array that can be accessed globally
 export let UserCategories: { id: string; name: string }[] = [];

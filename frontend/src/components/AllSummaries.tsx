@@ -34,6 +34,17 @@ const AllSummaries = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   const [filter, setFilter] = useState<string>(''); // For filtering summaries
+
+
+  const openModal = () => {
+    if (!isModalOpen) {
+      setIsModalOpen(true);
+    }
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+  };
   
   useEffect(() => {
     setFilteredSummaries(summaries); // Initialize filteredSummaries with summaries
@@ -152,7 +163,7 @@ const AllSummaries = () => {
         user_id: user.id,
         created_at: new Date().toISOString(), // Set created_at to current time
       });
-      setIsModalOpen(false); // Close the modal after adding
+      closeModal; // Close the modal after adding
       handleFetchSummaries(); // Refresh summaries after adding
       console.log('Summary added successfully');
     // Reset the form fields
@@ -208,7 +219,7 @@ const AllSummaries = () => {
         <h1 className="text-2xl font-bold text-gray-90 block sm:hidden whitespace-nowrap">All Summaries</h1>
         <div className="space-x-4 py-4 w-full justify-end flex">
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => openModal()}
             className="btn-primary"
           >
             Add Summary
@@ -299,7 +310,7 @@ const AllSummaries = () => {
       {isModalOpen && (
         <Modal
           isOpen={isModalOpen}
-          onRequestClose={() => setIsModalOpen(false)}
+          onRequestClose={() => closeModal()}
           className="fixed inset-0 flex items-center justify-center z-50"
           overlayClassName="fixed inset-0 bg-gray-500 bg-opacity-75"
         >
@@ -356,7 +367,7 @@ const AllSummaries = () => {
             </div>
             <div className="mt-6 flex justify-end space-x-4">
               <button
-                onClick={() => setIsModalOpen(false)}
+                onClick={() => closeModal()}
                 className="btn-secondary"
                 aria-label="Cancel"
               >
