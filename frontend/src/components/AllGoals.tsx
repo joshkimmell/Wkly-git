@@ -224,35 +224,38 @@ const GoalsComponent = () => {
             <h1 className="text-2xl font-bold text-gray-90 block sm:hidden">{scope.charAt(0).toUpperCase() + scope.slice(1)}ly goals</h1>
         </div>
 
-        {/* Scope Selector */}
-        <div>
-            {['week', 'month', 'year'].map((s) => (
-            <button
-                key={s}
-                onClick={() => setScope(s as 'week' | 'month' | 'year')}
-                className={`btn-ghost ${scope === s ? 'font-bold underline' : ''}`}
-            >
-                {s.charAt(0).toUpperCase() + s.slice(1)}
-            </button>
-            ))}
-        </div>
-        <div className="flex justify-between items-center w-full mb-4">
-            {/* Pagination */}
-            <Pagination
-                pages={pages}
-                currentPage={currentPage}
-                onPageChange={handlePageChange}
-                scope={scope}
-            />
-
+        
+        <div className="flex justify-between items-start sm:items-center w-full mb-4">
+            <div className='flex flex-col md:flex-row'>
+                {/* Pagination */}
+                <Pagination
+                    pages={pages}
+                    currentPage={currentPage}
+                    onPageChange={handlePageChange}
+                    scope={scope}
+                />
+                {/* Scope Selector */}
+                <div className='flex space-x-2 ml-4'>
+                    {['week', 'month', 'year'].map((s) => (
+                        <button
+                            key={s}
+                            onClick={() => setScope(s as 'week' | 'month' | 'year')}
+                            className={`btn-ghost ${scope === s ? 'font-bold underline' : ''}`}
+                        >
+                            <span className="hidden md:inline sm:inline">{s.charAt(0).toUpperCase() + s.slice(1)}</span>
+                            <span className="md:hidden sm:hidden">{s.charAt(0).toUpperCase()}</span>
+                        </button>
+                    ))}
+                </div>
+            </div>
             <button
                 onClick={openGoalModal}
-                className="btn-primary flex ml-auto sm:pr-4 xs:pr-0"
+                className="btn-primary flex ml-auto mt-5 sm:mt-0 md:pr-2 sm:pr-2 xs:pr-0"
                 title={`Add a new goal for the current ${scope}`}
                 aria-label={`Add a new goal for the current ${scope}`}
                 >
                 <SquarePlus className="w-5 h-5" />
-                <span className="hidden sm:block pl-2">Add Goal</span>
+                <span className="hidden lg:block lg:pl-2">Add Goal</span>
             </button>
         </div>
 
@@ -263,7 +266,7 @@ const GoalsComponent = () => {
             value={filter}
             onChange={(e) => handleFilterChange(e.target.value)}
             placeholder="Filter by title, category, or impact"
-            className="block w-full h-10 p-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            className="block w-full h-10 p-2 border-gray-300 shadow-sm text-sm sm:text-xl"
             />
             <button
             onClick={() => setSortDirection(dir => (dir === 'asc' ? 'desc' : 'asc'))}

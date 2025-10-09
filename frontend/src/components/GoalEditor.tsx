@@ -167,7 +167,7 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
                     setUpdatedGoal((prevGoal) => ({ ...prevGoal, category: value }));
                   }
                 }}
-                className="mt-1 block w-full rounded-md border-gray-30 shadow-sm focus:border-brand-50 focus:ring-brand-50 sm:text-sm"
+                className="text-xl"
               >
                 <option value="" disabled>-- Select a category --</option>
                 <option value="create-new">Add a new category</option>

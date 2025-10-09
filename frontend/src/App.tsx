@@ -14,6 +14,7 @@ import AllSummaries from '@components/AllSummaries';
 import AllAccomplishments from '@components/AllAccomplishments';
 import { Award, LogOut, Home, Text } from 'lucide-react';
 import LoadingSpinner from '@components/LoadingSpinner';
+import { fetchAllGoals } from '@utils/functions'; // Import fetchAllGoals function
 
 
 
@@ -24,6 +25,7 @@ const App: React.FC = () => {
     window.matchMedia('(prefers-color-scheme: dark)').matches ? 'theme-dark' : 'theme-light'
   );
   const [isOpen, /*setIsOpen*/] = useState(false);
+  const [isLoadingState, setIsLoadingState] = useState(false);
 
   const toggleTheme = () => setTheme(prev => (prev === 'theme-dark' ? 'theme-light' : 'theme-dark'));
 
@@ -44,6 +46,19 @@ const App: React.FC = () => {
     } catch (error) {
       notifyError('Error logging out.');
       console.error('Error logging out:', error);
+    }
+  };
+
+  const fetchGoalsWithLoading = async () => {
+    setIsLoadingState(true); // Set loading state to true
+    try {
+      const goals = await fetchAllGoals(); // Call the fetchAllGoals function
+      console.log('Fetched goals:', goals);
+      // Handle the fetched goals as needed
+    } catch (error) {
+      console.error('Error fetching goals:', error);
+    } finally {
+      setIsLoadingState(false); // Set loading state to false
     }
   };
 
@@ -68,7 +83,15 @@ const App: React.FC = () => {
     }
   }, [session, navigate]);
   
-  if (isLoading) return <LoadingSpinner />; 
+  useEffect(() => {
+    fetchGoalsWithLoading(); // Fetch goals when the component mounts
+  }, []);
+  
+  if (isLoading) return 
+    <div className="absolute mt--4 h-full w-full bg-gray-10 flex justify-center items-center mt-4">
+      <div className="loader"><LoadingSpinner /></div>
+      {/* <span className="ml-2">Generating plan...</span> */}
+    </div>
   if (!session) {
     return (
       <Routes>
@@ -77,6 +100,14 @@ const App: React.FC = () => {
       </Routes>
     );
   }
+
+  if (isLoadingState) {
+    return (
+    <div className="absolute mt--4 h-full w-full bg-gray-10 flex justify-center items-center mt-4">
+      <div className="loader"><LoadingSpinner /></div>
+      <span className="ml-2">Loading...</span>
+    </div>
+  )}
 
   return (
     <SessionContextProvider supabaseClient={supabase}>
