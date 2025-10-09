@@ -180,11 +180,15 @@ export const fetchAllGoalsIndexed = async (
       if (!response.ok) {
         const errorText = await response.text(); // Read the body once for error logging
         console.error('Error fetching all goals:', errorText);
+        console.error('Response headers:', response.headers);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
+        console.error('Invalid content-type:', contentType);
+        const rawResponse = await response.text(); // Log raw response for debugging
+        console.error('Raw response:', rawResponse);
         throw new Error('Invalid response format: Expected JSON');
       }
 
