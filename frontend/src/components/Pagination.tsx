@@ -30,11 +30,17 @@ const Pagination: React.FC<PaginationProps> = ({ pages, currentPage, onPageChang
     const [year, month, day] = page.split('-').map(Number); // Split and parse the date parts
     const date = new Date(year, (month || 1) - 1, day || 1); // Default month to 1 and day to 1 (month is 0-indexed)
 
+    const isSmallScreen = window.innerWidth <= 420; // Check if the screen is small
+
     switch (scope) {
       case 'week':
-        return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); // e.g., "June 6, 2025"
+        return isSmallScreen
+          ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) // e.g., "Oct 5 25"
+          : date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); // e.g., "October 6, 2025"
       case 'month':
-        return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }); // e.g., "June 2025"
+        return isSmallScreen
+          ? date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }) // e.g., "Oct 25"
+          : date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }); // e.g., "October 2025"
       case 'year':
         return year.toString(); // e.g., "2025"
       default:
@@ -78,7 +84,7 @@ const Pagination: React.FC<PaginationProps> = ({ pages, currentPage, onPageChang
       
       <Menu as="div" className="relative inline-block items-center w-full sm:w-56 text-center">
       <div>
-        <MenuButton className="btn-ghost text-lg text-brand-60 hover:text-brand-80 dark:text-brand-30 dark:hover:text-brand-20 dark:hover:bg-gray-80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-50 flex items-center justify-between w-full">
+        <MenuButton className="btn-ghost text-md sm:text-lg text-brand-60 hover:text-brand-80 dark:text-brand-30 dark:hover:text-brand-20 dark:hover:bg-gray-80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-50 flex items-center justify-center w-full">
           {formatPage(currentPage)}
           <ChevronDownIcon aria-hidden="true" className="-mr-1 size-5 text-brand-60 hover:text-brand-80 dark:text-brand-30 dark:hover:text-brand-20 dark:hover:bg-gray-80" />
         </MenuButton>
