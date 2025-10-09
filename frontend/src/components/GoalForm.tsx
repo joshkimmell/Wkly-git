@@ -368,16 +368,17 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         <>
           {currentStep === 1 && (
             <div>
-              <label htmlFor="natural-language-input" className="block text-sm font-medium text-gray-70">
+              <label htmlFor="natural-language-input" className="block text-sm font-medium text-gray-70" >
                 Describe your goal
               </label>
               <textarea
                 id="natural-language-input"
                 value={naturalLanguageInput}
                 onChange={(e) => setNaturalLanguageInput(e.target.value)}
-                className="mt-1 block w-full border-b-gray-30 shadow-sm focus:border-b-2 sm:text-lg md:text-xl lg:text-2xl"
+                className="mt-1 block w-full h-[20vh] border-b-gray-30 shadow-sm focus:border-b-2 sm:text-lg md:text-xl lg:text-2xl placeholer:gray-50 placeholder:italic"
+                placeholder='Describe your goal in a few sentences, e.g. "I want to improve my physical fitness by exercising regularly and eating healthier."'
               />
-              <div className="mt-4 space-x-2">
+              <div className="mt-4 space-x-4 w-full justify-end ">
                 <button
                   onClick={handleClose}
                   className="btn-secondary"
@@ -394,15 +395,21 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
           {currentStep === 2 && (
             <div className='relative'>
               {isGenerating && (
-                <div className="absolute mt--4 h-full w-full bg-gray-10 flex justify-center items-center mt-4">
+                <div className="absolute h-full w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center">
                   <div className="loader"><LoadingSpinner /></div>
                   <span className="ml-2">Generating plan...</span>
                 </div>
               )}
               {error && (
-                <div className="text-red-500 mt-4">
-                  <strong>Error:</strong> {error}
-                  <a href="#" onClick={handleGeneratePlan}>Try regenerating the plan</a>
+                <div className="absolute h-full w-full gap-2 bg-gray-10 dark:bg-gray-90 justify-center items-center">
+                  <h2 className='text-lg font-bold'>Error!</h2> 
+                  <p className='text-red-500 h-1/2 overflow-auto p-4 mt-4 mb-4 items-start'>{error}</p>
+                  <div className="mt-4 space-x-2">
+                    <button type="button" onClick={goToPreviousStep} className="btn-secondary">
+                      Back
+                    </button>
+                    <button className='btn-primary' onClick={handleGeneratePlan}>Try regenerating the plan</button>
+                  </div>
                 </div>
               )}
               <h3 className="text-lg font-medium">Select Steps to Include as Goals</h3>
@@ -525,6 +532,9 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                   className="btn-secondary"
                 >
                   Cancel
+                </button>
+                <button type="button" onClick={goToPreviousStep} className="btn-secondary">
+                  Back
                 </button>
                 <button type="button" onClick={handleGeneratePlan} className="btn-secondary">
                   Regenerate Plan
