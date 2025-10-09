@@ -86,7 +86,7 @@ const Pagination: React.FC<PaginationProps> = ({ pages, currentPage, onPageChang
 
       <MenuItems
         transition
-        className="z-10 mt-2 w-56 absolute origin-top-right rounded-sm bg-gray-10 dark:bg-gray-80 divide-y divide-gray-100 dark:divide-gray-70 shadow-lg ring-1 ring-black/5 transition focus:outline-hidden data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"
+        className="z-10 mt-2 w-56 absolute origin-top-right divide-y divide-gray-100 dark:divide-gray-70 shadow-lg ring-1 ring-black/5 transition focus:outline-hidden data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"
       >
         <div className="py-1">
             {pages.map((page) => (
@@ -96,8 +96,8 @@ const Pagination: React.FC<PaginationProps> = ({ pages, currentPage, onPageChang
                     onClick={() => onPageChange(page)}
                     className={`${
                         page === currentPage
-                            ? 'bg-brand-60 text-brand-10 hover:bg-brand-80 hover:text-brand-0 dark:bg-brand-70 dark:text-brand-10 dark:hover:bg-brand-80 dark:hover:text-brand-0'
-                            : 'text-gray-70 hover:text-gray-80 bg-gray-10 hover:bg-gray-20 dark:text-gray-30 dark:hover:text-gray-10 dark:bg-gray-80 dark:hover:bg-gray-70'
+                            ? 'bg-brand-80 hover:bg-brand-80 text-brand-10 hover:text-brand-20 dark:bg-brand-70 dark:text-brand-10 dark:hover:bg-brand-80 dark:hover:text-brand-0'
+                            :  'text-gray-70 hover:text-gray-80 bg-gray-10 hover:bg-gray-20 dark:text-gray-30 dark:hover:text-gray-10 dark:bg-gray-80 dark:hover:bg-gray-70'
                         } block px-4 py-2 text-sm`}
                 >
                     {formatPage(page)}

@@ -88,7 +88,7 @@ const App: React.FC = () => {
   }, []);
   
   if (isLoading) return 
-    <div className="absolute mt--4 h-full w-full bg-gray-10 flex justify-center items-center mt-4">
+    <div className="fixed top-0 mt-0 h-[100vh] w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center">
       <div className="loader"><LoadingSpinner /></div>
       {/* <span className="ml-2">Generating plan...</span> */}
     </div>
@@ -103,7 +103,7 @@ const App: React.FC = () => {
 
   if (isLoadingState) {
     return (
-    <div className="absolute mt--4 h-full w-full bg-gray-10 flex justify-center items-center mt-4">
+    <div className="fixed top-0 mt-0 h-[100vh] w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center">
       <div className="loader"><LoadingSpinner /></div>
       <span className="ml-2">Loading...</span>
     </div>

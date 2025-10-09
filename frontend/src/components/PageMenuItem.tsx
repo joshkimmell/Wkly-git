@@ -16,7 +16,7 @@ const CustomMenuItem: React.FC<CustomMenuItemProps> = ({ value, onClick, classNa
       onClick={() => onClick(value)}
       className={({ active }: { active: boolean }) =>
         `btn-ghost ${
-          active ? 'bg-gray-100 text-gray-10' : 'text-gray-70'
+          active ? 'bg-brand-70' : 'bg-gray-10'
         } ${className}`
       }
     >
