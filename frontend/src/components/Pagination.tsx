@@ -76,7 +76,7 @@ const Pagination: React.FC<PaginationProps> = ({ pages, currentPage, onPageChang
         <span className="sr-only">Next {scope}</span>
       </button>
       
-      <Menu as="div" className="relative inline-block text-left">
+      <Menu as="div" className="relative inline-block items-center w-full sm:w-56 text-center">
       <div>
         <MenuButton className="btn-ghost text-lg text-brand-60 hover:text-brand-80 dark:text-brand-30 dark:hover:text-brand-20 dark:hover:bg-gray-80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-50 flex items-center justify-between w-full">
           {formatPage(currentPage)}

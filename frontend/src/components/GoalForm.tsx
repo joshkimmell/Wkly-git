@@ -3,6 +3,7 @@ import { getWeekStartDate, initializeUserCategories, fetchCategories } from '@ut
 import { Goal } from '@utils/goalUtils'; // Import the addCategory function
 import supabase from '@lib/supabase'; // Import Supabase client
 import { UserCategories } from '@utils/functions'; // Correct import path
+import LoadingSpinner from '@components/LoadingSpinner';
 import { TagIcon } from 'lucide-react'; // Removed unused PlusSquare
 // import ReactQuill from 'react-quill'; // Removed unused Quill
 import 'react-quill/dist/quill.bubble.css'; // Import Quill styles
@@ -30,6 +31,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
   const [currentStep, setCurrentStep] = useState(1);
   const [showWizard, setShowWizard] = useState(true); // State to toggle between wizard and manual form
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false); // State to track loading
+  const [error, setError] = useState<string | null>(null); // State to track errors
 
   // Set the default `week_start` to the current week's Monday
   useEffect(() => {
@@ -119,22 +122,31 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
   };
 
   const handleGeneratePlan = async () => {
+    setIsGenerating(true); // Show loading animation
+    setError(null); // Reset error state
     try {
       const response = await fetch('/api/generatePlan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ input: naturalLanguageInput }),
       });
-      // Update to use the VITE-prefixed environment variable
-      
+
+      if (!response.ok) {
+        const errorMessage = await response.text();
+        throw new Error(errorMessage || 'Failed to generate plan');
+      }
+
       const data = await response.json();
       if (Array.isArray(data.result)) {
         setGeneratedPlan(data.result);
       } else {
-        console.error('Unexpected response format:', data);
+        throw new Error('Unexpected response format');
       }
     } catch (error) {
       console.error('Error generating plan:', error);
+      setError((error instanceof Error ? error.message : 'An unexpected error occurred'));
+    } finally {
+      setIsGenerating(false); // Hide loading animation
     }
   };
 
@@ -380,7 +392,19 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
           )}
 
           {currentStep === 2 && (
-            <div>
+            <div className='relative'>
+              {isGenerating && (
+                <div className="absolute mt--4 h-full w-full bg-gray-10 flex justify-center items-center mt-4">
+                  <div className="loader"><LoadingSpinner /></div>
+                  <span className="ml-2">Generating plan...</span>
+                </div>
+              )}
+              {error && (
+                <div className="text-red-500 mt-4">
+                  <strong>Error:</strong> {error}
+                  <a href="#" onClick={handleGeneratePlan}>Try regenerating the plan</a>
+                </div>
+              )}
               <h3 className="text-lg font-medium">Select Steps to Include as Goals</h3>
               <div className='mt-2 flex items-center m-2'>
                 <input
@@ -426,7 +450,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                   Category
                 </label>
                 <select
-                  id="category"
+                  id="category-wizard"
                   value={newGoal.category}
                   onChange={(e) => {
                     const value = e.target.value;
@@ -442,7 +466,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                   <option value="" disabled>-- Select a category --</option>
                   <option value="create-new">Add a new category</option>
                   {categories.map((category, index) => (
-                    <option key={`${category.id}-${index}`} value={category.name}>
+                    <option className='text-sm' key={`${category.id}-${index}`} value={category.name}>
                       {category.name}
                     </option>
                   ))}
@@ -657,8 +681,6 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
               required
             />
           </div>
-
-      
 
           <div className="mt-6 flex justify-end space-x-4">
             <button
