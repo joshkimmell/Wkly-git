@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchAllGoalsIndexed, deleteGoal, updateGoal, saveSummary, UserCategories, initializeUserCategories, addCategory } from '../utils/functions'; // Removed unused imports
+import { fetchAllGoalsIndexed, deleteGoal, updateGoal, saveSummary, UserCategories, initializeUserCategories, addCategory, getWeekStartDate } from '../utils/functions'; // Removed unused imports
 import Pagination from './Pagination';
 import GoalCard from '@components/GoalCard';
 import GoalForm from '@components/GoalForm';
@@ -53,6 +53,15 @@ const GoalsComponent = () => {
     } | null>(null); // State for selected summary
     const [filter, setFilter] = useState<string>('');
 
+    // Set the default scope to the current week
+    useEffect(() => {
+      const today = new Date();
+      const currentWeekStart = new Date(getWeekStartDate(today)); // Convert to Date object if `getWeekStartDate` returns a string
+      setScope('week'); // Set the default scope to 'week'
+      setNewGoal((prevGoal) => ({ ...prevGoal, week_start: currentWeekStart.toISOString().split('T')[0] })); // Format the date as YYYY-MM-DD
+      console.log({currentWeekStart});
+    }, []);
+
     useEffect(() => {
         const fetchGoalsAndCategories = async () => {
             try {
@@ -62,8 +71,12 @@ const GoalsComponent = () => {
                 setPages(pages);
 
                 if (pages.length > 0) {
-                    setCurrentPage(pages[0]); // Set the first page as the default
+                    const today = new Date();
+                    const currentWeekStart = new Date(getWeekStartDate(today)).toISOString().split('T')[0];
+                    const currentPageIndex = pages.findIndex(page => page === currentWeekStart);
+                    setCurrentPage(currentPageIndex !== -1 ? pages[currentPageIndex] : pages[0]); // Set to currentWeekStart if found, otherwise default to the first page
                 }
+                
 
                 // Initialize user categories
                 await initializeUserCategories();
@@ -74,6 +87,7 @@ const GoalsComponent = () => {
 
         fetchGoalsAndCategories();
     }, [scope]);
+
 
     const openGoalModal = () => {
         if (!isGoalModalOpen) {
@@ -106,7 +120,10 @@ const GoalsComponent = () => {
         setPages(pages);
 
         if (pages.length > 0) {
-            setCurrentPage(pages[0]); // Set the first page as the default
+            const today = new Date();
+            const currentWeekStart = new Date(getWeekStartDate(today)).toISOString().split('T')[0];
+            const currentPageIndex = pages.findIndex(page => page === currentWeekStart);
+            setCurrentPage(currentPageIndex !== -1 ? pages[currentPageIndex] : pages[0]); // Set to currentWeekStart if found, otherwise default to the first page
         }
         } catch (error) {
         console.error('Error refreshing goals:', error);
@@ -273,7 +290,7 @@ const GoalsComponent = () => {
             className="border rounded px-2 py-1"
             title="Toggle sort direction"
             >
-            {sortDirection === 'asc' ? '↑' : '↓'}
+            {sortDirection === 'desc' ? '↑' : '↓'}
             </button>
         </div> 
 
@@ -299,7 +316,7 @@ const GoalsComponent = () => {
         </div>
         {sortedAndFilteredGoals.length === 0 && (
             <div className="text-center text-gray-500 mt-4">
-            No goals found for this {scope}.
+            No goals found for this {scope}. Try adding one!
             </div>
         )}
     

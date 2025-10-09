@@ -53,7 +53,7 @@ const App: React.FC = () => {
     setIsLoadingState(true); // Set loading state to true
     try {
       const goals = await fetchAllGoals(); // Call the fetchAllGoals function
-      console.log('Fetched goals:', goals);
+      // console.log('Fetched goals:', goals);
       // Handle the fetched goals as needed
     } catch (error) {
       console.error('Error fetching goals:', error);

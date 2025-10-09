@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { getWeekStartDate, initializeUserCategories, fetchCategories } from '@utils/functions'; // Import fetchCategories from functions.ts
+import { getWeekStartDate, fetchCategories } from '@utils/functions'; // Import fetchCategories from functions.ts
 import { Goal } from '@utils/goalUtils'; // Import the addCategory function
 import supabase from '@lib/supabase'; // Import Supabase client
-import { UserCategories } from '@utils/functions'; // Correct import path
 import LoadingSpinner from '@components/LoadingSpinner';
-import { TagIcon } from 'lucide-react'; // Removed unused PlusSquare
-// import ReactQuill from 'react-quill'; // Removed unused Quill
-import 'react-quill/dist/quill.bubble.css'; // Import Quill styles
+import { SearchIcon } from 'lucide-react';
+import Modal from 'react-modal';
 
 // Expose fetchCategoriesSimple for testing in the browser console
 // (window as any).fetchCategoriesSimple = fetchCategoriesSimple;
@@ -22,17 +20,17 @@ export interface AddGoalProps {
 
 
 const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, refreshGoals }) => {
-  const [newCategory, setNewCategory] = React.useState('');
-  const [isAddingCategory, setIsAddingCategory] = React.useState(false);
   const [categories, setCategories] = React.useState<{ id: string; name: string }[]>([]); // Update state type to match the expected structure
   const [naturalLanguageInput, setNaturalLanguageInput] = useState('');
   const [generatedPlan, setGeneratedPlan] = useState<Goal[]>([]);
   const [selectedSteps, setSelectedSteps] = useState<number[]>([]);
   const [currentStep, setCurrentStep] = useState(1);
   const [showWizard, setShowWizard] = useState(true); // State to toggle between wizard and manual form
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false); // State to track loading
   const [error, setError] = useState<string | null>(null); // State to track errors
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredCategories, setFilteredCategories] = useState(categories);
 
   // Set the default `week_start` to the current week's Monday
   useEffect(() => {
@@ -65,61 +63,6 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
 
     fetchAndSetCategories();
   }, []); // Fetch categories on component mount
-
-  const handleAddCategory = async () => {
-    if (isSubmitting) {
-      console.warn('Category submission already in progress.');
-      return;
-    }
-
-    setIsSubmitting(true); // Prevent further submissions
-
-    try {
-      if (newCategory.trim()) {
-        // Fetch the authenticated user's ID
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (userError || !user) {
-          console.error('Error fetching user ID:', userError?.message || 'User not authenticated');
-          return;
-        }
-        const userId = user.id;
-
-        // Check if the category already exists
-        const { data: existingCategory, error: fetchError } = await supabase
-          .from('categories')
-          .select('name')
-          .eq('name', newCategory.trim())
-          .single();
-
-        if (fetchError && fetchError.code !== 'PGRST116') { // Handle specific Supabase error codes
-          console.error('Error checking category existence:', fetchError.message);
-          return;
-        }
-
-        if (!existingCategory) {
-          // Add the new category
-          const { error: insertError } = await supabase
-            .from('categories')
-            .insert({ name: newCategory.trim(), user_id: userId });
-
-          if (insertError) {
-            console.error('Error adding category:', insertError.message);
-            return;
-          }
-
-          console.log('Category added successfully.');
-        } else {
-          console.log('Category already exists.');
-        }
-      } else {
-        console.warn('Category name cannot be empty.');
-      }
-    } catch (error) {
-      console.error('Unexpected error:', error);
-    } finally {
-      setIsSubmitting(false); // Reset submission state
-    }
-  };
 
   const handleGeneratePlan = async () => {
     setIsGenerating(true); // Show loading animation
@@ -244,84 +187,58 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
   const goToNextStep = () => setCurrentStep((prev) => prev + 1);
   const goToPreviousStep = () => setCurrentStep((prev) => prev - 1);
 
+  // Ensure goal is only added when 'Add Goal(s)' is clicked
   const handleAddGoal = async (event: React.FormEvent) => {
     event.preventDefault(); // Prevent default form submission
+
+    // Ensure a category is selected
+    if (!newGoal.category) {
+      console.warn('No category selected. Please select a category before adding the goal.');
+      setIsCategoryModalOpen(true); // Reopen the category modal if no category is selected
+      return;
+    }
+
+    // Check if the current step is the final step
+    if (currentStep !== 3) {
+      console.warn('Add Goal(s) button must be clicked to add the goal.');
+      return;
+    }
+
     // Fetch the authenticated user's ID
     const { data: { user }, error } = await supabase.auth.getUser();
     if (error || !user) {
-        console.error('Error fetching user ID:', error?.message || 'User not authenticated');
-        return;
+      console.error('Error fetching user ID:', error?.message || 'User not authenticated');
+      return;
     }
 
     const userId = user.id;
 
-    // const currentWeek = new Date().toISOString().split('T')[0];
-    // Wizard mode: Add multiple goals
-    if (showWizard) {
-
-
-        const stepsToSubmit = generatedPlan.filter((_, index) => selectedSteps.includes(index));
-
-        // Ensure all steps share the same category as the parent goal
-        let parentCategory = newGoal.category;
-
-        if (!parentCategory) {
-            // Default to "general" if no category is selected
-            parentCategory = "general";
-            console.warn('No category selected. Defaulting to "general".');
-        }
-
-        for (const step of stepsToSubmit) {
-            const goal = {
-                ...step,
-                category: parentCategory, // Override category with the parent goal's category
-                week_start: newGoal.week_start,
-                user_id: userId,
-            };
-
-            // Log the goal being added
-            console.log('Adding goal:', goal);
-
-            if (!goal.title || !goal.description || !goal.category || !goal.week_start || !goal.user_id) {
-                console.error('Missing required fields:', goal);
-                continue;
-            }
-
-            // Call a separate function to handle adding the goal
-            await addGoal(goal);
-        }
-
-        setGeneratedPlan([]);
-        setSelectedSteps([]);
-    } else {
-        // Manual mode: Add a single goal
-        // const goalToAdd = { ...newGoal }; // Clone the newGoal state
-
-        // Ensure week_start is formatted as YYYY-MM-DD
-        if (newGoal.week_start) {
-          newGoal.week_start = newGoal.week_start.split('T')[0];
-        }
-
-        // Create the goal payload
-        const { created_at, id, ...goalToAdd } = {
-          ...newGoal,
-          user_id: userId, // Include user_id
-        };
-
-        console.log('Adding goal:', goalToAdd);
-
-        // Insert goal into the database
-        const { error } = await supabase.from('goals').insert(goalToAdd);
-
-        if (error) {
-          console.error('Error adding goal to the database:', error.message);
-          return;
-        }
-
-        // Refresh goals and close the form
-        refreshGoals();
-        handleClose();
+    // Ensure week_start is formatted as YYYY-MM-DD
+    if (newGoal.week_start) {
+      newGoal.week_start = newGoal.week_start.split('T')[0];
     }
+
+    // Create the goal payload
+    const { created_at, id, ...goalToAdd } = {
+      ...newGoal,
+      user_id: userId, // Include user_id
+    };
+
+    console.log('Adding goal:', goalToAdd);
+
+    // Insert goal into the database
+    const { error: insertError } = await supabase.from('goals').insert(goalToAdd);
+
+    if (insertError) {
+      console.error('Error adding goal to the database:', insertError.message);
+      return;
+    }
+
+    console.log('Goal successfully added:', goalToAdd);
+
+    // Refresh goals and close the form
+    refreshGoals();
+    handleClose();
   };
 
   // function closeGoalModal(event: React.MouseEvent<HTMLButtonElement, MouseEvent>): void {
@@ -395,7 +312,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
           {currentStep === 2 && (
             <div className='relative'>
               {isGenerating && (
-                <div className="absolute h-full w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center">
+                <div className="absolute h-full w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center z-100">
                   <div className="loader"><LoadingSpinner /></div>
                   <span className="ml-2">Generating plan...</span>
                 </div>
@@ -452,58 +369,133 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
               </ul>
 
 
-              <div className="mt-4 space-x-2">
-                <label htmlFor="category-wizard" className="block text-sm font-medium text-gray-700">
+              <div className="mt-4">
+                <label htmlFor="category-wizard" className="block text-sm font-medium text-gray-70">
                   Category
                 </label>
-                <select
-                  id="category-wizard"
-                  value={newGoal.category}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === 'create-new') {
-                      setIsAddingCategory(true);
-                    } else {
-                      setIsAddingCategory(false);
-                      setNewGoal({ ...newGoal, category: value });
-                    }
-                  }}
-                  className="text-xl"
-                >
-                  <option value="" disabled>-- Select a category --</option>
-                  <option value="create-new">Add a new category</option>
-                  {categories.map((category, index) => (
-                    <option className='text-sm' key={`${category.id}-${index}`} value={category.name}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                <div className="mt-2 mb-4">
+                  <button
+                    onClick={() => {
+                      setSearchTerm('');
+                      setFilteredCategories(categories);
+                      setIsCategoryModalOpen(true);
+                    }}
+                    className="btn-ghost w-full text-left justify-between text-xl sm:text-lg md:text-xl lg:text-2xl"
+                  >
+                    {newGoal.category || '-- Select a category --'}
+                    <SearchIcon className="w-5 h-5 inline-block ml-2" />
+                  </button>
 
-              {isAddingCategory && (
-                <div>
-                  <label htmlFor="new-category-wizard" className="block text-sm font-medium text-gray-70">
-                    Add New Category
-                  </label>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="text"
-                      id="new-category-wizard"
-                      value={newCategory}
-                      onChange={(e) => setNewCategory(e.target.value)}
-                      className="mt-1 block w-full"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddCategory}
-                      className="btn-ghost text-brand-60 hover:text-brand-80 dark:text-brand-30 dark:hover:text-brand-20 dark:hover:bg-gray-80"
+                  {/* Ensure the modal is only rendered when `isCategoryModalOpen` is true */}
+                  {isCategoryModalOpen && (
+                    <Modal
+                      id='category-list'
+                      isOpen={isCategoryModalOpen}
+                      onRequestClose={() => setIsCategoryModalOpen(false)}
+                      className="fixed inset-0 flex items-center justify-center z-50"
+                      overlayClassName="fixed inset-0 bg-black bg-opacity-10"
+                      style={{
+                        content: {
+                          width: 'calc(100% - 8px)',
+                          height: '100%',
+                          margin: 'auto',
+                        },
+                      }}
                     >
-                      <TagIcon className="w-5 h-5" />
-                      <span className="hidden sm:flex flex-row pl-2">Add</span>
-                    </button>
-                  </div>
+                      <div className="p-4 bg-gray-10 dark:bg-gray-80 rounded-lg shadow-lg w-full max-w-md">
+                        <h2 className="text-lg font-bold mb-4">Select or Add a Category</h2>
+                        <input
+                          type="text"
+                          value={searchTerm}
+                          onChange={(e) => {
+                            setSearchTerm(e.target.value);
+                            const filtered = categories.filter((category) =>
+                              category.name.toLowerCase().includes(e.target.value.toLowerCase())
+                            );
+                            setFilteredCategories(filtered);
+                          }}
+                          className="w-full text-md p-2 border border-gray-60 focus:outline-none focus:ring-2 focus:ring-brand-50 mb-4 placeholder:gray-50 placeholder:italic"
+                          placeholder="Find or create a category"
+                        />
+                        <ul className="max-h-60 text-gray-80 dark:text-gray-30 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-70">
+                          {filteredCategories.map((category) => (
+                            <li
+                              key={category.id}
+                              className="p-2 hover:bg-gray-20 dark:hover:bg-gray-70 cursor-pointer"
+                              onClick={() => {
+                                setNewGoal({ ...newGoal, category: category.name });
+                                setIsCategoryModalOpen(false);
+                              }}
+                            >
+                              {category.name}
+                            </li>
+                          ))}
+                          {filteredCategories.length === 0 && (
+                            <li key="no-matching" className="p-2 text-gray-30 dark:text-gray-70">No matching categories found.</li>
+                          )}
+                        </ul>
+                        {filteredCategories.length === 0 && (
+                          <button
+                            onClick={async () => {
+                              if (!searchTerm.trim()) return;
+
+                              try {
+                                const { data: { user }, error: userError } = await supabase.auth.getUser();
+                                if (userError || !user) {
+                                  console.error('Error fetching user ID:', userError?.message || 'User not authenticated');
+                                  return;
+                                }
+
+                                const userId = user.id;
+
+                                const { data: existingCategory, error: fetchError } = await supabase
+                                  .from('categories')
+                                  .select('name')
+                                  .eq('name', searchTerm.trim())
+                                  .single();
+
+                                if (fetchError && fetchError.code !== 'PGRST116') {
+                                  console.error('Error checking category existence:', fetchError.message);
+                                  return;
+                                }
+
+                                if (!existingCategory) {
+                                  const { error: insertError } = await supabase
+                                    .from('categories')
+                                    .insert({ name: searchTerm.trim(), user_id: userId });
+
+                                  if (insertError) {
+                                    console.error('Error adding category:', insertError.message);
+                                    return;
+                                  }
+
+                                  console.log('Category added successfully.');
+                                } else {
+                                  console.log('Category already exists.');
+                                }
+
+                                setNewGoal({ ...newGoal, category: searchTerm.trim() });
+                                setIsCategoryModalOpen(false);
+                              } catch (error) {
+                                console.error('Unexpected error:', error);
+                              }
+                            }}
+                            className="btn-primary mt-4"
+                          >
+                            Save as New Category
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setIsCategoryModalOpen(false)}
+                          className="btn-secondary mt-4"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </Modal>
+                  )}
                 </div>
-              )}
+              </div>
 
               <div>
                 <label htmlFor="week_start-wizard" className="block text-sm font-medium text-gray-700">
@@ -618,57 +610,132 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
           </div>
 
           <div>
-            <label htmlFor="category" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="category" className="block text-sm font-medium text-gray-30 dark:text-gray-70">
               Category
             </label>
-            <select
-              id="category"
-              value={newGoal.category}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value === 'create-new') {
-                  setIsAddingCategory(true);
-                } else {
-                  setIsAddingCategory(false);
-                  setNewGoal({ ...newGoal, category: value });
-                }
-              }}
-              className="text-xl"
-            >
-              <option value="" disabled>-- Select a category --</option>
-              <option value="create-new">Add a new category</option>
-              {categories.map((category, index) => (
-                <option key={`${category.id}-${index}`} value={category.name}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </div>
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setFilteredCategories(categories);
+                  setIsCategoryModalOpen(true);
+                }}
+                className="btn-ghost w-full text-left justify-between text-xl sm:text-lg md:text-xl lg:text-2xl"
+              >
+                {newGoal.category || '-- Select a category --'}
+                <SearchIcon className="w-5 h-5 inline-block ml-2" />
+              </button>
 
-          {isAddingCategory && (
-            <div>
-              <label htmlFor="new-category" className="block text-sm font-medium text-gray-70">
-                Add New Category
-              </label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="text"
-                  id="new-category"
-                  value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value)}
-                  className="mt-1 block w-full"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddCategory}
-                  className="btn-ghost text-brand-60 hover:text-brand-80 dark:text-brand-30 dark:hover:text-brand-20 dark:hover:bg-gray-80"
+              {/* Ensure the modal is only rendered when `isCategoryModalOpen` is true */}
+              {isCategoryModalOpen && (
+                <Modal
+                  id='category-list'
+                  isOpen={isCategoryModalOpen}
+                  onRequestClose={() => setIsCategoryModalOpen(false)}
+                  className="fixed inset-0 flex items-center justify-center z-50"
+                  overlayClassName="fixed inset-0 bg-black bg-opacity-10"
+                  style={{
+                    content: {
+                      width: 'calc(100% - 8px)',
+                      height: '100%',
+                      margin: 'auto',
+                    },
+                  }}
                 >
-                  <TagIcon className="w-5 h-5" />
-                  <span className="hidden sm:flex flex-row pl-2">Add</span>
-                </button>
-              </div>
+                  <div className="p-4 bg-gray-10 dark:bg-gray-80 rounded-lg shadow-lg w-full max-w-md">
+                    <h2 className="text-lg font-bold mb-4">Select or Add a Category</h2>
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        const filtered = categories.filter((category) =>
+                          category.name.toLowerCase().includes(e.target.value.toLowerCase())
+                        );
+                        setFilteredCategories(filtered);
+                      }}
+                      className="w-full text-md p-2 border border-gray-60 focus:outline-none focus:ring-2 focus:ring-brand-50 mb-4 placeholder:gray-50 placeholder:italic"
+                      placeholder="Find or create a category"
+                    />
+                    <ul className="max-h-60 text-gray-80 dark:text-gray-30 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-70">
+                      {filteredCategories.map((category) => (
+                        <li
+                          key={category.id}
+                          className="p-2 hover:bg-gray-20 dark:hover:bg-gray-70 cursor-pointer"
+                          onClick={() => {
+                            setNewGoal({ ...newGoal, category: category.name });
+                            setIsCategoryModalOpen(false);
+                          }}
+                        >
+                          {category.name}
+                        </li>
+                      ))}
+                      {filteredCategories.length === 0 && (
+                        <li key="no-matching" className="p-2 text-gray-30 dark:text-gray-70">No matching categories found.</li>
+                      )}
+                    </ul>
+                    {filteredCategories.length === 0 && (
+                      <button
+                        onClick={async () => {
+                          if (!searchTerm.trim()) return;
+
+                          try {
+                            const { data: { user }, error: userError } = await supabase.auth.getUser();
+                            if (userError || !user) {
+                              console.error('Error fetching user ID:', userError?.message || 'User not authenticated');
+                              return;
+                            }
+
+                            const userId = user.id;
+
+                            const { data: existingCategory, error: fetchError } = await supabase
+                              .from('categories')
+                              .select('name')
+                              .eq('name', searchTerm.trim())
+                              .single();
+
+                            if (fetchError && fetchError.code !== 'PGRST116') {
+                              console.error('Error checking category existence:', fetchError.message);
+                              return;
+                            }
+
+                            if (!existingCategory) {
+                              const { error: insertError } = await supabase
+                                .from('categories')
+                                .insert({ name: searchTerm.trim(), user_id: userId });
+
+                              if (insertError) {
+                                console.error('Error adding category:', insertError.message);
+                                return;
+                              }
+
+                              console.log('Category added successfully.');
+                            } else {
+                              console.log('Category already exists.');
+                            }
+
+                            setNewGoal({ ...newGoal, category: searchTerm.trim() });
+                            setIsCategoryModalOpen(false);
+                          } catch (error) {
+                            console.error('Unexpected error:', error);
+                          }
+                        }}
+                        className="btn-primary mt-4"
+                      >
+                        Save as New Category
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setIsCategoryModalOpen(false)}
+                      className="btn-secondary mt-4"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </Modal>
+              )}
             </div>
-          )}
+          </div>
 
           <div>
             <label htmlFor="week_start" className="block text-sm font-medium text-gray-700">
