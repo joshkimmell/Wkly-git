@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchAllGoalsIndexed, addGoal, deleteGoal, updateGoal, saveSummary, UserCategories, initializeUserCategories, addCategory } from '../utils/functions'; // Removed unused imports
+import { fetchAllGoalsIndexed, deleteGoal, updateGoal, saveSummary, UserCategories, initializeUserCategories, addCategory } from '../utils/functions'; // Removed unused imports
 import Pagination from './Pagination';
 import GoalCard from '@components/GoalCard';
 import GoalForm from '@components/GoalForm';
@@ -118,34 +118,34 @@ const GoalsComponent = () => {
     }, [scope]);
   
 // Add a new goal
-    const handleAddGoal = async (event: React.FormEvent, goal?: Goal) => {
-        event.preventDefault(); // Prevent default form submission
-
-        const goalToAdd = goal || newGoal; // Use the passed goal or fallback to newGoal state
-
-        // Log the goal being validated
-        console.log('Validating goal:', goalToAdd);
-
-        // Validation: Ensure all required fields are populated
-        if (!goalToAdd.title || !goalToAdd.description || !goalToAdd.category || !goalToAdd.week_start || !goalToAdd.user_id) {
-            console.error('All fields are required. Missing fields:', goalToAdd);
-            return;
-        }
-
-        // Revalidate week_start before adding to the database
-        if (goalToAdd.week_start) {
-          goalToAdd.week_start = goalToAdd.week_start.split('T')[0]; // Ensure no timestamp
-        }
-        console.log('Validated week_start in AllGoals:', goalToAdd.week_start);
-
-        try {
-            console.log('Adding goal:', goalToAdd);
-            await addGoal(goalToAdd); // Add the new goal
-            await refreshGoals(); // Refresh the goals list
-        } catch (error) {
-            console.error('Error adding goal:', error);
-        }
-    };
+    //const handleAddGoal = async (event: React.FormEvent, goal?: Goal) => {
+    //    event.preventDefault(); // Prevent default form submission
+//
+    //    const goalToAdd = goal || newGoal; // Use the passed goal or fallback to newGoal state
+//
+    //    // Log the goal being validated
+    //    console.log('Validating goal:', goalToAdd);
+//
+    //    // Validation: Ensure all required fields are populated
+    //    if (!goalToAdd.title || !goalToAdd.description || !goalToAdd.category || !goalToAdd.week_start || !goalToAdd.user_id) {
+    //        console.error('All fields are required. Missing fields:', goalToAdd);
+    //        return;
+    //    }
+//
+    //    // Revalidate week_start before adding to the database
+    //    if (goalToAdd.week_start) {
+    //      goalToAdd.week_start = goalToAdd.week_start.split('T')[0]; // Ensure no timestamp
+    //    }
+    //    console.log('Validated week_start in AllGoals:', goalToAdd.week_start);
+//
+    //    try {
+    //        console.log('Adding goal:', goalToAdd);
+    //        await addGoal(goalToAdd); // Add the new goal
+    //        await refreshGoals(); // Refresh the goals list
+    //    } catch (error) {
+    //        console.error('Error adding goal:', error);
+    //    }
+    //};
 // Delete a goal
     const handleDeleteGoal = async (goalId: string) => {
         try {

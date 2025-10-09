@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { getWeekStartDate, initializeUserCategories, fetchCategoriesSimple } from '@utils/functions'; // Removed unused fetchAllGoals
+import { getWeekStartDate, initializeUserCategories, fetchCategories } from '@utils/functions'; // Import fetchCategories from functions.ts
 import { Goal } from '@utils/goalUtils'; // Import the addCategory function
 import supabase from '@lib/supabase'; // Import Supabase client
 import { UserCategories } from '@utils/functions'; // Correct import path
 import { TagIcon } from 'lucide-react'; // Removed unused PlusSquare
-import ReactQuill from 'react-quill'; // Removed unused Quill
+// import ReactQuill from 'react-quill'; // Removed unused Quill
 import 'react-quill/dist/quill.bubble.css'; // Import Quill styles
 
 // Expose fetchCategoriesSimple for testing in the browser console
-(window as any).fetchCategoriesSimple = fetchCategoriesSimple;
+// (window as any).fetchCategoriesSimple = fetchCategoriesSimple;
 
 export interface AddGoalProps {
   newGoal: Goal; // Updated to use the full Goal type
@@ -43,11 +43,24 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
 
   // Fetch categories on component mount
   useEffect(() => {
-    const fetchCategories = async () => {
-      await initializeUserCategories();
-      setCategories([...UserCategories]); // Ensure categories are set as objects with `id` and `name`
+    const fetchAndSetCategories = async () => {
+      try {
+        const { UserCategories } = await fetchCategories(); // Use fetchCategories from functions.ts
+
+        // console.log('Fetched UserCategories:', UserCategories); // Debug log to inspect the structure
+
+        // Ensure the data is transformed into an array of objects with id and name
+        const transformedCategories = Array.isArray(UserCategories)
+          ? UserCategories.map((category) => ({ id: category.id, name: category.name }))
+          : []; // Fallback to an empty array if the structure is unexpected
+
+        setCategories(transformedCategories);
+      } catch (err) {
+        console.error('Error fetching categories:', err);
+      }
     };
-    fetchCategories();
+
+    fetchAndSetCategories();
   }, []); // Fetch categories on component mount
 
   const handleAddCategory = async () => {
@@ -75,7 +88,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
           .eq('name', newCategory.trim())
           .single();
 
-        if (fetchError && fetchError.code !== 'PGRST116') {
+        if (fetchError && fetchError.code !== 'PGRST116') { // Handle specific Supabase error codes
           console.error('Error checking category existence:', fetchError.message);
           return;
         }
@@ -95,6 +108,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         } else {
           console.log('Category already exists.');
         }
+      } else {
+        console.warn('Category name cannot be empty.');
       }
     } catch (error) {
       console.error('Unexpected error:', error);
@@ -367,17 +382,39 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
           {currentStep === 2 && (
             <div>
               <h3 className="text-lg font-medium">Select Steps to Include as Goals</h3>
-              <ul className="list-disc pl-5">
+              <div className='mt-2 flex items-center m-2'>
+                <input
+                  type="checkbox"
+                  id="select-all"
+                  checked={selectedSteps.length === generatedPlan.length && generatedPlan.length > 0}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedSteps(generatedPlan.map((_, index) => index));
+                    } else {
+                      setSelectedSteps([]);
+                    }
+                  }}
+                  className="m-2 size-5 rounded-full cursor-pointer"
+                />
+                <label htmlFor="select-all" className="ml-2 cursor-pointer">Select All</label>
+              </div>
+              <ul className="max-h-96 overflow-y-auto border-b-2 border-gray-30">
                 {generatedPlan.map((step, index) => (
-                  <li key={index} className="flex items-start space-x-2 text-gray-90 dark:text-gray-20">
-                    <input
-                      type="checkbox"
-                      checked={selectedSteps.includes(index)}
-                      onChange={() => toggleStepSelection(index)}
-                      className="mt-1"
-                    />
-                    <div>
-                      <strong>{step.title}</strong>: {step.description} (Category: {step.category})
+                  <li
+                    key={index}
+                    className="flex gap-4 bg-gray-10 hover:bg-gray-30 dark:bg-gray-90 dark:hover:bg-gray-80 p-4 items-start space-x-2 text-gray-90 dark:text-gray-20 cursor-pointer"
+                    onClick={() => toggleStepSelection(index)}
+                  >
+                    <div className="flex items-start w-full">
+                      <input
+                        type="checkbox"
+                        checked={selectedSteps.includes(index)}
+                        onChange={(e) => e.stopPropagation()} // Prevent parent click event
+                        className="step-checkbox m-2 size-5 rounded-full cursor-pointer"
+                      />
+                      <div className="ml-4">
+                        <strong>{step.title}</strong>: {step.description}
+                      </div>
                     </div>
                   </li>
                 ))}
@@ -404,8 +441,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                 >
                   <option value="" disabled>-- Select a category --</option>
                   <option value="create-new">Add a new category</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.name}>
+                  {categories.map((category, index) => (
+                    <option key={`${category.id}-${index}`} value={category.name}>
                       {category.name}
                     </option>
                   ))}
@@ -566,8 +603,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
             >
               <option value="" disabled>-- Select a category --</option>
               <option value="create-new">Add a new category</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.name}>
+              {categories.map((category, index) => (
+                <option key={`${category.id}-${index}`} value={category.name}>
                   {category.name}
                 </option>
               ))}

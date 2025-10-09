@@ -40,6 +40,16 @@ const GoalCard: React.FC<GoalCardProps> = ({
     impact: '',
   });
 
+  const openModal = () => {
+    if (!isModalOpen) {
+      setIsModalOpen(true);
+    }
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+  };
+
   // Fetch accomplishments from the backend
   const fetchAccomplishments = async () => {
     try {
@@ -94,7 +104,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
 
         fetchAccomplishments();
         setNewAccomplishment({ title: '', description: '', impact: '' });
-        setIsModalOpen(false);
+        closeModal();
       } catch (err) {
         console.error('Unexpected error:', err);
       }
@@ -154,7 +164,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
           )}
           <button
             // to='#'
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => openModal()}
             className="mt-2 btn-ghost w-full border-none text-sm font-semibold text-brand-70 dark:text-brand-20 hover:text-brand-90 dark:hover:text-brand-10"
             >
             Add Accomplishment
@@ -220,7 +230,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
       </div>
       <div className="mt-6 flex justify-end space-x-4">
       <button
-      onClick={() => setIsModalOpen(false)}
+      onClick={() => closeModal()}
       className="btn-secondary"
       >
       Cancel
