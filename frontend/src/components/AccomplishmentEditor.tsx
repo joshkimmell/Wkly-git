@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { Accomplishment } from '@utils/goalUtils'; // Import the addCategory function
+import { notifySuccess } from '@components/ToastyNotification';
 
 
   interface AccomplishmentEditorProps {
@@ -55,6 +56,7 @@ const AccomplishmentEditor: React.FC<AccomplishmentEditorProps> = ({
         } catch (error) {
             console.error('Error saving edited goal:', error);
         }
+        notifySuccess('Accomplishment updated successfully.');
     };
     
     const handleFieldChange = (field: keyof Accomplishment, value: string) => {
@@ -63,6 +65,10 @@ const AccomplishmentEditor: React.FC<AccomplishmentEditorProps> = ({
 
     return (
         <form onSubmit={handleSave} id="goalEditorForm">
+
+            <label htmlFor="description" className="block mb-2 text-sm font-medium text-gray-700">
+              Title
+            </label>
             {/* Input for editing the title */}
             <input
                 type="text"
@@ -72,10 +78,22 @@ const AccomplishmentEditor: React.FC<AccomplishmentEditorProps> = ({
                 className="w-full p-2 mb-4 border rounded"
                 placeholder="Enter accomplishment title"
             />
+            <label htmlFor="description" className="block mb-2 text-sm font-medium text-gray-700">
+              Description
+            </label>
             {/* ReactQuill editor for editing the content */}
             <ReactQuill
                 value={updatedAccomplishment.description}
                 onChange={(value) => handleFieldChange('description', value)} // Update description state
+                className="mb-4"
+            />
+            <label htmlFor="description" className="block mb-2 text-sm font-medium text-gray-700">
+              Impact
+            </label>
+            <ReactQuill
+                value={updatedAccomplishment.impact}
+                onChange={(value) => handleFieldChange('impact', value)} // Update impact state
+                className="mb-4"
             />
           
             <div className="flex justify-end mt-4 space-x-2 text-gray-90 dark:text-gray-10">
@@ -91,3 +109,5 @@ const AccomplishmentEditor: React.FC<AccomplishmentEditorProps> = ({
 };
 
 export default AccomplishmentEditor;
+
+

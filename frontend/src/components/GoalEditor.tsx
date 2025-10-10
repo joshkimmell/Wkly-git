@@ -1,12 +1,15 @@
 import { modalClasses } from '@styles/classes';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { Goal } from '@utils/goalUtils'; // Import the addCategory function
-import { getWeekStartDate, addCategory, initializeUserCategories, UserCategories } from '@utils/functions';
+import { getWeekStartDate, fetchCategories } from '@utils/functions';
 import { supabase } from '@lib/supabase'; // Import Supabase client
-import { TagIcon } from 'lucide-react';
+import { Search as SearchIcon } from 'lucide-react';
+// import { TagIcon } from 'lucide-react';
+import Modal from 'react-modal';
 
+Modal.setAppElement('#root'); // Replace '#root' with the actual app root element if different
 
 interface GoalEditorProps {
     title: string;
@@ -23,13 +26,18 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
     description: initialDescription,
     category: initialCategory,
     week_start: initialWeekStart,
-    onAddCategory,
+    // onAddCategory,
     onRequestClose,
     onSave,
 }) => {
-    const [newCategory, setNewCategory] = React.useState('');
-    const [isAddingCategory, setIsAddingCategory] = React.useState(false);
-    const [localCategories, setLocalCategories] = React.useState<{ id: string; name: string }[]>([]); // Renamed `categories` state to `localCategories` to avoid conflict with the `categories` prop
+    // const [newCategory, setNewCategory] = React.useState('');
+    // const [isAddingCategory, setIsAddingCategory] = React.useState(false);
+    // const [localCategories, setLocalCategories] = React.useState<{ id: string; name: string }[]>([]); // Renamed `categories` state to `localCategories` to avoid conflict with the `categories` prop
+    const [categories, setCategories] = React.useState<{ id: string; name: string }[]>([]); // Update state type to match the expected structure
+    const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filteredCategories, setFilteredCategories] = useState(categories);
+
     const [updatedGoal, setUpdatedGoal] = useState<Goal>({
         title: initialTitle,
         description: initialDescription,
@@ -39,17 +47,22 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
         user_id: '', // Add appropriate default value
         created_at: new Date().toISOString(), // Add appropriate default value
     });
-    
+    const [tempCategory, setTempCategory] = useState(initialCategory); // Temporary category state
+    const quillRef = useRef<ReactQuill | null>(null);
+
     const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+        console.log('handleSave triggered with updatedGoal:', updatedGoal); // Debug log
         try {
+            // Use tempCategory directly to avoid redundant state updates
             await onSave(
                 updatedGoal.description,
                 updatedGoal.title,
-                updatedGoal.category,
+                tempCategory, // Use the temporary category
                 updatedGoal.week_start
             );
-            onRequestClose(); // Close the editor after saving
+            console.log('onSave successfully called'); // Debug log
+            onRequestClose(); // Close the editor only after successful save
         } catch (error) {
             console.error('Error saving edited goal:', error);
         }
@@ -59,45 +72,93 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
     // };
     // Set the default `week_start` to the current week's Monday
       useEffect(() => {
-        if (!updatedGoal.week_start) {
-            setUpdatedGoal((prevGoal) => ({ ...prevGoal, week_start: getWeekStartDate() }));
-        }
-      }, [updatedGoal.week_start, setUpdatedGoal]);
+          if (!updatedGoal.week_start) {
+            setUpdatedGoal((prevGoal) => ({
+              ...prevGoal,
+              week_start: getWeekStartDate(),
+            }));
+          }
+        }, [updatedGoal.week_start, setUpdatedGoal]);
 
+      // // Fetch categories on component mount
+      //   useEffect(() => {
+      //     const fetchCategories = async () => {
+      //       await initializeUserCategories();
+      //       setLocalCategories([...UserCategories]); // Ensure categories are set as objects with `id` and `name`
+      //     };
+      //     fetchCategories();
+      //   }, []); // Fetch categories on component mount
+      
+      //   const handleAddCategory = async () => {
+      //     if (newCategory.trim()) {
+      //       try {
+      //         const { error } = await supabase
+      //           .from('categories')
+      //           .insert({ name: newCategory.trim() });
+      
+      //         if (error) {
+      //           console.error('Error adding category:', error.message);
+      //           return;
+      //         }
+      
+      //         addCategory(newCategory.trim()); // Add to local categories
+      //         setUpdatedGoal((prevGoal) => ({ ...prevGoal, category: newCategory.trim() }));
+      //         setIsAddingCategory(false); // Hide the "Add new category" section
+      //         onAddCategory(newCategory.trim()); // Call the onAddCategory prop
+      //       } catch (err) {
+      //         console.error('Unexpected error adding category:', err);
+      //         console.log('category added:', newCategory.trim());
+      //       }
+      //     }
+      //   };
       // Fetch categories on component mount
         useEffect(() => {
-          const fetchCategories = async () => {
-            await initializeUserCategories();
-            setLocalCategories([...UserCategories]); // Ensure categories are set as objects with `id` and `name`
-          };
-          fetchCategories();
-        }, []); // Fetch categories on component mount
-      
-        const handleAddCategory = async () => {
-          if (newCategory.trim()) {
+          const fetchAndSetCategories = async () => {
             try {
-              const { error } = await supabase
-                .from('categories')
-                .insert({ name: newCategory.trim() });
+              const { UserCategories } = await fetchCategories(); // Use fetchCategories from functions.ts
       
-              if (error) {
-                console.error('Error adding category:', error.message);
-                return;
-              }
+              // console.log('Fetched UserCategories:', UserCategories); // Debug log to inspect the structure
       
-              addCategory(newCategory.trim()); // Add to local categories
-              setUpdatedGoal((prevGoal) => ({ ...prevGoal, category: newCategory.trim() }));
-              setIsAddingCategory(false); // Hide the "Add new category" section
-              onAddCategory(newCategory.trim()); // Call the onAddCategory prop
+              // Ensure the data is transformed into an array of objects with id and name
+              const transformedCategories = Array.isArray(UserCategories)
+                ? UserCategories.map((category) => ({ id: category.id, name: category.name }))
+                : []; // Fallback to an empty array if the structure is unexpected
+      
+              setCategories(transformedCategories);
+              // console.log('Fetched UserCategories:', transformedCategories); // Debug log to inspect the structure
             } catch (err) {
-              console.error('Unexpected error adding category:', err);
-              console.log('category added:', newCategory.trim());
+              console.error('Error fetching categories:', err);
             }
-          }
-        };
+          };
+      
+          fetchAndSetCategories();
+        }, []); // Fetch categories on component mount
     
     const handleFieldChange = (field: keyof Goal, value: string) => {
+        console.log(`Field change detected: ${field} =`, value); // Debug log
         setUpdatedGoal((prevGoal) => ({ ...prevGoal, [field]: value })); // Preserve other fields
+    };
+
+    const handleCategoryModalOpen = () => {
+      // console.log('isCategoryModalOpen before click:', isCategoryModalOpen); // Debug log
+      if (!isCategoryModalOpen) { // Prevent opening the modal if it's already open
+        setSearchTerm('');
+        setFilteredCategories(categories);
+        setIsCategoryModalOpen(true);
+      } else {
+        console.warn('Attempted to open modal while it is already open.'); // Warning log
+      }
+    };
+    
+    const handleCategorySelection = (categoryName: string) => {
+        console.log('Category selected:', categoryName); // Debug log
+        setTempCategory(categoryName); // Update only the temporary category state
+        setIsCategoryModalOpen(false); // Close the modal without triggering any save or update actions
+    };
+
+    const handleCategoryModalClose = () => {
+        console.log('Closing category modal.'); // Debug log
+        setIsCategoryModalOpen(false);
     };
 
     return (
@@ -115,8 +176,16 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
             <label htmlFor="title" className="block text-sm font-medium text-gray-70">
               Title
             </label>
+            <input
+              type="text"
+              id="title"
+              value={updatedGoal.title}
+              onChange={(e) => handleFieldChange('title', e.target.value)}
+              className="mt-1 block w-full border-gray-30 focus:border-b-2 focus:ring-0"
+              required
+            />
             {/* ReactQuill editor for editing the content */}
-              <ReactQuill
+              {/* <ReactQuill
                   id="title"
                   value={updatedGoal.title}
                   onChange={(value) => handleFieldChange('title', value)}
@@ -131,7 +200,7 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
                   //     ['bold', 'italic', 'underline', 'strike'], // Text formatting
                   //   ],
                   // }}
-              />
+              /> */}
             </div>
             <div className='flex flex-col'>
               <label htmlFor="description" className="block text-sm font-medium text-gray-70">
@@ -139,9 +208,10 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
               </label>
               {/* ReactQuill editor for editing the content */}
               <ReactQuill
+                  ref={quillRef}
                   id='description'
                   value={updatedGoal.description}
-                  theme="bubble"
+                  theme="snow"
                   onChange={(value) => handleFieldChange('description', value)} // Update description state
               />
               <input
@@ -151,81 +221,157 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
                   readOnly
               />
             </div>
-            <div className='flex flex-col'>
-              <label htmlFor="category" className="block text-sm font-medium text-gray-70">
-                Category
-              </label>
-              <select
-                id="category"
-                value={updatedGoal.category}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value === 'create-new') {
-                    setIsAddingCategory(true);
-                  } else {
-                    setIsAddingCategory(false);
-                    setUpdatedGoal((prevGoal) => ({ ...prevGoal, category: value }));
-                  }
-                }}
-                className="text-xl"
+            <div>
+            <label htmlFor="category" className="block text-sm font-medium text-gray-30 dark:text-gray-70">
+              Category
+            </label>
+            <div className="relative">
+              <a
+                onClick={handleCategoryModalOpen}
+                className="btn-ghost text-brand-60 dark:text-brand-20 cursor-pointer flex px-4 py-1 rounded-md w-full text-left items-center justify-between text-xl sm:text-lg md:text-xl lg:text-2xl"
               >
-                <option value="" disabled>-- Select a category --</option>
-                <option value="create-new">Add a new category</option>
-                {localCategories.map((category) => (
-                  <option key={category.id} value={category.name}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {isAddingCategory && (
-                <div className='flex flex-col'>
-                <label htmlFor="new-category" className="block text-sm font-medium text-gray-70">
-                    Add New Category
-                </label>
-                <div className="flex items-center space-x-2">
+                {tempCategory || '-- Select a category --'}
+                <SearchIcon className="w-5 h-5 inline-block ml-2" />
+              </a>
+
+              {/* Ensure the modal is only rendered when `isCategoryModalOpen` is true */}
+              {isCategoryModalOpen && (
+                <Modal
+                  id='category-list'
+                  isOpen={isCategoryModalOpen}
+                  onRequestClose={handleCategoryModalClose}
+                  ariaHideApp={false} // Allow multiple modals
+                  shouldFocusAfterRender={false} // Disable automatic focus management
+                  shouldReturnFocusAfterClose={false} // Prevent focus conflicts
+                  className="fixed inset-0 flex items-center justify-center z-[1050]" // Ensure higher z-index than the edit modal
+                  overlayClassName="fixed inset-0 bg-black bg-opacity-30"
+                  style={{
+                    content: {
+                      width: 'calc(100% - 8px)',
+                      height: '100%',
+                      margin: 'auto',
+                    },
+                  }}
+                >
+                  <div className="p-4 bg-gray-10 dark:bg-gray-90 rounded-lg shadow-lg w-full max-w-md">
+                    <h2 className="text-lg font-bold mb-4">Select or Add a Category</h2>
                     <input
-                    type="text"
-                    id="new-category"
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        const filtered = categories.filter((category) =>
+                          category.name.toLowerCase().includes(e.target.value.toLowerCase())
+                        );
+                        setFilteredCategories(filtered);
+                      }}
+                      className="w-full text-md p-2 border border-gray-60 focus:outline-none focus:ring-2 focus:ring-brand-50 mb-4 placeholder:gray-50 placeholder:italic"
+                      placeholder="Find or create a category"
                     />
+                    <ul className="max-h-60 text-gray-80 dark:text-gray-30 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-70">
+                      {filteredCategories.map((category) => (
+                        <li
+                          key={category.id || `category-${category.name}`}
+                          className="p-2 hover:bg-gray-20 dark:hover:bg-gray-70 cursor-pointer"
+                          onClick={() => {
+                            handleCategorySelection(category.name);
+                            // setTempCategory(category.name); // Update only the temporary category state
+                            // setIsCategoryModalOpen(false); // Close the modal without triggering any save or update actions
+                          }}
+                        >
+                          {category.name}
+                        </li>
+                      ))}
+                      {filteredCategories.length === 0 && (
+                        <li key="no-matching" className="p-2 text-gray-30 dark:text-gray-70">No matching categories found.</li>
+                      )}
+                    </ul>
+                    {filteredCategories.length === 0 && (
+                      <button
+                        onClick={async () => {
+                          if (!searchTerm.trim()) return;
+
+                          try {
+                            const { data: { user }, error: userError } = await supabase.auth.getUser();
+                            if (userError || !user) {
+                              console.error('Error fetching user ID:', userError?.message || 'User not authenticated');
+                              return;
+                            }
+
+                            const userId = user.id;
+
+                            const { data: existingCategory, error: fetchError } = await supabase
+                              .from('categories')
+                              .select('name')
+                              .eq('name', searchTerm.trim())
+                              .single();
+
+                            if (fetchError && fetchError.code !== 'PGRST116') {
+                              console.error('Error checking category existence:', fetchError.message);
+                              return;
+                            }
+
+                            if (!existingCategory) {
+                              const { error: insertError } = await supabase
+                                .from('categories')
+                                .insert({ name: searchTerm.trim(), user_id: userId });
+
+                              if (insertError) {
+                                console.error('Error adding category:', insertError.message);
+                                return;
+                              }
+
+                              console.log('Category added successfully.');
+                            } else {
+                              console.log('Category already exists.');
+                            }
+
+                            setTempCategory(searchTerm.trim()); // Update temporary category
+                            setIsCategoryModalOpen(false); // Close the category modal
+                          } catch (error) {
+                            console.error('Unexpected error:', error);
+                          }
+                        }}
+                        className="btn-primary mt-4"
+                      >
+                        Save as New Category
+                      </button>
+                    )}
                     <button
-                      type="button"
-                      onClick={handleAddCategory}
-                      className="btn-ghost text-brand-60 hover:text-brand-80 dark:text-brand-30 dark:hover:text-brand-20 dark:hover:bg-gray-80"
+                      onClick={() => handleCategoryModalClose()}
+                      className="btn-secondary mt-4"
                     >
-                      {/* Add category */}
-                      <TagIcon className="w-5 h-5" />
-                      <span className="hidden sm:flex flex-row pl-2">Add</span>
+                      Cancel
                     </button>
-                </div>
-                </div>
-            )}
-            <div className='flex flex-col'>
-                <label htmlFor="week_start" className="block text-sm font-medium text-gray-700">
-                    Week Start
-                </label>
-                <input
-                    type="date"
-                    id="week_start"
-                    value={updatedGoal.week_start}
-                    onChange={(e) => handleFieldChange('week_start', e.target.value)}
-                    className="mt-1 block w-full rounded-md"
-                    required
-                />
+                  </div>
+                </Modal>
+              )}
             </div>
-            <div className="flex justify-end mt-4 space-x-2 text-gray-90 dark:text-gray-10">
-                <button className="btn btn-secondary" onClick={onRequestClose} type="button">
-                    Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                    Save goal
-                </button>
-            </div>
+          </div>
+            
+          <div className='flex flex-col'>
+              <label htmlFor="week_start" className="block text-sm font-medium text-gray-700">
+                  Week Start
+              </label>
+              <input
+                  type="date"
+                  id="week_start"
+                  value={updatedGoal.week_start}
+                  onChange={(e) => handleFieldChange('week_start', e.target.value)}
+                  className="mt-1 block w-full rounded-md"
+                  required
+              />
+          </div>
+          <div className="flex justify-end mt-4 space-x-2 text-gray-90 dark:text-gray-10">
+              <button className="btn btn-secondary" onClick={onRequestClose} type="button">
+                  Cancel
+              </button>
+              <button type="submit" className="btn btn-primary">
+                  Save goal
+              </button>
+          </div>
         </form>
-    );
-};
+      );
+  };
 
 export default GoalEditor;

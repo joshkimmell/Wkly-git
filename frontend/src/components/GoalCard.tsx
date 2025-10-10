@@ -47,7 +47,9 @@ const GoalCard: React.FC<GoalCardProps> = ({
   };
 
   const closeModal = () => {
-    setIsModalOpen(false);
+    if (isModalOpen) {
+      setIsModalOpen(false);
+    }
   };
 
   // Fetch accomplishments from the backend

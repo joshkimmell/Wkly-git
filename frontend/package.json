@@ -12,6 +12,7 @@
   "dependencies": {
     "@esbuild-kit/esm-loader": "^2.6.5",
     "@headlessui/react": "^2.2.4",
+    "@lexical/react": "^0.36.2",
     "@supabase/auth-helpers-react": "^0.5.0",
     "@supabase/auth-ui-react": "^0.4.7",
     "@supabase/auth-ui-shared": "^0.1.8",
@@ -25,6 +26,7 @@
     "express": "^4.21.2",
     "fastify": "^5.2.2",
     "headlessui": "^0.0.0",
+    "lexical": "^0.36.2",
     "lodash": "^4.17.21",
     "lodash.debounce": "^4.0.8",
     "lucide-react": "^0.344.0",
