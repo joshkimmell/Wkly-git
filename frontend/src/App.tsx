@@ -120,7 +120,7 @@ const App: React.FC = () => {
           handleLogout={handleLogout}
           />
         <GoalsProvider>
-          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <main className="max-w-8xl mx-auto px-4 sm:px-8 lg:px-16 py-8">
             <div className="hidden sm:flex">
               <div className="tabs w-full justify-between">
                 <div className="border-b border-gray-20 dark:border-gray-70">

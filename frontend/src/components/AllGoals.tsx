@@ -12,6 +12,7 @@ import { Goal as GoalUtilsGoal } from '@utils/goalUtils';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
 import { PlusSquare as SquarePlus } from 'lucide-react';
+import { BrowserRouter } from 'react-router-dom';
 
 
 type Goal = GoalUtilsGoal & {
@@ -59,7 +60,7 @@ const GoalsComponent = () => {
       const currentWeekStart = new Date(getWeekStartDate(today)); // Convert to Date object if `getWeekStartDate` returns a string
       setScope('week'); // Set the default scope to 'week'
       setNewGoal((prevGoal) => ({ ...prevGoal, week_start: currentWeekStart.toISOString().split('T')[0] })); // Format the date as YYYY-MM-DD
-      console.log({currentWeekStart});
+    //   console.log({currentWeekStart});
     }, []);
 
     useEffect(() => {
@@ -108,7 +109,12 @@ const GoalsComponent = () => {
         setSelectedSummary((prev) => prev ? { ...prev, id } : prev);
         setIsEditorOpen(true);
     }
-    function closeEditor() {
+    const closeEditor = () => {
+        if (!isEditorOpen) {
+            console.warn('closeEditor called but editor is already closed.');
+            return; // Prevent redundant calls
+        }
+        // console.log('closeEditor called');
         setIsEditorOpen(false);
     }
 
@@ -131,6 +137,7 @@ const GoalsComponent = () => {
     };
 
     useEffect(() => {
+        // console.log('refreshGoals triggered');
         refreshGoals(); // Fetch goals on component mount or when scope changes
     }, [scope]);
   
@@ -256,8 +263,9 @@ const GoalsComponent = () => {
                     {['week', 'month', 'year'].map((s) => (
                         <button
                             key={s}
+                            title={`Select ${s}ly view`}
                             onClick={() => setScope(s as 'week' | 'month' | 'year')}
-                            className={`btn-ghost ${scope === s ? 'font-bold underline' : ''}`}
+                            className={`btn-ghost ${scope === s ? 'text-brand-60 hover:text-brand-70 dark:text-brand-20 dark:hover:text-brand-10 font-bold underline' : ''}`}
                         >
                             <span className="hidden md:inline sm:inline">{s.charAt(0).toUpperCase() + s.slice(1)}</span>
                             <span className="md:hidden sm:hidden">{s.charAt(0).toUpperCase()}</span>
@@ -265,7 +273,7 @@ const GoalsComponent = () => {
                     ))}
                 </div>
             </div>
-            <button
+            {/* <button
                 onClick={openGoalModal}
                 className="btn-primary flex ml-auto mt-5 sm:mt-0 md:pr-2 sm:pr-2 xs:pr-0"
                 title={`Add a new goal for the current ${scope}`}
@@ -273,13 +281,14 @@ const GoalsComponent = () => {
                 >
                 <SquarePlus className="w-5 h-5" />
                 <span className="hidden lg:block lg:pl-2">Add Goal</span>
-            </button>
+            </button> */}
         </div>
 
         {/* Filter and Sort Controls */}
         <div className="mt-4 h-10 flex items-center space-x-2">
             <input
             type="text"
+            id='goal-filter'
             value={filter}
             onChange={(e) => handleFilterChange(e.target.value)}
             placeholder="Filter by title, category, or impact"
@@ -287,10 +296,19 @@ const GoalsComponent = () => {
             />
             <button
             onClick={() => setSortDirection(dir => (dir === 'asc' ? 'desc' : 'asc'))}
-            className="border rounded px-2 py-1"
+            className="btn-ghost px-3 py-2"
             title="Toggle sort direction"
             >
             {sortDirection === 'desc' ? '↑' : '↓'}
+            </button>
+            <button
+                onClick={openGoalModal}
+                className="btn-primary flex ml-auto mt-5 sm:mt-0 md:pr-2 sm:pr-2 xs:pr-0"
+                title={`Add a new goal for the current ${scope}`}
+                aria-label={`Add a new goal for the current ${scope}`}
+                >
+                <SquarePlus className="w-5 h-5" />
+                <span className="hidden md:block md:pl-2 flex text-nowrap">Add Goal</span>
             </button>
         </div> 
 
@@ -304,8 +322,10 @@ const GoalsComponent = () => {
                     handleDeleteGoal(goalId);
                 }}
                 handleEdit={(goalId) => {
+                    // console.log('handleEdit called with goalId:', goalId);
                     const goalToEdit = indexedGoals[currentPage]?.find((goal) => goal.id === goalId);
                     if (goalToEdit) {
+                        // console.log('Editing goal:', goalToEdit);
                         setSelectedGoal(goalToEdit);
                         setIsEditorOpen(true);
                     }
@@ -403,6 +423,7 @@ const GoalsComponent = () => {
             <Modal
                 isOpen={isEditorOpen}
                 onRequestClose={closeEditor}
+                ariaHideApp={false} // Prevent React-Modal from setting aria-hidden on #root
                 className={`fixed inset-0 flex items-center justify-center z-50`}
                 overlayClassName={`${overlayClasses}`}
             >
@@ -434,11 +455,10 @@ const GoalsComponent = () => {
                                     category: updatedCategory,
                                     week_start: updatedWeekStart,
                                 });
-                                closeEditor();
-                                await refreshGoals();
+                                await refreshGoals(); // Refetch goals after saving
                             }
                         } catch (error) {
-                            console.error('Error saving edited goal:', error);
+                            console.error('Error saving goal:', error);
                         }
                     }}
                 />
@@ -450,4 +470,14 @@ const GoalsComponent = () => {
 };
 
 export default GoalsComponent;
+
+// Add future flags to BrowserRouter
+<BrowserRouter
+  future={{
+    v7_startTransition: true,
+    v7_relativeSplatPath: true,
+  }}
+>
+  {/* ...existing code... */}
+</BrowserRouter>;
 

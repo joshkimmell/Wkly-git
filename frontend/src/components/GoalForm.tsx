@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { getWeekStartDate, fetchCategories } from '@utils/functions'; // Import fetchCategories from functions.ts
 import { Goal } from '@utils/goalUtils'; // Import the addCategory function
 import supabase from '@lib/supabase'; // Import Supabase client
 import LoadingSpinner from '@components/LoadingSpinner';
 import { SearchIcon } from 'lucide-react';
 import Modal from 'react-modal';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css'; // Import Quill styles
 
 // Expose fetchCategoriesSimple for testing in the browser console
 // (window as any).fetchCategoriesSimple = fetchCategoriesSimple;
@@ -31,6 +33,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredCategories, setFilteredCategories] = useState(categories);
+  const quillRef = useRef<any>(null);
 
   // Set the default `week_start` to the current week's Monday
   useEffect(() => {
@@ -131,7 +134,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       };
 
       // Log the goal being added
-      console.log('Adding goal:', goal);
+      // console.log('Adding goal:', goal);
 
       if (!goal.title || !goal.description || !goal.category || !goal.week_start || !goal.user_id) {
         console.error('Missing required fields:', goal);
@@ -224,7 +227,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       user_id: userId, // Include user_id
     };
 
-    console.log('Adding goal:', goalToAdd);
+    // console.log('Adding goal:', goalToAdd);
 
     // Insert goal into the database
     const { error: insertError } = await supabase.from('goals').insert(goalToAdd);
@@ -234,7 +237,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       return;
     }
 
-    console.log('Goal successfully added:', goalToAdd);
+    // console.log('Goal successfully added:', goalToAdd);
 
     // Refresh goals and close the form
     refreshGoals();
@@ -588,24 +591,12 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
             <label htmlFor="description" className="block text-sm font-medium text-gray-700">
               Description
             </label>
-            {/* ReactQuill editor for description */}
-            {/*
+            
             <ReactQuill
-              id="description"
+              ref={quillRef}
               value={newGoal.description}
               onChange={(value) => setNewGoal({ ...newGoal, description: value })}
-              className=""
-              placeholder="Describe your goal..."
-              theme='bubble'
-            />
-            */}
-            <textarea
-              id="description"
-              value={newGoal.description}
-              onChange={(e) => setNewGoal({ ...newGoal, description: e.target.value })}
-              className="w-full border-b-gray-30 shadow-sm focus:border-b-2 focus:border-brand-50 focus:ring-0"
-              placeholder="Describe your goal..."
-              rows={4}
+              theme="snow"
             />
           </div>
 

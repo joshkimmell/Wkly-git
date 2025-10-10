@@ -84,9 +84,9 @@ const Pagination: React.FC<PaginationProps> = ({ pages, currentPage, onPageChang
       
       <Menu as="div" className="relative inline-block items-center w-full sm:w-56 text-center">
       <div>
-        <MenuButton className="btn-ghost text-md sm:text-lg text-brand-60 hover:text-brand-80 dark:text-brand-30 dark:hover:text-brand-20 dark:hover:bg-gray-80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-50 flex items-center justify-center w-full">
+        <MenuButton className="btn-ghost text-md sm:text-lg text-brand-60 hover:text-brand-80 dark:text-brand-20 dark:hover:text-brand-10 dark:hover:bg-gray-80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-50 flex items-center justify-center w-full">
           {formatPage(currentPage)}
-          <ChevronDownIcon aria-hidden="true" className="-mr-1 size-5 text-brand-60 hover:text-brand-80 dark:text-brand-30 dark:hover:text-brand-20 dark:hover:bg-gray-80" />
+          <ChevronDownIcon aria-hidden="true" className="mr-2 size-5" />
         </MenuButton>
       </div>
 

@@ -1,0 +1,1 @@
+declare module '@lexical/react/LexicalComposer.dev.js';

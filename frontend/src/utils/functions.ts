@@ -256,7 +256,7 @@ export const addCategory = async (newCategory: string): Promise<void> => {
 
     // Debug log for payload
     const payload = { name: normalizedCategory, user_id: userId };
-    console.log('Payload being sent to Netlify function:', payload);
+    // console.log('Payload being sent to Netlify function:', payload);
 
     // Call the Netlify function to create the category
     const response = await fetch(`${baseUrl}${backend}/createCategory`, {
@@ -276,11 +276,11 @@ export const addCategory = async (newCategory: string): Promise<void> => {
     }
 
     const insertedCategory = await response.json();
-    console.log('New category added via Netlify function:', insertedCategory);
+    // console.log('New category added via Netlify function:', insertedCategory);
 
     // Refresh the UserCategories list
     await initializeUserCategories();
-    console.log('Category added and UserCategories refreshed:', UserCategories);
+    // console.log('Category added and UserCategories refreshed:', UserCategories);
     notifySuccess('Category added successfully.');
   } catch (err) {
     console.error('Unexpected error adding category:', err);
@@ -369,7 +369,7 @@ export const addGoal = async (newGoal: any) => {
   }
 
   notifySuccess(`Goal "${newGoal.title}" added successfully!`);
-  console.log(`Goal "${newGoal.title}" added successfully!`);
+  // console.log(`Goal "${newGoal.title}" added successfully!`);
   return response.json();
 };
 
