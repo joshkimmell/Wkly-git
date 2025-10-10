@@ -52,7 +52,7 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
 
     const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        console.log('handleSave triggered with updatedGoal:', updatedGoal); // Debug log
+        // console.log('handleSave triggered with updatedGoal:', updatedGoal); // Debug log
         try {
             // Use tempCategory directly to avoid redundant state updates
             await onSave(
@@ -61,7 +61,7 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
                 tempCategory, // Use the temporary category
                 updatedGoal.week_start
             );
-            console.log('onSave successfully called'); // Debug log
+            // console.log('onSave successfully called'); // Debug log
             onRequestClose(); // Close the editor only after successful save
         } catch (error) {
             console.error('Error saving edited goal:', error);
@@ -135,7 +135,7 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
         }, []); // Fetch categories on component mount
     
     const handleFieldChange = (field: keyof Goal, value: string) => {
-        console.log(`Field change detected: ${field} =`, value); // Debug log
+        // console.log(`Field change detected: ${field} =`, value); // Debug log
         setUpdatedGoal((prevGoal) => ({ ...prevGoal, [field]: value })); // Preserve other fields
     };
 
@@ -151,13 +151,13 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
     };
     
     const handleCategorySelection = (categoryName: string) => {
-        console.log('Category selected:', categoryName); // Debug log
+        // console.log('Category selected:', categoryName); // Debug log
         setTempCategory(categoryName); // Update only the temporary category state
         setIsCategoryModalOpen(false); // Close the modal without triggering any save or update actions
     };
 
     const handleCategoryModalClose = () => {
-        console.log('Closing category modal.'); // Debug log
+        // console.log('Closing category modal.'); // Debug log
         setIsCategoryModalOpen(false);
     };
 

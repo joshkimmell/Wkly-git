@@ -202,7 +202,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
     }
 
     // Check if the current step is the final step
-    if (currentStep !== 3) {
+    if (showWizard && currentStep !== 3) {
       console.warn('Add Goal(s) button must be clicked to add the goal.');
       return;
     }
@@ -562,7 +562,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                 <button type="button" onClick={goToPreviousStep} className="btn-secondary">
                   Back
                 </button>
-                <button type="button" onClick={applyPlan} className="btn-primary">
+                <button type="submit" className="btn-primary">
                   Add Goal(s)
                 </button>
               </div>
@@ -758,7 +758,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
               Cancel
             </button>
             <button
-              type="submit"
+              type="submit" // Ensure this button submits the form
               className="btn-primary"
               >
               Add Goal
