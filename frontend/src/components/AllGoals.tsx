@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchAllGoalsIndexed, deleteGoal, updateGoal, saveSummary, UserCategories, initializeUserCategories, addCategory, getWeekStartDate } from '../utils/functions'; // Removed unused imports
+// import { handleDeleteAccomplishment } from '@components/GoalCard';
 import Pagination from './Pagination';
 import GoalCard from '@components/GoalCard';
 import GoalForm from '@components/GoalForm';

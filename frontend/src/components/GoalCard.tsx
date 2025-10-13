@@ -7,7 +7,7 @@ import { cardClasses, modalClasses } from '@styles/classes'; // Adjust the impor
 import { notifyError, notifySuccess } from './ToastyNotification';
 // import { Link } from 'react-router-dom';
 import { applyHighlight } from '@utils/functions'; // Adjust the import path as necessary
-
+import AccomplishmentEditor from './AccomplishmentEditor'; // Import the AccomplishmentEditor component
 
 interface GoalCardProps {
   goal: Goal; // Add the goal prop to access goal properties
@@ -40,6 +40,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
     description: '',
     impact: '',
   });
+  const [isEditAccomplishmentModalOpen, setIsEditAccomplishmentModalOpen] = useState(false);
+  const [selectedAccomplishment, setSelectedAccomplishment] = useState<Accomplishment | null>(null);
 
   const openModal = () => {
     if (!isAccomplishmentModalOpen) {
@@ -51,6 +53,16 @@ const GoalCard: React.FC<GoalCardProps> = ({
     if (isAccomplishmentModalOpen) {
       setIsAccomplishmentModalOpen(false);
     }
+  };
+
+  const openEditAccomplishmentModal = (accomplishment: Accomplishment) => {
+    setSelectedAccomplishment(accomplishment);
+    setIsEditAccomplishmentModalOpen(true);
+  };
+
+  const closeEditAccomplishmentModal = () => {
+    setSelectedAccomplishment(null);
+    setIsEditAccomplishmentModalOpen(false);
   };
 
   // Fetch accomplishments from the backend
@@ -72,6 +84,61 @@ const GoalCard: React.FC<GoalCardProps> = ({
     }
   };
 
+  const deleteAccomplishment = async (accomplishmentId: string) => {
+    try {
+      const { error } = await supabase
+        .from('accomplishments')
+        .delete()
+        .eq('id', accomplishmentId);
+
+      if (error) {
+        console.error('Error deleting accomplishment:', error.message);
+        notifyError('Error deleting accomplishment.');
+        return;
+      }
+
+      // Refresh the accomplishments list after deletion
+      fetchAccomplishments();
+      notifySuccess('Accomplishment deleted successfully.');
+    } catch (err) {
+      console.error('Unexpected error deleting accomplishment:', err);
+      notifyError('Error deleting accomplishment.');
+    }
+  };
+
+  const saveEditedAccomplishment = async (
+    updatedDescription: string,
+    updatedTitle: string,
+    updatedImpact?: string
+  ) => {
+    if (!selectedAccomplishment) return;
+
+    try {
+      const { error } = await supabase
+        .from('accomplishments')
+        .update({
+          title: updatedTitle,
+          description: updatedDescription,
+          impact: updatedImpact || null, // Set to null if undefined
+        })
+        .eq('id', selectedAccomplishment.id);
+
+      if (error) {
+        console.error('Error saving edited accomplishment:', error.message);
+        notifyError('Error saving edited accomplishment.');
+        return;
+      }
+
+      // Refresh the accomplishments list after saving
+      fetchAccomplishments();
+      notifySuccess('Accomplishment updated successfully.');
+      closeEditAccomplishmentModal();
+    } catch (err) {
+      console.error('Unexpected error saving edited accomplishment:', err);
+      notifyError('Error saving edited accomplishment.');
+    }
+  };
+
   // Fetch accomplishments when the component mounts
   useEffect(() => {
     fetchAccomplishments();
@@ -80,8 +147,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
   const handleAddAccomplishment = async () => {
     if (
       newAccomplishment.title.trim() &&
-      newAccomplishment.description.trim() &&
-      newAccomplishment.impact.trim()
+      newAccomplishment.description.trim()
     ) {
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -93,10 +159,9 @@ const GoalCard: React.FC<GoalCardProps> = ({
         const { error } = await supabase.from('accomplishments').insert({
           title: newAccomplishment.title,
           description: newAccomplishment.description,
-          impact: newAccomplishment.impact,
+          impact: newAccomplishment.impact.trim() || null, // Set impact to null if empty
           goal_id: goal.id,
           user_id: user.id,
-          // category: goal.category,
           week_start: goal.week_start,
         });
 
@@ -151,18 +216,43 @@ const GoalCard: React.FC<GoalCardProps> = ({
           )} 
         
           {isExpanded && (
-            <div className="goal-accomplishments mt-4">
+            <div className="goal_accomplishments mt-4">
               {/* <h4 className="text-sm font-semibold text-gray-900">Accomplishments</h4> */}
               <ul className="list-none list-inside text-gray-700 mt-2 space-y-1">
                 {accomplishments.map((accomplishment) => (
-                  <li key={accomplishment.id}>
-                    <h5 className="text-md font-semibold text-gray-80 dark:text-gray-20">
-                      {accomplishment.title}
-                    </h5>
-                    <p className="text-md text-gray-60 dark:text-gray-40">
-                      {accomplishment.description}
-                    </p>
-                    <label className="text-sm text-gray-40 dark:text-gray-50">Impact: {accomplishment.impact}</label>
+                  <li
+                    key={accomplishment.id}
+                    className="dark:bg-gray-90 dark:bg-opacity-30 hover:bg-gray-20 dark:hover:bg-gray-90 flex flex-row justify-between items-start space-x-2 border-b rounded-md border-gray-30 dark:border-gray-70 p-2 m-2"
+                  >
+                    <div className="flex flex-col">
+                      <h5 className="text-md font-semibold text-brand-80 dark:text-brand-20">
+                        {accomplishment.title}
+                      </h5>
+                      <p className="text-md text-gray-60 dark:text-gray-40">
+                        <span dangerouslySetInnerHTML={{ __html: accomplishment.description }} />
+                      </p>
+                      {accomplishment.impact?.trim() && (
+                      <label className="text-sm text-gray-40 dark:text-gray-50">
+                        <span dangerouslySetInnerHTML={{ __html: `Impact: ` + accomplishment.impact }} />
+                      </label>
+                      )}
+                    </div>
+                    <div className="flex flex-row justify-end">
+                      <button
+                        type="button"
+                        onClick={() => deleteAccomplishment(accomplishment.id)}
+                        className="btn-ghost w-auto opacity-50 hover:opacity-100"
+                      >
+                        <Trash className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openEditAccomplishmentModal(accomplishment)}
+                        className="btn-ghost w-auto opacity-50 hover:opacity-100"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -197,62 +287,79 @@ const GoalCard: React.FC<GoalCardProps> = ({
     {/* Modal */}
     {isAccomplishmentModalOpen && (
       <div className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50">
-      <div className={`${modalClasses}`}>
-      <h3 className="text-lg font-medium text-gray-90 mb-4">Add Accomplishment</h3>
-      <div className="space-y-4">
-      <div>
-      <label className="block text-sm font-medium text-gray-70 dark:text-gray-40">Title</label>
-      <input
-      type="text"
-      value={newAccomplishment.title}
-      onChange={(e) =>
-        setNewAccomplishment({ ...newAccomplishment, title: e.target.value })
-      }
-      className="block w-full"
-      />
-      </div>
-      <div>
-      <label className="block text-sm font-medium text-gray-70 dark:text-gray-40">Description</label>
-      <textarea
-      value={newAccomplishment.description}
-      onChange={(e) =>
-        setNewAccomplishment({ ...newAccomplishment, description: e.target.value })
-      }
-      rows={3}
-      className="block w-full"
-      />
-      </div>
-      <div>
-      <label className="block text-sm font-medium text-gray-70 dark:text-gray-40">Impact</label>
-      <input
-      type="text"
-      value={newAccomplishment.impact}
-      onChange={(e) =>
-        setNewAccomplishment({ ...newAccomplishment, impact: e.target.value })
-      }
-      className="block w-full"
-      />
-      </div>
-      </div>
-      <div className="mt-6 flex justify-end space-x-4">
-      <button
-      onClick={() => closeModal()}
-      className="btn-secondary"
-      >
-      Cancel
-      </button>
-      <button
-      onClick={handleAddAccomplishment}
-      className="btn-primary"
-      >
-      Add
-      </button>
-      </div>
-      </div>
+        <div className={`${modalClasses}`}>
+          <h3 className="text-lg font-medium text-gray-90 mb-4">Add Accomplishment</h3>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor='title_acc' className="block text-sm font-medium text-gray-70 dark:text-gray-40">Title</label>
+              <input
+              id='title_acc'
+              type="text"
+              value={newAccomplishment.title}
+              onChange={(e) =>
+                setNewAccomplishment({ ...newAccomplishment, title: e.target.value })
+              }
+              className="block w-full"
+              />
+            </div>
+            <div>
+              <label htmlFor='description_acc' className="block text-sm font-medium text-gray-70 dark:text-gray-40">Description</label>
+              <textarea
+              id='description_acc'
+              value={newAccomplishment.description}
+              onChange={(e) =>
+                setNewAccomplishment({ ...newAccomplishment, description: e.target.value })
+              }
+              rows={3}
+              className="block w-full"
+              />
+            </div>
+            <div>
+              <label htmlFor="impact_acc" className="block text-sm font-medium text-gray-70 dark:text-gray-40">Impact (optional)</label>
+              <input
+                id="impact_acc"
+                type="text"
+                value={newAccomplishment.impact}
+                onChange={(e) =>
+                  setNewAccomplishment({ ...newAccomplishment, impact: e.target.value })
+                }
+                className="block w-full"
+              />
+            </div>
+          </div>
+          <div className="mt-6 flex justify-end space-x-4">
+            <button
+            onClick={() => closeModal()}
+            className="btn-secondary"
+            >
+            Cancel
+            </button>
+            <button
+            onClick={handleAddAccomplishment}
+            className="btn-primary"
+            >
+            Add accomplishment
+            </button>
+          </div>
+        </div>
       </div>
     )}
     {/* Render children if provided */}
     {/* {children && <div className="goal-children">{children}</div>} */}
+
+    {/* Edit Accomplishment Modal */}
+    {isEditAccomplishmentModalOpen && selectedAccomplishment && (
+      <div className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50">
+        <div className={`${modalClasses}`}>
+          <h3 className="text-lg font-medium text-gray-90 mb-4">Edit Accomplishment</h3>
+          <AccomplishmentEditor
+            accomplishment={selectedAccomplishment}
+            onSave={saveEditedAccomplishment}
+            onRequestClose={closeEditAccomplishmentModal}
+          />
+        </div>
+      </div>
+    )}
   </div>
 
   // </div>
