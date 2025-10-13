@@ -1,4 +1,4 @@
-export const cardClasses = `bg-gray-0 dark:bg-gray-80 shadow-sm rounded-lg p-4 flex flex-col h-full`;
+export const cardClasses = `bg-gray-0 dark:bg-gray-80 shadow-sm rounded-lg p-4 flex flex-col h-full w-full`;
 export const modalClasses = `bg-gray-10 dark:bg-gray-90 shadow-lg rounded-lg shadow-lg p-6 w-full md:w-1/2 lg:w-1/3 sm:h-auto sm:max-h-[100vh] overflow-y-auto`;
 export const overlayClasses = `fixed inset-0 bg-gray-50 dark:bg-gray-100 bg-opacity-65 dark:bg-opacity-65`;
 export const classTabItem = `
