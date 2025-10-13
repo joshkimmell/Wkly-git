@@ -284,119 +284,122 @@ const GoalsComponent = () => {
                 <span className="hidden lg:block lg:pl-2">Add Goal</span>
             </button> */}
         </div>
+        <div className='flex flex-col lg:flex-row space-x-8 items-start justify-start w-full mb-4'>
+            <div id="allGoals" className="flex flex-col gap-4 w-2/3 lg:w-full">
+                {/* Filter and Sort Controls */}
+                <div className="mt-4 h-10 flex items-center space-x-2">
+                    <input
+                    type="text"
+                    id='goal-filter'
+                    value={filter}
+                    onChange={(e) => handleFilterChange(e.target.value)}
+                    placeholder="Filter by title, category, or impact"
+                    className="block w-full h-10 p-2 border-gray-300 shadow-sm text-sm sm:text-xl"
+                    />
+                    <button
+                    onClick={() => setSortDirection(dir => (dir === 'asc' ? 'desc' : 'asc'))}
+                    className="btn-ghost px-3 py-2"
+                    title="Toggle sort direction"
+                    >
+                    {sortDirection === 'desc' ? '↑' : '↓'}
+                    </button>
+                    <button
+                        onClick={openGoalModal}
+                        className="btn-primary flex ml-auto sm:mt-0 md:pr-2 sm:pr-2 xs:pr-0"
+                        title={`Add a new goal for the current ${scope}`}
+                        aria-label={`Add a new goal for the current ${scope}`}
+                        >
+                        <SquarePlus className="w-5 h-5" />
+                        <span className="block flex text-nowrap">Add Goal</span>
+                    </button>
+                </div> 
 
-        {/* Filter and Sort Controls */}
-        <div className="mt-4 h-10 flex items-center space-x-2">
-            <input
-            type="text"
-            id='goal-filter'
-            value={filter}
-            onChange={(e) => handleFilterChange(e.target.value)}
-            placeholder="Filter by title, category, or impact"
-            className="block w-full h-10 p-2 border-gray-300 shadow-sm text-sm sm:text-xl"
-            />
-            <button
-            onClick={() => setSortDirection(dir => (dir === 'asc' ? 'desc' : 'asc'))}
-            className="btn-ghost px-3 py-2"
-            title="Toggle sort direction"
-            >
-            {sortDirection === 'desc' ? '↑' : '↓'}
-            </button>
-            <button
-                onClick={openGoalModal}
-                className="btn-primary flex ml-auto sm:mt-0 md:pr-2 sm:pr-2 xs:pr-0"
-                title={`Add a new goal for the current ${scope}`}
-                aria-label={`Add a new goal for the current ${scope}`}
-                >
-                <SquarePlus className="w-5 h-5" />
-                <span className="block flex text-nowrap">Add Goal</span>
-            </button>
-        </div> 
-
-        {/* Goals List */}
-        <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'>
-            {sortedAndFilteredGoals.map((goal) => (
-            <GoalCard
-                key={goal.id}
-                goal={goal}
-                handleDelete={(goalId) => {
-                    handleDeleteGoal(goalId);
-                }}
-                handleEdit={(goalId) => {
-                    // console.log('handleEdit called with goalId:', goalId);
-                    const goalToEdit = indexedGoals[currentPage]?.find((goal) => goal.id === goalId);
-                    if (goalToEdit) {
-                        // console.log('Editing goal:', goalToEdit);
-                        setSelectedGoal(goalToEdit);
-                        setIsEditorOpen(true);
-                    }
-                }}
-                filter={filter} // Pass the filter prop
-            />
-            ))}
-        </div>
-        {sortedAndFilteredGoals.length === 0 && (
-            <div className="text-center text-gray-500 mt-4">
-            No goals found for this {scope}. Try adding one!
-            </div>
-        )}
-    
-    
-        {/* Summary Generator and Editor */}
-        <div className="mt-6">
-            <h2 className="text-xl font-semibold text-gray-900">Summary</h2>
-            <p className="text-gray-60 dark:text-gray-30">Generate and edit your {scope}ly summary.</p>
-        </div>
-        <div>
-            {/* {scope}: {selectedRange.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} */}
-            <SummaryGenerator 
-                summaryId={selectedSummary?.id || ''} 
-                summaryTitle={selectedSummary?.title || `Summary for ${scope}: ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}
-                selectedRange={new Date()}
-                filteredGoals={indexedGoals[currentPage] || []} // Pass the goals for the current page
-                scope={scope}
-            />
-
-            {selectedSummary && isEditorOpen && (
-            <Modal
-                key={selectedSummary.id} // Use the summary ID as the key
-                isOpen={!!selectedSummary} // Ensure modal is open only when selectedSummary is set
-                onRequestClose={() => setSelectedSummary(null)} // Close the modal properly
-                className={`fixed inset-0 flex items-center justify-center z-50`}
-                overlayClassName={`${overlayClasses}`}
-            >
-                <div className={`${modalClasses}`}>
-                <SummaryEditor
-                    id={selectedSummary.id} // Pass the summary,
-                    content={selectedSummary.content} // Pass the initial content
-                    type={selectedSummary.type === 'AI' || selectedSummary.type === 'User' ? selectedSummary.type : 'User'} // Pass the summary type
-                    title={selectedSummary.title} // Pass the initial title
-                    onRequestClose={() => setSelectedSummary(null)} // Close the modal
-                    onSave={async (editedTitle, editedContent) => {
-                    try {
-                        // Save the edited summary as a new entry with summary_type === 'User'
-                        // Optionally, you can also update the local state or refetch the summaries
-                        saveSummary(
-                        setLocalSummaryId,
-                        editedTitle || selectedSummary.title, // Use the edited title or the original title
-                        editedContent,
-                        'User',
-                        new Date()
-                        );
-                        closeEditor(); // Close the modal after saving
-                        // setSummary(editedContent, editedTitle, 'User'); // Update the local state
-                        // await refreshGoals(); // Refetch goals if needed
-                        // console.log('Edited summary saved successfully');
-                    } catch (error) {
-                        console.error('Error saving edited summary:', error);
-                    }
-                    }}
-                />
+                {/* Goals List */}
+                <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'>
+                    {sortedAndFilteredGoals.map((goal) => (
+                    <GoalCard
+                        key={goal.id}
+                        goal={goal}
+                        handleDelete={(goalId) => {
+                            handleDeleteGoal(goalId);
+                        }}
+                        handleEdit={(goalId) => {
+                            // console.log('handleEdit called with goalId:', goalId);
+                            const goalToEdit = indexedGoals[currentPage]?.find((goal) => goal.id === goalId);
+                            if (goalToEdit) {
+                                // console.log('Editing goal:', goalToEdit);
+                                setSelectedGoal(goalToEdit);
+                                setIsEditorOpen(true);
+                            }
+                        }}
+                        filter={filter} // Pass the filter prop
+                    />
+                    ))}
                 </div>
-            </Modal>
-            )}
+                {sortedAndFilteredGoals.length === 0 && (
+                    <div className="text-center text-gray-500 mt-4">
+                        No goals found for this {scope}. Try adding one!
+                    </div>
+                )}
+            </div>
+            <div id="summary" className="mt-10 gap-4 flex flex-col w-1/3 h-full justify-start items-start">
+                {/* Summary Generator and Editor */}
+                <div className="mt-6">
+                    <h2 className="text-xl font-semibold text-gray-900">Summary</h2>
+                    <p className="text-gray-60 dark:text-gray-30">Generate and edit your {scope}ly summary.</p>
+                </div>
+                <div id="summary_btn">
+                    {/* {scope}: {selectedRange.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} */}
+                    <SummaryGenerator 
+                        summaryId={selectedSummary?.id || ''} 
+                        summaryTitle={selectedSummary?.title || `Summary for ${scope}: ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}
+                        selectedRange={new Date()}
+                        filteredGoals={indexedGoals[currentPage] || []} // Pass the goals for the current page
+                        scope={scope}
+                    />
+
+                    {selectedSummary && isEditorOpen && (
+                    <Modal
+                        key={selectedSummary.id} // Use the summary ID as the key
+                        isOpen={!!selectedSummary} // Ensure modal is open only when selectedSummary is set
+                        onRequestClose={() => setSelectedSummary(null)} // Close the modal properly
+                        className={`fixed inset-0 flex items-center justify-center z-50`}
+                        overlayClassName={`${overlayClasses}`}
+                    >
+                        <div className={`${modalClasses}`}>
+                        <SummaryEditor
+                            id={selectedSummary.id} // Pass the summary,
+                            content={selectedSummary.content} // Pass the initial content
+                            type={selectedSummary.type === 'AI' || selectedSummary.type === 'User' ? selectedSummary.type : 'User'} // Pass the summary type
+                            title={selectedSummary.title} // Pass the initial title
+                            onRequestClose={() => setSelectedSummary(null)} // Close the modal
+                            onSave={async (editedTitle, editedContent) => {
+                            try {
+                                // Save the edited summary as a new entry with summary_type === 'User'
+                                // Optionally, you can also update the local state or refetch the summaries
+                                saveSummary(
+                                setLocalSummaryId,
+                                editedTitle || selectedSummary.title, // Use the edited title or the original title
+                                editedContent,
+                                'User',
+                                new Date()
+                                );
+                                closeEditor(); // Close the modal after saving
+                                // setSummary(editedContent, editedTitle, 'User'); // Update the local state
+                                // await refreshGoals(); // Refetch goals if needed
+                                // console.log('Edited summary saved successfully');
+                            } catch (error) {
+                                console.error('Error saving edited summary:', error);
+                            }
+                            }}
+                        />
+                        </div>
+                    </Modal>
+                    )}
+                </div>
+            </div>
         </div>
-        <div>
+    <div>
 
         {/* Add Goal Modal */}
         {isGoalModalOpen && (

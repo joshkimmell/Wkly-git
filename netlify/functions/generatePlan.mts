@@ -2,7 +2,7 @@ import { Handler } from '@netlify/functions';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
-dotenv.config({ path: '/Users/joshkimmell/Documents/GitHub/Wkly-git/.env' });
+dotenv.config({ path: '/.env' });
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -40,8 +40,8 @@ export const handler: Handler = async (event) => {
     const prompt = `Create a detailed, actionable plan based on the following goal prompt: "${input}". The plan should include multiple steps, and each step should have the following fields in JSON format:
     [
       {
-        "title": "Step title",
-        "description": "Step description"
+        "title": "Step 1: step.title",
+        "description": "step.description"
       }
     ]
     Ensure the response is a valid JSON array and nothing else.`;
@@ -103,6 +103,28 @@ export const handler: Handler = async (event) => {
           body: JSON.stringify({ error: 'Title and description are required in each step.', response: steps }),
         };
       }
+
+      // Validate and transform each step to ensure proper formatting
+      steps = steps.map((step, index) => {
+        let title = step.title;
+
+        // Ensure title is a string
+        if (typeof title !== 'string') {
+          console.warn(`Invalid title format at step ${index + 1}:`, title);
+          title = JSON.stringify(title); // Fallback to stringifying the title
+        }
+
+        // Prepend step number if not already present
+        const stepNumberPattern = /^Step \d+: /;
+        if (!stepNumberPattern.test(title)) {
+          title = `Step ${index + 1}: ${title}`;
+        }
+
+        return {
+          ...step,
+          title,
+        };
+      });
     } catch (error) {
       console.error('Failed to parse OpenAI response:', cleanText); // Log the invalid response
       return {
