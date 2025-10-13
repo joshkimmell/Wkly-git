@@ -284,7 +284,7 @@ const GoalsComponent = () => {
                 <span className="hidden lg:block lg:pl-2">Add Goal</span>
             </button> */}
         </div>
-        <div className='flex flex-col lg:flex-row space-x-8 items-start justify-start w-full mb-4'>
+        <div className='flex flex-col 2xl:flex-row space-x-8 items-start justify-start w-full mb-4'>
             <div id="allGoals" className="flex flex-col gap-4 w-2/3 lg:w-full">
                 {/* Filter and Sort Controls */}
                 <div className="mt-4 h-10 flex items-center space-x-2">
@@ -315,7 +315,7 @@ const GoalsComponent = () => {
                 </div> 
 
                 {/* Goals List */}
-                <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'>
+                <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 3xl:grid-cols-5 gap-4 w-full'>
                     {sortedAndFilteredGoals.map((goal) => (
                     <GoalCard
                         key={goal.id}
@@ -342,7 +342,7 @@ const GoalsComponent = () => {
                     </div>
                 )}
             </div>
-            <div id="summary" className="mt-10 gap-4 flex flex-col w-1/3 h-full justify-start items-start">
+            <div id="summary" className="mt-10 gap-4 flex flex-col  lg:w-1/3 h-full justify-start items-start">
                 {/* Summary Generator and Editor */}
                 <div className="mt-6">
                     <h2 className="text-xl font-semibold text-gray-900">Summary</h2>
