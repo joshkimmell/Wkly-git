@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 // import { handleDeleteGoal } from '@utils/functions';
 import { Goal, Accomplishment } from '@utils/goalUtils'; // Adjust the import path as necessary
-import { ChevronDown, ChevronUp, Trash, Edit } from 'lucide-react';
+import { ChevronDown, ChevronUp, Trash, Edit, PlusSquare } from 'lucide-react';
 import { cardClasses, modalClasses } from '@styles/classes'; // Adjust the import path as necessary
 import { notifyError, notifySuccess } from './ToastyNotification';
 // import { Link } from 'react-router-dom';
@@ -263,7 +263,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
             onClick={() => openModal()}
             className="mt-2 btn-ghost w-full border-none text-sm font-semibold text-brand-70 dark:text-brand-20 hover:text-brand-90 dark:hover:text-brand-10"
             >
-            Add Accomplishment
+            {/* Add Accomplishment */}
+            <PlusSquare className="w-5 h-5 inline mr-2" /> Add accomplishment
           </button>
           <div className='flex flex-row w-full justify-end'>
             <button

@@ -84,7 +84,11 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
 
       const data = await response.json();
       if (Array.isArray(data.result)) {
-        setGeneratedPlan(data.result);
+        const formattedPlan = data.result.map((step: { title: string; description: string }) => ({
+          ...step,
+          title: typeof step.title === 'string' ? step.title : JSON.stringify(step.title),
+        }));
+        setGeneratedPlan(formattedPlan);
       } else {
         throw new Error('Unexpected response format');
       }
@@ -114,8 +118,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         let parentCategory = newGoal.category;
 
         if (!parentCategory) {
-            parentCategory = "general";
-            console.warn('No category selected. Defaulting to "general".');
+            parentCategory = "General";
+            console.warn('No category selected. Defaulting to "General".');
         }
 
         await bulkAddGoals(stepsToSubmit, user.id, parentCategory, newGoal.week_start);
@@ -312,6 +316,10 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       console.error('Error adding goals:', error);
     }
   };
+
+  // useEffect(() => {
+  //   console.log('Generated Plan:', generatedPlan);
+  // }, [generatedPlan]);
 
   // function closeGoalModal(event: React.MouseEvent<HTMLButtonElement, MouseEvent>): void {
   //   event.preventDefault();
