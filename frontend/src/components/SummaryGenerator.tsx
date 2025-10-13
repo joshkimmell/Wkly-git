@@ -195,7 +195,8 @@ async function handleGenerateFromUtils(
         summaryTitle || generatedSummaryTitle,
         userId,
         weekStart,
-        goalsWithAccomplishments
+        goalsWithAccomplishments,
+        responseLength // Pass the updated response length
       );
 
       setSummary(generatedSummary);

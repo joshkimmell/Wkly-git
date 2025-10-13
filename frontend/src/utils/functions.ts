@@ -605,7 +605,8 @@ export const generateSummary = async (
     description: string;
     category: string;
     accomplishments: { title: string; description: string; impact: string }[];
-  }[]
+  }[],
+  responseLength?: number // Add optional responseLength parameter
 ): Promise<string> => {
   try {
     const summaryId = id || uuidv4();
@@ -622,6 +623,7 @@ export const generateSummary = async (
         user_id: userId,
         week_start: weekStart,
         goalsWithAccomplishments,
+        responseLength, // Include responseLength in the request body if provided
       }),
     });
 
