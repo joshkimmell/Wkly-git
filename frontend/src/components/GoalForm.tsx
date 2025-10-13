@@ -123,6 +123,20 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         // Clear the generated plan and selected steps
         setGeneratedPlan([]);
         setSelectedSteps([]);
+
+        // Reset the wizard to defaults
+        setNewGoal({
+            id: '',
+            title: '',
+            description: '',
+            category: '',
+            week_start: '',
+            user_id: '',
+            created_at: ''
+        });
+        setCurrentStep(1);
+        setSelectedSteps([]);
+        setGeneratedPlan([]);
     };
 
   const addGoal = async (goal: Goal) => {

@@ -6,6 +6,7 @@ import { Accomplishment } from '@utils/goalUtils'; // Adjust the import path as 
 import AccomplishmentCard from './AccomplishmentCard';
 import AccomplishmentEditor from './AccomplishmentEditor';
 import { modalClasses, overlayClasses } from '@styles/classes';
+import { notifyError, notifySuccess } from './ToastyNotification';
 // import { over } from 'lodash';
 
 Modal.setAppElement('#root');
@@ -122,10 +123,12 @@ const AllAccomplishments = () => {
 
       if (error) {
         console.error('Error deleting accomplishment:', error.message);
+        notifyError('Error deleting accomplishment.');
         return;
       }
 
       fetchAccomplishments(); // Refresh accomplishments after deleting
+      notifySuccess('Accomplishment deleted successfully.');
     } catch (err) {
       console.error('Unexpected error deleting accomplishment:', err);
     }
@@ -313,66 +316,54 @@ const AllAccomplishments = () => {
               overlayClassName={`${overlayClasses}`}
             >
               <div className={`${modalClasses}`}>
-              <AccomplishmentEditor
-                id={selectedAccomplishment ? selectedAccomplishment.id : ''}
-                title={selectedAccomplishment ? selectedAccomplishment.title : ''}
-                description={selectedAccomplishment ? selectedAccomplishment.description : ''}
-                impact={selectedAccomplishment ? selectedAccomplishment.impact : ''}
-                goal_id={selectedAccomplishment ? selectedAccomplishment.goal_id : ''}
-                onRequestClose={closeEditor as () => void}
-                onSave={async (updatedDescription: string, updatedTitle: string, updatedImpact: string) => {
-                  if (!selectedAccomplishment) return;
-                  const updatedAccomplishment = {
-                    ...selectedAccomplishment,
-                    description: updatedDescription,
-                    title: updatedTitle,
-                    impact: updatedImpact,
-                  };
+              {selectedAccomplishment ? (
+                <AccomplishmentEditor
+                  accomplishment={selectedAccomplishment}
+                  onRequestClose={closeEditor}
+                  onSave={async (updatedDescription: string, updatedTitle: string, updatedImpact?: string) => {
+                    if (!selectedAccomplishment) return;
+                    const updatedAccomplishment = {
+                      ...selectedAccomplishment,
+                      description: updatedDescription,
+                      title: updatedTitle,
+                      impact: updatedImpact || '',
+                    };
 
-                  try {
-                    const { error } = await supabase
-                      .from('accomplishments')
-                      .update({
-                        description: updatedDescription,
-                        title: updatedTitle,
-                        impact: updatedImpact,
-                      })
-                      .eq('id', updatedAccomplishment.id);
+                    try {
+                      const { error } = await supabase
+                        .from('accomplishments')
+                        .update({
+                          description: updatedDescription,
+                          title: updatedTitle,
+                          impact: updatedImpact || '',
+                        })
+                        .eq('id', updatedAccomplishment.id);
 
-                    if (error) {
-                      console.error('Error updating accomplishment:', error.message);
-                      return;
+                      if (error) {
+                        console.error('Error updating accomplishment:', error.message);
+                        notifyError('Error updating accomplishment.');
+                        return;
+                      }
+
+                      setFilteredAccomplishments((prev: Accomplishment[]) =>
+                        prev.map((accomplishment: Accomplishment) =>
+                          accomplishment.id === updatedAccomplishment.id
+                            ? updatedAccomplishment
+                            : accomplishment
+                        )
+                      );
+                      closeEditor();
+                      // notifySuccess('Accomplishment updated successfully.');
+                    } catch (err) {
+                      console.error('Unexpected error updating accomplishment:', err);
                     }
-
-                    setFilteredAccomplishments((prev: Accomplishment[]) =>
-                      prev.map((accomplishment: Accomplishment) =>
-                        accomplishment.id === updatedAccomplishment.id
-                          ? updatedAccomplishment
-                          : accomplishment
-                      )
-                    );
-                    closeEditor();
-                  } catch (err) {
-                    console.error('Unexpected error updating accomplishment:', err);
-                  }
-                }}
-                onUpdate={(updatedAccomplishment: Accomplishment) => {
-                  setFilteredAccomplishments((prev: Accomplishment[]) =>
-                    prev.map((accomplishment: Accomplishment) =>
-                      accomplishment.id === updatedAccomplishment.id
-                        ? updatedAccomplishment
-                        : accomplishment
-                    )
-                  );
-                  closeEditor();
-                }}
-                onDelete={(id: string) => {
-                  setFilteredAccomplishments((prev: Accomplishment[]) =>
-                    prev.filter((accomplishment: Accomplishment) => accomplishment.id !== id)
-                  );
-                  closeEditor();
-                }}
-              />
+                  }}
+                />
+              ) : (
+                <div className="p-4 text-center">
+                  <p className="text-gray-500">No accomplishment selected for editing.</p>
+                </div>
+              )}
               </div>
             </Modal>
         )}

@@ -5,107 +5,99 @@ import { Accomplishment } from '@utils/goalUtils'; // Import the addCategory fun
 import { notifySuccess } from '@components/ToastyNotification';
 
 
-  interface AccomplishmentEditorProps {
-    id: string;
-    title: string;
-    description: string;
-    impact: string;
-    goal_id: string;
-    // onAddCategory: (newCategory: string) => void;
-    onRequestClose: () => void;
-    onSave: (updatedDescription: string, updatedTitle: string, updatedImpact: string) => Promise<void>; // 
-    // Updated to include updatedTitle
-    onUpdate: (updatedAccomplishment: Accomplishment) => void;
-    onDelete: (id: string) => void;
+interface AccomplishmentEditorProps {
+  accomplishment: Accomplishment; // Added accomplishment prop
+  onRequestClose: () => void;
+  onSave: (updatedDescription: string, updatedTitle: string, updatedImpact?: string) => Promise<void>; // Made updatedImpact optional
+}
+
+const AccomplishmentEditor: React.FC<AccomplishmentEditorProps> = ({ 
+  accomplishment,
+  onRequestClose,
+  onSave,
+}) => {
+  const [updatedAccomplishment, setUpdatedAccomplishment] = useState<Accomplishment>({
+    ...accomplishment,
+    title: accomplishment.title || '',
+    description: accomplishment.description || '',
+    impact: accomplishment.impact || '', // Default to an empty string if undefined
+  });
+
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    try {
+      await onSave(
+        updatedAccomplishment.description,
+        updatedAccomplishment.title,
+        updatedAccomplishment.impact || undefined // Pass undefined if impact is empty
+      );
+      onRequestClose();
+    } catch (error) {
+      console.error('Error saving edited accomplishment:', error);
+    }
+    notifySuccess('Accomplishment updated successfully.');
+  };
+
+  const handleFieldChange = (field: keyof Accomplishment, value: string) => {
+    setUpdatedAccomplishment((prev) => ({ ...prev, [field]: value }));
+  };
+
+  if (!accomplishment) {
+    return (
+      <div className="text-red-500">Error: No accomplishment data provided.</div>
+    );
   }
 
-  // id: string;
-  // title: string;
-  // description: string;
-  // impact: string;
-  // goal_id: string;
-  // user_id: string;
-  // created_at: string;
-const AccomplishmentEditor: React.FC<AccomplishmentEditorProps> = ({ 
-    title: initialTitle,
-    description: initialDescription,
-    impact: initialImpact,
-    goal_id,
-    onRequestClose,
-    onSave,
-  }) => {
-  const [updatedAccomplishment, setUpdatedAccomplishment] = useState<Accomplishment>({
-    title: initialTitle,
-    description: initialDescription,
-    impact: initialImpact,
-    goal_id: goal_id, // Assuming you will set this when editing an existing accomplishment
-    id: '', // Add appropriate default value
-    user_id: '', // Add appropriate default value
-    created_at: new Date().toISOString(), // Add appropriate default value
-  });
-    
-    const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        try {
-            await onSave(
-                updatedAccomplishment.description,
-                updatedAccomplishment.title,
-                updatedAccomplishment.impact,
-            );
-            onRequestClose(); // Close the editor after saving
-        } catch (error) {
-            console.error('Error saving edited goal:', error);
-        }
-        notifySuccess('Accomplishment updated successfully.');
-    };
-    
-    const handleFieldChange = (field: keyof Accomplishment, value: string) => {
-        setUpdatedAccomplishment((prevAccomplishment) => ({ ...prevAccomplishment, [field]: value })); // Preserve other fields
-    };
+  return (
+    <form onSubmit={handleSave} id="accomplishmentEditorForm">
 
-    return (
-        <form onSubmit={handleSave} id="goalEditorForm">
+      <label htmlFor="title_acc" className="block mb-2 text-sm font-medium text-gray-700">
+        Title
+      </label>
+      <input
+        type="text"
+        name="title_acc"
+        id="title_acc"
+        value={updatedAccomplishment.title}
+        onChange={(e) => handleFieldChange('title', e.target.value)}
+        className="w-full p-2 mb-4"
+        placeholder="Enter accomplishment title"
+      />
 
-            <label htmlFor="description" className="block mb-2 text-sm font-medium text-gray-700">
-              Title
-            </label>
-            {/* Input for editing the title */}
-            <input
-                type="text"
-                name="title"
-                value={updatedAccomplishment.title}
-                onChange={(e) => handleFieldChange('title', e.target.value)} // Update title state
-                className="w-full p-2 mb-4 border rounded"
-                placeholder="Enter accomplishment title"
-            />
-            <label htmlFor="description" className="block mb-2 text-sm font-medium text-gray-700">
-              Description
-            </label>
-            {/* ReactQuill editor for editing the content */}
-            <ReactQuill
-                value={updatedAccomplishment.description}
-                onChange={(value) => handleFieldChange('description', value)} // Update description state
-                className="mb-4"
-            />
-            <label htmlFor="description" className="block mb-2 text-sm font-medium text-gray-700">
-              Impact
-            </label>
-            <ReactQuill
-                value={updatedAccomplishment.impact}
-                onChange={(value) => handleFieldChange('impact', value)} // Update impact state
-                className="mb-4"
-            />
-          
-            <div className="flex justify-end mt-4 space-x-2 text-gray-90 dark:text-gray-10">
-                <button className="btn btn-secondary" onClick={onRequestClose} type="button">
-                    Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                    Save accomplishment
-                </button>
-            </div>
-        </form>
-    );
+      <label htmlFor="description_acc" className="block mb-2 text-sm font-medium text-gray-700">
+        Description
+      </label>
+      <ReactQuill
+        id="description_acc"
+        value={updatedAccomplishment.description}
+        onChange={(value) => handleFieldChange('description', value)}
+        className="mb-4"
+      />
+
+        <label htmlFor="impact" className="block mb-2 text-sm font-medium text-gray-70">
+        Impact (Optional)
+        </label>
+        <input
+        name="impact"
+        id="impact"
+        type="text"
+        value={updatedAccomplishment.impact || ''}
+        onChange={(e) => handleFieldChange('impact', e.target.value)}
+        className="w-full p-2 mb-4"
+        placeholder="Enter impact (optional)"
+        />
+        
+
+      <div className="flex justify-end mt-4 space-x-2 text-gray-90 dark:text-gray-10">
+        <button className="btn btn-secondary" onClick={onRequestClose} type="button">
+          Cancel
+        </button>
+        <button type="submit" className="btn btn-primary">
+          Save accomplishment
+        </button>
+      </div>
+    </form>
+  );
 };
 
 export default AccomplishmentEditor;

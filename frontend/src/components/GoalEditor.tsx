@@ -173,12 +173,12 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
                 className="w-full p-2 mb-4 border rounded"
                 placeholder="Enter goal title"
             /> */}
-            <label htmlFor="title" className="block text-sm font-medium text-gray-70">
+            <label htmlFor="title_goal" className="block text-sm font-medium text-gray-70">
               Title
             </label>
             <input
               type="text"
-              id="title"
+              id="title_goal"
               value={updatedGoal.title}
               onChange={(e) => handleFieldChange('title', e.target.value)}
               className="mt-1 block w-full border-gray-30 focus:border-b-2 focus:ring-0"
@@ -203,13 +203,13 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
               /> */}
             </div>
             <div className='flex flex-col'>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-70">
+              <label htmlFor="description_goal" className="block text-sm font-medium text-gray-70">
                 Description
               </label>
               {/* ReactQuill editor for editing the content */}
               <ReactQuill
                   ref={quillRef}
-                  id='description'
+                  id="description_goal"
                   value={updatedGoal.description}
                   theme="snow"
                   onChange={(value) => handleFieldChange('description', value)} // Update description state
@@ -222,11 +222,12 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
               />
             </div>
             <div>
-            <label htmlFor="category" className="block text-sm font-medium text-gray-30 dark:text-gray-70">
+            <label htmlFor="category_goal" className="block text-sm font-medium text-gray-30 dark:text-gray-70">
               Category
             </label>
             <div className="relative">
               <a
+                id="category_goal"
                 onClick={handleCategoryModalOpen}
                 className="btn-ghost text-brand-60 dark:text-brand-20 cursor-pointer flex px-4 py-1 rounded-md w-full text-left items-center justify-between text-xl sm:text-lg md:text-xl lg:text-2xl"
               >
@@ -256,6 +257,7 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
                   <div className="p-4 bg-gray-10 dark:bg-gray-90 rounded-lg shadow-lg w-full max-w-md">
                     <h2 className="text-lg font-bold mb-4">Select or Add a Category</h2>
                     <input
+                      id="category_search"
                       type="text"
                       value={searchTerm}
                       onChange={(e) => {
