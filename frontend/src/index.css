@@ -57,7 +57,7 @@
   }
 
   .goal-category {
-      @apply flex flex-col w-auto px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-10 text-brand-90 mt-2;
+      @apply flex flex-col w-auto px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-10 dark:bg-brand-70 text-brand-90 dark:text-brand-20 mt-2;
   }
 
   .goal-week-start {
@@ -69,7 +69,7 @@
   }
 
   .card-category {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-10 text-brand-90 mt-2;
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-10 dark:bg-brand-80 text-brand-90 dark:text-brand-10 mt-2;
   }
   .card-category span.highlight {
     @apply inline bg-brand-30 text-brand-80 ;

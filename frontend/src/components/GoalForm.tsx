@@ -3,7 +3,7 @@ import { getWeekStartDate, fetchCategories } from '@utils/functions'; // Import 
 import { Goal } from '@utils/goalUtils'; // Import the addCategory function
 import supabase from '@lib/supabase'; // Import Supabase client
 import LoadingSpinner from '@components/LoadingSpinner';
-import { SearchIcon } from 'lucide-react';
+import { SearchIcon, RefreshCw } from 'lucide-react';
 import Modal from 'react-modal';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css'; // Import Quill styles
@@ -103,79 +103,97 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
   };
 
   const applyPlan = async () => {
-    // const currentWeek = new Date().toISOString().split('T')[0];
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error || !user) {
+            console.error('Error fetching user ID:', error?.message || 'User not authenticated');
+            return;
+        }
 
-    // Fetch the authenticated user's ID
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) {
-      console.error('Error fetching user ID:', error?.message || 'User not authenticated');
-      return;
-    }
+        const stepsToSubmit = generatedPlan.filter((_, index) => selectedSteps.includes(index));
 
-    const userId = user.id;
+        let parentCategory = newGoal.category;
 
-    const stepsToSubmit = generatedPlan.filter((_, index) => selectedSteps.includes(index));
+        if (!parentCategory) {
+            parentCategory = "general";
+            console.warn('No category selected. Defaulting to "general".');
+        }
 
-    // Ensure all steps share the same category as the parent goal
-    let parentCategory = newGoal.category;
+        await bulkAddGoals(stepsToSubmit, user.id, parentCategory, newGoal.week_start);
 
-    if (!parentCategory) {
-      // Default to "general" if no category is selected
-      parentCategory = "general";
-      console.warn('No category selected. Defaulting to "general".');
-    }
-
-    stepsToSubmit.forEach((step) => {
-      const goal = {
-        ...step,
-        category: parentCategory, // Override category with the parent goal's category
-        week_start: newGoal.week_start,
-        user_id: userId,
-      };
-
-      // Log the goal being added
-      // console.log('Adding goal:', goal);
-
-      if (!goal.title || !goal.description || !goal.category || !goal.week_start || !goal.user_id) {
-        console.error('Missing required fields:', goal);
-        return;
-      }
-
-      // Call a separate function to handle adding the goal
-      addGoal(goal);
-    });
-
-    setGeneratedPlan([]);
-    setSelectedSteps([]);
-  };
+        // Clear the generated plan and selected steps
+        setGeneratedPlan([]);
+        setSelectedSteps([]);
+    };
 
   const addGoal = async (goal: Goal) => {
     try {
+      // Ensure week_start is formatted as YYYY-MM-DD
+      if (goal.week_start) {
+        goal.week_start = goal.week_start.split('T')[0];
+      } else {
+        throw new Error('week_start is required and must be a valid date.');
+      }
+
+      console.log('Adding goal with week_start:', goal.week_start); // Log week_start value
+
+      // Fetch the authenticated user's ID
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('User not authenticated. Please log in to add a goal.');
+      }
+
+      // Add the user_id to the goal object
+      goal.user_id = user.id;
+
       // Validate that the category exists in the database
-      const { data: existingCategory, error: categoryError } = await supabase
+      const { error: categoryError } = await supabase
         .from('categories')
         .select('name')
         .eq('name', goal.category)
         .single();
 
-      if (categoryError || !existingCategory) {
-        console.error(`Category '${goal.category}' does not exist. Please create it first.`);
-        return;
+      if (categoryError && categoryError.code === 'PGRST116') {
+        console.warn('Category does not exist:', goal.category);
+
+        // Prompt the user to create the category or go back
+        const userConfirmed = window.confirm(
+          `The category "${goal.category}" does not exist. Would you like to create it?`
+        );
+
+        if (!userConfirmed) {
+          console.warn('User chose to go back and select an existing category.');
+          return;
+        }
+
+        // Create the category if the user confirms
+        const { error: insertCategoryError } = await supabase
+          .from('categories')
+          .insert({ name: goal.category });
+
+        if (insertCategoryError) {
+          throw new Error(`Error creating category: ${insertCategoryError.message}`);
+        }
+
+        console.log('Category successfully created:', goal.category);
+      } else if (categoryError) {
+        throw new Error('Error fetching category: ' + categoryError.message);
       }
 
+      // Remove fields that should not be sent to the database
+      const { created_at, id, ...goalToInsert } = goal;
+
       // Insert the goal into the database
-      const { error } = await supabase.from('goals').insert(goal);
+      const { error } = await supabase.from('goals').insert(goalToInsert);
 
       if (error) {
-        console.error('Error adding goal to the database:', error.message);
-        return;
+        throw new Error(`Error adding goal to the database: ${error.message}`);
       }
 
       console.log('Goal successfully added:', goal);
 
       // Re-fetch the updated list of goals
       if (refreshGoals) {
-        await refreshGoals(); // Call the refreshGoals function if available
+        await refreshGoals();
       } else {
         console.warn('refreshGoals function is not available. Ensure it is passed as a prop.');
       }
@@ -184,6 +202,47 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       handleClose();
     } catch (error) {
       console.error('Error adding goal:', error);
+    }
+  };
+
+  const bulkAddGoals = async (steps: Goal[], userId: string, parentCategory: string, weekStart: string) => {
+    try {
+      // Ensure week_start is formatted as YYYY-MM-DD
+      const formattedWeekStart = weekStart.split('T')[0];
+
+      console.log('Bulk adding goals with default week_start:', formattedWeekStart); // Log default week_start value
+
+      // Insert all goals into the database
+      await Promise.all(
+        steps.map(async (step, index) => {
+          const goal = {
+            ...step,
+            user_id: userId,
+            category: parentCategory,
+            week_start: step.week_start ? step.week_start.split('T')[0] : formattedWeekStart, // Use step's week_start if available
+          };
+
+          console.log(`Adding goal at index ${index} with week_start:`, goal.week_start); // Log each goal's week_start
+
+          const { error: insertError } = await supabase.from('goals').insert(goal);
+
+          if (insertError) {
+            throw new Error(`Error adding goal at index ${index}: ${insertError.message}`);
+          }
+        })
+      );
+
+      console.log('All goals successfully inserted.');
+
+      // Refresh the goals in the UI
+      if (refreshGoals) {
+        await refreshGoals();
+        console.log('Goals refreshed successfully.');
+      } else {
+        console.warn('refreshGoals function is not available. Ensure it is passed as a prop.');
+      }
+    } catch (err) {
+      console.error('Error during bulk goal insertion or refresh:', err);
     }
   };
 
@@ -201,47 +260,43 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       return;
     }
 
-    // Check if the current step is the final step
+    // Check if the current step is the final step in the wizard
     if (showWizard && currentStep !== 3) {
       console.warn('Add Goal(s) button must be clicked to add the goal.');
       return;
     }
 
-    // Fetch the authenticated user's ID
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) {
-      console.error('Error fetching user ID:', error?.message || 'User not authenticated');
+    try {
+      // Use the addGoal function to insert the goal into the database
+      await addGoal(newGoal);
+    } catch (error) {
+      console.error('Error adding goal:', error);
+    }
+    console.log('Adding goal with week_start:', newGoal); // Goal value
+  };
+  const handleBulkAddGoals = async (event: React.FormEvent) => {
+    event.preventDefault(); // Prevent default form submission
+    if (selectedSteps.length === 0) {
+      console.warn('No steps selected. Please select at least one step to add goals.');
       return;
     }
-
-    const userId = user.id;
-
-    // Ensure week_start is formatted as YYYY-MM-DD
-    if (newGoal.week_start) {
-      newGoal.week_start = newGoal.week_start.split('T')[0];
-    }
-
-    // Create the goal payload
-    const { created_at, id, ...goalToAdd } = {
-      ...newGoal,
-      user_id: userId, // Include user_id
-    };
-
-    // console.log('Adding goal:', goalToAdd);
-
-    // Insert goal into the database
-    const { error: insertError } = await supabase.from('goals').insert(goalToAdd);
-
-    if (insertError) {
-      console.error('Error adding goal to the database:', insertError.message);
+    if (!newGoal.category) {
+      console.warn('No category selected. Please select a category before adding the goals.');
+      setIsCategoryModalOpen(true); // Reopen the category modal if no category is selected
       return;
     }
-
-    // console.log('Goal successfully added:', goalToAdd);
-
-    // Refresh goals and close the form
-    refreshGoals();
-    handleClose();
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) {
+        console.error('Error fetching user ID:', error?.message || 'User not authenticated');
+        return;
+      }
+      await applyPlan();
+      // Close the modal
+      handleClose();
+    } catch (error) {
+      console.error('Error adding goals:', error);
+    }
   };
 
   // function closeGoalModal(event: React.MouseEvent<HTMLButtonElement, MouseEvent>): void {
@@ -264,11 +319,12 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
   
   
   return (
-    <form onSubmit={handleAddGoal} className="space-y-4">
-      {/* Toggle switch to replace the checkbox */}
+    <>
+    <form className="space-y-4">
       <div className="mt-6 flex justify-end space-x-4">
         <label className="block text-sm font-medium text-gray-700">Generate goals</label>
         <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+          {/* Toggle switch to replace the checkbox */}
           <input
             type="checkbox"
             name="toggle"
@@ -283,295 +339,298 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
           ></label>
         </div>
       </div>
-      {/* Wizard steps */}
-      {showWizard ? (
-        <>
-          {currentStep === 1 && (
-            <div>
-              <label htmlFor="natural-language-input" className="block text-sm font-medium text-gray-70" >
-                Describe your goal
-              </label>
-              <textarea
-                id="natural-language-input"
-                value={naturalLanguageInput}
-                onChange={(e) => setNaturalLanguageInput(e.target.value)}
-                className="mt-1 block w-full h-[20vh] border-b-gray-30 shadow-sm focus:border-b-2 sm:text-lg md:text-xl lg:text-2xl placeholer:gray-50 placeholder:italic"
-                placeholder='Describe your goal in a few sentences, e.g. "I want to improve my physical fitness by exercising regularly and eating healthier."'
-              />
-              <div className="mt-4 space-x-4 w-full justify-end ">
-                <button
-                  onClick={handleClose}
-                  className="btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button type="button" onClick={() => { handleGeneratePlan(); goToNextStep(); }} className="btn-primary mt-4">
-                  Generate Plan
-                </button>
-              </div>
+    </form>
+    {/* Wizard steps */}
+    {showWizard ? (
+      <form onSubmit={handleBulkAddGoals} className="space-y-4">
+        {currentStep === 1 && (
+          <div>
+            <label htmlFor="natural-language-input" className="block text-sm font-medium text-gray-70" >
+              Describe your goal
+            </label>
+            <textarea
+              id="natural-language-input"
+              value={naturalLanguageInput}
+              onChange={(e) => setNaturalLanguageInput(e.target.value)}
+              className="mt-1 block w-full h-[20vh] border-b-gray-30 shadow-sm focus:border-b-2 sm:text-lg md:text-xl lg:text-2xl placeholer:gray-50 placeholder:italic"
+              placeholder='Describe your goal in a few sentences, e.g. "I want to improve my physical fitness by exercising regularly and eating healthier."'
+            />
+            <div className="mt-4 space-x-4 w-full justify-end ">
+              <button
+                onClick={handleClose}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button type="button" onClick={() => { handleGeneratePlan(); goToNextStep(); }} className="btn-primary mt-4">
+                Generate Plan
+              </button>
             </div>
-          )}
+          </div>
+        )}
 
-          {currentStep === 2 && (
-            <div className='relative'>
-              {isGenerating && (
-                <div className="absolute h-full w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center z-100">
-                  <div className="loader"><LoadingSpinner /></div>
-                  <span className="ml-2">Generating plan...</span>
-                </div>
-              )}
-              {error && (
-                <div className="absolute h-full w-full gap-2 bg-gray-10 dark:bg-gray-90 justify-center items-center">
-                  <h2 className='text-lg font-bold'>Error!</h2> 
-                  <p className='text-red-500 h-1/2 overflow-auto p-4 mt-4 mb-4 items-start'>{error}</p>
-                  <div className="mt-4 space-x-2">
-                    <button type="button" onClick={goToPreviousStep} className="btn-secondary">
-                      Back
-                    </button>
-                    <button className='btn-primary' onClick={handleGeneratePlan}>Try regenerating the plan</button>
-                  </div>
-                </div>
-              )}
-              <h3 className="text-lg font-medium">Select Steps to Include as Goals</h3>
-              <div className='mt-2 flex items-center m-2'>
-                <input
-                  type="checkbox"
-                  id="select-all"
-                  checked={selectedSteps.length === generatedPlan.length && generatedPlan.length > 0}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setSelectedSteps(generatedPlan.map((_, index) => index));
-                    } else {
-                      setSelectedSteps([]);
-                    }
-                  }}
-                  className="m-2 size-5 rounded-full cursor-pointer"
-                />
-                <label htmlFor="select-all" className="ml-2 cursor-pointer">Select All</label>
+        {currentStep === 2 && (
+          <div className='relative'>
+            {isGenerating && (
+              <div className="absolute h-full w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center z-100">
+                <div className="loader"><LoadingSpinner /></div>
+                <span className="ml-2">Generating plan...</span>
               </div>
-              <ul className="max-h-96 overflow-y-auto border-b-2 border-gray-30">
-                {generatedPlan.map((step, index) => (
-                  <li
-                    key={index}
-                    className="flex gap-4 bg-gray-10 hover:bg-gray-30 dark:bg-gray-90 dark:hover:bg-gray-80 p-4 items-start space-x-2 text-gray-90 dark:text-gray-20 cursor-pointer"
-                    onClick={() => toggleStepSelection(index)}
-                  >
-                    <div className="flex items-start w-full">
-                      <input
-                        type="checkbox"
-                        checked={selectedSteps.includes(index)}
-                        onChange={(e) => e.stopPropagation()} // Prevent parent click event
-                        className="step-checkbox m-2 size-5 rounded-full cursor-pointer"
-                      />
-                      <div className="ml-4">
-                        <strong>{step.title}</strong>: {step.description}
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-
-
-              <div className="mt-4">
-                <label htmlFor="category-wizard" className="block text-sm font-medium text-gray-70">
-                  Category
-                </label>
-                <div className="mt-2 mb-4">
-                  <button
-                    onClick={() => {
-                      setSearchTerm('');
-                      setFilteredCategories(categories);
-                      setIsCategoryModalOpen(true);
-                    }}
-                    className="btn-ghost w-full text-left justify-between text-xl sm:text-lg md:text-xl lg:text-2xl"
-                  >
-                    {newGoal.category || '-- Select a category --'}
-                    <SearchIcon className="w-5 h-5 inline-block ml-2" />
+            )}
+            {error && (
+              <div className="absolute h-full w-full gap-2 bg-gray-10 dark:bg-gray-90 justify-center items-center">
+                <h2 className='text-lg font-bold'>Error!</h2> 
+                <p className='text-red-500 h-1/2 overflow-auto p-4 mt-4 mb-4 items-start'>{error}</p>
+                <div className="mt-4 space-x-2">
+                  <button type="button" onClick={goToPreviousStep} className="btn-secondary">
+                    Back
                   </button>
-
-                  {/* Ensure the modal is only rendered when `isCategoryModalOpen` is true */}
-                  {isCategoryModalOpen && (
-                    <Modal
-                      id='category-list'
-                      isOpen={isCategoryModalOpen}
-                      onRequestClose={() => setIsCategoryModalOpen(false)}
-                      className="fixed inset-0 flex items-center justify-center z-50"
-                      overlayClassName="fixed inset-0 bg-black bg-opacity-10"
-                      style={{
-                        content: {
-                          width: 'calc(100% - 8px)',
-                          height: '100%',
-                          margin: 'auto',
-                        },
-                      }}
-                    >
-                      <div className="p-4 bg-gray-10 dark:bg-gray-80 rounded-lg shadow-lg w-full max-w-md">
-                        <h2 className="text-lg font-bold mb-4">Select or Add a Category</h2>
-                        <input
-                          type="text"
-                          value={searchTerm}
-                          onChange={(e) => {
-                            setSearchTerm(e.target.value);
-                            const filtered = categories.filter((category) =>
-                              category.name.toLowerCase().includes(e.target.value.toLowerCase())
-                            );
-                            setFilteredCategories(filtered);
-                          }}
-                          className="w-full text-md p-2 border border-gray-60 focus:outline-none focus:ring-2 focus:ring-brand-50 mb-4 placeholder:gray-50 placeholder:italic"
-                          placeholder="Find or create a category"
-                        />
-                        <ul className="max-h-60 text-gray-80 dark:text-gray-30 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-70">
-                          {filteredCategories.map((category) => (
-                            <li
-                              key={category.id}
-                              className="p-2 hover:bg-gray-20 dark:hover:bg-gray-70 cursor-pointer"
-                              onClick={() => {
-                                setNewGoal({ ...newGoal, category: category.name });
-                                setIsCategoryModalOpen(false);
-                              }}
-                            >
-                              {category.name}
-                            </li>
-                          ))}
-                          {filteredCategories.length === 0 && (
-                            <li key="no-matching" className="p-2 text-gray-30 dark:text-gray-70">No matching categories found.</li>
-                          )}
-                        </ul>
-                        {filteredCategories.length === 0 && (
-                          <button
-                            onClick={async () => {
-                              if (!searchTerm.trim()) return;
-
-                              try {
-                                const { data: { user }, error: userError } = await supabase.auth.getUser();
-                                if (userError || !user) {
-                                  console.error('Error fetching user ID:', userError?.message || 'User not authenticated');
-                                  return;
-                                }
-
-                                const userId = user.id;
-
-                                const { data: existingCategory, error: fetchError } = await supabase
-                                  .from('categories')
-                                  .select('name')
-                                  .eq('name', searchTerm.trim())
-                                  .single();
-
-                                if (fetchError && fetchError.code !== 'PGRST116') {
-                                  console.error('Error checking category existence:', fetchError.message);
-                                  return;
-                                }
-
-                                if (!existingCategory) {
-                                  const { error: insertError } = await supabase
-                                    .from('categories')
-                                    .insert({ name: searchTerm.trim(), user_id: userId });
-
-                                  if (insertError) {
-                                    console.error('Error adding category:', insertError.message);
-                                    return;
-                                  }
-
-                                  console.log('Category added successfully.');
-                                } else {
-                                  console.log('Category already exists.');
-                                }
-
-                                setNewGoal({ ...newGoal, category: searchTerm.trim() });
-                                setIsCategoryModalOpen(false);
-                              } catch (error) {
-                                console.error('Unexpected error:', error);
-                              }
-                            }}
-                            className="btn-primary mt-4"
-                          >
-                            Save as New Category
-                          </button>
-                        )}
-                        <button
-                          onClick={() => setIsCategoryModalOpen(false)}
-                          className="btn-secondary mt-4"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </Modal>
-                  )}
+                  <button className='btn-primary' onClick={handleGeneratePlan}>Try regenerating the plan</button>
                 </div>
               </div>
+            )}
+            <h3 className="text-lg font-medium">Select Steps to Include as Goals</h3>
+            <div className='mt-2 flex items-center m-2'>
+              <input
+                type="checkbox"
+                id="select-all"
+                checked={selectedSteps.length === generatedPlan.length && generatedPlan.length > 0}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedSteps(generatedPlan.map((_, index) => index));
+                  } else {
+                    setSelectedSteps([]);
+                  }
+                }}
+                className="m-2 size-5 rounded-full cursor-pointer"
+              />
+              <label htmlFor="select-all" className="ml-2 cursor-pointer">Select All</label>
+            </div>
+            <ul className="max-h-96 overflow-y-auto border-b-2 border-gray-30">
+              {generatedPlan.map((step, index) => (
+                <li
+                  key={index}
+                  className="flex gap-4 bg-gray-10 hover:bg-gray-30 dark:bg-gray-90 dark:hover:bg-gray-80 p-4 items-start space-x-2 text-gray-90 dark:text-gray-20 cursor-pointer"
+                  onClick={() => toggleStepSelection(index)}
+                >
+                  <div className="flex items-start w-full">
+                    <input
+                      type="checkbox"
+                      checked={selectedSteps.includes(index)}
+                      onChange={(e) => e.stopPropagation()} // Prevent parent click event
+                      className="step-checkbox m-2 size-5 rounded-full cursor-pointer"
+                    />
+                    <div className="ml-4">
+                      <strong>{step.title}</strong>: {step.description}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
 
-              <div>
-                <label htmlFor="week_start-wizard" className="block text-sm font-medium text-gray-700">
-                  Week Start
-                </label>
-                <input
-                  type="date"
-                  id="week_start-wizard"
-                  value={newGoal.week_start}
-                  onChange={(e) => {
-                    const selectedDate = new Date(e.target.value);
-                    if (selectedDate.getDay() === 0) {
-                      setNewGoal({ ...newGoal, week_start: selectedDate.toISOString().split('T')[0] });
-                    } else {
-                      const calculatedMonday = getWeekStartDate(selectedDate);
-                      setNewGoal({ ...newGoal, week_start: calculatedMonday });
-                    }
+
+            <div className="mt-4">
+              <label htmlFor="category-wizard" className="block text-sm font-medium text-gray-70">
+                Category
+              </label>
+              <div className="mt-2 mb-4">
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setFilteredCategories(categories);
+                    setIsCategoryModalOpen(true);
                   }}
-                  className="mt-1 w-full"
-                  required
-                />
-              </div>
-              <div className="mt-4 space-x-2">
-                <button
-                  onClick={handleClose}
-                  className="btn-secondary"
+                  className="btn-ghost w-full text-left justify-between text-xl sm:text-lg md:text-xl lg:text-2xl"
                 >
-                  Cancel
+                  {newGoal.category || '-- Select a category --'}
+                  <SearchIcon className="w-5 h-5 inline-block ml-2" />
                 </button>
-                <button type="button" onClick={goToPreviousStep} className="btn-secondary">
-                  Back
-                </button>
-                <button type="button" onClick={handleGeneratePlan} className="btn-secondary">
-                  Regenerate Plan
-                </button>
-                <button type="button" onClick={goToNextStep} className="btn-primary">
-                  Apply Plan
-                </button>
+
+                {/* Ensure the modal is only rendered when `isCategoryModalOpen` is true */}
+                {isCategoryModalOpen && (
+                  <Modal
+                    id='category-list'
+                    isOpen={isCategoryModalOpen}
+                    onRequestClose={() => setIsCategoryModalOpen(false)}
+                    className="fixed inset-0 flex items-center justify-center z-50"
+                    overlayClassName="fixed inset-0 bg-black bg-opacity-10"
+                    style={{
+                      content: {
+                        width: 'calc(100% - 8px)',
+                        height: '100%',
+                        margin: 'auto',
+                      },
+                    }}
+                  >
+                    <div className="p-4 bg-gray-10 dark:bg-gray-80 rounded-lg shadow-lg w-full max-w-md">
+                      <h2 className="text-lg font-bold mb-4">Select or Add a Category</h2>
+                      <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => {
+                          setSearchTerm(e.target.value);
+                          const filtered = categories.filter((category) =>
+                            category.name.toLowerCase().includes(e.target.value.toLowerCase())
+                          );
+                          setFilteredCategories(filtered);
+                        }}
+                        className="w-full text-md p-2 border border-gray-60 focus:outline-none focus:ring-2 focus:ring-brand-50 mb-4 placeholder:gray-50 placeholder:italic"
+                        placeholder="Find or create a category"
+                      />
+                      <ul className="max-h-60 text-gray-80 dark:text-gray-30 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-70">
+                        {filteredCategories.map((category) => (
+                          <li
+                            key={category.id}
+                            className="p-2 hover:bg-gray-20 dark:hover:bg-gray-70 cursor-pointer"
+                            onClick={() => {
+                              setNewGoal({ ...newGoal, category: category.name });
+                              setIsCategoryModalOpen(false);
+                            }}
+                          >
+                            {category.name}
+                          </li>
+                        ))}
+                        {filteredCategories.length === 0 && (
+                          <li key="no-matching" className="p-2 text-gray-30 dark:text-gray-70">No matching categories found.</li>
+                        )}
+                      </ul>
+                      {filteredCategories.length === 0 && (
+                        <button
+                          onClick={async () => {
+                            if (!searchTerm.trim()) return;
+
+                            try {
+                              const { data: { user }, error: userError } = await supabase.auth.getUser();
+                              if (userError || !user) {
+                                console.error('Error fetching user ID:', userError?.message || 'User not authenticated');
+                                return;
+                              }
+
+                              const userId = user.id;
+
+                              const { data: existingCategory, error: fetchError } = await supabase
+                                .from('categories')
+                                .select('name')
+                                .eq('name', searchTerm.trim())
+                                .single();
+
+                              if (fetchError && fetchError.code !== 'PGRST116') {
+                                console.error('Error checking category existence:', fetchError.message);
+                                return;
+                              }
+
+                              if (!existingCategory) {
+                                const { error: insertError } = await supabase
+                                  .from('categories')
+                                  .insert({ name: searchTerm.trim(), user_id: userId });
+
+                                if (insertError) {
+                                  console.error('Error adding category:', insertError.message);
+                                  return;
+                                }
+
+                                console.log('Category added successfully.');
+                              } else {
+                                console.log('Category already exists.');
+                              }
+
+                              setNewGoal({ ...newGoal, category: searchTerm.trim() });
+                              setIsCategoryModalOpen(false);
+                            } catch (error) {
+                              console.error('Unexpected error:', error);
+                            }
+                          }}
+                          className="btn-primary mt-4"
+                        >
+                          Save as New Category
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setIsCategoryModalOpen(false)}
+                        className="btn-secondary mt-4"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </Modal>
+                )}
               </div>
             </div>
-          )}
 
-          {currentStep === 3 && (
             <div>
-              <h3 className="text-lg font-medium">Review Selected Steps</h3>
-              <ul className="list-disc pl-5 text-xl text-gray-90 dark:text-gray-20">
-                {generatedPlan.filter((_, index) => selectedSteps.includes(index)).map((step, index) => (
-                  <li className='mt-4' key={index}>
-                    <h4>{step.title}</h4> <span className='block text-md text-gray-60'>{step.description}</span> <span className='text-sm'>Category: {newGoal.category} | Week Start: {newGoal.week_start}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <div className="mt-4 space-x-2">
-                <button
-                  onClick={handleClose}
-                  className="btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button type="button" onClick={goToPreviousStep} className="btn-secondary">
-                  Back
-                </button>
-                <button type="submit" className="btn-primary">
-                  Add Goal(s)
-                </button>
-              </div>
+              <label htmlFor="week_start-wizard" className="block text-sm font-medium text-gray-700">
+                Week Start
+              </label>
+              <input
+                type="date"
+                id="week_start-wizard"
+                value={newGoal.week_start}
+                onChange={(e) => {
+                  const selectedDate = new Date(e.target.value);
+                  if (selectedDate.getDay() === 0) {
+                    setNewGoal({ ...newGoal, week_start: selectedDate.toISOString().split('T')[0] });
+                  } else {
+                    const calculatedMonday = getWeekStartDate(selectedDate);
+                    setNewGoal({ ...newGoal, week_start: calculatedMonday });
+                  }
+                }}
+                className="mt-1 w-full"
+                required
+              />
             </div>
-          )}
-        </>
+            <div className="mt-4 space-x-2">
+              <button
+                onClick={handleClose}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button type="button" onClick={goToPreviousStep} className="btn-secondary">
+                Back
+              </button>
+              <button type="button" onClick={handleGeneratePlan} className="btn-secondary">
+                <RefreshCw className="inline-block mr-2" />Regenerate Plan
+              </button>
+              <button type="button" onClick={goToNextStep} className="btn-primary">
+                Apply Plan
+              </button>
+            </div>
+          </div>
+        )}
+
+        {currentStep === 3 && (
+          <div>
+            <h3 className="text-lg font-medium">Review Selected Steps</h3>
+            <ul className="list-disc pl-5 text-xl text-gray-90 dark:text-gray-20">
+              {generatedPlan.filter((_, index) => selectedSteps.includes(index)).map((step, index) => (
+                <li className='mt-4' key={index}>
+                  <h4>{step.title}</h4> <span className='block text-md text-gray-60'>{step.description}</span> <span className='text-sm'>Category: {newGoal.category} | Week Start: {newGoal.week_start}</span>
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-4 space-x-2">
+              <button
+                onClick={handleClose}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button type="button" onClick={goToPreviousStep} className="btn-secondary">
+                Back
+              </button>
+              <button type="submit" className="btn-primary">
+                Add Goal(s)
+              </button>
+            </div>
+          </div>  
+        )}
+      </form>
       ) : (
+       
+       
         // Manual form
-        <>
+        <form onSubmit={handleAddGoal} className="space-y-4">
           <div>
             <label htmlFor="title" className="block text-sm font-medium text-gray-700">
               Title
@@ -765,11 +824,10 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
             </button>
 
           </div>
+        </form>
 
-          </>
         )}
-
-    </form>
+  </>
   );
 };
 

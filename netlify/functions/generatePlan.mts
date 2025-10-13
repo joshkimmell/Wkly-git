@@ -36,13 +36,12 @@ export const handler: Handler = async (event) => {
     }
 
     // Call OpenAI API to generate a stepped plan
-    const prompt = `Create a detailed, actionable plan based on the following goal: "${input}". The plan should include multiple steps, and each step should have the following fields in JSON format:
+    // Updated the prompt to exclude `week_start` and `category` fields
+    const prompt = `Create a detailed, actionable plan based on the following goal prompt: "${input}". The plan should include multiple steps, and each step should have the following fields in JSON format:
     [
       {
         "title": "Step title",
-        "description": "Step description",
-        "category": "Step category",
-        "week_start": "YYYY-MM-DD"
+        "description": "Step description"
       }
     ]
     Ensure the response is a valid JSON array and nothing else.`;
@@ -50,7 +49,7 @@ export const handler: Handler = async (event) => {
     const response = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
       messages: [
-        { role: 'system', content: 'You are a helpful assistant that generates JSON responses only.' },
+        { role: 'system', content: 'You are a helpful assistant that is good at breaking large goals into steps and determines the timeframe for each step, then generates JSON responses only.' },
         { role: 'user', content: prompt },
       ],
       max_tokens: 500,
@@ -78,7 +77,7 @@ export const handler: Handler = async (event) => {
       console.error('Truncated OpenAI response detected:', generatedText);
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: 'Truncated OpenAI response.', response: generatedText }),
+        body: JSON.stringify({ error: 'Truncated OpenAI response.', response: 'Try refreshing plan.' + generatedText }),
       };
     }
 
@@ -91,18 +90,17 @@ export const handler: Handler = async (event) => {
       steps = JSON.parse(cleanText);
 
       // Validate required fields in each step
+      // Updated validation to exclude `week_start` and `category`
       const isValid = steps.every((step: Step) =>
         step.title &&
-        step.description &&
-        step.category &&
-        step.week_start
+        step.description
       );
 
       if (!isValid) {
         console.error('Validation failed for OpenAI response:', steps);
         return {
           statusCode: 400,
-          body: JSON.stringify({ error: 'All fields are required in each step.', response: steps }),
+          body: JSON.stringify({ error: 'Title and description are required in each step.', response: steps }),
         };
       }
     } catch (error) {
