@@ -4,6 +4,7 @@ import supabase from '@lib/supabase'; // Ensure this is the correct path to your
 import { Goal, Accomplishment } from '@utils/goalUtils'; // Adjust the import path as necessary
 import { ChevronDown, ChevronUp, Trash, Edit } from 'lucide-react';
 import { cardClasses, modalClasses } from '@styles/classes'; // Adjust the import path as necessary
+import { notifyError, notifySuccess } from './ToastyNotification';
 // import { Link } from 'react-router-dom';
 import { applyHighlight } from '@utils/functions'; // Adjust the import path as necessary
 
@@ -32,7 +33,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
     // console.log('Editing goal');
   // };
   const [accomplishments, setAccomplishments] = useState<Accomplishment[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAccomplishmentModalOpen, setIsAccomplishmentModalOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false); // State to track expansion
   const [newAccomplishment, setNewAccomplishment] = useState({
     title: '',
@@ -41,14 +42,14 @@ const GoalCard: React.FC<GoalCardProps> = ({
   });
 
   const openModal = () => {
-    if (!isModalOpen) {
-      setIsModalOpen(true);
+    if (!isAccomplishmentModalOpen) {
+      setIsAccomplishmentModalOpen(true);
     }
   };
 
   const closeModal = () => {
-    if (isModalOpen) {
-      setIsModalOpen(false);
+    if (isAccomplishmentModalOpen) {
+      setIsAccomplishmentModalOpen(false);
     }
   };
 
@@ -109,7 +110,10 @@ const GoalCard: React.FC<GoalCardProps> = ({
         closeModal();
       } catch (err) {
         console.error('Unexpected error:', err);
+        notifyError('Error adding accomplishment.');
+        return;
       }
+      notifySuccess('Accomplishment added successfully.');
     }
   };
 
@@ -191,8 +195,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
       </footer>
         
     {/* Modal */}
-    {isModalOpen && (
-      <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+    {isAccomplishmentModalOpen && (
+      <div className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50">
       <div className={`${modalClasses}`}>
       <h3 className="text-lg font-medium text-gray-90 mb-4">Add Accomplishment</h3>
       <div className="space-y-4">
@@ -204,7 +208,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
       onChange={(e) =>
         setNewAccomplishment({ ...newAccomplishment, title: e.target.value })
       }
-      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+      className="block w-full"
       />
       </div>
       <div>
@@ -215,7 +219,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
         setNewAccomplishment({ ...newAccomplishment, description: e.target.value })
       }
       rows={3}
-      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+      className="block w-full"
       />
       </div>
       <div>
@@ -226,7 +230,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
       onChange={(e) =>
         setNewAccomplishment({ ...newAccomplishment, impact: e.target.value })
       }
-      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+      className="block w-full"
       />
       </div>
       </div>
