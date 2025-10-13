@@ -303,12 +303,12 @@ const GoalsComponent = () => {
             </button>
             <button
                 onClick={openGoalModal}
-                className="btn-primary flex ml-auto mt-5 sm:mt-0 md:pr-2 sm:pr-2 xs:pr-0"
+                className="btn-primary flex ml-auto sm:mt-0 md:pr-2 sm:pr-2 xs:pr-0"
                 title={`Add a new goal for the current ${scope}`}
                 aria-label={`Add a new goal for the current ${scope}`}
                 >
                 <SquarePlus className="w-5 h-5" />
-                <span className="hidden md:block md:pl-2 flex text-nowrap">Add Goal</span>
+                <span className="block flex text-nowrap">Add Goal</span>
             </button>
         </div> 
 
