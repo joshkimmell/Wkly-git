@@ -274,18 +274,9 @@ const GoalsComponent = () => {
                     ))}
                 </div>
             </div>
-            {/* <button
-                onClick={openGoalModal}
-                className="btn-primary flex ml-auto mt-5 sm:mt-0 md:pr-2 sm:pr-2 xs:pr-0"
-                title={`Add a new goal for the current ${scope}`}
-                aria-label={`Add a new goal for the current ${scope}`}
-                >
-                <SquarePlus className="w-5 h-5" />
-                <span className="hidden lg:block lg:pl-2">Add Goal</span>
-            </button> */}
         </div>
-        <div className='flex flex-col 2xl:flex-row space-x-8 items-start justify-start w-full mb-4'>
-            <div id="allGoals" className="flex flex-col gap-4 w-2/3 lg:w-full">
+        <div className='flex flex-col 2xl:flex-row 2xl:space-x-8 items-start justify-start w-full mb-4'>
+            <div id="allGoals" className="flex flex-col gap-4 2xl:w-2/3 w-full">
                 {/* Filter and Sort Controls */}
                 <div className="mt-4 h-10 flex items-center space-x-2">
                     <input
@@ -342,7 +333,7 @@ const GoalsComponent = () => {
                     </div>
                 )}
             </div>
-            <div id="summary" className="mt-10 gap-4 flex flex-col  lg:w-1/3 h-full justify-start items-start">
+            <div id="summary" className="mt-10 gap-4 flex flex-col 2xl:w-1/3 h-full justify-start items-start">
                 {/* Summary Generator and Editor */}
                 <div className="mt-6">
                     <h2 className="text-xl font-semibold text-gray-900">Summary</h2>

@@ -87,7 +87,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
         </button>
 
         
-        <footer className="mt-4 flex justify-end absolute bottom-0 left-0 w-full space-x-2">
+        <footer className="mt-4 flex justify-end w-full space-x-2">
            <button
             onClick={() => handleCopy(content)}
             className="btn-ghost"

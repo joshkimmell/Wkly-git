@@ -9,6 +9,7 @@ import Modal from 'react-modal';
 import SummaryCard from '@components/SummaryCard';
 import { modalClasses, overlayClasses } from '@styles/classes';
 import ReactQuill from 'react-quill'; // Fix import for ReactQuill
+import { RefreshCcw } from 'lucide-react';
 
 interface SummaryGeneratorProps {
   summaryId: string;
@@ -260,9 +261,7 @@ async function handleGenerateFromUtils(
 
   return (
     <div>
-      <button onClick={openGenerateModal} className="btn-primary">
-        Generate Summary
-      </button>
+      
 
       {isGenerateModalOpen && (
         <Modal
@@ -295,18 +294,28 @@ async function handleGenerateFromUtils(
           </div>
         </Modal>
       )}
-
+      {!summary && (
+        <button onClick={openGenerateModal} className="btn-primary">
+          Generate Summary
+        </button>
+      )}
       {summary && (
-        <SummaryCard
-          id={summaryId}
-          scope={scope}
-          title={generatedSummaryTitle}
-          content={summary}
-          type={summaryType || ''}
-          created_at={new Date().toISOString()}
-          handleDelete={handleDeleteSummary}
-          handleEdit={() => setIsEditorOpen(true)}
-        />
+        <div className="flex flex-col gap-4">
+          <SummaryCard
+            id={summaryId}
+            scope={scope}
+            title={generatedSummaryTitle}
+            content={summary}
+            type={summaryType || ''}
+            created_at={new Date().toISOString()}
+            handleDelete={handleDeleteSummary}
+            handleEdit={() => setIsEditorOpen(true)}
+          />
+        
+          <button onClick={handleGenerate} className="btn-primary w-auto self-end">
+            <RefreshCcw className='mr-4 w-5 h-5' /> Regenerate Summary
+          </button>
+        </div>
       )}
 
       {isEditorOpen && (
