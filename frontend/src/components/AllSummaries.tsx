@@ -8,6 +8,7 @@ import SummaryEditor from '@components/SummaryEditor';
 // import SummaryGenerator from '@components/SummaryGenerator';
 import { modalClasses, overlayClasses } from '@styles/classes'; // Adjust the import path as necessary
 import ReactQuill from 'react-quill';
+import { notifyError, notifySuccess } from './ToastyNotification';
 // import Editor from '@components/Editor';
 
 Modal.setAppElement('#root');
@@ -23,6 +24,7 @@ const AllSummaries = () => {
     title: '',
     content: '',
     type: '', 
+    // format: '',
     week_start: '',
     user_id: '',
     created_at: '',
@@ -76,7 +78,7 @@ const AllSummaries = () => {
     setSelectedSummary(summary);
     setIsEditorOpen(true);
   }
-  console.log('isEditorOpen:', isEditorOpen);
+  // console.log('isEditorOpen:', isEditorOpen);
 
   function closeEditor() {
     setIsEditorOpen(false);
@@ -122,10 +124,11 @@ const AllSummaries = () => {
         created_at: '',
       }); // Reset newSummary state
       setIsEditorOpen(false); // Close editor if open
-      console.log('Summary deleted successfully');
+      // notifySuccess('Summary deleted successfully');
       handleFetchSummaries(); // Refresh summaries after deleting
     } catch (error) {
       console.error('Error deleting summary:', error);
+      notifyError('Error deleting summary.');
     }
   };
 
@@ -165,7 +168,7 @@ const AllSummaries = () => {
       });
       closeModal; // Close the modal after adding
       handleFetchSummaries(); // Refresh summaries after adding
-      console.log('Summary added successfully');
+      notifySuccess('Summary added successfully');
     // Reset the form fields
     form.reset();
   };
@@ -252,6 +255,7 @@ const AllSummaries = () => {
             key={summary.id}
             content={applyHighlight(summary.content, filter)}
             title={applyHighlight(summary.title, filter)}
+            format="card"
             type={applyHighlight(summary.type, filter)}
             id={summary.id}
             created_at={summary.created_at}
@@ -290,12 +294,13 @@ const AllSummaries = () => {
                       editedTitle || selectedSummary.title,
                       editedContent,
                       'User',
-                      new Date()
+                      new Date(),
+                      'week'
                     );
                     closeEditor(); // Close the modal after saving
                     // setSummary(editedContent, editedTitle, 'User'); // Update the local state
                     handleFetchSummaries(); // Refresh summaries after adding
-                    console.log('Edited summary saved successfully');
+                    // console.log('Edited summary saved successfully');
                   } catch (error) {
                     console.error('Error saving edited summary:', error);
                   }

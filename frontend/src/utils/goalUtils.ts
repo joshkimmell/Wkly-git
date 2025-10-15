@@ -40,6 +40,7 @@ export interface Summary {
   title: string;
   content: string;
   type: string;
+  // format: string;
   week_start: string;
   user_id: string;
   created_at: string;

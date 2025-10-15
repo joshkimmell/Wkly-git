@@ -54,7 +54,7 @@ const SummaryEditor: React.FC<SummaryEditorProps> = ({
             <input
                 type="hidden"
                 name="summary_type"
-                value={type} // Pass the summary type (AI or User)
+                value={origin} // Pass the summary type (AI or User)
                 readOnly
             />
             <input
