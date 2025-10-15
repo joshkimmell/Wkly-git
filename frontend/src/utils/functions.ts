@@ -2,7 +2,7 @@ import React from "react";
 import supabase from "@lib/supabase";
 import { notifyError, notifySuccess } from "@components/ToastyNotification";
 import { v4 as uuidv4 } from "uuid";
-import { Category, Goal } from "@utils/goalUtils"; // Adjust the import path as necessary
+import { Category, Goal, Summary, Accomplishment } from "@utils/goalUtils"; // Adjust the import path as necessary
 // import { error } from "console";
 
 const baseUrl = import.meta.env.DEV ? 'http://localhost:8888' : ''; // Use localhost for dev, empty for production
@@ -102,29 +102,29 @@ export const fetchAllGoals = async (): Promise<Goal[]> => {
 // }
 
 // Added missing `description` property to `Summary` type
-interface Summary {
-  id: string;
-  scope: string;
-  title: string;
-  description: string;
-  content: string;
-  type: string;
-  user_id: string;
-  created_at: string;
-  week_start: string;
-}
+// interface Summary {
+//   id: string;
+//   scope: string;
+//   title: string;
+//   description: string;
+//   content: string;
+//   type: string;
+//   user_id: string;
+//   created_at: string;
+//   week_start: string;
+// }
 
-interface Accomplishment {
-  id: string;
-  title: string;
-  description: string;
-  impact: string;
-  // category: string;
-  goal_id: string;
-  user_id: string;
-  created_at: string;
-  week_start: string;
-}
+// interface Accomplishment {
+//   id: string;
+//   title: string;
+//   description: string;
+//   impact: string;
+//   // category: string;
+//   goal_id: string;
+//   user_id: string;
+//   created_at: string;
+//   week_start: string;
+// }
 
 // Ensured `scope` is always defined in `indexDataByScope`
 export const indexDataByScope = <T extends { week_start: string; id: string; title: string; description: string; category?: string; user_id?: string; created_at?: string; content?: string; type?: string; impact?: string; goal_id?: string; scope: string }>(
@@ -287,34 +287,56 @@ export const addCategory = async (newCategory: string): Promise<void> => {
   }
 };
 
-
-
-export const fetchCategories = async (): Promise<{ UserCategories: Record<string, Category[]>; }> => {
+export const fetchCategories = async (): Promise<{ UserCategories: Category[] }> => {
   try {
-    // console.log('Supabase URL:', supabaseUrl); // Debug log for Supabase URL
-    // console.log('Supabase Key:', supabaseKey); // Debug log for Supabase Key
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User is not authenticated');
 
-    const response = await fetch(`${supabaseUrl}/rest/v1/categories`, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-        Authorization: `Bearer ${supabaseKey}`,
-        apikey: supabaseKey, // Explicitly include the apikey header
-      },
-    });
+    const userId = user.id;
 
-    if (!response.ok) {
-      console.error('Full response:', response); // Debug log for full response
-      throw new Error(`Error fetching categories: ${response.statusText}`);
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*')
+      .or(`user_id.eq.${userId},is_default.eq.true`);
+
+    if (error) {
+      console.error('Error fetching categories:', error.message);
+      return { UserCategories: [] };
     }
 
-    const data = await response.json();
-    return { UserCategories: data };
+    return { UserCategories: data || [] };
   } catch (err) {
-    console.error('Error in fetchCategories:', err);
-    throw err;
+    console.error('Unexpected error fetching categories:', err);
+    return { UserCategories: [] };
   }
 };
+
+// export const fetchCategories = async (): Promise<{ UserCategories: Record<string, Category[]>; }> => {
+//   try {
+//     // console.log('Supabase URL:', supabaseUrl); // Debug log for Supabase URL
+//     // console.log('Supabase Key:', supabaseKey); // Debug log for Supabase Key
+
+//     const response = await fetch(`${supabaseUrl}/rest/v1/categories`, {
+//       method: 'GET',
+//       headers: {
+//         Accept: 'application/json',
+//         Authorization: `Bearer ${supabaseKey}`,
+//         apikey: supabaseKey, // Explicitly include the apikey header
+//       },
+//     });
+
+//     if (!response.ok) {
+//       console.error('Full response:', response); // Debug log for full response
+//       throw new Error(`Error fetching categories: ${response.statusText}`);
+//     }
+
+//     const data = await response.json();
+//     return { UserCategories: data };
+//   } catch (err) {
+//     console.error('Error in fetchCategories:', err);
+//     throw err;
+//   }
+// };
 
 // Extract the `name` field from the `data` and set it as a `UserCategories` array that can be accessed globally
 export let UserCategories: { id: string; name: string }[] = [];
@@ -664,12 +686,14 @@ export const saveSummary = async (
         month: 'long',
         day: 'numeric',
         year: 'numeric',
-      })}`;
+      })
+      }`;
     }
 
     const requestBody = {
       user_id: userId,
-      title: formattedTitle, // Use the formatted title
+      title: summaryTitle, // Use the formatted title
+      // title: formattedTitle,
       week_start: weekStart,
       content: summaryContent,
       summary_type: summaryType,
@@ -686,6 +710,7 @@ export const saveSummary = async (
       notifyError('Failed to save summary');
       throw new Error('Failed to save summary');
     }
+    console.log('Summary title:', formattedTitle);
     setLocalSummaryId(data.summary_id);
     notifySuccess('Summary saved successfully!');
     return data;

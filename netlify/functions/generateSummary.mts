@@ -11,7 +11,7 @@ const openAIConfig = {
   apiKey: process.env.OPENAI_API_KEY,
   model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
   temperature: 0.7,
-  maxTokens: 150,
+  maxTokens: 1500,
   frequencyPenalty: 0,
   presencePenalty: 0,
   topP: 1,
@@ -108,19 +108,17 @@ export const handler: Handler = async (event) => {
       Do not include the goals or accomplishments list in the summary. Instead, focus on the overall progress and impact of the goals and accomplishments. 
       Title: ${summaryTitle}
       ${goalsWithAccomplishments
-        .map(
-          (goal: any, index: number) => `
-        Goal ${index + 1}: ${goal.title}
-        Description: ${goal.description}
-        Category: ${goal.category}
-        Accomplishments:
-        ${goal.accomplishments
-          .map(
-            (accomplishment: any, subIndex: number) =>
-              `  ${subIndex + 1}. ${accomplishment.title}: ${accomplishment.description} <br />Impact: ${accomplishment.impact}`
-          )
-          .join('\n')}
-        `
+        .map((goal: any, index: number) => `
+          Goal ${index + 1}: ${goal.title}
+          Description: ${goal.description}
+          Category: ${goal.category}
+          Accomplishments:
+          ${goal.accomplishments
+            .map((accomplishment: any, subIndex: number) =>
+                `  ${subIndex + 1}. ${accomplishment.title}: ${accomplishment.description} <br />Impact: ${accomplishment.impact}`
+            )
+            .join('\n')}
+          `
         )
         .join('\n\n')}    
 

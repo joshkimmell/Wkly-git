@@ -16,6 +16,17 @@ export interface FetchGoalsParams {
   supabase: SupabaseClient;
   session: Session | null;
 }
+// export interface Accomplishment {
+//   id: string;
+//   title: string;
+//   description: string;
+//   impact: string;
+//   goal_id: string;
+//   user_id: string;
+//   created_at: string;
+// }
+
+
 export interface Accomplishment {
   id: string;
   title: string;
@@ -24,6 +35,7 @@ export interface Accomplishment {
   goal_id: string;
   user_id: string;
   created_at: string;
+  week_start: string;
 }
 export interface Goal {
   id: string;
@@ -34,19 +46,30 @@ export interface Goal {
   user_id: string;
   created_at: string;
 };
+// export interface Summary {
+//   id: string;
+//   scope: string;
+//   title: string;
+//   content: string;
+//   type: string;
+//   // format: string;
+//   week_start: string;
+//   user_id: string;
+//   created_at: string;
+// };
 export interface Summary {
   id: string;
   scope: string;
   title: string;
+  description: string;
   content: string;
   type: string;
-  // format: string;
   week_start: string;
   user_id: string;
   created_at: string;
-};
+}
 export interface Category {
-  // id: string;
+  id: string;
   name: string;
 };
 

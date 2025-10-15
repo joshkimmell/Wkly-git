@@ -20,11 +20,11 @@ export const handler: Handler = async (event): Promise<HandlerResponse> => {
   const { name, user_id }: CategoryRequestBody = JSON.parse(event.body as string);
 
   // Check if the category already exists
-  const { data: existingCategory, error: fetchError }: { data: Category | null; error: any } = await supabase
+  const { data: existingCategories, error: fetchError }: { data: Category[] | null; error: any } = await supabase
     .from('categories')
-    .select('name, user_id')
+    .select('*')
     .eq('name', name)
-    .single();
+    .or(`user_id.eq.${user_id},is_default.eq.true`);
 
   if (fetchError && fetchError.code !== 'PGRST116') {
     // Ignore "No rows found" error (PGRST116), as it means the category doesn't exist
@@ -34,17 +34,24 @@ export const handler: Handler = async (event): Promise<HandlerResponse> => {
     };
   }
 
-  if (existingCategory) {
-    // Check if the user_id is already associated with the category
-    if (existingCategory.user_id === user_id) {
+  if (existingCategories && existingCategories.length > 0) {
+    const existingCategory = existingCategories.find(
+      (cat) => cat.user_id === user_id
+    );
+
+    if (existingCategory) {
       return {
         statusCode: 200,
         body: JSON.stringify({ message: `Category '${name}' already exists with the correct user_id.` }),
       };
     }
 
-    if (!existingCategory.user_id || existingCategory.user_id !== user_id) {
-      // Update the category to include the user_id
+    // If a category with the same name exists but with a different user_id or is default
+    const categoryToUpdate = existingCategories.find(
+      (cat) => !cat.user_id || cat.user_id !== user_id
+    );
+
+    if (categoryToUpdate) {
       const { error: updateError } = await supabase
         .from('categories')
         .update({ user_id })
