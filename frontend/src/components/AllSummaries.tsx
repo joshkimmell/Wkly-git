@@ -19,15 +19,16 @@ const AllSummaries = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   // Removed unused summaryType state
   const [newSummary, setNewSummary] = useState<Summary>({
-    id:   '',
+    id: '',
     scope: 'week', // Default scope
     title: '',
+    description: '',
     content: '',
     type: '', 
     // format: '',
     week_start: '',
     user_id: '',
-    created_at: '',
+    created_at: ''
   });
   const [localSummaryId, setLocalSummaryId] = useState<string | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -117,6 +118,7 @@ const AllSummaries = () => {
         id: summaryId,
         scope: 'week', // Default scope
         title: '',
+        description: '',
         content: '',
         type: 'User',
         week_start: '',
@@ -160,6 +162,7 @@ const AllSummaries = () => {
         id: '',
         scope: 'week', // Default scope
         title: '',
+        description: '',
         content: '',
         type: 'User',
         week_start: '',

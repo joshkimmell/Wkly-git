@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { getWeekStartDate, fetchCategories } from '@utils/functions'; // Import fetchCategories from functions.ts
-import { Goal } from '@utils/goalUtils'; // Import the addCategory function
+import { Category, Goal } from '@utils/goalUtils'; // Import the addCategory function
 import supabase from '@lib/supabase'; // Import Supabase client
 import LoadingSpinner from '@components/LoadingSpinner';
 import { SearchIcon, RefreshCw } from 'lucide-react';
@@ -22,7 +22,8 @@ export interface AddGoalProps {
 
 
 const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, refreshGoals }) => {
-  const [categories, setCategories] = React.useState<{ id: string; name: string }[]>([]); // Update state type to match the expected structure
+  // const [categories, setCategories] = React.useState<{ id: string; name: string }[]>([]); // Update state type to match the expected structure
+  const [categories, setCategories] = useState<Category[]>([]); // Update state type to match the expected structure
   const [naturalLanguageInput, setNaturalLanguageInput] = useState('');
   const [generatedPlan, setGeneratedPlan] = useState<Goal[]>([]);
   const [selectedSteps, setSelectedSteps] = useState<number[]>([]);
@@ -152,7 +153,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         throw new Error('week_start is required and must be a valid date.');
       }
 
-      console.log('Adding goal with week_start:', goal.week_start); // Log week_start value
+      // console.log('Adding goal with week_start:', goal.week_start); // Log week_start value
 
       // Fetch the authenticated user's ID
       const { data: { user }, error: userError } = await supabase.auth.getUser();

@@ -21,11 +21,9 @@ interface SummaryGeneratorProps {
   scope: 'week' | 'month' | 'year'; // Add scope to the props
 }
 
-
-
 const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
   summaryTitle: initialSummaryTitle,
-  summaryId: summaryId,
+  summaryId,
   content: initialContent,
   selectedRange,
   filteredGoals,
@@ -34,67 +32,40 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
   const [summary, setSummary] = useState<string | null>(initialContent || null);
   const [localSummaryId, setLocalSummaryId] = useState<string | null>(summaryId || null);
   const [summaryType, setSummaryType] = useState<string>('AI'); // Default to 'AI' if not provided
-  const [summaryTitle, setSummaryTitle] = useState<string | null>(initialSummaryTitle);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
 
-  // // Compute a formatted range string for rendering and logic
-  const formattedRange =
-    scope === 'week'
-      ? selectedRange.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) // e.g., June 16, 2025
-      : scope === 'month'
-      ? selectedRange.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) // e.g., June 2025
-      : scope === 'year'
-      ? selectedRange.toLocaleDateString('en-US', { year: 'numeric' }) // e.g., 2025
-      : ''; // Fallback for unexpected scope values
+  // Generate the summary title based on the scope and selectedRange
+  const generateSummaryTitle = (scope: 'week' | 'month' | 'year', date: Date): string => {
+    const weekStart = getWeekStartDate(date);
+    if (scope === 'week') {
+      return `Summary for week: ${new Date(weekStart).toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      })}`;
+    } else if (scope === 'month') {
+      return `Summary for month: ${new Date(weekStart).toLocaleDateString('en-US', {
+        month: 'long',
+        year: 'numeric',
+      })}`;
+    } else if (scope === 'year') {
+      return `Summary for year: ${new Date(weekStart).toLocaleDateString('en-US', {
+        year: 'numeric',
+      })}`;
+    }
+    return '';
+  };
 
-
-async function handleGenerateFromUtils(
-  summaryId: string,
-  scope: 'week' | 'month' | 'year',
-  summaryTitle: string,
-  userId: string,
-  weekStart: string,
-  goalsWithAccomplishments: {
-    title: string;
-    description: string;
-    category: string;
-    accomplishments: { title: string; description: string; impact: string }[];
-  }[]
-): Promise<string> {
-  // This function wraps generateSummary and returns the generated summary string.
-  // You could add additional logic here if needed.
-  return await generateSummary(
-    summaryId,
-    scope,
-    summaryTitle,
-    userId,
-    weekStart,
-    goalsWithAccomplishments
+  const [summaryTitle, setSummaryTitle] = useState<string | null>(
+    initialSummaryTitle || generateSummaryTitle(scope, selectedRange)
   );
-}
-
-  // Dynamically generate the summary title based on the scope
-  const generatedSummaryTitle = `Summary for ${scope}: ${formattedRange}`;
 
   // Reset summary state when scope changes
   useEffect(() => {
-    // const newFormattedRange =
-    //   scope === 'week'
-    //     ? selectedRange.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-    //     : scope === 'month'
-    //     ? selectedRange.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-    //     : scope === 'year'
-    //     ? selectedRange.toLocaleDateString('en-US', { year: 'numeric' })
-    //     : '';
-
-    const newGeneratedSummaryTitle = `Summary for ${scope}: ${formattedRange}`;
-    // console.log('Scope changed to:', scope);
-    // console.log('New Formatted Range:', formattedRange);
-    // console.log('New Generated Summary Title:', newGeneratedSummaryTitle);
-
     setSummary(null); // Clear the current summary
     setLocalSummaryId(null); // Reset the summary ID
-    setSummaryTitle(initialSummaryTitle || newGeneratedSummaryTitle); // Update the title
-  }, [scope, selectedRange, initialSummaryTitle]);
+    setSummaryTitle(generateSummaryTitle(scope, selectedRange)); // Update the title
+  }, [scope, selectedRange]);
 
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [additionalContext, setAdditionalContext] = useState('');
@@ -115,7 +86,6 @@ async function handleGenerateFromUtils(
 
       const userId = user.id;
 
-      // Map the filtered goals to include accomplishments and other details
       const goalsWithAccomplishments = filteredGoals.map(goal => ({
         title: goal.title,
         description: goal.description,
@@ -123,40 +93,30 @@ async function handleGenerateFromUtils(
         accomplishments: (goal.accomplishments || []).map(accomplishment => ({
           title: accomplishment,
           description: accomplishment,
-          impact: 'Medium', // Default impact level
+          impact: 'Medium',
         })),
       }));
 
-      // Calculate the correct week_start value
-      const weekStart =
-        scope === 'week'
-          ? getWeekStartDate(selectedRange) // Start of the week (Monday)
-          : scope === 'month'
-          ? new Date(selectedRange.getFullYear(), selectedRange.getMonth(), 1).toISOString().split('T')[0] // First day of the month
-          : scope === 'year'
-          ? new Date(selectedRange.getFullYear(), 0, 1).toISOString().split('T')[0] // First day of the year
-          : '';
+      const weekStart = getWeekStartDate(selectedRange);
+      const correctTitle = generateSummaryTitle(scope, selectedRange); // Ensure correct title is used
 
-      // console.log('Scope:', scope);
-      // console.log('selectedRange:', selectedRange);
-
-      const generatedSummary = await handleGenerateFromUtils(
+      const generatedSummary = await generateSummary(
         localSummaryId || '',
-        scope, // Pass the scope (week, month, year)
-        summaryTitle || generatedSummaryTitle,
+        scope,
+        correctTitle,
         userId,
-        weekStart, // Pass the corrected week_start value
-        goalsWithAccomplishments,
+        weekStart,
+        goalsWithAccomplishments
       );
 
       setSummary(generatedSummary);
       saveSummary(
         setLocalSummaryId,
-        "AI",
-        summaryTitle || generatedSummaryTitle,
+        correctTitle, // Save the correct title
         generatedSummary,
+        'AI',
         new Date(weekStart),
-        scope // Set scope for the summary
+        scope
       );
       setSummaryType('AI');
     } catch (error) {
@@ -193,8 +153,8 @@ async function handleGenerateFromUtils(
 
       const generatedSummary = await generateSummary(
         localSummaryId || '',
-        scope,
-        summaryTitle || generatedSummaryTitle,
+        scope || 'week',
+        summaryTitle || generateSummaryTitle(scope, selectedRange),
         userId,
         weekStart,
         goalsWithAccomplishments,
@@ -204,7 +164,8 @@ async function handleGenerateFromUtils(
       setSummary(generatedSummary);
       saveSummary(
         setLocalSummaryId,
-        summaryTitle || generatedSummaryTitle,
+        // generatedSummaryTitle,
+        summaryTitle || generateSummaryTitle(scope, selectedRange),
         generatedSummary,
         summaryType || 'AI', // Use the current summary type or default to 'AI'
         new Date(weekStart),
@@ -212,6 +173,11 @@ async function handleGenerateFromUtils(
       );
       setSummaryType('AI');
       closeGenerateModal();
+      console.log('Response Length:', responseLength);
+      console.log('Additional Context:', additionalContext);
+      console.log('Initial Summary Title:', initialSummaryTitle);
+      console.log('Title from functions:', summaryTitle);
+      // console.log('Generated Title:', generatedSummaryTitle);
     } catch (error) {
       console.error('Error generating summary:', error);
     }
@@ -225,7 +191,7 @@ async function handleGenerateFromUtils(
         updatedTitle, // Save the updated title
         updatedContent, // Save the updated content
         summaryType, // Use the current summary type
-        selectedRange, // Pass the selected range
+        selectedRange, // Pass the selected range as a string
         scope // Pass the scope as the sixth argument
       );
       setSummary(updatedContent); // Update the summary state
@@ -237,13 +203,9 @@ async function handleGenerateFromUtils(
     }
   };
 
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
-
-
-
-  function closeEditor() {
+  const closeEditor = () => {
     setIsEditorOpen(false);
-  }
+  };
 
   const handleDeleteSummary = async () => {
     try {
@@ -314,7 +276,7 @@ async function handleGenerateFromUtils(
             id={summaryId}
             className="bg-transparent dark:bg-transparent" // Pass className prop
             scope={scope}
-            title={generatedSummaryTitle}
+            title={generateSummaryTitle(scope, selectedRange)}
             content={summary}
             type={summaryType || ''}
             format={'content'}
@@ -377,11 +339,11 @@ async function handleGenerateFromUtils(
         >
           <SummaryEditor
             id={localSummaryId || ''}
-            title={summaryTitle || generatedSummaryTitle}
+            title={summaryTitle || ''}
             content={summary || ''}
             type={'User'}
             onRequestClose={closeEditor}
-            onSave={handleSave}
+            onSave={handleSave} // Fixed type mismatch by using the correct function
           />
         </Modal>
       )}

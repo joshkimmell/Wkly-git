@@ -23,6 +23,7 @@ const AllAccomplishments = () => {
     impact: '',
     goal_id: '',
     user_id: '',
+    week_start: '',
     created_at: '',
   });
   const [filter, setFilter] = useState<string>(''); // For filtering accomplishments
@@ -103,10 +104,10 @@ const AllAccomplishments = () => {
         // category: 'Technical skills',
         goal_id: '',
         user_id: user.id,
+        week_start: '',
         created_at: new Date().toISOString(),
         // content: '',
         // type: '',
-        // week_start: '',
       });
     } catch (err) {
       console.error('Unexpected error adding accomplishment:', err);
