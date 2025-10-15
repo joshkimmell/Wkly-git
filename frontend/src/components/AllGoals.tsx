@@ -333,14 +333,13 @@ const GoalsComponent = () => {
                     </div>
                 )}
             </div>
-            <div id="summary" className="mt-10 gap-4 flex flex-col 2xl:w-1/3 h-full justify-start items-start">
+            <div id="summary" className="p-4 mt-4 gap-4 flex flex-col 2xl:w-1/3 h-full justify-start items-start border-b border-gray-30 dark:border-gray-70 bg-gray-0 bg-opacity-70 dark:bg-gray-100 dark:bg-opacity-30 rounded-md">
                 {/* Summary Generator and Editor */}
-                <div className="mt-6">
+                {/* <div className="">
                     <h2 className="text-xl font-semibold text-gray-900">Summary</h2>
                     <p className="text-gray-60 dark:text-gray-30">Generate and edit your {scope}ly summary.</p>
-                </div>
+                </div> */}
                 <div id="summary_btn">
-                    {/* {scope}: {selectedRange.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} */}
                     <SummaryGenerator 
                         summaryId={selectedSummary?.id || ''} 
                         summaryTitle={selectedSummary?.title || `Summary for ${scope}: ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}
@@ -373,7 +372,8 @@ const GoalsComponent = () => {
                                 editedTitle || selectedSummary.title, // Use the edited title or the original title
                                 editedContent,
                                 'User',
-                                new Date()
+                                new Date(),
+                                scope
                                 );
                                 closeEditor(); // Close the modal after saving
                                 // setSummary(editedContent, editedTitle, 'User'); // Update the local state

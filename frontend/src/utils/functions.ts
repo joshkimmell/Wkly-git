@@ -647,7 +647,8 @@ export const saveSummary = async (
   summaryTitle: string,
   summaryContent: string,
   summaryType: string,
-  selectedRange: Date
+  selectedRange: Date,
+  scope: 'week' | 'month' | 'year' // Add scope parameter
 ) => {
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -656,9 +657,19 @@ export const saveSummary = async (
     const userId = user.id;
     const weekStart = getWeekStartDate(selectedRange);
 
+    // Format the title based on the scope
+    let formattedTitle = summaryTitle;
+    if (scope === 'week') {
+      formattedTitle = `Week of ${new Date(weekStart).toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      })}`;
+    }
+
     const requestBody = {
       user_id: userId,
-      title: summaryTitle,
+      title: formattedTitle, // Use the formatted title
       week_start: weekStart,
       content: summaryContent,
       summary_type: summaryType,
@@ -671,13 +682,13 @@ export const saveSummary = async (
       .single();
 
     if (error) {
-      console.error('Supabase error:', error); // <--- log the actual error
-      notifyError('Failed to save summary'); // Notify error
+      console.error('Supabase error:', error);
+      notifyError('Failed to save summary');
       throw new Error('Failed to save summary');
     }
-    setLocalSummaryId(data.summary_id); // <-- Set the actual ID from the backend
-    notifySuccess('Summary saved successfully!'); // Notify success
-    return data; // Return the inserted row (including id)
+    setLocalSummaryId(data.summary_id);
+    notifySuccess('Summary saved successfully!');
+    return data;
   } catch (error) {
     throw error;
   }

@@ -152,10 +152,11 @@ async function handleGenerateFromUtils(
       setSummary(generatedSummary);
       saveSummary(
         setLocalSummaryId,
+        "AI",
         summaryTitle || generatedSummaryTitle,
         generatedSummary,
-        'AI', // Set type to 'AI' for generated summaries
-        new Date(weekStart)
+        new Date(weekStart),
+        scope // Set scope for the summary
       );
       setSummaryType('AI');
     } catch (error) {
@@ -205,8 +206,9 @@ async function handleGenerateFromUtils(
         setLocalSummaryId,
         summaryTitle || generatedSummaryTitle,
         generatedSummary,
-        'AI',
-        new Date(weekStart)
+        summaryType || 'AI', // Use the current summary type or default to 'AI'
+        new Date(weekStart),
+        scope,
       );
       setSummaryType('AI');
       closeGenerateModal();
@@ -222,8 +224,9 @@ async function handleGenerateFromUtils(
         setLocalSummaryId,
         updatedTitle, // Save the updated title
         updatedContent, // Save the updated content
-        summaryType || 'User', // Use the current summary type
-        selectedRange // Pass the selected range
+        summaryType, // Use the current summary type
+        selectedRange, // Pass the selected range
+        scope // Pass the scope as the sixth argument
       );
       setSummary(updatedContent); // Update the summary state
       setSummaryTitle(updatedTitle); // Update the title state
@@ -295,22 +298,68 @@ async function handleGenerateFromUtils(
         </Modal>
       )}
       {!summary && (
+        <>
+        <div className="flex flex-col mb-4">
+                    <h2 className="text-xl font-semibold text-gray-900">Summary</h2>
+                    <p className="text-gray-60 dark:text-gray-30">Generate and edit your {scope}ly summary.</p>
+                </div>
         <button onClick={openGenerateModal} className="btn-primary">
           Generate Summary
         </button>
+        </>
       )}
       {summary && (
         <div className="flex flex-col gap-4">
           <SummaryCard
             id={summaryId}
+            className="bg-transparent dark:bg-transparent" // Pass className prop
             scope={scope}
             title={generatedSummaryTitle}
             content={summary}
             type={summaryType || ''}
+            format={'content'}
             created_at={new Date().toISOString()}
             handleDelete={handleDeleteSummary}
             handleEdit={() => setIsEditorOpen(true)}
           />
+
+          {/* <div key={summaryId} className={`flex flex-col text-left w-full space-y-4 mt-4 relative`}>
+        <div className={`flex flex-row w-full items-center justify-between gap-4 align-top`}>  
+          <h4 className="w-full text-lg font-bold text-gray-90" dangerouslySetInnerHTML={{ __html: generatedSummaryTitle }}></h4>
+          <div className="flex flex-row justify-between">
+            <span dangerouslySetInnerHTML={{ __html: summaryType }} className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-10 text-brand-100 mt-2">
+            </span>
+          </div>
+        </div>
+        
+            <div 
+              className='flex flex-col text-left'>
+              <span dangerouslySetInnerHTML={{ __html: summary}}></span>
+            </div> */}
+
+
+        
+        {/* <footer className="mt-4 flex justify-end w-full space-x-2">
+           <button
+            onClick={() => handleCopy(content)}
+            className="btn-ghost"
+            >
+            <Copy />
+          </button>
+          <button
+            onClick={() => handleEdit(true)} // Open the editor modal
+            className="btn-ghost" 
+          >
+            <Edit />
+          </button>
+          <button
+            onClick={() => handleDelete(id)}
+            className="btn-ghost"
+            >
+            <Trash />
+          </button>
+        </footer> 
+      </div>*/}
         
           <button onClick={handleGenerate} className="btn-primary w-auto self-end">
             <RefreshCcw className='mr-4 w-5 h-5' /> Regenerate Summary

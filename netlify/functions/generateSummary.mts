@@ -104,8 +104,8 @@ export const handler: Handler = async (event) => {
 
     // Build the prompt using summaryTitle
     const prompt = `
-      Summarize the following goals with their accomplishments into a concise self-reflection no more than 480 characters. Format for use with ReactQuill.
-      Do not include the goals or accomplishments list in the summary. Instead, focus on the overall progress and impact of the goals and accomplishments.
+      Summarize the following goals with their accomplishments into a concise self-reflection defaulting to no more than 480 characters. Format for use with ReactQuill.
+      Do not include the goals or accomplishments list in the summary. Instead, focus on the overall progress and impact of the goals and accomplishments. 
       Title: ${summaryTitle}
       ${goalsWithAccomplishments
         .map(
