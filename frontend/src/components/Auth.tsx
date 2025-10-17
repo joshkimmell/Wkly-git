@@ -82,7 +82,7 @@ const Login = () => {
             // Check if profile already exists
             const { data: existingProfile, error: fetchError } = await supabase
               .from('profiles')
-              .select('id')
+              .select('id', { head: false, count: 'exact' })
               .eq('id', user.id)
               .single();
     
