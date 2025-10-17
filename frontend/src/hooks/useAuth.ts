@@ -3,6 +3,7 @@ import supabase from '@lib/supabase';
 
 const useAuth = () => {
   const [session, setSession] = useState<any | null>(null);
+  const [profile, setProfile] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -23,7 +24,26 @@ const useAuth = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  return { session, isLoading };
+  useEffect(() => {
+    // Fetch user profile
+    const fetchProfile = async () => {
+      if (session?.user?.id) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*', { head: false, count: 'exact' })
+          .eq('id', session.user.id)
+          .single();
+
+        if (!error) {
+          setProfile(data);
+        }
+      }
+    };
+
+    fetchProfile();
+  }, [session]);
+
+  return { session, profile, isLoading };
 };
 
 export default useAuth;

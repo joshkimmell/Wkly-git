@@ -1,11 +1,30 @@
 import MenuBtn, { MenuBtnProps } from '@components/menu-btn';
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import menuClosedIcon from '/images/button-menu.svg';
-import menuOpenIcon from '/images/button-menu-open.svg';
-import { Sun, Moon, Home, Award, Text, LogOut } from 'lucide-react';
+import { Sun, Moon, Home, Award, Text } from 'lucide-react';
 import { classMenuItem } from '@styles/classes';
 import supabase from '@lib/supabase';
+import useAuth from '@hooks/useAuth';
+import { Menu, MenuItem } from '@mui/material';
+import Modal from 'react-modal';
+import { modalClasses, overlayClasses } from '@styles/classes';
+import Avatar from '@components/Avatar';
+import ProfileManagement from './ProfileManagement';
+
+
+
+
+// Exported flag so other modules can decide whether to render the menu
+// Exported helper so other modules can check whether the menu should be hidden.
+// We export a function so the value is derived at call time from the current location.
+export function isMenuHidden(): boolean {
+    try {
+        return typeof window !== 'undefined' && window.location.pathname === '/profile';
+    } catch (e) {
+        return false;
+    }
+}
 
 // Update `HeaderProps` to make `isOpen` optional
 interface HeaderProps {
@@ -25,28 +44,34 @@ interface ThemeState {
 
 // Update the `Header` component to conditionally require `handleLogout`
 const Header = ({ isOpen = false, ...props }: HeaderProps) => {
+    const navigate = useNavigate();
     const [themeState, setTheme] = useState<ThemeState['theme']>(
         localStorage.getItem('theme') as ThemeState['theme'] ||
         (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
     );
     const [menuOpen, setIsOpen] = useState<MenuBtnProps['isOpen']>(isOpen);
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+    const { session } = useAuth();
+    // use the module-level `isMenuHidden` exported above
 
-    const handleLogoutInternal = async (): Promise<void> => {
-        if (!isAuthenticated || !props.handleLogout) return;
-        try {
-            if (!supabase) {
-                console.error('Supabase client is not initialized');
-                return;
-            }
-            const { error } = await supabase.auth.signOut();
-            if (error) throw error;
-            console.log('User logged out successfully');
-            window.location.href = '/auth'; // Redirect to the auth route
-        } catch (error) {
-            console.error('Error logging out:', error);
-        }
-    };
+    // const handleLogoutInternal = async (): Promise<void> => {
+    //     if (!isAuthenticated || !props.handleLogout) return;
+    //     try {
+    //         if (!supabase) {
+    //             console.error('Supabase client is not initialized');
+    //             return;
+    //         }
+    //         const { error } = await supabase.auth.signOut();
+    //         if (error) throw error;
+    //         console.log('User logged out successfully');
+    //         window.location.href = '/auth'; // Redirect to the auth route
+    //     } catch (error) {
+    //         console.error('Error logging out:', error);
+    //     }
+    // };
+    
 
     const handleClick = (): void => {
         setIsOpen((prev) => !prev); 
@@ -112,6 +137,21 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
         document.documentElement.setAttribute('data-theme', newTheme);
     };
 
+    const handleMenuOpen = (event: React.MouseEvent<HTMLLabelElement>) => {
+        setMenuAnchor(event.currentTarget as HTMLElement);
+    };
+
+    const handleMenuClose = () => {
+        setMenuAnchor(null);
+    };
+
+    const handleLogout = async () => {
+        if (props.handleLogout) {
+            await props.handleLogout();
+        }
+        handleMenuClose();
+    };
+
     return (
         <div className={`header flex items-center dark relative ${menuOpen ? 'header-expanded' : ''}`} style={{ top: 0 }}>
             {/* {menuOpen === true ? (<p>Menu Open</p>) : (<p>Menu Closed</p>)} */}
@@ -142,47 +182,80 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                     </Link>
                 </div>
                 {isAuthenticated && (
-                    <div className="block sm:hidden">
-                        <MenuBtn
-                            className="header-brand--menu-btn btn-ghost justify-end"
-                            onClick={handleClick}
-                            isOpen={menuOpen}
+                    <>
+                    {/* <div className='flex flex-col gap-2'> */}
+                    <div className='absolute top-4 right-4'>
+                         {/* <Avatar
+                            onClick={handleMenuOpen}
+                            className="ml-auto mr-4 bg-brand-70 dark:bg-brand-30 cursor-pointer justify-end"
                         >
-                            
-                            {/* <div className="menu left-0 top-full w-full sm:hidden"> */}
-                                {/* <div className="menu-container fixed align-left z-10 top-0 right-0 h-full w-64 bg-white dark:bg-gray-100 text-brand-80 dark:text-brand-10 shadow-lg transform transition-transform duration-300 ease-in-out" style={{ transform: menuOpen ? 'translateX(0)' : 'translateX(100%)' }}> */}
-                                {/* <div className={`menu-container bg-white dark:bg-gray-100 text-brand-80 dark:text-brand-10 align-right`}> */}
-                                    {/* <img
-                                        src={menuOpen ? menuOpenIcon : menuClosedIcon}
-                                        alt="Menu"
-                                        className="w-6 h-6"
-                                    /> */}
-                                    {/* <div className="menu-container--list align-flex-end justify-end flex flex-col space-y-2"> */}
-                                        <Link onClick={handleMenuItemClick} to="/" className={`${classMenuItem}`}>
-                                            <Home className="w-5 h-5 mr-2" />
-                                            Goals
-                                        </Link>
-                                        <Link onClick={handleMenuItemClick} to="/accomplishments" className={`${classMenuItem}`}>
-                                            <Award className="w-5 h-5 mr-2" />
-                                            Accomplishments
-                                        </Link>
-                                        <Link onClick={handleMenuItemClick} to="/summaries" className={`${classMenuItem}`}>
-                                            <Text className="w-5 h-5 mr-2" />
-                                            Summaries
-                                        </Link>
-                                        <Link
-                                            to="#"
-                                            onClick={handleLogoutInternal}
-                                            className={`${classMenuItem}`}
-                                        >
-                                            <LogOut className="w-5 h-5 mr-2" />
-                                            Log out
-                                        </Link>
-                                    {/* </div> */}
-                                {/* </div> */}
-                            {/* </div> */}
-                        </MenuBtn>
+                            {profile?.avatar_img ? (
+                                <img
+                                    src={profile.avatar_img}
+                                    alt="User Avatar"
+                                    className="w-full h-full object-cover rounded-full"
+                                />
+                            ) : (
+                                profile?.full_name?.[0]?.toUpperCase() || 'U'
+                            )}
+                        </Avatar> */}
+                        <Avatar
+                            isEdit={false}
+                            onClick={handleMenuOpen}
+                        />
+                        <Menu
+                            anchorEl={menuAnchor}
+                            open={Boolean(menuAnchor)}
+                            onClose={handleMenuClose}
+                            onClick={handleMenuClose}
+                            className='p-4'
+                        >
+                            <label className="px-4 pb-4" htmlFor="profile-menu">{session?.user?.email}</label>
+                            <MenuItem onClick={() => setIsProfileOpen(true)}>Edit Profile</MenuItem>
+                            {/* <MenuItem onClick={() => console.log('Preferences')}>Preferences</MenuItem> */}
+                            <MenuItem onClick={handleLogout}>Log Out</MenuItem>
+                        </Menu>
                     </div>
+                    {!isMenuHidden() && (
+                        <div className="block sm:hidden">
+                            <MenuBtn
+                                className="header-brand--menu-btn btn-ghost justify-end"
+                                onClick={handleClick}
+                                isOpen={menuOpen}
+                            >
+                                
+                                            <Link onClick={handleMenuItemClick} to="/" className={`${classMenuItem}`}>
+                                                <Home className="w-5 h-5 mr-2" />
+                                                Goals
+                                            </Link>
+                                            <Link onClick={handleMenuItemClick} to="/accomplishments" className={`${classMenuItem}`}>
+                                                <Award className="w-5 h-5 mr-2" />
+                                                Accomplishments
+                                            </Link>
+                                            <Link onClick={handleMenuItemClick} to="/summaries" className={`${classMenuItem}`}>
+                                                <Text className="w-5 h-5 mr-2" />
+                                                Summaries
+                                            </Link>
+                                            
+                            </MenuBtn>
+                        
+                        </div>
+                        )}
+                        {isProfileOpen && (
+                            <Modal
+                                isOpen={isProfileOpen}
+                                id='Profile'    
+                                className={`fixed inset-0 flex items-center justify-center z-50`}
+                                overlayClassName={`${overlayClasses}`}
+                            >
+                                <div className={`${modalClasses}`}>
+                                    <ProfileManagement onClose={() => setIsProfileOpen(false)} />
+                                </div>
+                            </Modal>
+                         )}
+                        
+                        {/* </div> */}
+                    </>
                 )}
             </div>
             {/* {menuOpen && isAuthenticated && (
@@ -213,6 +286,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                     </div>
                 </div>
             )} */}
+           
         </div>
     );
 };
