@@ -31,9 +31,15 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
     }
   };
 
-  // map size prop to pixel values
-  const sizePx = size === 'lg' ? 120 : 64;
-  const spinnerSize = size === 'lg' ? 56 : 36;
+  // map size prop to responsive pixel values
+  // sm: small screens, md+: larger screens
+  const sizeValues = size === 'lg'
+    ? { xs: 120, md: 180 }
+    : { xs: 32, md: 64 };
+
+  // spinner sizes for xs and md breakpoints (we'll set size prop to md and override via sx)
+  const spinnerXs = size === 'lg' ? 56 : 20;
+  const spinnerMd = size === 'lg' ? 84 : 36;
 
   React.useEffect(() => {
     // If a preview src is provided (e.g., freshly selected file), use it immediately and skip fetching profile
@@ -150,8 +156,8 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
         src={displayedSrc}
         sx={{
           opacity: uploading ? 0.45 : 1,
-          width: sizePx,
-          height: sizePx,
+          width: { xs: sizeValues.xs, md: sizeValues.md },
+          height: { xs: sizeValues.xs, md: sizeValues.md },
           // Use the theme var that maps to $brand-70 (primary-button) with a fallback hex
           bgcolor: 'var(--brand-30, #c300dc)',
           border: '2px solid var(--brand-20, #E737FE)',
@@ -164,7 +170,6 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
 
       {uploading && (
         <CircularProgress
-          size={spinnerSize}
           thickness={4}
           sx={{
             position: 'absolute',
@@ -173,6 +178,12 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
             transform: 'translate(-50%, -50%)',
             bgcolor: 'transparent',
             borderRadius: '50%',
+            width: { xs: spinnerXs, md: spinnerMd },
+            height: { xs: spinnerXs, md: spinnerMd },
+            '& .MuiCircularProgress-svg': {
+              width: '100% !important',
+              height: '100% !important',
+            },
           }}
         />
       )}
