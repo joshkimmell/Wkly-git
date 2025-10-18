@@ -184,7 +184,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                 {isAuthenticated && (
                     <>
                     {/* <div className='flex flex-col gap-2'> */}
-                    <div className='absolute top-4 right-4'>
+                    <div className='absolute top-8 sm:top-10 right-3 sm:right-10'>
                          {/* <Avatar
                             onClick={handleMenuOpen}
                             className="ml-auto mr-4 bg-brand-70 dark:bg-brand-30 cursor-pointer justify-end"
@@ -202,6 +202,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                         <Avatar
                             isEdit={false}
                             onClick={handleMenuOpen}
+                            size='sm'
                         />
                         <Menu
                             anchorEl={menuAnchor}

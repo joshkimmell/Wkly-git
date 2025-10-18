@@ -24,3 +24,4 @@ pnpm-debug.log*
 # Ignore environment variable files
 .env
 .env.local
+frontend/.env
