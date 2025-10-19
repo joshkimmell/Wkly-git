@@ -165,7 +165,7 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
       >
         {/* show initial ONLY when there is no avatar_url on the profile (storedAvatarUrl)
             and there is no active preview (src prop or a data: URL set in avatarSrc) */}
-        {!storedAvatarUrl && !src && !(avatarSrc?.startsWith?.('data:')) && (initial || 'U')}
+        {!storedAvatarUrl && !src && !(avatarSrc?.startsWith?.('data:')) && (initial || '')}
       </Avatar>
 
       {uploading && (
