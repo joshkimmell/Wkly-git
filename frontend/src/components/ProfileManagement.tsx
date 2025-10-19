@@ -22,6 +22,12 @@ const ProfileManagement: React.FC<ProfileManagementProps> = ({ onClose }) => {
     if (profile) {
         setUsername(profile.username || '');
         setEmail(profile.email || '');
+        // Initialize previewSrc: prefer the stored avatar_url; otherwise leave undefined so Avatar shows the plain initial
+        if (profile.avatar_url) {
+          setPreviewSrc(profile.avatar_url);
+        } else {
+          setPreviewSrc(undefined);
+        }
     }
   }, [profile]);
 
