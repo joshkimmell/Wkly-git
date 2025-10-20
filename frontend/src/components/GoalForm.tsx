@@ -652,8 +652,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       ) : (
        
        
-        // Manual form
-        <form onSubmit={handleAddGoal} className="space-y-4">
+  // Manual form
+  <form onSubmit={handleAddGoal} className="space-y-4">
           <div>
             <label htmlFor="title" className="block text-sm font-medium text-gray-700">
               Title
@@ -808,6 +808,36 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                 </Modal>
               )}
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="status" className="block text-sm font-medium text-gray-700">
+              Status
+            </label>
+            <select
+              id="status"
+              value={newGoal.status || 'Not started'}
+              onChange={(e) => setNewGoal({ ...newGoal, status: e.target.value as any })}
+              className="mt-1 w-full"
+            >
+              <option>Not started</option>
+              <option>In progress</option>
+              <option>Blocked</option>
+              <option>Done</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="status_notes" className="block text-sm font-medium text-gray-700">
+              Status notes (optional)
+            </label>
+            <textarea
+              id="status_notes"
+              value={newGoal.status_notes || ''}
+              onChange={(e) => setNewGoal({ ...newGoal, status_notes: e.target.value })}
+              className="mt-1 w-full"
+              rows={3}
+            />
           </div>
 
           <div>

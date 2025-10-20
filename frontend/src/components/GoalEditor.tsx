@@ -18,7 +18,7 @@ interface GoalEditorProps {
     week_start: string;
     onAddCategory: (newCategory: string) => void;
     onRequestClose: () => void;
-    onSave: (updatedDescription: string, updatedTitle: string, updatedCategory: string, updatedWeekStart: string) => Promise<void>; // Updated to include updatedTitle
+  onSave: (updatedDescription: string, updatedTitle: string, updatedCategory: string, updatedWeekStart: string, status?: string, status_notes?: string) => Promise<void>; // Updated to include updatedTitle and optional status fields
 }
 
 const GoalEditor: React.FC<GoalEditorProps> = ({
@@ -46,6 +46,8 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
         id: '',
         user_id: '', // Add appropriate default value
         created_at: new Date().toISOString(), // Add appropriate default value
+    status: (undefined as unknown) as any,
+    status_notes: '' as any,
     });
     const [tempCategory, setTempCategory] = useState(initialCategory); // Temporary category state
     const quillRef = useRef<ReactQuill | null>(null);
@@ -59,7 +61,9 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
                 updatedGoal.description,
                 updatedGoal.title,
                 tempCategory, // Use the temporary category
-                updatedGoal.week_start
+                updatedGoal.week_start,
+                updatedGoal.status ?? undefined,
+                updatedGoal.status_notes ?? undefined
             );
             // console.log('onSave successfully called'); // Debug log
             onRequestClose(); // Close the editor only after successful save
@@ -363,6 +367,26 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
                   className="mt-1 block w-full rounded-md"
                   required
               />
+          </div>
+          <div>
+            <label htmlFor="status" className="block text-sm font-medium text-gray-700">
+              Status
+            </label>
+            <select
+              id="status"
+              value={updatedGoal.status || 'Not started'}
+              onChange={(e) => setUpdatedGoal((prev) => ({ ...prev, status: e.target.value as any }))}
+              className="mt-1 w-full"
+            >
+              <option>Not started</option>
+              <option>In progress</option>
+              <option>Blocked</option>
+              <option>Done</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="status_notes" className="block text-sm font-medium text-gray-700">Status notes (optional)</label>
+            <textarea id="status_notes" value={updatedGoal.status_notes || ''} onChange={(e) => setUpdatedGoal((prev) => ({ ...prev, status_notes: e.target.value }))} className="mt-1 w-full" rows={3} />
           </div>
           <div className="flex justify-end mt-4 space-x-2 text-gray-90 dark:text-gray-10">
               <button className="btn btn-secondary" onClick={onRequestClose} type="button">

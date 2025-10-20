@@ -45,6 +45,9 @@ export interface Goal {
   week_start: string;
   user_id: string;
   created_at: string;
+  status?: 'Not started' | 'In progress' | 'Blocked' | 'Done';
+  status_notes?: string | null;
+  status_set_at?: string | null;
 };
 // export interface Summary {
 //   id: string;

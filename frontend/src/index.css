@@ -75,6 +75,13 @@
     @apply inline bg-brand-30 text-brand-80 ;
   }
 
+  .card-status {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-20 dark:bg-gray-60 text-gray-90 dark:text-gray-10 mt-2;
+  }
+  .card-status span.highlight {
+    @apply inline bg-brand-30 text-brand-80 ;
+  }
+
 }
 
 @theme static {
