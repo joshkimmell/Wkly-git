@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 // import { handleDeleteGoal } from '@utils/functions';
 import { Goal, Accomplishment } from '@utils/goalUtils'; // Adjust the import path as necessary
-import { ChevronDown, ChevronUp, Trash, Edit, PlusSquare } from 'lucide-react';
+import { ChevronDown, ChevronUp, Trash, Edit, PlusSquare, Award, X as CloseButton } from 'lucide-react';
+import { FileText as NotesIcon, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
 import { cardClasses, modalClasses } from '@styles/classes'; // Adjust the import path as necessary
 import { notifyError, notifySuccess } from './ToastyNotification';
 // import { Link } from 'react-router-dom';
 import { applyHighlight } from '@utils/functions'; // Adjust the import path as necessary
 import AccomplishmentEditor from './AccomplishmentEditor'; // Import the AccomplishmentEditor component
+import AccomplishmentsModal from './AccomplishmentsModal';
 
 interface GoalCardProps {
   goal: Goal; // Add the goal prop to access goal properties
@@ -34,14 +36,18 @@ const GoalCard: React.FC<GoalCardProps> = ({
   // };
   const [accomplishments, setAccomplishments] = useState<Accomplishment[]>([]);
   const [isAccomplishmentModalOpen, setIsAccomplishmentModalOpen] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false); // State to track expansion
-  const [newAccomplishment, setNewAccomplishment] = useState({
-    title: '',
-    description: '',
-    impact: '',
-  });
+  // expansion no longer used; kept out
+  // accomplishments handled via AccomplishmentsModal onCreate
   const [isEditAccomplishmentModalOpen, setIsEditAccomplishmentModalOpen] = useState(false);
   const [selectedAccomplishment, setSelectedAccomplishment] = useState<Accomplishment | null>(null);
+  const [isAccomplishmentLoading, setIsAccomplishmentLoading] = useState(false);
+  const [isNotesLoading, setIsNotesLoading] = useState(false);
+  // Notes state
+  const [notes, setNotes] = useState<Array<{ id: string; content: string; created_at: string; updated_at: string }>>([]);
+  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+  const [newNoteContent, setNewNoteContent] = useState('');
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteContent, setEditingNoteContent] = useState('');
 
   const openModal = () => {
     if (!isAccomplishmentModalOpen) {
@@ -84,7 +90,105 @@ const GoalCard: React.FC<GoalCardProps> = ({
     }
   };
 
+  const fetchNotes = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      const res = await fetch(`/api/getNotes?goal_id=${goal.id}`, { headers: { Authorization: `Bearer ${user.id}` } });
+      if (!res.ok) throw new Error(await res.text());
+      const json = await res.json();
+      setNotes(json || []);
+    } catch (err: any) {
+      console.error('Unexpected error fetching notes:', err);
+      notifyError('Failed to fetch notes.');
+    }
+  };
+
+  const openNotesModal = async () => {
+    await fetchNotes();
+    setIsNotesModalOpen(true);
+  };
+
+  const closeNotesModal = () => {
+    setIsNotesModalOpen(false);
+    setNewNoteContent('');
+    setEditingNoteId(null);
+    setEditingNoteContent('');
+  };
+
+  const createNote = async () => {
+    // optimistic create: add a temp note locally immediately
+    const tempId = `temp-${Date.now()}`;
+    const tempNote = { id: tempId, content: newNoteContent, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    setNotes((s) => [tempNote, ...s]);
+    setNewNoteContent('');
+    setIsNotesLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      const res = await fetch(`/api/createNote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.id}` },
+        body: JSON.stringify({ goal_id: goal.id, content: tempNote.content }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      // reconcile with server copy
+      await fetchNotes();
+    } catch (err: any) {
+      console.error('Error creating note:', err);
+      // remove temp note
+      setNotes((s) => s.filter((n) => n.id !== tempId));
+      notifyError('Failed to create note.');
+    } finally {
+      setIsNotesLoading(false);
+    }
+  };
+
+  const updateNote = async (noteId: string, content: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      const res = await fetch(`/api/updateNote`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.id}` },
+        body: JSON.stringify({ id: noteId, content }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      await fetchNotes();
+      setEditingNoteId(null);
+      setEditingNoteContent('');
+    } catch (err: any) {
+      console.error('Error updating note:', err);
+      notifyError('Failed to update note.');
+    }
+  };
+
+  const deleteNote = async (noteId: string) => {
+    // optimistic delete: remove locally first
+    const prior = notes;
+    setNotes((s) => s.filter((n) => n.id !== noteId));
+    setIsNotesLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      const res = await fetch(`/api/deleteNote?note_id=${noteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${user.id}` } });
+      if (!res.ok) throw new Error(await res.text());
+      // success; nothing else
+    } catch (err: any) {
+      console.error('Error deleting note:', err);
+      // rollback
+      setNotes(prior);
+      notifyError('Failed to delete note.');
+    } finally {
+      setIsNotesLoading(false);
+    }
+  };
+
   const deleteAccomplishment = async (accomplishmentId: string) => {
+    // optimistic delete
+    const prior = accomplishments;
+    setAccomplishments((s) => s.filter((a) => a.id !== accomplishmentId));
+    setIsAccomplishmentLoading(true);
     try {
       const { error } = await supabase
         .from('accomplishments')
@@ -93,16 +197,19 @@ const GoalCard: React.FC<GoalCardProps> = ({
 
       if (error) {
         console.error('Error deleting accomplishment:', error.message);
+        // rollback
+        setAccomplishments(prior);
         notifyError('Error deleting accomplishment.');
         return;
       }
 
-      // Refresh the accomplishments list after deletion
-      fetchAccomplishments();
       notifySuccess('Accomplishment deleted successfully.');
     } catch (err) {
       console.error('Unexpected error deleting accomplishment:', err);
+      setAccomplishments(prior);
       notifyError('Error deleting accomplishment.');
+    } finally {
+      setIsAccomplishmentLoading(false);
     }
   };
 
@@ -114,6 +221,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
     if (!selectedAccomplishment) return;
 
     try {
+      setIsAccomplishmentLoading(true);
       const { error } = await supabase
         .from('accomplishments')
         .update({
@@ -136,55 +244,63 @@ const GoalCard: React.FC<GoalCardProps> = ({
     } catch (err) {
       console.error('Unexpected error saving edited accomplishment:', err);
       notifyError('Error saving edited accomplishment.');
+    } finally {
+      setIsAccomplishmentLoading(false);
     }
   };
 
   // Fetch accomplishments when the component mounts
   useEffect(() => {
     fetchAccomplishments();
-  }, [goal.id]);
 
-  const handleAddAccomplishment = async () => {
-    if (
-      newAccomplishment.title.trim() &&
-      newAccomplishment.description.trim()
-    ) {
+    // Preload notes only after an authenticated user is available.
+    // If the user isn't available immediately (auth is async), subscribe to auth state changes
+    // and fetch notes when the user signs in.
+    let authListener: { data?: { subscription?: any } } | null = null;
+    const tryFetchNotes = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          console.error('User is not authenticated');
-          return;
+        if (user) {
+          await fetchNotes();
+        } else {
+          // subscribe to auth changes
+          authListener = supabase.auth.onAuthStateChange((_event, session) => {
+            if (session?.user) {
+              fetchNotes();
+            }
+          });
         }
-
-        const { error } = await supabase.from('accomplishments').insert({
-          title: newAccomplishment.title,
-          description: newAccomplishment.description,
-          impact: newAccomplishment.impact.trim() || null, // Set impact to null if empty
-          goal_id: goal.id,
-          user_id: user.id,
-          week_start: goal.week_start,
-        });
-
-        if (error) {
-          console.error('Error adding accomplishment:', error.message);
-          return;
-        }
-
-        fetchAccomplishments();
-        setNewAccomplishment({ title: '', description: '', impact: '' });
-        closeModal();
       } catch (err) {
-        console.error('Unexpected error:', err);
-        notifyError('Error adding accomplishment.');
-        return;
+        console.error('Error checking auth for notes preload:', err);
       }
-      notifySuccess('Accomplishment added successfully.');
-    }
-  };
+    };
+
+    tryFetchNotes();
+
+    return () => {
+      // cleanup listener if present
+      try {
+        if (authListener?.data?.subscription) {
+          authListener.data.subscription.unsubscribe();
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+  }, [goal.id]);
+
+  // accomplishment creation now handled via AccomplishmentsModal onCreate (optimistic updates)
 
   return (
     <div key={goal.id} className={`${cardClasses} shadow-xl`}>
       <div className="goal-header flex flex-row w-full justify-between items-center">
+        <div className="flex items-center gap-2">
+          {goal.status && (
+            <div className="card-status text-nowrap">
+              {goal.status}
+            </div>
+          )}
+        </div>
         <div className="tabs flex flex-row items-center justify-end w-full">
           <span className="card-category" dangerouslySetInnerHTML={{ __html: applyHighlight(goal.category, filter) || 'No category provided.' }}>
           </span>
@@ -198,7 +314,22 @@ const GoalCard: React.FC<GoalCardProps> = ({
       </div>
       {/* Footer with accomplishments and actions */}
       <footer className="mt-2 text-sm text-gray-50 dark:text-gray-30 flex flex-col items-left justify-between">
-        { accomplishments.length > 0 && ( 
+        {/* Status display */}
+        <div className="mb-2">
+          {/* {goal.status && (
+            <div className="inline-block px-2 py-1 rounded text-xs font-semibold bg-gray-20 dark:bg-gray-80 mr-2">
+              {goal.status}
+            </div>
+          )} */}
+          {/* {goal.status_set_at && (
+            <div className="text-xs text-gray-50 dark:text-gray-40 inline-block ml-2">Set: {new Date(goal.status_set_at).toLocaleString()}</div>
+          )} */}
+          {/* {goal.status_notes && (
+
+            <div className="mt-1 text-sm text-gray-60 dark:text-gray-40">Notes: <span dangerouslySetInnerHTML={{ __html: goal.status_notes }} /></div>
+          )} */}
+        </div>
+       {/* { accomplishments.length > 0 && ( 
           <button
           onClick={() => setIsExpanded(!isExpanded)}
           className="px-0 text-gray-90 dark:text-gray-10 bg-transparent hover:bg-transparent border-none focus-visible:outline-none  flex flex-row items-center justify-between w-full"
@@ -215,9 +346,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
         </button>
           )} 
         
-          {isExpanded && (
+           {isExpanded && (
             <div className="goal_accomplishments mt-4">
-              {/* <h4 className="text-sm font-semibold text-gray-900">Accomplishments</h4> */}
               <ul className="list-none list-inside text-gray-700 mt-2 space-y-1">
                 {accomplishments.map((accomplishment) => (
                   <li
@@ -257,91 +387,148 @@ const GoalCard: React.FC<GoalCardProps> = ({
                 ))}
               </ul>
             </div>
-          )}
+          )} */}
+          <div className='flex flex-row w-full justify-end items-end gap-2'>
           <button
             // to='#'
             onClick={() => openModal()}
-            className="mt-2 btn-ghost w-full border-none text-sm font-semibold text-brand-70 dark:text-brand-20 hover:text-brand-90 dark:hover:text-brand-10"
+            className="relative btn-ghost flex items-center text-brand-70 dark:text-brand-20 hover:text-brand-90 dark:hover:text-brand-10 dark:hover:bg-gray-90"
+            title='Add accomplishment'
             >
-            {/* Add Accomplishment */}
-            <PlusSquare className="w-5 h-5 inline mr-2" /> Add accomplishment
+            {accomplishments.length > 0 && (
+            <div className="absolute min-w-4 -top-1 -right-1 items-centered text-xs text-brand-10 border-brand-20 font-semibold bg-gray-70 border-brand-30 rounded-lg px-2">{accomplishments.length}</div>
+            )}
+            <Award className="w-5 h-5 inline" name="Add accomplishment" /> 
           </button>
-          <div className='flex flex-row w-full justify-end'>
+            {/* Notes button */}
+            <button
+              onClick={openNotesModal}
+              id="openNotes"
+              className="relative btn-ghost flex items-center gap-2 dark:hover:bg-gray-90"
+              title="Open notes"
+            >
+              {notes.length > 0 && (
+                <div className="absolute min-w-4 -top-1 -right-1 items-centered text-xs text-brand-10 border-brand-20 font-semibold bg-gray-70 border-brand-30 rounded-lg px-2">{notes.length}</div>
+              )}
+              <NotesIcon className="w-5 h-5" />
+            </button>
+
             <button
               onClick={() => {
                 console.log('Deleting Goal ID:', goal.id); // Log the goal ID
                 handleDelete(goal.id);
               }}
-              className="btn-ghost w-auto"
+              className="btn-ghost w-auto dark:hover:bg-gray-90"
               >
               <Trash className="w-5 h-5" />
             </button>
             <button
               onClick={() => handleEdit(goal.id)}
-              className="btn-ghost w-auto"
+              className="btn-ghost w-auto dark:hover:bg-gray-90"
               >
               <Edit className="w-5 h-5" />
             </button>
           </div>
       </footer>
         
-    {/* Modal */}
-    {isAccomplishmentModalOpen && (
-      <div className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50">
-        <div className={`${modalClasses}`}>
-          <h3 className="text-lg font-medium text-gray-90 mb-4">Add Accomplishment</h3>
-          <div className="space-y-4">
+    {/* Accomplishments modal (extracted component) */}
+    <AccomplishmentsModal
+      goalTitle={goal.title}
+      isOpen={isAccomplishmentModalOpen}
+      onClose={closeModal}
+      accomplishments={accomplishments}
+      onCreate={async ({ title, description, impact }) => {
+        // optimistic create
+        const tempId = `temp-${Date.now()}`;
+        const temp = { id: tempId, title, description, impact: impact || '', created_at: new Date().toISOString() } as Accomplishment;
+        setAccomplishments((s) => [temp, ...s]);
+        setIsAccomplishmentLoading(true);
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) throw new Error('User not authenticated');
+          const { error } = await supabase.from('accomplishments').insert({
+            title,
+            description,
+            impact: impact || null,
+            goal_id: goal.id,
+            user_id: user.id,
+            week_start: goal.week_start,
+          }).select();
+          if (error) throw error;
+          // refresh from server to replace temp with real rows
+          await fetchAccomplishments();
+        } catch (err) {
+          console.error('Error creating accomplishment:', err);
+          // rollback
+          setAccomplishments((s) => s.filter((a) => a.id !== tempId));
+          notifyError('Failed to create accomplishment.');
+        } finally {
+          setIsAccomplishmentLoading(false);
+        }
+      }}
+      onDelete={async (id) => {
+        await deleteAccomplishment(id);
+      }}
+      onEdit={(item) => openEditAccomplishmentModal(item)}
+      loading={isAccomplishmentLoading}
+    />
+    {/* Notes Modal */}
+    {isNotesModalOpen && (
+      <div id="editNotes" className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50">
+        <div className={`${modalClasses} w-full max-w-2xl`}> 
+          <div className='flex flex-row w-full justify-between'>
+              <h3 className="text-lg font-medium text-gray-90 mb-4">Notes for "{goal.title}"</h3>
+              {/* <h4 className="text-md font-semibold mb-2">Existing accomplishments</h4> */}
+              <div className="mb-4 flex justify-end">
+                  <button className="btn-ghost" onClick={closeNotesModal}>
+                    <CloseButton className="w-4 h-4" />
+                  </button>
+              </div>
+          </div>
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto">
             <div>
-              <label htmlFor='title_acc' className="block text-sm font-medium text-gray-70 dark:text-gray-40">Title</label>
-              <input
-              id='title_acc'
-              type="text"
-              value={newAccomplishment.title}
-              onChange={(e) =>
-                setNewAccomplishment({ ...newAccomplishment, title: e.target.value })
-              }
-              className="block w-full"
-              />
+              <label className="block text-sm font-medium text-gray-700">Add a new note</label>
+              <textarea value={newNoteContent} onChange={(e) => setNewNoteContent(e.target.value)} className="mt-1 block w-full border-gray-30 focus:border-b-2 focus:ring-0" rows={3} />
+              <div className="mt-2 flex justify-end gap-2">
+                {/* <button className="btn-ghost" onClick={() => { setNewNoteContent(''); }}>Cancel</button> */}
+                <button className="btn-primary" onClick={createNote} disabled={isNotesLoading}><PlusIcon className="w-4 h-4 inline mr-1" />Add note</button>
+                {isNotesLoading && <div className="ml-2 text-sm text-gray-500">Saving...</div>}
+              </div>
             </div>
+
             <div>
-              <label htmlFor='description_acc' className="block text-sm font-medium text-gray-70 dark:text-gray-40">Description</label>
-              <textarea
-              id='description_acc'
-              value={newAccomplishment.description}
-              onChange={(e) =>
-                setNewAccomplishment({ ...newAccomplishment, description: e.target.value })
-              }
-              rows={3}
-              className="block w-full"
-              />
-            </div>
-            <div>
-              <label htmlFor="impact_acc" className="block text-sm font-medium text-gray-70 dark:text-gray-40">Impact (optional)</label>
-              <input
-                id="impact_acc"
-                type="text"
-                value={newAccomplishment.impact}
-                onChange={(e) =>
-                  setNewAccomplishment({ ...newAccomplishment, impact: e.target.value })
-                }
-                className="block w-full"
-              />
+              <h4 className="text-md font-semibold mb-2">Existing notes</h4>
+              <ul className="space-y-3">
+                {notes.map((note) => (
+                  <li key={note.id} className="p-3 border rounded bg-gray-10 dark:bg-gray-80 dark:border-gray-70">
+                    <div className="flex justify-between items-start">
+                      <div className="text-sm font-semibold text-gray-70 dark:text-gray-20" dangerouslySetInnerHTML={{ __html: note.content }} />
+                      <div className="flex items-center gap-2">
+                        <div className="text-xs text-gray-40">{new Date(note.created_at).toLocaleString()}</div>
+                        <button className="btn-ghost" onClick={() => { setEditingNoteId(note.id); setEditingNoteContent(note.content); }} title="Edit note"><Edit className="w-4 h-4" /></button>
+                        <button className="btn-ghost" onClick={() => deleteNote(note.id)} title="Delete note" disabled={isNotesLoading}><Trash className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                    {editingNoteId === note.id && (
+                      <div className="mt-2">
+                        <textarea className="mt-1 block w-full border-gray-30 focus:border-b-2 focus:ring-0" value={editingNoteContent} onChange={(e) => setEditingNoteContent(e.target.value)} rows={3} />
+                        <div className="mt-2 flex justify-end gap-2">
+                          <button className="btn-ghost" onClick={() => { setEditingNoteId(null); setEditingNoteContent(''); }}>Cancel</button>
+                          <button className="btn-primary" onClick={() => updateNote(note.id, editingNoteContent)}><SaveIcon className="w-4 h-4 inline mr-1" />Save</button>
+                        </div>
+                      </div>
+                    )}
+                  </li>
+                ))}
+                {notes.length === 0 && (
+                  <li className="text-sm text-gray-500">No notes yet.</li>
+                )}
+              </ul>
             </div>
           </div>
-          <div className="mt-6 flex justify-end space-x-4">
-            <button
-            onClick={() => closeModal()}
-            className="btn-secondary"
-            >
-            Cancel
-            </button>
-            <button
-            onClick={handleAddAccomplishment}
-            className="btn-primary"
-            >
-            Add accomplishment
-            </button>
-          </div>
+          {/* <div className="mt-4 flex justify-end">
+            <button className="btn-secondary" onClick={closeNotesModal}>Close</button>
+          </div> */}
         </div>
       </div>
     )}
