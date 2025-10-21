@@ -36,6 +36,8 @@ const GoalsComponent = () => {
         week_start: '',
         user_id: '',
         created_at: '',
+        status: 'Not started',
+        status_notes: '',
     });
     const [selectedGoal, setSelectedGoal] = useState<{
         id: string;
@@ -45,6 +47,9 @@ const GoalsComponent = () => {
         category: string;
         week_start: string;
         created_at: string;
+        status?: string | null;
+        status_notes?: string | null;
+        status_set_at?: string | null;
     } | null>(null);
     const [selectedSummary, setSelectedSummary] = useState<{
         id: string;
@@ -296,7 +301,7 @@ const GoalsComponent = () => {
                     </button>
                     <button
                         onClick={openGoalModal}
-                        className="btn-primary flex ml-auto sm:mt-0 md:pr-2 sm:pr-2 xs:pr-0"
+                        className="btn-primary gap-2 flex ml-auto sm:mt-0 md:pr-2 sm:pr-2 xs:pr-0"
                         title={`Add a new goal for the current ${scope}`}
                         aria-label={`Add a new goal for the current ${scope}`}
                         >
@@ -438,7 +443,7 @@ const GoalsComponent = () => {
                         }
                     }}
                     onRequestClose={closeEditor}
-                    onSave={async (updatedDescription, updatedTitle, updatedCategory, updatedWeekStart) => {
+                    onSave={async (updatedDescription, updatedTitle, updatedCategory, updatedWeekStart, status, status_notes) => {
                         try {
                             if (selectedGoal) {
                                 await handleUpdateGoal(selectedGoal.id, {
@@ -449,6 +454,8 @@ const GoalsComponent = () => {
                                     description: updatedDescription,
                                     category: updatedCategory,
                                     week_start: updatedWeekStart,
+                                    status: (status as any) || selectedGoal?.status,
+                                    status_notes: (status_notes as any) || selectedGoal?.status_notes,
                                 });
                                 await refreshGoals(); // Refetch goals after saving
                             }

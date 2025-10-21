@@ -509,6 +509,69 @@ export const updateGoal = async (goalId: string, updatedGoal: any) => {
   return responseData;
 };
 
+// Notes API wrappers using serverless endpoints
+export const fetchNotesForGoal = async (goalId: string) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  const res = await fetch(`${baseUrl}${backend}/getNotes?goal_id=${encodeURIComponent(goalId)}`, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${user.id}` },
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(errText || 'Failed to fetch notes');
+  }
+  return res.json();
+};
+
+export const createGoalNote = async (goalId: string, content: string) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  const res = await fetch(`${baseUrl}${backend}/createNote`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.id}` },
+    body: JSON.stringify({ goal_id: goalId, content }),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(errText || 'Failed to create note');
+  }
+  return res.json();
+};
+
+export const updateGoalNote = async (noteId: string, content: string) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  const res = await fetch(`${baseUrl}${backend}/updateNote`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.id}` },
+    body: JSON.stringify({ id: noteId, content }),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(errText || 'Failed to update note');
+  }
+  return res.json();
+};
+
+export const deleteGoalNote = async (noteId: string) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  const res = await fetch(`${baseUrl}${backend}/deleteNote?note_id=${encodeURIComponent(noteId)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${user.id}` },
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(errText || 'Failed to delete note');
+  }
+  return res.json();
+};
+
 // Add a function to highlight filtered words
   export const applyHighlight = (text: string, filter: string) => {
     if (!filter) return text;

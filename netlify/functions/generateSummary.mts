@@ -108,18 +108,26 @@ export const handler: Handler = async (event) => {
       Do not include the goals or accomplishments list in the summary. Instead, focus on the overall progress and impact of the goals and accomplishments. 
       Title: ${summaryTitle}
       ${goalsWithAccomplishments
-        .map((goal: any, index: number) => `
+        .map((goal: any, index: number) => {
+          const accomplishmentsText = goal.accomplishments
+            .map((accomplishment: any, subIndex: number) =>
+              `  ${subIndex + 1}. ${accomplishment.title}: ${accomplishment.description} <br />Impact: ${accomplishment.impact}`
+            )
+            .join('\n');
+
+          const statusLine = goal.status ? `Status: ${goal.status}${goal.status_set_at ? ` (set on ${new Date(goal.status_set_at).toLocaleString()})` : ''}` : 'Status: Not provided';
+          const notesLine = goal.status_notes ? `Status notes: ${goal.status_notes}` : '';
+
+          return `
           Goal ${index + 1}: ${goal.title}
           Description: ${goal.description}
           Category: ${goal.category}
+          ${statusLine}
+          ${notesLine}
           Accomplishments:
-          ${goal.accomplishments
-            .map((accomplishment: any, subIndex: number) =>
-                `  ${subIndex + 1}. ${accomplishment.title}: ${accomplishment.description} <br />Impact: ${accomplishment.impact}`
-            )
-            .join('\n')}
-          `
-        )
+          ${accomplishmentsText}
+          `;
+        })
         .join('\n\n')}    
 
       Reflection for ${scope}: ${formattedDate}:
