@@ -364,7 +364,7 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
                   id="week_start"
                   value={updatedGoal.week_start}
                   onChange={(e) => handleFieldChange('week_start', e.target.value)}
-                  className="mt-1 block w-full rounded-md"
+                  className="mt-1 block w-full border-gray-30 focus:border-b-2 focus:ring-0"
                   required
               />
           </div>
@@ -376,7 +376,7 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
               id="status"
               value={updatedGoal.status || 'Not started'}
               onChange={(e) => setUpdatedGoal((prev) => ({ ...prev, status: e.target.value as any }))}
-              className="mt-1 w-full"
+              className="mt-1 block w-full border-gray-30 focus:border-b-2 focus:ring-0"
             >
               <option>Not started</option>
               <option>In progress</option>
@@ -386,7 +386,7 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
           </div>
           <div>
             <label htmlFor="status_notes" className="block text-sm font-medium text-gray-700">Status notes (optional)</label>
-            <textarea id="status_notes" value={updatedGoal.status_notes || ''} onChange={(e) => setUpdatedGoal((prev) => ({ ...prev, status_notes: e.target.value }))} className="mt-1 w-full" rows={3} />
+            <textarea id="status_notes" value={updatedGoal.status_notes || ''} onChange={(e) => setUpdatedGoal((prev) => ({ ...prev, status_notes: e.target.value }))} className="mt-1 block w-full border-gray-30 focus:border-b-2 focus:ring-0" rows={3} />
           </div>
           <div className="flex justify-end mt-4 space-x-2 text-gray-90 dark:text-gray-10">
               <button className="btn btn-secondary" onClick={onRequestClose} type="button">
