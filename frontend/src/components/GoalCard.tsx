@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 // import { handleDeleteGoal } from '@utils/functions';
 import { Goal, Accomplishment } from '@utils/goalUtils'; // Adjust the import path as necessary
-import { ChevronDown, ChevronUp, Trash, Edit, PlusSquare, Award, X as CloseButton } from 'lucide-react';
+import { Trash, Edit, Award, X as CloseButton } from 'lucide-react';
 import { FileText as NotesIcon, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
 import { cardClasses, modalClasses } from '@styles/classes'; // Adjust the import path as necessary
 import { notifyError, notifySuccess } from './ToastyNotification';
@@ -10,6 +10,7 @@ import { notifyError, notifySuccess } from './ToastyNotification';
 import { applyHighlight } from '@utils/functions'; // Adjust the import path as necessary
 import AccomplishmentEditor from './AccomplishmentEditor'; // Import the AccomplishmentEditor component
 import AccomplishmentsModal from './AccomplishmentsModal';
+import ConfirmModal from './ConfirmModal';
 
 interface GoalCardProps {
   goal: Goal; // Add the goal prop to access goal properties
@@ -45,6 +46,9 @@ const GoalCard: React.FC<GoalCardProps> = ({
   // Notes state
   const [notes, setNotes] = useState<Array<{ id: string; content: string; created_at: string; updated_at: string }>>([]);
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [noteDeleteTarget, setNoteDeleteTarget] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [newNoteContent, setNewNoteContent] = useState('');
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState('');
@@ -214,8 +218,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
   };
 
   const saveEditedAccomplishment = async (
-    updatedDescription: string,
-    updatedTitle: string,
+    updatedDescription?: string,
+    updatedTitle?: string,
     updatedImpact?: string
   ) => {
     if (!selectedAccomplishment) return;
@@ -226,8 +230,9 @@ const GoalCard: React.FC<GoalCardProps> = ({
         .from('accomplishments')
         .update({
           title: updatedTitle,
-          description: updatedDescription,
-          impact: updatedImpact || null, // Set to null if undefined
+          // write null when empty/undefined so DB doesn't store empty strings
+          description: updatedDescription && updatedDescription.trim() ? updatedDescription : null,
+          impact: updatedImpact || null,
         })
         .eq('id', selectedAccomplishment.id);
 
@@ -393,7 +398,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
             // to='#'
             onClick={() => openModal()}
             className="relative btn-ghost flex items-center text-brand-70 dark:text-brand-20 hover:text-brand-90 dark:hover:text-brand-10 dark:hover:bg-gray-90"
-            title='Add accomplishment'
+            title='Accomplishments'
             >
             {accomplishments.length > 0 && (
             <div className="absolute min-w-4 -top-1 -right-1 items-centered text-xs text-brand-10 border-brand-20 font-semibold bg-gray-70 border-brand-30 rounded-lg px-2">{accomplishments.length}</div>
@@ -405,7 +410,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
               onClick={openNotesModal}
               id="openNotes"
               className="relative btn-ghost flex items-center gap-2 dark:hover:bg-gray-90"
-              title="Open notes"
+              title="Notes"
             >
               {notes.length > 0 && (
                 <div className="absolute min-w-4 -top-1 -right-1 items-centered text-xs text-brand-10 border-brand-20 font-semibold bg-gray-70 border-brand-30 rounded-lg px-2">{notes.length}</div>
@@ -414,10 +419,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
             </button>
 
             <button
-              onClick={() => {
-                console.log('Deleting Goal ID:', goal.id); // Log the goal ID
-                handleDelete(goal.id);
-              }}
+              onClick={() => setIsDeleteConfirmOpen(true)}
+              title="Delete Goal"
               className="btn-ghost w-auto dark:hover:bg-gray-90"
               >
               <Trash className="w-5 h-5" />
@@ -425,6 +428,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
             <button
               onClick={() => handleEdit(goal.id)}
               className="btn-ghost w-auto dark:hover:bg-gray-90"
+              title='Edit Goal'
               >
               <Edit className="w-5 h-5" />
             </button>
@@ -506,7 +510,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
                       <div className="flex items-center gap-2">
                         <div className="text-xs text-gray-40">{new Date(note.created_at).toLocaleString()}</div>
                         <button className="btn-ghost" onClick={() => { setEditingNoteId(note.id); setEditingNoteContent(note.content); }} title="Edit note"><Edit className="w-4 h-4" /></button>
-                        <button className="btn-ghost" onClick={() => deleteNote(note.id)} title="Delete note" disabled={isNotesLoading}><Trash className="w-4 h-4" /></button>
+                        <button className="btn-ghost" onClick={() => setNoteDeleteTarget(note.id)} title="Delete note" disabled={isNotesLoading}><Trash className="w-4 h-4" /></button>
                       </div>
                     </div>
                     {editingNoteId === note.id && (
@@ -526,12 +530,46 @@ const GoalCard: React.FC<GoalCardProps> = ({
               </ul>
             </div>
           </div>
+          <ConfirmModal
+            isOpen={!!noteDeleteTarget}
+            title="Delete note?"
+            message={`Are you sure you want to delete this note? This action cannot be undone.`}
+            onCancel={() => setNoteDeleteTarget(null)}
+            onConfirm={async () => {
+              if (!noteDeleteTarget) return;
+              await deleteNote(noteDeleteTarget);
+              setNoteDeleteTarget(null);
+            }}
+            confirmLabel="Delete"
+            cancelLabel="Cancel"
+          />
           {/* <div className="mt-4 flex justify-end">
             <button className="btn-secondary" onClick={closeNotesModal}>Close</button>
           </div> */}
         </div>
       </div>
     )}
+
+    <ConfirmModal
+      isOpen={isDeleteConfirmOpen}
+      title="Delete goal?"
+      message={`Are you sure you want to permanently delete the goal "${goal.title}"? This action cannot be undone.`}
+      onCancel={() => setIsDeleteConfirmOpen(false)}
+      onConfirm={async () => {
+        try {
+          setIsDeleting(true);
+          await handleDelete(goal.id);
+        } catch (err) {
+          console.error('Error deleting goal:', err);
+        } finally {
+          setIsDeleting(false);
+          setIsDeleteConfirmOpen(false);
+        }
+      }}
+      confirmLabel="Delete"
+      cancelLabel="Cancel"
+      loading={isDeleting}
+    />
     {/* Render children if provided */}
     {/* {children && <div className="goal-children">{children}</div>} */}
 

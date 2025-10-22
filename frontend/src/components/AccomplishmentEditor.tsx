@@ -8,7 +8,8 @@ import { notifySuccess } from '@components/ToastyNotification';
 interface AccomplishmentEditorProps {
   accomplishment: Accomplishment; // Added accomplishment prop
   onRequestClose: () => void;
-  onSave: (updatedDescription: string, updatedTitle: string, updatedImpact?: string) => Promise<void>; // Made updatedImpact optional
+  // description is optional when saving
+  onSave: (updatedDescription?: string, updatedTitle?: string, updatedImpact?: string) => Promise<void>;
 }
 
 const AccomplishmentEditor: React.FC<AccomplishmentEditorProps> = ({ 
@@ -27,7 +28,7 @@ const AccomplishmentEditor: React.FC<AccomplishmentEditorProps> = ({
     e.preventDefault();
     try {
       await onSave(
-        updatedAccomplishment.description,
+        updatedAccomplishment.description || undefined,
         updatedAccomplishment.title,
         updatedAccomplishment.impact || undefined // Pass undefined if impact is empty
       );

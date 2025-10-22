@@ -12,7 +12,7 @@ import useAuth from '@hooks/useAuth';
 import Auth from '@components/Auth';
 import AllSummaries from '@components/AllSummaries';
 import AllAccomplishments from '@components/AllAccomplishments';
-import { Award, LogOut, Home, Text } from 'lucide-react';
+import { Award, Home, Text } from 'lucide-react';
 import LoadingSpinner from '@components/LoadingSpinner';
 import { fetchAllGoals } from '@utils/functions'; // Import fetchAllGoals function
 import ProfileManagement from '@components/ProfileManagement';
@@ -53,7 +53,7 @@ const App: React.FC = () => {
   const fetchGoalsWithLoading = async () => {
     setIsLoadingState(true); // Set loading state to true
     try {
-      const goals = await fetchAllGoals(); // Call the fetchAllGoals function
+      await fetchAllGoals(); // Call the fetchAllGoals function
       // console.log('Fetched goals:', goals);
       // Handle the fetched goals as needed
     } catch (error) {
@@ -85,8 +85,12 @@ const App: React.FC = () => {
   }, [session, navigate]);
   
   useEffect(() => {
-    fetchGoalsWithLoading(); // Fetch goals when the component mounts
-  }, []);
+    // Only fetch goals when there's an authenticated session. Avoid attempting
+    // to fetch on the login screen where no user is present.
+    if (session) {
+      fetchGoalsWithLoading();
+    }
+  }, [session]);
   
   if (isLoading) return 
     <div className="fixed top-0 mt-0 h-[100vh] w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center">
