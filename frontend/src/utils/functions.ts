@@ -275,8 +275,8 @@ export const addCategory = async (newCategory: string): Promise<void> => {
       return;
     }
 
-    const insertedCategory = await response.json();
-    // console.log('New category added via Netlify function:', insertedCategory);
+  await response.json();
+  // console.log('New category added via Netlify function');
 
     // Refresh the UserCategories list
     await initializeUserCategories();
@@ -932,7 +932,10 @@ export const fetchAllAccomplishmentsIndexed = async (
     const accomplishmentsWithScope = accomplishments.map((accomplishment) => ({
       ...accomplishment,
       scope,
-      impact: accomplishment.impact ?? "", // Ensure impact is always a string
+      impact: accomplishment.impact ?? "",
+      // Ensure description and goal_id are strings for indexDataByScope
+      description: accomplishment.description ?? '',
+      goal_id: accomplishment.goal_id ?? '',
     }));
     const indexedAccomplishments = indexDataByScope(accomplishmentsWithScope, scope);
     const pages = getPagesFromIndexedData(indexedAccomplishments);

@@ -1,4 +1,3 @@
-import { MenuIcon } from 'lucide-react';
 import React, { useState, useRef } from 'react';
 import menuClosedIcon from '/images/button-menu.svg';
 import menuOpenIcon from '/images/button-menu-open.svg';

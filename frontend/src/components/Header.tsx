@@ -1,10 +1,10 @@
 import MenuBtn, { MenuBtnProps } from '@components/menu-btn';
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import menuClosedIcon from '/images/button-menu.svg';
 import { Sun, Moon, Home, Award, Text } from 'lucide-react';
 import { classMenuItem } from '@styles/classes';
-import supabase from '@lib/supabase';
+// supabase client not needed here; use useAuth hook's session instead
 import useAuth from '@hooks/useAuth';
 import { Menu, MenuItem } from '@mui/material';
 import Modal from 'react-modal';
@@ -44,7 +44,7 @@ interface ThemeState {
 
 // Update the `Header` component to conditionally require `handleLogout`
 const Header = ({ isOpen = false, ...props }: HeaderProps) => {
-    const navigate = useNavigate();
+    // navigation not required in this component
     const [themeState, setTheme] = useState<ThemeState['theme']>(
         localStorage.getItem('theme') as ThemeState['theme'] ||
         (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
@@ -102,31 +102,12 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
         }
     }, [themeState]);
 
+    // Derive authentication state from the session provided by the auth hook.
+    // This avoids making unauthenticated calls on mount which produced noisy
+    // console errors when the app is rendered on the login screen.
     useEffect(() => {
-        const checkAuthStatus = async () => {
-            try {
-                const { data: session, error: sessionError } = await supabase.auth.getSession();
-                if (sessionError || !session?.session) {
-                    console.error('No active session found:', sessionError?.message);
-                    setIsAuthenticated(false);
-                    return;
-                }
-
-                const { data: { user }, error: userError } = await supabase.auth.getUser();
-                if (userError) {
-                    console.error('Error fetching user:', userError.message);
-                    setIsAuthenticated(false);
-                    return;
-                }
-
-                setIsAuthenticated(!!user);
-            } catch (err) {
-                console.error('Unexpected error during auth check:', err);
-                setIsAuthenticated(false);
-            }
-        };
-        checkAuthStatus();
-    }, []);
+        setIsAuthenticated(!!session);
+    }, [session]);
 
     const toggleThemeInternal = (): void => {
         const newTheme = themeState === 'theme-dark' ? 'theme-light' : 'theme-dark';
