@@ -30,8 +30,8 @@ export interface FetchGoalsParams {
 export interface Accomplishment {
   id: string;
   title: string;
-  description: string;
-  impact: string;
+  description?: string;
+  impact?: string;
   goal_id: string;
   user_id: string;
   created_at: string;

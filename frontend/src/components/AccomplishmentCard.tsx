@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { cardClasses } from '@styles/classes'; // Adjust the import path as necessary
 import { TrashIcon, EditIcon } from 'lucide-react';
+import ConfirmModal from './ConfirmModal';
 
 interface AccomplishmentCardProps {
   id: string;
   title: string;
-  description: string;
-  impact: string;
+  description?: string;
+  impact?: string;
 //   content: string;
 //   type: string;
   created_at: string;
@@ -16,20 +17,30 @@ interface AccomplishmentCardProps {
 }
 
 const AccomplishmentCard: React.FC<AccomplishmentCardProps> = ({ id, title, description, impact, created_at, handleDelete, handleEdit }) => {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   return (
     <div className={`${cardClasses} shadow-xl`} key={id}>
         <div className="goal-content flex flex-col mt-2 flex-grow">
             <h3 dangerouslySetInnerHTML={{ __html: title || 'Untitled Goal'}}></h3>
-            <p className="text-gray-60 dark:text-gray-40 mt-1" dangerouslySetInnerHTML={{ __html: description  || 'No description provided.' }}></p>
-            <p className="text-sm text-gray-50 dark:text-gray-30" dangerouslySetInnerHTML={{ __html: `
-              <strong>${impact ? 'Impact:' : ''}</strong> ${impact || 'No impact specified.'}
-            ` }}></p>
+            <p className="text-gray-60 dark:text-gray-40 mt-1">{description ? <span dangerouslySetInnerHTML={{ __html: description }} /> : <span className="text-gray-400">No description provided.</span>}</p>
+            <p className="text-sm text-gray-50 dark:text-gray-30">{impact ? <span dangerouslySetInnerHTML={{ __html: `<strong>Impact:</strong> ${impact}` }} /> : <span className="text-gray-400">No impact specified.</span>}</p>
             <p className="hidden"><strong>Created At:</strong> {created_at}</p>
         </div>
         <footer className="mt-2 text-sm text-gray-50 dark:text-gray-30 flex flex-row items-center justify-end space-x-2">
-            <button className='btn-ghost' onClick={handleDelete}><TrashIcon className='w-5 h-5' /></button>
+            <button className='btn-ghost' onClick={() => setConfirmOpen(true)}><TrashIcon className='w-5 h-5' /></button>
             <button className='btn-ghost' onClick={handleEdit}><EditIcon className='w-5 h-5' /></button>
-        </footer>    
+        </footer>
+        <ConfirmModal
+          isOpen={confirmOpen}
+          title="Delete accomplishment?"
+          message={`Are you sure you want to delete this accomplishment? This action cannot be undone.`}
+          onCancel={() => setConfirmOpen(false)}
+          onConfirm={async () => { try { setIsDeleting(true); await handleDelete(); } finally { setIsDeleting(false); setConfirmOpen(false); } }}
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          loading={isDeleting}
+        />
       
       
     </div>

@@ -141,8 +141,8 @@ const AllAccomplishments = () => {
     if (filterValue) {
       const filtered = accomplishments.filter((accomplishment) =>
         accomplishment.title.toLowerCase().includes(filterValue.toLowerCase()) ||
-        accomplishment.description.toLowerCase().includes(filterValue.toLowerCase()) ||
-        accomplishment.impact.toLowerCase().includes(filterValue.toLowerCase())
+        ((accomplishment.description || '').toLowerCase().includes(filterValue.toLowerCase())) ||
+        ((accomplishment.impact || '').toLowerCase().includes(filterValue.toLowerCase()))
       );
       setFilteredAccomplishments(filtered);
     } else {
@@ -231,9 +231,9 @@ const AllAccomplishments = () => {
           <AccomplishmentCard
             key={accomplishment.id}
             id={accomplishment.id}
-            title={applyHighlight(accomplishment.title, filter)}
-            description={applyHighlight(accomplishment.description, filter)}
-            impact={applyHighlight(accomplishment.impact, filter)}
+            title={applyHighlight(accomplishment.title || '', filter)}
+            description={applyHighlight(accomplishment.description || '', filter)}
+            impact={applyHighlight(accomplishment.impact || '', filter)}
             // content={accomplishment.content}
             // type={accomplishment.type}
             created_at={accomplishment.created_at}
@@ -321,22 +321,25 @@ const AllAccomplishments = () => {
                 <AccomplishmentEditor
                   accomplishment={selectedAccomplishment}
                   onRequestClose={closeEditor}
-                  onSave={async (updatedDescription: string, updatedTitle: string, updatedImpact?: string) => {
+                  onSave={async (updatedDescription?: string, updatedTitle?: string, updatedImpact?: string) => {
                     if (!selectedAccomplishment) return;
+
+                    // Build a locally-updated object for UI
                     const updatedAccomplishment = {
                       ...selectedAccomplishment,
-                      description: updatedDescription,
-                      title: updatedTitle,
-                      impact: updatedImpact || '',
+                      description: updatedDescription ?? selectedAccomplishment.description ?? '',
+                      title: updatedTitle ?? selectedAccomplishment.title ?? '',
+                      impact: updatedImpact ?? selectedAccomplishment.impact ?? '',
                     };
 
                     try {
                       const { error } = await supabase
                         .from('accomplishments')
                         .update({
-                          description: updatedDescription,
-                          title: updatedTitle,
-                          impact: updatedImpact || '',
+                          // write null when empty so DB stores null instead of empty string
+                          description: updatedDescription && updatedDescription.trim() ? updatedDescription : null,
+                          title: (updatedTitle ?? selectedAccomplishment.title),
+                          impact: updatedImpact && updatedImpact.trim() ? updatedImpact : null,
                         })
                         .eq('id', updatedAccomplishment.id);
 

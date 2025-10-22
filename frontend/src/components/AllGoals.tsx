@@ -338,7 +338,7 @@ const GoalsComponent = () => {
                     </div>
                 )}
             </div>
-            <div id="summary" className="p-4 mt-4 gap-4 flex flex-col 2xl:w-1/3 h-full justify-start items-start border-b border-gray-30 dark:border-gray-70 bg-gray-0 bg-opacity-70 dark:bg-gray-100 dark:bg-opacity-30 rounded-md">
+            <div id="summary" className="p-4 mt-8 2xl:mt-4 gap-4 flex flex-col w-full 2xl:w-1/3 h-full justify-start items-start border-b border-gray-30 dark:border-gray-70 bg-gray-0 bg-opacity-70 dark:bg-gray-100 dark:bg-opacity-30 rounded-md">
                 {/* Summary Generator and Editor */}
                 {/* <div className="">
                     <h2 className="text-xl font-semibold text-gray-900">Summary</h2>
