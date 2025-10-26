@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { fetchAllGoalsIndexed, deleteGoal, updateGoal, saveSummary, UserCategories, initializeUserCategories, addCategory, getWeekStartDate } from '../utils/functions';
 import Pagination from './Pagination';
 import GoalCard from '@components/GoalCard';
@@ -10,6 +10,7 @@ import GoalEditor from '@components/GoalEditor';
 import { modalClasses, overlayClasses } from '@styles/classes';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import { Goal as GoalUtilsGoal } from '@utils/goalUtils';
+import { mapPageForScope, loadPageByScope, savePageByScope } from '@utils/pagination';
 import 'react-datepicker/dist/react-datepicker.css';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -22,7 +23,13 @@ const GoalsComponent = () => {
     const [indexedGoals, setIndexedGoals] = useState<Record<string, Goal[]>>({});
     const [pages, setPages] = useState<string[]>([]);
     const [currentPage, setCurrentPage] = useState<string>('');
+    // Remember last selected page per scope so switching maintains context
+    const [pageByScope, setPageByScope] = useState<Record<string, string>>({});
     const [scope, setScope] = useState<'week' | 'month' | 'year'>('week');
+    const prevScopeRef = useRef<string>(scope);
+    const pageByScopeRef = useRef<Record<string, string>>(pageByScope);
+    const fetchIdRef = useRef(0);
+    const lastSwitchFromRef = useRef<string | null>(null);
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [isGoalModalOpen, setIsGoalModalOpen] = useState(false); // Modal state
     const [isEditorOpen, setIsEditorOpen] = useState(false); // Editor modal state
@@ -59,41 +66,91 @@ const GoalsComponent = () => {
     const [filter, setFilter] = useState<string>('');
 
     // Set the default scope to the current week
-    useEffect(() => {
-      const today = new Date();
-      const currentWeekStart = new Date(getWeekStartDate(today)); // Convert to Date object if `getWeekStartDate` returns a string
-      setScope('week'); // Set the default scope to 'week'
-      setNewGoal((prevGoal) => ({ ...prevGoal, week_start: currentWeekStart.toISOString().split('T')[0] })); // Format the date as YYYY-MM-DD
-    //   console.log({currentWeekStart});
-    }, []);
+            useEffect(() => {
+                const today = new Date();
+                const currentWeekStart = getWeekStartDate(today); // getWeekStartDate returns YYYY-MM-DD
+                setScope('week'); // default scope
+                // initialize per-scope page memory to persisted or current date equivalents
+                const persisted = loadPageByScope() || {};
+                const defaults = {
+                    week: currentWeekStart,
+                    month: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`,
+                    year: `${today.getFullYear()}`,
+                };
+                setPageByScope((prev) => ({ ...defaults, ...persisted, ...prev }));
+                setNewGoal((prevGoal) => ({ ...prevGoal, week_start: currentWeekStart }));
+            }, []);
 
-    useEffect(() => {
-        const fetchGoalsAndCategories = async () => {
-            try {
-                // Fetch goals
-                const { indexedGoals, pages } = await fetchAllGoalsIndexed(scope);
-                setIndexedGoals(indexedGoals);
-                setPages(pages);
+            useEffect(() => {
+                const fetchGoalsAndCategories = async () => {
+                    const id = ++fetchIdRef.current;
+                    try {
+                        // Fetch goals for the selected scope
+                        const { indexedGoals, pages } = await fetchAllGoalsIndexed(scope);
+                        // If another fetch started after this one, ignore these results
+                        if (id !== fetchIdRef.current) return;
+                        setIndexedGoals(indexedGoals);
+                        setPages(pages);
 
-                if (pages.length > 0) {
-                    const today = new Date();
-                    const currentWeekStart = new Date(getWeekStartDate(today)).toISOString().split('T')[0];
-                    const currentPageIndex = pages.findIndex(page => page === currentWeekStart);
-                    setCurrentPage(currentPageIndex !== -1 ? pages[currentPageIndex] : pages[0]); // Set to currentWeekStart if found, otherwise default to the first page
-                }
-                
+                        // Decide which page to show for this scope
+                        const prevScope = lastSwitchFromRef.current ?? prevScopeRef.current;
+                        const remembered = pageByScopeRef.current[scope];
+                        let desiredPage: string | undefined = remembered;
 
-                // Initialize user categories
-                await initializeUserCategories();
-            } catch (error) {
-                console.error('Error fetching goals or initializing categories:', error);
-            }
-        };
+                        // If switching scopes, prefer mapping from the previous scope's selection (if present)
+                        const prevSelected = pageByScopeRef.current[prevScope as string];
+                        if (prevScope !== scope && prevSelected) {
+                            const mapped = mapPageForScope(prevSelected, scope, pages);
+                            if (mapped) desiredPage = mapped;
+                        } else if (!desiredPage) {
+                            // If we don't have a remembered page for this scope, try to map from the previous scope's selection
+                            desiredPage = mapPageForScope(prevSelected, scope, pages);
+                        }
 
-        fetchGoalsAndCategories();
-    }, [scope]);
+                        // If still no desired page, fall back to sensible defaults (current date)
+                        if (!desiredPage) {
+                            const today = new Date();
+                            if (scope === 'week') desiredPage = getWeekStartDate(today);
+                            else if (scope === 'month') desiredPage = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+                            else desiredPage = `${today.getFullYear()}`;
+                        }
 
+                        // Scope-specific adjustments: prefer pages starting with the desired prefix
+                        if (pages.length > 0) {
+                            if (scope === 'week') {
+                                if (desiredPage) {
+                                    const monthPrefix = desiredPage.slice(0, 7);
+                                    const maybe = pages.find((p) => p.startsWith(monthPrefix));
+                                    desiredPage = maybe || pages[0];
+                                } else {
+                                    desiredPage = pages[0];
+                                }
+                            } else {
+                                if (desiredPage) {
+                                    const dp = desiredPage as string;
+                                    const maybe = pages.find((p) => p.startsWith(dp));
+                                    desiredPage = maybe || pages[0];
+                                } else {
+                                    desiredPage = pages[0];
+                                }
+                            }
+                        }
 
+                        setCurrentPage(desiredPage || (pages[0] ?? ''));
+
+                        // Initialize user categories
+                        await initializeUserCategories();
+                    } catch (error) {
+                        console.error('Error fetching goals or initializing categories:', error);
+                    }
+                };
+
+                fetchGoalsAndCategories();
+                // debug logs removed after fixing mapping race conditions
+            }, [scope]);
+
+            // Mirror pageByScope into a ref to avoid re-running the fetch effect on its changes
+            useEffect(() => { pageByScopeRef.current = pageByScope; }, [pageByScope]);
     const openGoalModal = () => {
         if (!isGoalModalOpen) {
         setNewGoal((prev) => ({
@@ -122,28 +179,23 @@ const GoalsComponent = () => {
         setIsEditorOpen(false);
     }
 
-    // Function to refresh goals
+    // Function to refresh goals (keeps current selection where possible)
     const refreshGoals = async () => {
         try {
         const { indexedGoals, pages } = await fetchAllGoalsIndexed(scope);
         setIndexedGoals(indexedGoals);
         setPages(pages);
 
+        // If currentPage is not present in new pages, try to choose a sensible fallback
         if (pages.length > 0) {
-            const today = new Date();
-            const currentWeekStart = new Date(getWeekStartDate(today)).toISOString().split('T')[0];
-            const currentPageIndex = pages.findIndex(page => page === currentWeekStart);
-            setCurrentPage(currentPageIndex !== -1 ? pages[currentPageIndex] : pages[0]); // Set to currentWeekStart if found, otherwise default to the first page
+            if (!currentPage || !pages.includes(currentPage)) {
+                setCurrentPage(pages[0]);
+            }
         }
         } catch (error) {
         console.error('Error refreshing goals:', error);
         }
     };
-
-    useEffect(() => {
-        // console.log('refreshGoals triggered');
-        refreshGoals(); // Fetch goals on component mount or when scope changes
-    }, [scope]);
   
 // Add a new goal
     //const handleAddGoal = async (event: React.FormEvent, goal?: Goal) => {
@@ -156,7 +208,7 @@ const GoalsComponent = () => {
 //
     //    // Validation: Ensure all required fields are populated
     //    if (!goalToAdd.title || !goalToAdd.description || !goalToAdd.category || !goalToAdd.week_start || !goalToAdd.user_id) {
-    //        console.error('All fields are required. Missing fields:', goalToAdd);
+                                // prevScopeRef.current = scope; // This line is now moved inside the fetch function
     //        return;
     //    }
 //
@@ -211,8 +263,21 @@ const GoalsComponent = () => {
   };
 
   const handlePageChange = (page: string) => {
-    setCurrentPage(page);
+        setCurrentPage(page);
+        const next = { ...pageByScopeRef.current, [scope]: page };
+        setPageByScope(next);
+        pageByScopeRef.current = next;
+        try { savePageByScope(next); } catch (e) { /* ignore */ }
   };
+
+    // persist pageByScope whenever it changes (e.g., scope switches)
+    useEffect(() => {
+        try {
+            savePageByScope(pageByScope);
+        } catch (e) {
+            // ignore
+        }
+    }, [pageByScope]);
 
     // console.log('Indexed Goals:', indexedGoals);
     // console.log('Filtered Goals:', filteredGoals);
@@ -268,7 +333,16 @@ const GoalsComponent = () => {
                         <button
                             key={s}
                             title={`Select ${s}ly view`}
-                            onClick={() => setScope(s as 'week' | 'month' | 'year')}
+                                                                                        onClick={() => {
+                                                                                                            // persist the currently-viewed page for the active scope before switching
+                                                                                                                                            const next = { ...pageByScopeRef.current, [scope]: currentPage || pageByScopeRef.current[scope] };
+                                                                                                                                            setPageByScope(next);
+                                                                                                                                            pageByScopeRef.current = next;
+                                                                                                                                            try { savePageByScope(next); } catch (e) {}
+                                                                                                                                            // Record which scope we're switching from so the next fetch can map correctly
+                                                                                                                                            lastSwitchFromRef.current = scope;
+                                                                                                                                            setScope(s as 'week' | 'month' | 'year');
+                                                                                                        }}
                             className={`btn-ghost ${scope === s ? 'text-brand-60 hover:text-brand-70 dark:text-brand-20 dark:hover:text-brand-10 font-bold underline' : ''}`}
                         >
                             <span className="hidden md:inline sm:inline">{s.charAt(0).toUpperCase() + s.slice(1)}</span>

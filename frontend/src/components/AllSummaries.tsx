@@ -321,8 +321,9 @@ const AllSummaries = () => {
             <h3 className="text-lg font-medium text-gray-900 mb-4">Add Summary</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Title</label>
+                <label htmlFor="summary-title" className="block text-sm font-medium text-gray-700">Title</label>
                 <input
+                  id="summary-title"
                   name="title"
                   type="text"
                   value={newSummary.title}
@@ -333,8 +334,9 @@ const AllSummaries = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Select timeframe</label>
+                <label htmlFor="summary-week-start" className="block text-sm font-medium text-gray-700">Select timeframe</label>
                 <input
+                  id="summary-week-start"
                   name="week_start"
                   type="date"
                   value={newSummary.week_start}
@@ -345,17 +347,15 @@ const AllSummaries = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Content</label>
+                <label htmlFor="summary-content" className="block text-sm font-medium text-gray-700">Content</label>
                 <ReactQuill
-                  id={newSummary.id}
+                  id="summary-content"
                   value={newSummary.content}
                   className=""
-                  
                   onChange={(value) =>
                     setNewSummary({ ...newSummary, content: value })
                   }
                 />
-                
                 <input
                   type="hidden"
                   name="content"
