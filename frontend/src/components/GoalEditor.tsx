@@ -8,8 +8,8 @@ import { supabase } from '@lib/supabase'; // Import Supabase client
 import { Search as SearchIcon } from 'lucide-react';
 // import { TagIcon } from 'lucide-react';
 import Modal from 'react-modal';
+import { ARIA_HIDE_APP } from '@lib/modal';
 
-Modal.setAppElement('#root'); // Replace '#root' with the actual app root element if different
 
 interface GoalEditorProps {
     title: string;
@@ -239,25 +239,25 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
                 <SearchIcon className="w-5 h-5 inline-block ml-2" />
               </a>
 
-              {/* Ensure the modal is only rendered when `isCategoryModalOpen` is true */}
-              {isCategoryModalOpen && (
-                <Modal
-                  id='category-list'
-                  isOpen={isCategoryModalOpen}
-                  onRequestClose={handleCategoryModalClose}
-                  ariaHideApp={false} // Allow multiple modals
-                  shouldFocusAfterRender={false} // Disable automatic focus management
-                  shouldReturnFocusAfterClose={false} // Prevent focus conflicts
-                  className="fixed inset-0 flex items-center justify-center z-[1050]" // Ensure higher z-index than the edit modal
-                  overlayClassName="fixed inset-0 bg-black bg-opacity-30"
-                  style={{
-                    content: {
-                      width: 'calc(100% - 8px)',
-                      height: '100%',
-                      margin: 'auto',
-                    },
-                  }}
-                >
+              {/* Category selection modal: always-rendered Modal with conditional content */}
+              <Modal
+                id='category-list'
+                isOpen={isCategoryModalOpen}
+                onRequestClose={handleCategoryModalClose}
+                ariaHideApp={ARIA_HIDE_APP}
+                shouldFocusAfterRender={false}
+                shouldReturnFocusAfterClose={false}
+                className="fixed inset-0 flex items-center justify-center z-[1050]"
+                overlayClassName="fixed inset-0 bg-black bg-opacity-30"
+                style={{
+                  content: {
+                    width: 'calc(100% - 8px)',
+                    height: '100%',
+                    margin: 'auto',
+                  },
+                }}
+              >
+                {isCategoryModalOpen && (
                   <div className="p-4 bg-gray-10 dark:bg-gray-90 rounded-lg shadow-lg w-full max-w-md">
                     <h2 className="text-lg font-bold mb-4">Select or Add a Category</h2>
                     <input
@@ -281,8 +281,6 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
                           className="p-2 hover:bg-gray-20 dark:hover:bg-gray-70 cursor-pointer"
                           onClick={() => {
                             handleCategorySelection(category.name);
-                            // setTempCategory(category.name); // Update only the temporary category state
-                            // setIsCategoryModalOpen(false); // Close the modal without triggering any save or update actions
                           }}
                         >
                           {category.name}
@@ -350,8 +348,8 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
                       Cancel
                     </button>
                   </div>
-                </Modal>
-              )}
+                )}
+              </Modal>
             </div>
           </div>
             

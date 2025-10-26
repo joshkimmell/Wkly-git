@@ -6,16 +6,22 @@ export const handler: Handler = async (event) => {
   const week_start = event.queryStringParameters?.week_start;
 
   // Validate required parameters
-  if (!user_id) {
+    if (!user_id) {
     return {
       statusCode: 400,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store',
+      },
       body: JSON.stringify({ error: 'User ID is required.' }),
     };
   }
 
   try {
-    // Build the Supabase query
-    let query = supabase.from('goals').select('*').eq('user_id', user_id);
+  // Build the Supabase query - select only needed fields to reduce payload
+  const selectFields = 'id,title,description,category,week_start,user_id,created_at,status,status_notes';
+  let query = supabase.from('goals').select(selectFields).eq('user_id', user_id);
     if (week_start) query = query.eq('week_start', week_start);
 
     const { data, error } = await query.order('created_at', { ascending: true });
@@ -28,31 +34,24 @@ export const handler: Handler = async (event) => {
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-store',
         },
         body: JSON.stringify({ error: 'Failed to fetch goals.' }),
       };
     }
 
-    // Handle case where no data is found
-    if (!data || data.length === 0) {
-      return {
-        statusCode: 404,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ error: 'No goals found for the specified user.' }),
-      };
-    }
+    // If no data is found, return an empty array with 200 so clients can handle it uniformly
+    const responseData = data || [];
 
-    // Return successful response
+    // Return successful response with short caching headers for CDN
     return {
       statusCode: 200,
       headers: {
         'Access-Control-Allow-Origin': '*', // Or specify the allowed origin
         'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=10, stale-while-revalidate=30',
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify(responseData),
     };
   } catch (error) {
     // Handle unexpected errors
@@ -62,6 +61,7 @@ export const handler: Handler = async (event) => {
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Content-Type': 'application/json',
+        'Cache-Control': 'no-store',
       },
       body: JSON.stringify({ error: 'An unexpected error occurred.' }),
     };

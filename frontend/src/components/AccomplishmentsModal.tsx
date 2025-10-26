@@ -59,19 +59,21 @@ export default function AccomplishmentsModal({ goalTitle, isOpen, onClose, accom
         )}    
             <ul className="space-y-3">
               {accomplishments.map((acc) => (
-                <li key={acc.id} className="p-3 border rounded bg-gray-10 dark:bg-gray-80 dark:border-gray-70">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="text-md font-semibold text-brand-80 dark:text-brand-20">{acc.title}</div>
-                      <div className="text-sm text-gray-60 dark:text-gray-40 mt-1">{acc.description ? <span dangerouslySetInnerHTML={{ __html: acc.description }} /> : <span className="text-gray-400">No description provided.</span>}</div>
-                      {acc.impact && acc.impact.trim() ? (
-                        <div className="text-sm text-gray-40 mt-2">Impact: <span dangerouslySetInnerHTML={{ __html: acc.impact }} /></div>
-                      ) : null}
+                <li key={acc.id} className="p-3 border rounded bg-gray-20 dark:bg-gray-80 dark:border-gray-70">
+                    <div className="flex flex-col w-full">
+                        <div className='flex flex-row justify-between items-center mb-2'>
+                        {acc.created_at && <div className="text-xs dark:text-gray-40 text-gray-70">{new Date(acc.created_at).toLocaleString()}</div>}
+                        <div className="flex flex-row justify-end">
+                        <button className="btn-ghost" onClick={() => onEdit(acc)} title="Edit accomplishment"><Edit className="w-4 h-4" /></button>
+                        <button className="btn-ghost" onClick={() => setDeleteTarget(acc.id)} title="Delete accomplishment"><Trash className="w-4 h-4" /></button>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-2 ml-4">
-                      {acc.created_at && <div className="text-xs text-gray-40">{new Date(acc.created_at).toLocaleString()}</div>}
-                      <button className="btn-ghost" onClick={() => onEdit(acc)} title="Edit accomplishment"><Edit className="w-4 h-4" /></button>
-                      <button className="btn-ghost" onClick={() => setDeleteTarget(acc.id)} title="Delete accomplishment"><Trash className="w-4 h-4" /></button>
+                    <div className="flex-1">
+                      <div className="text-md font-semibold text-brand-80 dark:text-brand-10">{acc.title}</div>
+                      <div className="text-md text-gray-80 dark:text-gray-40 mt-1">{acc.description ? <span dangerouslySetInnerHTML={{ __html: acc.description }} /> : <span className="text-gray-400">No description provided.</span>}</div>
+                      {acc.impact && acc.impact.trim() ? (
+                        <div className="text-sm dark:text-gray-40 text-gray-70 mt-2"><strong>Impact:</strong> <span dangerouslySetInnerHTML={{ __html: acc.impact }} /></div>
+                      ) : null}
                     </div>
                   </div>
                 </li>

@@ -33,3 +33,21 @@ export const classMenuItem = `
     text-sm 
     font-medium
   `;
+
+  export const objectCounter = `
+    absolute 
+    -top-1 
+    -right-1 
+    min-w-4 
+    items-centered 
+    text-sm 
+    font-bold 
+    text-gray-10 
+    dark:text-gray-100 
+    border-brand-30 
+    dark:border-brand-90 
+    bg-brand-80 
+    dark:bg-brand-0 
+    rounded-xl 
+    px-2
+  `;

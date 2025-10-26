@@ -14,7 +14,6 @@ import AllSummaries from '@components/AllSummaries';
 import AllAccomplishments from '@components/AllAccomplishments';
 import { Award, Home, Text } from 'lucide-react';
 import LoadingSpinner from '@components/LoadingSpinner';
-import { fetchAllGoals } from '@utils/functions'; // Import fetchAllGoals function
 import ProfileManagement from '@components/ProfileManagement';
 
 
@@ -26,7 +25,6 @@ const App: React.FC = () => {
     window.matchMedia('(prefers-color-scheme: dark)').matches ? 'theme-dark' : 'theme-light'
   );
   const [isOpen, /*setIsOpen*/] = useState(false);
-  const [isLoadingState, setIsLoadingState] = useState(false);
 
   const toggleTheme = () => setTheme(prev => (prev === 'theme-dark' ? 'theme-light' : 'theme-dark'));
 
@@ -50,18 +48,6 @@ const App: React.FC = () => {
     }
   };
 
-  const fetchGoalsWithLoading = async () => {
-    setIsLoadingState(true); // Set loading state to true
-    try {
-      await fetchAllGoals(); // Call the fetchAllGoals function
-      // console.log('Fetched goals:', goals);
-      // Handle the fetched goals as needed
-    } catch (error) {
-      console.error('Error fetching goals:', error);
-    } finally {
-      setIsLoadingState(false); // Set loading state to false
-    }
-  };
 
   useEffect(() => {
   if (theme === 'theme-dark') {
@@ -84,13 +70,7 @@ const App: React.FC = () => {
     }
   }, [session, navigate]);
   
-  useEffect(() => {
-    // Only fetch goals when there's an authenticated session. Avoid attempting
-    // to fetch on the login screen where no user is present.
-    if (session) {
-      fetchGoalsWithLoading();
-    }
-  }, [session]);
+  // Goals are fetched by the GoalsProvider on mount; no need to fetch here.
   
   if (isLoading) return 
     <div className="fixed top-0 mt-0 h-[100vh] w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center">
@@ -106,13 +86,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (isLoadingState) {
-    return (
-    <div className="fixed top-0 mt-0 h-[100vh] w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center">
-      <div className="loader"><LoadingSpinner /></div>
-      <span className="ml-2">Loading...</span>
-    </div>
-  )}
+  // no local loading placeholder; child components can show their own spinners
 
   return (
     <SessionContextProvider supabaseClient={supabase}>
