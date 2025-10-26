@@ -47,14 +47,18 @@ const Pagination: React.FC<PaginationProps> = ({ pages, currentPage, onPageChang
         return page;
     }
   };
-  // Find the current page based on today's date
-  
+  // Find the current page based on today's date (choose the latest page date that is <= today)
   const today = new Date();
-  const currentPageFromToday = pages.find((page) => {
-    const [year, month, day] = page.split('-').map(Number); // Split and parse the date parts
-    const pageDate = new Date(year, (month || 1) - 1, day || 1); // Default month to 1 and day to 1 (month is 0-indexed)      
-    return pageDate <= today; // Check if the page date is less than or equal to today
-  });
+  let currentPageFromToday: string | undefined;
+  for (let i = pages.length - 1; i >= 0; i--) {
+    const page = pages[i];
+    const [year, month, day] = page.split('-').map(Number);
+    const pageDate = new Date(year, (month || 1) - 1, day || 1);
+    if (pageDate <= today) {
+      currentPageFromToday = page;
+      break;
+    }
+  }
 
   return (
     <div className="flex items-center space-x-2">

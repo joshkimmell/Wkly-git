@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Modal from 'react-modal';
+import { ARIA_HIDE_APP } from '@lib/modal';
 import { Summary } from '@utils/goalUtils'; // Adjust the import path as necessary
 import { fetchSummaries, createSummary, deleteSummary, saveSummary } from '@utils/functions'; // Adjust the import path as necessary
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
@@ -11,7 +12,6 @@ import ReactQuill from 'react-quill';
 import { notifyError, notifySuccess } from './ToastyNotification';
 // import Editor from '@components/Editor';
 
-Modal.setAppElement('#root');
 
 const AllSummaries = () => {
   const [summaries, setSummaries] = useState<Summary[]>([]);
@@ -273,57 +273,50 @@ const AllSummaries = () => {
           No summaries found.
         </div>
       )}
-      {isEditorOpen && selectedSummary && ( 
-        <Modal
-            key={selectedSummary.id} // Use the summary ID as the key
-            isOpen={!!selectedSummary} // Ensure modal is open only when selectedSummary is set
-            onRequestClose={() => setSelectedSummary(null)} // Close the modal properly
-            className={`fixed inset-0 flex items-center justify-center z-50`}
-            overlayClassName={`${overlayClasses}`}
-          >
-            {/* <div className={`${modalClasses}`}> */}
-              <SummaryEditor
-                id={selectedSummary.id}
-                type='User' // Assuming 'User' is the type for user-edited summaries  
-                title={selectedSummary.title} // Pass the initial title
-                content={selectedSummary.content} // Pass the initial content
-                onRequestClose={() => setSelectedSummary(null)} // Close the modal
-                onSave={async (editedContent, editedTitle) => {
-                  try {
-                    // Save the edited summary as a new entry with summary_type === 'User'
-                    // Optionally, you can also update the local state or refetch the summaries
-                    saveSummary(
-                      setLocalSummaryId,
-                      editedTitle || selectedSummary.title,
-                      editedContent,
-                      'User',
-                      new Date(),
-                      'week'
-                    );
-                    closeEditor(); // Close the modal after saving
-                    // setSummary(editedContent, editedTitle, 'User'); // Update the local state
-                    handleFetchSummaries(); // Refresh summaries after adding
-                    // console.log('Edited summary saved successfully');
-                  } catch (error) {
-                    console.error('Error saving edited summary:', error);
-                  }
-                }}
-              />
-            {/* </div> */}
-          </Modal> 
-       )}
+      <Modal
+        isOpen={isEditorOpen && !!selectedSummary}
+        onRequestClose={() => setSelectedSummary(null)}
+        className={`fixed inset-0 flex items-center justify-center z-50`}
+        overlayClassName={`${overlayClasses}`}
+        ariaHideApp={ARIA_HIDE_APP}
+      >
+        {isEditorOpen && selectedSummary && (
+          <SummaryEditor
+            id={selectedSummary.id}
+            type='User'
+            title={selectedSummary.title}
+            content={selectedSummary.content}
+            onRequestClose={() => setSelectedSummary(null)}
+            onSave={async (editedContent, editedTitle) => {
+              try {
+                await saveSummary(
+                  setLocalSummaryId,
+                  editedTitle || selectedSummary.title,
+                  editedContent,
+                  'User',
+                  new Date(),
+                  'week'
+                );
+                closeEditor();
+                handleFetchSummaries();
+              } catch (error) {
+                console.error('Error saving edited summary:', error);
+              }
+            }}
+          />
+        )}
+      </Modal>
         
 
       {/* Add Summary Modal */}
-      {isModalOpen && (
-        <Modal
-          isOpen={isModalOpen}
-          onRequestClose={() => closeModal()}
-          className="fixed inset-0 flex items-center justify-center z-50"
-          overlayClassName="fixed inset-0 bg-gray-500 bg-opacity-75"
-        >
-          
-          {/* Uncomment this section if you want to use the form directly */}
+      <Modal
+        isOpen={isModalOpen}
+        onRequestClose={() => closeModal()}
+        className="fixed inset-0 flex items-center justify-center z-50"
+        overlayClassName="fixed inset-0 bg-gray-500 bg-opacity-75"
+        ariaHideApp={ARIA_HIDE_APP}
+      >
+        {isModalOpen && (
           <form id="summaryForm" onSubmit={handleAddSummary} className={`${modalClasses}`}>
             <h3 className="text-lg font-medium text-gray-900 mb-4">Add Summary</h3>
             <div className="space-y-4">
@@ -361,8 +354,6 @@ const AllSummaries = () => {
                   onChange={(value) =>
                     setNewSummary({ ...newSummary, content: value })
                   }
-                  // ReactQuill does not support the "name" prop directly,
-                  // but you can add a hidden input to include it in form data:
                 />
                 
                 <input
@@ -389,8 +380,8 @@ const AllSummaries = () => {
               </button>
             </div>
           </form>
-        </Modal>
-       )}
+        )}
+      </Modal>
     </div>
   );
 };

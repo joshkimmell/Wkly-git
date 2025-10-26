@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Modal from 'react-modal';
+import { ARIA_HIDE_APP } from '@lib/modal';
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 import { fetchAllAccomplishmentsIndexed, applyHighlight } from '@utils/functions';
 import { Accomplishment } from '@utils/goalUtils'; // Adjust the import path as necessary
@@ -9,7 +10,6 @@ import { modalClasses, overlayClasses } from '@styles/classes';
 import { notifyError, notifySuccess } from './ToastyNotification';
 // import { over } from 'lodash';
 
-Modal.setAppElement('#root');
 
 // Corrected assignment to use `indexedAccomplishments`
 const AllAccomplishments = () => {
@@ -245,132 +245,135 @@ const AllAccomplishments = () => {
       </div>
 
       {/* Add Accomplishment Modal */}
-      {isModalOpen && (
-        <Modal
-          isOpen={isModalOpen}
-          onRequestClose={closeModal}
-          className="fixed inset-0 flex items-center justify-center z-50"
-          overlayClassName={`${overlayClasses}`}
-          ariaHideApp={false} // Disable automatic aria-hidden management
-        >
-          <div className={`${modalClasses}`}>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Add Accomplishment</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Title</label>
-                <input
-                  type="text"
-                  value={newAccomplishment.title}
-                  onChange={(e) =>
-                    setNewAccomplishment({ ...newAccomplishment, title: e.target.value })
-                  }
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                />
+      <Modal
+        isOpen={isModalOpen}
+        onRequestClose={closeModal}
+        className="fixed inset-0 flex items-center justify-center z-50"
+        overlayClassName={`${overlayClasses}`}
+        ariaHideApp={ARIA_HIDE_APP}
+      >
+        <div className={`${modalClasses}`}>
+          {isModalOpen && (
+            <>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Add Accomplishment</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Title</label>
+                  <input
+                    type="text"
+                    value={newAccomplishment.title}
+                    onChange={(e) =>
+                      setNewAccomplishment({ ...newAccomplishment, title: e.target.value })
+                    }
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Description</label>
+                  <textarea
+                    value={newAccomplishment.description}
+                    onChange={(e) =>
+                      setNewAccomplishment({ ...newAccomplishment, description: e.target.value })
+                    }
+                    rows={4}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Impact</label>
+                  <input
+                    type="text"
+                    value={newAccomplishment.impact}
+                    onChange={(e) =>
+                      setNewAccomplishment({ ...newAccomplishment, impact: e.target.value })
+                    }
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Description</label>
-                <textarea
-                  value={newAccomplishment.description}
-                  onChange={(e) =>
-                    setNewAccomplishment({ ...newAccomplishment, description: e.target.value })
-                  }
-                  rows={4}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                />
+              <div className="mt-6 flex justify-end space-x-4">
+                <button
+                  onClick={closeModal}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddAccomplishment}
+                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  Add
+                </button>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Impact</label>
-                <input
-                  type="text"
-                  value={newAccomplishment.impact}
-                  onChange={(e) =>
-                    setNewAccomplishment({ ...newAccomplishment, impact: e.target.value })
-                  }
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                />
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end space-x-4">
-              <button
-                onClick={closeModal}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddAccomplishment}
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                Add
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
+            </>
+          )}
+        </div>
+      </Modal>
 
       {/* Accomplishment Editor Modal */}
-        {isEditorOpen && (
-            <Modal
-              isOpen={isEditorOpen}
-              onRequestClose={closeEditor}
-              className={`fixed inset-0 flex items-center justify-center z-50`}
-              overlayClassName={`${overlayClasses}`}
-            >
-              <div className={`${modalClasses}`}>
-              {selectedAccomplishment ? (
-                <AccomplishmentEditor
-                  accomplishment={selectedAccomplishment}
-                  onRequestClose={closeEditor}
-                  onSave={async (updatedDescription?: string, updatedTitle?: string, updatedImpact?: string) => {
-                    if (!selectedAccomplishment) return;
+      <Modal
+        isOpen={isEditorOpen}
+        onRequestClose={closeEditor}
+        className={`fixed inset-0 flex items-center justify-center z-50`}
+        overlayClassName={`${overlayClasses}`}
+        ariaHideApp={ARIA_HIDE_APP}
+      >
+        <div className={`${modalClasses}`}>
+          {isEditorOpen && (
+            selectedAccomplishment ? (
+              <AccomplishmentEditor
+                accomplishment={selectedAccomplishment}
+                onRequestClose={closeEditor}
+                onSave={async (updatedDescription?: string, updatedTitle?: string, updatedImpact?: string) => {
+                  if (!selectedAccomplishment) return;
 
-                    // Build a locally-updated object for UI
-                    const updatedAccomplishment = {
-                      ...selectedAccomplishment,
-                      description: updatedDescription ?? selectedAccomplishment.description ?? '',
-                      title: updatedTitle ?? selectedAccomplishment.title ?? '',
-                      impact: updatedImpact ?? selectedAccomplishment.impact ?? '',
-                    };
+                  // Build a locally-updated object for UI
+                  const updatedAccomplishment = {
+                    ...selectedAccomplishment,
+                    description: updatedDescription ?? selectedAccomplishment.description ?? '',
+                    title: updatedTitle ?? selectedAccomplishment.title ?? '',
+                    impact: updatedImpact ?? selectedAccomplishment.impact ?? '',
+                  };
 
-                    try {
-                      const { error } = await supabase
-                        .from('accomplishments')
-                        .update({
-                          // write null when empty so DB stores null instead of empty string
-                          description: updatedDescription && updatedDescription.trim() ? updatedDescription : null,
-                          title: (updatedTitle ?? selectedAccomplishment.title),
-                          impact: updatedImpact && updatedImpact.trim() ? updatedImpact : null,
-                        })
-                        .eq('id', updatedAccomplishment.id);
+                  try {
+                    const { error } = await supabase
+                      .from('accomplishments')
+                      .update({
+                        // write null when empty so DB stores null instead of empty string
+                        description: updatedDescription && updatedDescription.trim() ? updatedDescription : null,
+                        title: (updatedTitle ?? selectedAccomplishment.title),
+                        impact: updatedImpact && updatedImpact.trim() ? updatedImpact : null,
+                      })
+                      .eq('id', updatedAccomplishment.id);
 
-                      if (error) {
-                        console.error('Error updating accomplishment:', error.message);
-                        notifyError('Error updating accomplishment.');
-                        return;
-                      }
-
-                      setFilteredAccomplishments((prev: Accomplishment[]) =>
-                        prev.map((accomplishment: Accomplishment) =>
-                          accomplishment.id === updatedAccomplishment.id
-                            ? updatedAccomplishment
-                            : accomplishment
-                        )
-                      );
-                      closeEditor();
-                      // notifySuccess('Accomplishment updated successfully.');
-                    } catch (err) {
-                      console.error('Unexpected error updating accomplishment:', err);
+                    if (error) {
+                      console.error('Error updating accomplishment:', error.message);
+                      notifyError('Error updating accomplishment.');
+                      return;
                     }
-                  }}
-                />
-              ) : (
-                <div className="p-4 text-center">
-                  <p className="text-gray-500">No accomplishment selected for editing.</p>
-                </div>
-              )}
+
+                    setFilteredAccomplishments((prev: Accomplishment[]) =>
+                      prev.map((accomplishment: Accomplishment) =>
+                        accomplishment.id === updatedAccomplishment.id
+                          ? updatedAccomplishment
+                          : accomplishment
+                      )
+                    );
+                    closeEditor();
+                    // notifySuccess('Accomplishment updated successfully.');
+                  } catch (err) {
+                    console.error('Unexpected error updating accomplishment:', err);
+                  }
+                }}
+              />
+            ) : (
+              <div className="p-4 text-center">
+                <p className="text-gray-500">No accomplishment selected for editing.</p>
               </div>
-            </Modal>
-        )}
+            )
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };

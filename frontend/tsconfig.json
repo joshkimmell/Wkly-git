@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "ignoreDeprecations": "6.0",
     "baseUrl": "./",
     "paths": {       
       "@components/*": ["src/components/*"],
@@ -24,7 +23,7 @@
     "moduleDetection": "force",
     "noEmit": true,
     "outDir": "./dist",
-    "jsx": "react-jsx",
+  "jsx": "react-jsx",
     
     /* Linting */
     "strict": true,
