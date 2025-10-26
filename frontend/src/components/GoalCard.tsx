@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useGoalsContext } from '@context/GoalsContext';
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 // import { handleDeleteGoal } from '@utils/functions';
 import { Goal, Accomplishment } from '@utils/goalUtils'; // Adjust the import path as necessary
 import { Trash, Edit, Award, X as CloseButton } from 'lucide-react';
 import { FileText as NotesIcon, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
-import { cardClasses, modalClasses } from '@styles/classes'; // Adjust the import path as necessary
+import { cardClasses, modalClasses, objectCounter } from '@styles/classes'; // Adjust the import path as necessary
 import { notifyError, notifySuccess } from './ToastyNotification';
 // import { Link } from 'react-router-dom';
 import { applyHighlight } from '@utils/functions'; // Adjust the import path as necessary
@@ -53,6 +54,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState('');
 
+  const { subscribeToTempId } = useGoalsContext();
+
   const openModal = () => {
     if (!isAccomplishmentModalOpen) {
       setIsAccomplishmentModalOpen(true);
@@ -76,12 +79,18 @@ const GoalCard: React.FC<GoalCardProps> = ({
   };
 
   // Fetch accomplishments from the backend
-  const fetchAccomplishments = async () => {
+  const fetchAccomplishments = async (idArg?: string) => {
     try {
+      const idToUse = idArg ?? goal.id;
+      // If this goal is an optimistic temporary item (client-side id), skip server requests
+      if (typeof idToUse === 'string' && idToUse.startsWith('temp-')) {
+        setAccomplishments([]);
+        return;
+      }
       const { data, error } = await supabase
         .from('accomplishments')
         .select('*')
-        .eq('goal_id', goal.id);
+        .eq('goal_id', idToUse);
 
       if (error) {
         console.error('Error fetching accomplishments:', error.message);
@@ -94,11 +103,17 @@ const GoalCard: React.FC<GoalCardProps> = ({
     }
   };
 
-  const fetchNotes = async () => {
+  const fetchNotes = async (idArg?: string) => {
     try {
+      // avoid calling server with temporary goal ids
+      const idToUse = idArg ?? goal.id;
+      if (typeof idToUse === 'string' && idToUse.startsWith('temp-')) {
+        setNotes([]);
+        return;
+      }
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
-      const res = await fetch(`/api/getNotes?goal_id=${goal.id}`, { headers: { Authorization: `Bearer ${user.id}` } });
+      const res = await fetch(`/api/getNotes?goal_id=${idToUse}`, { headers: { Authorization: `Bearer ${user.id}` } });
       if (!res.ok) throw new Error(await res.text());
       const json = await res.json();
       setNotes(json || []);
@@ -122,6 +137,11 @@ const GoalCard: React.FC<GoalCardProps> = ({
 
   const createNote = async () => {
     // optimistic create: add a temp note locally immediately
+    // Prevent creating notes for unsaved (temp) goals
+    if (typeof goal.id === 'string' && goal.id.startsWith('temp-')) {
+      notifyError('Please save the goal before adding notes.');
+      return;
+    }
     const tempId = `temp-${Date.now()}`;
     const tempNote = { id: tempId, content: newNoteContent, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     setNotes((s) => [tempNote, ...s]);
@@ -294,6 +314,31 @@ const GoalCard: React.FC<GoalCardProps> = ({
     };
   }, [goal.id]);
 
+  // Subscribe to temp-id replacement so this component can proactively fetch
+  // accomplishments and notes even if the parent doesn't re-render immediately.
+  useEffect(() => {
+    // only subscribe for client-side temp ids
+    if (!(typeof goal.id === 'string' && goal.id.startsWith('temp-'))) return;
+    const unsubscribe = subscribeToTempId(goal.id, (_newId: string) => {
+      // When the temp id is replaced, fetch related resources using the new id
+      (async () => {
+        try {
+          // fetch accomplishments and notes for the new server id
+          await fetchAccomplishments(_newId);
+        } catch (e) {
+          // ignore
+        }
+        try {
+          await fetchNotes(_newId);
+        } catch (e) {
+          // ignore
+        }
+      })();
+    });
+
+    return () => unsubscribe();
+  }, [goal.id, subscribeToTempId]);
+
   // accomplishment creation now handled via AccomplishmentsModal onCreate (optimistic updates)
 
   return (
@@ -401,7 +446,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
             title='Accomplishments'
             >
             {accomplishments.length > 0 && (
-            <div className="absolute min-w-4 -top-1 -right-1 items-centered text-xs text-brand-10 border-brand-20 font-semibold bg-gray-70 border-brand-30 rounded-lg px-2">{accomplishments.length}</div>
+            <div className={objectCounter}>{accomplishments.length}</div>
             )}
             <Award className="w-5 h-5 inline" name="Add accomplishment" /> 
           </button>
@@ -413,7 +458,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
               title="Notes"
             >
               {notes.length > 0 && (
-                <div className="absolute min-w-4 -top-1 -right-1 items-centered text-xs text-brand-10 border-brand-20 font-semibold bg-gray-70 border-brand-30 rounded-lg px-2">{notes.length}</div>
+                <div className={objectCounter}>{notes.length}</div>
               )}
               <NotesIcon className="w-5 h-5" />
             </button>

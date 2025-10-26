@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchAllGoalsIndexed, deleteGoal, updateGoal, saveSummary, UserCategories, initializeUserCategories, addCategory, getWeekStartDate } from '../utils/functions'; // Removed unused imports
-// import { handleDeleteAccomplishment } from '@components/GoalCard';
+import { fetchAllGoalsIndexed, deleteGoal, updateGoal, saveSummary, UserCategories, initializeUserCategories, addCategory, getWeekStartDate } from '../utils/functions';
 import Pagination from './Pagination';
 import GoalCard from '@components/GoalCard';
 import GoalForm from '@components/GoalForm';
@@ -9,13 +8,12 @@ import SummaryGenerator from '@components/SummaryGenerator';
 import SummaryEditor from '@components/SummaryEditor';
 import GoalEditor from '@components/GoalEditor';
 import { modalClasses, overlayClasses } from '@styles/classes';
+import { ARIA_HIDE_APP } from '@lib/modal';
 import { Goal as GoalUtilsGoal } from '@utils/goalUtils';
+import 'react-datepicker/dist/react-datepicker.css';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
 import { PlusSquare as SquarePlus } from 'lucide-react';
-import { BrowserRouter } from 'react-router-dom';
-
-
 type Goal = GoalUtilsGoal & {
   created_at?: string;
 };
@@ -338,8 +336,7 @@ const GoalsComponent = () => {
                     </div>
                 )}
             </div>
-            <div id="summary" className="p-4 mt-8 2xl:mt-4 gap-4 flex flex-col w-full 2xl:w-1/3 h-full justify-start items-start border-b border-gray-30 dark:border-gray-70 bg-gray-0 bg-opacity-70 dark:bg-gray-100 dark:bg-opacity-30 rounded-md">
-                {/* Summary Generator and Editor */}
+            <div id="summary" className="p-4 mt-8 2xl:mt-4 gap-4 flex flex-col w-full 2xl:w-1/3 h-full justify-start items-start border-b border-gray-30 dark:border-gray-70 bg-gray-0 bg-opacity-70 dark:bg-gray-100 dark:bg-opacity-30 rounded-md">                                                                                         {/* Summary Generator and Editor */}
                 {/* <div className="">
                     <h2 className="text-xl font-semibold text-gray-900">Summary</h2>
                     <p className="text-gray-60 dark:text-gray-30">Generate and edit your {scope}ly summary.</p>
@@ -347,66 +344,62 @@ const GoalsComponent = () => {
                 <div id="summary_btn">
                     <SummaryGenerator 
                         summaryId={selectedSummary?.id || ''} 
-                        summaryTitle={selectedSummary?.title || `Summary for ${scope}: ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}
-                        selectedRange={new Date()}
+                        summaryTitle={selectedSummary?.title || `Summary for ${scope}: ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}                                                                                                                                                                                selectedRange={new Date()}
                         filteredGoals={indexedGoals[currentPage] || []} // Pass the goals for the current page
                         scope={scope}
                     />
 
-                    {selectedSummary && isEditorOpen && (
                     <Modal
-                        key={selectedSummary.id} // Use the summary ID as the key
-                        isOpen={!!selectedSummary} // Ensure modal is open only when selectedSummary is set
-                        onRequestClose={() => setSelectedSummary(null)} // Close the modal properly
+                        key={selectedSummary?.id || 'summary-editor'}
+                        isOpen={!!selectedSummary && isEditorOpen}
+                        onRequestClose={() => setSelectedSummary(null)}
+                        ariaHideApp={ARIA_HIDE_APP}
                         className={`fixed inset-0 flex items-center justify-center z-50`}
                         overlayClassName={`${overlayClasses}`}
                     >
                         <div className={`${modalClasses}`}>
-                        <SummaryEditor
-                            id={selectedSummary.id} // Pass the summary,
-                            content={selectedSummary.content} // Pass the initial content
-                            type={selectedSummary.type === 'AI' || selectedSummary.type === 'User' ? selectedSummary.type : 'User'} // Pass the summary type
-                            title={selectedSummary.title} // Pass the initial title
-                            onRequestClose={() => setSelectedSummary(null)} // Close the modal
+                        {selectedSummary && (
+                          <SummaryEditor
+                            id={selectedSummary.id}
+                            content={selectedSummary.content}
+                            type={selectedSummary.type === 'AI' || selectedSummary.type === 'User' ? selectedSummary.type : 'User'}
+                            title={selectedSummary.title}
+                            onRequestClose={() => setSelectedSummary(null)}
                             onSave={async (editedTitle, editedContent) => {
                             try {
-                                // Save the edited summary as a new entry with summary_type === 'User'
-                                // Optionally, you can also update the local state or refetch the summaries
-                                saveSummary(
-                                setLocalSummaryId,
-                                editedTitle || selectedSummary.title, // Use the edited title or the original title
-                                editedContent,
-                                'User',
-                                new Date(),
-                                scope
+                                await saveSummary(
+                                  setLocalSummaryId,
+                                  editedTitle || selectedSummary.title,
+                                  editedContent,
+                                  'User',
+                                  new Date(),
+                                  scope
                                 );
-                                closeEditor(); // Close the modal after saving
-                                // setSummary(editedContent, editedTitle, 'User'); // Update the local state
-                                // await refreshGoals(); // Refetch goals if needed
-                                // console.log('Edited summary saved successfully');
+                                closeEditor();
                             } catch (error) {
                                 console.error('Error saving edited summary:', error);
                             }
                             }}
-                        />
+                          />
+                        )}
                         </div>
                     </Modal>
-                    )}
                 </div>
             </div>
         </div>
     <div>
 
         {/* Add Goal Modal */}
-        {isGoalModalOpen && (
-            <Modal
-                isOpen={isGoalModalOpen}
-                onRequestClose={closeGoalModal}
-                // parentSelector={() => document.getElementById('app')!}
-                className={`fixed inset-0 flex md:items-center justify-center z-50`}
-                overlayClassName={`${overlayClasses}`}
-            >
-            <div className={`${modalClasses}`}>
+        <Modal
+            isOpen={isGoalModalOpen}
+            onRequestClose={closeGoalModal}
+            ariaHideApp={ARIA_HIDE_APP}
+            // parentSelector={() => document.getElementById('app')!}
+            className={`fixed inset-0 flex md:items-center justify-center z-50`}
+            overlayClassName={`${overlayClasses}`}
+        >
+        <div className={`${modalClasses}`}>
+            {isGoalModalOpen && (
                 <GoalForm
                     newGoal={newGoal}
                     setNewGoal={setNewGoal}
@@ -414,19 +407,18 @@ const GoalsComponent = () => {
                     categories={UserCategories.map((cat: any) => typeof cat === 'string' ? cat : cat.name)}
                     refreshGoals={refreshGoals} // Pass only refreshGoals
                 />
-                
-            </div>
-            </Modal>
-        )}
+            )}
+        </div>
+        </Modal>
         {/* Goal Editor Modal */}
-        {isEditorOpen && (
-            <Modal
-                isOpen={isEditorOpen}
-                onRequestClose={closeEditor}
-                ariaHideApp={false} // Prevent React-Modal from setting aria-hidden on #root
-                className={`fixed inset-0 flex items-center justify-center z-50`}
-                overlayClassName={`${overlayClasses}`}
-            >
+        <Modal
+            isOpen={isEditorOpen}
+            onRequestClose={closeEditor}
+            ariaHideApp={ARIA_HIDE_APP}
+            className={`fixed inset-0 flex items-center justify-center z-50`}
+            overlayClassName={`${overlayClasses}`}
+        >
+            {isEditorOpen && (
                 <GoalEditor
                     title={selectedGoal?.title || ''}
                     description={selectedGoal?.description || ''}
@@ -464,22 +456,11 @@ const GoalsComponent = () => {
                         }
                     }}
                 />
-            </Modal>
-        )}
+            )}
+        </Modal>
         </div>
     </div>
   );
 };
 
 export default GoalsComponent;
-
-// Add future flags to BrowserRouter
-<BrowserRouter
-  future={{
-    v7_startTransition: true,
-    v7_relativeSplatPath: true,
-  }}
->
-  {/* ...existing code... */}
-</BrowserRouter>;
-

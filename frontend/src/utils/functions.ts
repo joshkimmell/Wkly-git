@@ -573,12 +573,14 @@ export const deleteGoalNote = async (noteId: string) => {
 };
 
 // Add a function to highlight filtered words
-  export const applyHighlight = (text: string, filter: string) => {
-    if (!filter) return text;
+  export const applyHighlight = (text: string | null | undefined, filter: string | null | undefined) => {
+    // If there's no filter or no text, return text (coerce null/undefined to empty string to avoid runtime errors)
+    if (!filter) return text ?? '';
+    const safeText = text ?? '';
     // Escape special characters in the filter string
-    const escapedFilter = filter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escapedFilter = (filter || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(`(${escapedFilter})`, 'gi');
-    return text.replace(regex, '<span class="highlight">$1</span>');
+    return safeText.replace(regex, '<span class="highlight">$1</span>');
   };
 export const handleUpdateGoal = async (goalId: string, updatedGoal: Goal) => {
     const { data: { user } } = await supabase.auth.getUser();

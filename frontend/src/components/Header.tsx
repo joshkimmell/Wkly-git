@@ -8,6 +8,7 @@ import { classMenuItem } from '@styles/classes';
 import useAuth from '@hooks/useAuth';
 import { Menu, MenuItem } from '@mui/material';
 import Modal from 'react-modal';
+import { ARIA_HIDE_APP } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
 import Avatar from '@components/Avatar';
 import ProfileManagement from './ProfileManagement';
@@ -223,18 +224,19 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                         
                         </div>
                         )}
-                        {isProfileOpen && (
-                            <Modal
-                                isOpen={isProfileOpen}
-                                id='Profile'    
-                                className={`fixed inset-0 flex items-center justify-center z-50`}
-                                overlayClassName={`${overlayClasses}`}
-                            >
+                        <Modal
+                            isOpen={isProfileOpen}
+                            id='Profile'
+                            ariaHideApp={ARIA_HIDE_APP}
+                            className={`fixed inset-0 flex items-center justify-center z-50`}
+                            overlayClassName={`${overlayClasses}`}
+                        >
+                            {isProfileOpen && (
                                 <div className={`${modalClasses}`}>
                                     <ProfileManagement onClose={() => setIsProfileOpen(false)} />
                                 </div>
-                            </Modal>
-                         )}
+                            )}
+                        </Modal>
                         
                         {/* </div> */}
                     </>

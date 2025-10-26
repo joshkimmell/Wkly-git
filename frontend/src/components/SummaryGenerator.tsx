@@ -6,6 +6,7 @@ import { saveSummary, deleteSummary, getWeekStartDate, generateSummary } from '@
 import supabase from '@lib/supabase';
 import SummaryEditor from '@components/SummaryEditor';
 import Modal from 'react-modal';
+import { ARIA_HIDE_APP } from '@lib/modal';
 import SummaryCard from '@components/SummaryCard';
 import { modalClasses, overlayClasses } from '@styles/classes';
 import ReactQuill from 'react-quill'; // Fix import for ReactQuill
@@ -228,37 +229,40 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
     <div>
       
 
-      {isGenerateModalOpen && (
-        <Modal
-          isOpen={isGenerateModalOpen}
-          onRequestClose={closeGenerateModal}
-          className="fixed inset-0 flex items-center justify-center z-50"
-          overlayClassName={`${overlayClasses}`}
-        >
-          <div className={`${modalClasses}`}>
-            <h2 className="text-xl font-bold mb-4">Customize Summary Generation</h2>
-            <label className="block mb-2 font-medium">Additional Context:</label>
-            <ReactQuill value={additionalContext} onChange={setAdditionalContext} className="mb-4" />
+      <Modal
+        isOpen={isGenerateModalOpen}
+        onRequestClose={closeGenerateModal}
+        className="fixed inset-0 flex items-center justify-center z-50"
+        overlayClassName={`${overlayClasses}`}
+        ariaHideApp={ARIA_HIDE_APP}
+      >
+        <div className={`${modalClasses}`}>
+          {isGenerateModalOpen && (
+            <>
+              <h2 className="text-xl font-bold mb-4">Customize Summary Generation</h2>
+              <label className="block mb-2 font-medium">Additional Context:</label>
+              <ReactQuill value={additionalContext} onChange={setAdditionalContext} className="mb-4" />
 
-            <label className="block mb-2 font-medium">Response Length:</label>
-            <input
-              type="number"
-              value={responseLength}
-              onChange={(e) => setResponseLength(Number(e.target.value))}
-              className="block w-full p-2 border rounded mb-4"
-            />
+              <label className="block mb-2 font-medium">Response Length:</label>
+              <input
+                type="number"
+                value={responseLength}
+                onChange={(e) => setResponseLength(Number(e.target.value))}
+                className="block w-full p-2 border rounded mb-4"
+              />
 
-            <div className="flex justify-end space-x-4">
-              <button onClick={closeGenerateModal} className="btn-secondary">
-                Cancel
-              </button>
-              <button onClick={handleGenerateWithParams} className="btn-primary">
-                Generate
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
+              <div className="flex justify-end space-x-4">
+                <button onClick={closeGenerateModal} className="btn-secondary">
+                  Cancel
+                </button>
+                <button onClick={handleGenerateWithParams} className="btn-primary">
+                  Generate
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
       {!summary && (
         <>
         <div className="flex flex-col mb-4">
@@ -329,24 +333,25 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
         </div>
       )}
 
-      {isEditorOpen && (
-        <Modal
-          key={'summary-editor-modal'}
-          isOpen={isEditorOpen}
-          onRequestClose={closeEditor}
-          className="fixed inset-0 flex items-center justify-center z-50"
-          overlayClassName={`${overlayClasses}`}
-        >
+      <Modal
+        key={'summary-editor-modal'}
+        isOpen={isEditorOpen}
+        onRequestClose={closeEditor}
+        className="fixed inset-0 flex items-center justify-center z-50"
+        overlayClassName={`${overlayClasses}`}
+        ariaHideApp={ARIA_HIDE_APP}
+      >
+        {isEditorOpen && (
           <SummaryEditor
             id={localSummaryId || ''}
             title={summaryTitle || ''}
             content={summary || ''}
             type={'User'}
             onRequestClose={closeEditor}
-            onSave={handleSave} // Fixed type mismatch by using the correct function
+            onSave={handleSave}
           />
-        </Modal>
-      )}
+        )}
+      </Modal>
     </div>
   );
 };

@@ -2,9 +2,11 @@ import React, { useEffect, useState, useRef } from 'react';
 import { getWeekStartDate, fetchCategories } from '@utils/functions'; // Import fetchCategories from functions.ts
 import { Category, Goal } from '@utils/goalUtils'; // Import the addCategory function
 import supabase from '@lib/supabase'; // Import Supabase client
+import { useGoalsContext } from '@context/GoalsContext';
 import LoadingSpinner from '@components/LoadingSpinner';
 import { SearchIcon, RefreshCw } from 'lucide-react';
 import Modal from 'react-modal';
+import { ARIA_HIDE_APP } from '@lib/modal';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css'; // Import Quill styles
 
@@ -35,6 +37,9 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredCategories, setFilteredCategories] = useState(categories);
   const quillRef = useRef<any>(null);
+
+  // Goals context for optimistic UI updates
+  const { addGoalToCache, updateGoalInCache, removeGoalFromCache, replaceGoalInCache, refreshGoals: ctxRefresh } = useGoalsContext();
 
   // Set the default `week_start` to the current week's Monday
   useEffect(() => {
@@ -201,20 +206,30 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       // Remove fields that should not be sent to the database
       const { created_at, id, ...goalToInsert } = goal;
 
+  // Optimistic UI: add a temporary goal to the cache first
+
+  const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const tempGoal: Goal = { ...goalToInsert, id: tempId, created_at: new Date().toISOString() } as any;
+
+      addGoalToCache(tempGoal as Goal);
+
       // Insert the goal into the database
-      const { error } = await supabase.from('goals').insert(goalToInsert);
+      const { data: insertData, error } = await supabase.from('goals').insert(goalToInsert).select().single();
 
       if (error) {
+        // rollback
+        removeGoalFromCache(tempId);
         throw new Error(`Error adding goal to the database: ${error.message}`);
       }
 
-      console.log('Goal successfully added:', goal);
-
-      // Re-fetch the updated list of goals
-      if (refreshGoals) {
-        await refreshGoals();
+      // Replace temp with the server-provided row (if available)
+      if (insertData && insertData.id) {
+        const serverGoal = { ...(insertData as any) } as Goal;
+        // replace temp id with server row so subscribers can react
+        replaceGoalInCache(tempId, serverGoal);
       } else {
-        console.warn('refreshGoals function is not available. Ensure it is passed as a prop.');
+        // As a fallback, refresh from server
+        await (ctxRefresh ? ctxRefresh() : refreshGoals());
       }
 
       // Close the modal
@@ -231,35 +246,74 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
 
       console.log('Bulk adding goals with default week_start:', formattedWeekStart); // Log default week_start value
 
-      // Insert all goals into the database
-      await Promise.all(
-        steps.map(async (step, index) => {
-          const goal = {
-            ...step,
-            user_id: userId,
-            category: parentCategory,
-            week_start: step.week_start ? step.week_start.split('T')[0] : formattedWeekStart, // Use step's week_start if available
-          };
+  // Optimistic UI: add temporary goals to the cache first
 
-          console.log(`Adding goal at index ${index} with week_start:`, goal.week_start); // Log each goal's week_start
+  const temps = steps.map((step) => {
+        const id = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const goal = {
+          ...step,
+          user_id: userId,
+          category: parentCategory,
+          week_start: step.week_start ? step.week_start.split('T')[0] : formattedWeekStart,
+          id,
+          created_at: new Date().toISOString(),
+        } as Goal;
+        addGoalToCache(goal);
+        return { tempId: id, payload: goal };
+      });
 
-          const { error: insertError } = await supabase.from('goals').insert(goal);
+      try {
+        // Insert all goals into the database
+        const insertPromises = steps.map((step) => {
+        const payload = {
+          ...step,
+          user_id: userId,
+          category: parentCategory,
+          week_start: step.week_start ? step.week_start.split('T')[0] : formattedWeekStart,
+        };
+        return supabase.from('goals').insert(payload).select();
+      });
 
-          if (insertError) {
-            throw new Error(`Error adding goal at index ${index}: ${insertError.message}`);
+        const results = await Promise.all(insertPromises);
+
+      // Replace temp entries with server rows where possible
+      let replacedAny = false;
+      for (let i = 0; i < results.length; i++) {
+        const res = results[i];
+        if (res.error) {
+          throw res.error;
+        }
+        const rows = (res as any).data || (res as any).body || null;
+        if (rows && rows[0] && rows[0].id) {
+          // map back to the temp id and replace
+          const mappedTemp = temps[i];
+          if (mappedTemp) {
+            replaceGoalInCache(mappedTemp.tempId, rows[0] as Goal);
+          } else {
+            updateGoalInCache(rows[0] as Goal);
           }
-        })
-      );
+          replacedAny = true;
+        }
+      }
+
+        if (!replacedAny) {
+          // If server didn't return rows, refresh full list as fallback
+          await (ctxRefresh ? ctxRefresh() : refreshGoals());
+        }
+
+        console.log('All goals successfully inserted.');
+      } catch (err) {
+        // Rollback: remove any temp entries added to the cache
+        try {
+          temps.forEach((t) => removeGoalFromCache(t.tempId));
+        } catch (remErr) {
+          console.warn('Failed to rollback temp goals from cache', remErr);
+        }
+        console.error('Error during bulk insertion:', err);
+        throw err;
+      }
 
       console.log('All goals successfully inserted.');
-
-      // Refresh the goals in the UI
-      if (refreshGoals) {
-        await refreshGoals();
-        console.log('Goals refreshed successfully.');
-      } else {
-        console.warn('refreshGoals function is not available. Ensure it is passed as a prop.');
-      }
     } catch (err) {
       console.error('Error during bulk goal insertion or refresh:', err);
     }
@@ -343,7 +397,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
   
   return (
     <>
-    <form className="space-y-4">
+    <form id="goalForm" className="space-y-4">
       <div className="mt-6 flex justify-end space-x-4">
         <label className="block text-sm font-medium text-gray-700">Generate goals</label>
         <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
@@ -413,21 +467,26 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
               </div>
             )}
             <h3 className="text-lg font-medium">Select Steps to Include as Goals</h3>
-            <div className='mt-2 flex items-center m-2'>
-              <input
-                type="checkbox"
-                id="select-all"
-                checked={selectedSteps.length === generatedPlan.length && generatedPlan.length > 0}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    setSelectedSteps(generatedPlan.map((_, index) => index));
-                  } else {
-                    setSelectedSteps([]);
-                  }
-                }}
-                className="m-2 size-5 rounded-full cursor-pointer"
-              />
-              <label htmlFor="select-all" className="ml-2 cursor-pointer">Select All</label>
+            <div className='flex w-full items-center justify-between'>
+              <div className='mt-2 flex items-center m-2'>
+                <input
+                  type="checkbox"
+                  id="select-all"
+                  checked={selectedSteps.length === generatedPlan.length && generatedPlan.length > 0}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedSteps(generatedPlan.map((_, index) => index));
+                    } else {
+                      setSelectedSteps([]);
+                    }
+                  }}
+                  className="m-2 size-5 rounded-full cursor-pointer"
+                />
+                <label htmlFor="select-all" className="ml-2 cursor-pointer">Select All</label>
+              </div>
+              <button type="button" title="Regenerate Plan" onClick={handleGeneratePlan} className="btn-secondary size-sm">
+                <RefreshCw className="inline-block" />
+              </button>
             </div>
             <ul className="max-h-96 overflow-y-auto border-b-2 border-gray-30">
               {generatedPlan.map((step, index) => (
@@ -469,22 +528,22 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                   <SearchIcon className="w-5 h-5 inline-block ml-2" />
                 </button>
 
-                {/* Ensure the modal is only rendered when `isCategoryModalOpen` is true */}
-                {isCategoryModalOpen && (
-                  <Modal
-                    id='category-list'
-                    isOpen={isCategoryModalOpen}
-                    onRequestClose={() => setIsCategoryModalOpen(false)}
-                    className="fixed inset-0 flex items-center justify-center z-50"
-                    overlayClassName="fixed inset-0 bg-black bg-opacity-10"
-                    style={{
-                      content: {
-                        width: 'calc(100% - 8px)',
-                        height: '100%',
-                        margin: 'auto',
-                      },
-                    }}
-                  >
+                {/* Render Modal with stable isOpen prop */}
+                <Modal
+                  id='category-list'
+                  isOpen={isCategoryModalOpen}
+                  onRequestClose={() => setIsCategoryModalOpen(false)}
+                  className="fixed inset-0 flex items-center justify-center z-50"
+                  overlayClassName="fixed inset-0 bg-black bg-opacity-10"
+                  ariaHideApp={ARIA_HIDE_APP}
+                  style={{
+                    content: {
+                      width: 'calc(100% - 8px)',
+                      height: '100%',
+                      margin: 'auto',
+                    },
+                  }}
+                >
                     <div className="p-4 bg-gray-10 dark:bg-gray-80 rounded-lg shadow-lg w-full max-w-md">
                       <h2 className="text-lg font-bold mb-4">Select or Add a Category</h2>
                       <input
@@ -576,7 +635,6 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                       </button>
                     </div>
                   </Modal>
-                )}
               </div>
             </div>
 
@@ -601,7 +659,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                 required
               />
             </div>
-            <div className="mt-4 space-x-2">
+            <div className="mt-4 space-x-2 w-full justify-end">
               <button
                 onClick={handleClose}
                 className="btn-secondary"
@@ -610,9 +668,6 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
               </button>
               <button type="button" onClick={goToPreviousStep} className="btn-secondary">
                 Back
-              </button>
-              <button type="button" onClick={handleGeneratePlan} className="btn-secondary">
-                <RefreshCw className="inline-block mr-2" />Regenerate Plan
               </button>
               <button type="button" onClick={goToNextStep} className="btn-primary">
                 Apply Plan
@@ -699,22 +754,22 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                 <SearchIcon className="w-5 h-5 inline-block ml-2" />
               </button>
 
-              {/* Ensure the modal is only rendered when `isCategoryModalOpen` is true */}
-              {isCategoryModalOpen && (
-                <Modal
-                  id='category-list'
-                  isOpen={isCategoryModalOpen}
-                  onRequestClose={() => setIsCategoryModalOpen(false)}
-                  className="fixed inset-0 flex items-center justify-center z-50"
-                  overlayClassName="fixed inset-0 bg-black bg-opacity-10"
-                  style={{
-                    content: {
-                      width: 'calc(100% - 8px)',
-                      height: '100%',
-                      margin: 'auto',
-                    },
-                  }}
-                >
+              {/* Render category Modal with stable isOpen prop */}
+              <Modal
+                id='category-list'
+                isOpen={isCategoryModalOpen}
+                onRequestClose={() => setIsCategoryModalOpen(false)}
+                className="fixed inset-0 flex items-center justify-center z-50"
+                overlayClassName="fixed inset-0 bg-black bg-opacity-10"
+                ariaHideApp={ARIA_HIDE_APP}
+                style={{
+                  content: {
+                    width: 'calc(100% - 8px)',
+                    height: '100%',
+                    margin: 'auto',
+                  },
+                }}
+              >
                   <div className="p-4 bg-gray-10 dark:bg-gray-80 rounded-lg shadow-lg w-full max-w-md">
                     <h2 className="text-lg font-bold mb-4">Select or Add a Category</h2>
                     <input
@@ -806,7 +861,6 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                     </button>
                   </div>
                 </Modal>
-              )}
             </div>
           </div>
 

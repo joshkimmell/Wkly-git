@@ -3,6 +3,7 @@ import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import supabase from '@lib/supabase'; // Import supabase client
 import Header from '@components/Header';
 import Modal from 'react-modal';
+import { ARIA_HIDE_APP } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
 import { Eye, EyeOff } from 'lucide-react';
 import ToastNotification, { notifySuccess, notifyError } from '@components/ToastyNotification'; 
@@ -279,14 +280,13 @@ const Login = () => {
             </form>
             {error && <p style={{ color: 'red' }}>{error}</p>}
 
-          {isRegisterModalOpen && (
-                  <Modal
-                    isOpen={isRegisterModalOpen}
-                    onRequestClose={closeModal}
-                    className="fixed inset-0 flex items-center justify-center z-50"
-                    overlayClassName={`${overlayClasses}`}
-                    ariaHideApp={false} // Disable automatic aria-hidden management
-                  >
+          <Modal
+            isOpen={isRegisterModalOpen}
+            onRequestClose={closeModal}
+            className="fixed inset-0 flex items-center justify-center z-50"
+            overlayClassName={`${overlayClasses}`}
+            ariaHideApp={ARIA_HIDE_APP}
+          >
                     <div className={`${modalClasses}`}>
                       <h2 className="text-2xl font-bold text-left mb-4">Register</h2>
                       <form onSubmit={handleRegister} className='flex flex-col space-y-4 p-4'>
@@ -385,27 +385,24 @@ const Login = () => {
                       {error && <p style={{ color: 'red' }}>{error}</p>}
                     </div>
                   </Modal>
-                )}
           </main>
         </div>
       </div>
-      {showConfirmNotice && (
-        <Modal
-          isOpen={showConfirmNotice}
-          onRequestClose={() => setShowConfirmNotice(false)}
-          className="fixed inset-0 flex items-center justify-center z-50"
-          overlayClassName={`${overlayClasses}`}
-          ariaHideApp={false}
-        >
-          <div className={`${modalClasses}`}>
-            <h3 className="text-lg font-medium">Thanks for registering!</h3>
-            <p className="mt-2 text-gray-90 dark:text-gray-10">Confirm your email address to continue.</p>
-            <div className="mt-4 flex justify-end">
-              <button className="btn-primary" onClick={() => setShowConfirmNotice(false)}>Okay</button>
-            </div>
+      <Modal
+        isOpen={showConfirmNotice}
+        onRequestClose={() => setShowConfirmNotice(false)}
+        className="fixed inset-0 flex items-center justify-center z-50"
+        overlayClassName={`${overlayClasses}`}
+        ariaHideApp={ARIA_HIDE_APP}
+      >
+        <div className={`${modalClasses}`}>
+          <h3 className="text-lg font-medium">Thanks for registering!</h3>
+          <p className="mt-2 text-gray-90 dark:text-gray-10">Confirm your email address to continue.</p>
+          <div className="mt-4 flex justify-end">
+            <button className="btn-primary" onClick={() => setShowConfirmNotice(false)}>Okay</button>
           </div>
-        </Modal>
-      )}
+        </div>
+      </Modal>
       <ToastNotification theme={theme} />
     </SessionContextProvider>
     );
