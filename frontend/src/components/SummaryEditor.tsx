@@ -1,5 +1,6 @@
 import { modalClasses } from '@styles/classes';
 import React, { useState } from 'react';
+import { TextField } from '@mui/material';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
@@ -37,13 +38,14 @@ const SummaryEditor: React.FC<SummaryEditorProps> = ({
     return (
         <form onSubmit={handleSave} id="summaryForm" className={modalClasses}>
             {/* Input for editing the title */}
-            <input
+            <TextField
                 type="text"
                 name="title"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)} // Update title state
-                className="w-full p-2 mb-4 border rounded"
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full mb-4"
                 placeholder="Enter summary title"
+                fullWidth
             />
             {/* ReactQuill editor for editing the content */}
             <ReactQuill

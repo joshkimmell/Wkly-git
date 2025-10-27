@@ -1,7 +1,7 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
-import supabase, * as supabaseModule from '@lib/supabase';
+import supabase from '@lib/supabase';
 
 // Provide a fake session/user for components that call supabase.auth.getUser
 export const mockSupabaseAuthGetUser = (overrides?: Partial<{ id: string }>) => {
@@ -29,12 +29,12 @@ export const renderWithAxe = (ui: React.ReactElement) => {
   // Stub global fetch so components that call backend APIs won't throw network errors during tests
   // Keep a reference to the original fetch so other tests can restore it if needed
   const originalFetch = (globalThis as any).fetch;
-  (globalThis as any).fetch = async (input: any, init?: any) => {
+  (globalThis as any).fetch = async () => {
     const fake = {
       ok: true,
       status: 200,
       headers: { get: (_: string) => 'application/json' },
-      json: async () => [],
+  json: async () => [],
       text: async () => '[]',
     } as any;
     return fake;

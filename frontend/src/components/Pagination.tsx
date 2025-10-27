@@ -2,6 +2,7 @@ import React from 'react';
 import { Menu, MenuButton, MenuItems } from '@headlessui/react';
 import PageMenuItem from '@components/PageMenuItem';
 import { ArrowLeft, ArrowRight, ChevronDownIcon, CalendarCheck } from 'lucide-react'; 
+import { getWeekStartDate } from '@utils/functions';
 
 type PaginationProps = {
   pages: string[]; // Array of raw page values (e.g., "2025-06-06", "2025-06", "2025")
@@ -47,16 +48,47 @@ const Pagination: React.FC<PaginationProps> = ({ pages, currentPage, onPageChang
         return page;
     }
   };
-  // Find the current page based on today's date (choose the latest page date that is <= today)
+  // Find the current page based on today's date.
+  // For weekly scope, compute the week_start for today and use that value.
   const today = new Date();
   let currentPageFromToday: string | undefined;
-  for (let i = pages.length - 1; i >= 0; i--) {
-    const page = pages[i];
-    const [year, month, day] = page.split('-').map(Number);
-    const pageDate = new Date(year, (month || 1) - 1, day || 1);
-    if (pageDate <= today) {
-      currentPageFromToday = page;
-      break;
+  if (scope === 'week') {
+    const desiredWeek = getWeekStartDate(today);
+    // Prefer an existing page value instead of navigating to an empty week_start.
+    // 1) exact match
+    if (pages.includes(desiredWeek)) {
+      currentPageFromToday = desiredWeek;
+    } else {
+      // 2) a page in the same month
+      const monthPrefix = desiredWeek.slice(0, 7);
+      const sameMonth = pages.find((p) => p.startsWith(monthPrefix));
+      if (sameMonth) {
+        currentPageFromToday = sameMonth;
+      } else {
+        // 3) the latest page <= today
+        for (let i = pages.length - 1; i >= 0; i--) {
+          const page = pages[i];
+          const [year, month, day] = page.split('-').map(Number);
+          const pageDate = new Date(year, (month || 1) - 1, day || 1);
+          if (pageDate <= today) {
+            currentPageFromToday = page;
+            break;
+          }
+        }
+        // 4) fallback to first available page if nothing matched
+        if (!currentPageFromToday && pages.length > 0) currentPageFromToday = pages[0];
+      }
+    }
+  } else {
+    // For month/year, choose the latest page date that is <= today
+    for (let i = pages.length - 1; i >= 0; i--) {
+      const page = pages[i];
+      const [year, month, day] = page.split('-').map(Number);
+      const pageDate = new Date(year, (month || 1) - 1, day || 1);
+      if (pageDate <= today) {
+        currentPageFromToday = page;
+        break;
+      }
     }
   }
 

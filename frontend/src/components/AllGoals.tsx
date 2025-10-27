@@ -97,14 +97,17 @@ const GoalsComponent = () => {
                         const remembered = pageByScopeRef.current[scope];
                         let desiredPage: string | undefined = remembered;
 
-                        // If switching scopes, prefer mapping from the previous scope's selection (if present)
+                        // If we have a remembered page for this scope (the last selected), prefer it and do not overwrite.
                         const prevSelected = pageByScopeRef.current[prevScope as string];
-                        if (prevScope !== scope && prevSelected) {
-                            const mapped = mapPageForScope(prevSelected, scope, pages);
-                            if (mapped) desiredPage = mapped;
-                        } else if (!desiredPage) {
-                            // If we don't have a remembered page for this scope, try to map from the previous scope's selection
-                            desiredPage = mapPageForScope(prevSelected, scope, pages);
+                        if (!desiredPage) {
+                            // If switching scopes, prefer mapping from the previous scope's selection (if present)
+                            if (prevScope !== scope && prevSelected) {
+                                const mapped = mapPageForScope(prevSelected, scope, pages);
+                                if (mapped) desiredPage = mapped;
+                            } else {
+                                // If we don't have a remembered page for this scope, try to map from the previous scope's selection
+                                desiredPage = mapPageForScope(prevSelected, scope, pages);
+                            }
                         }
 
                         // If still no desired page, fall back to sensible defaults (current date)
@@ -119,9 +122,30 @@ const GoalsComponent = () => {
                         if (pages.length > 0) {
                             if (scope === 'week') {
                                 if (desiredPage) {
-                                    const monthPrefix = desiredPage.slice(0, 7);
-                                    const maybe = pages.find((p) => p.startsWith(monthPrefix));
-                                    desiredPage = maybe || pages[0];
+                                    // Prefer an exact week match, then a page from the same month,
+                                    // then the latest page <= today, then fallback to the first page.
+                                    const exact = pages.find((p) => p === desiredPage);
+                                    if (exact) desiredPage = exact;
+                                    else {
+                                        const monthPrefix = (desiredPage as string).slice(0, 7);
+                                        const sameMonth = pages.find((p) => p.startsWith(monthPrefix));
+                                        if (sameMonth) desiredPage = sameMonth;
+                                        else {
+                                            // find latest page <= today
+                                            const today = new Date();
+                                            let found: string | undefined;
+                                            for (let i = pages.length - 1; i >= 0; i--) {
+                                                const p = pages[i];
+                                                const [y, m, d] = p.split('-').map(Number);
+                                                const pageDate = new Date(y, (m || 1) - 1, d || 1);
+                                                if (pageDate <= today) {
+                                                    found = p;
+                                                    break;
+                                                }
+                                            }
+                                            desiredPage = found ?? pages[0];
+                                        }
+                                    }
                                 } else {
                                     desiredPage = pages[0];
                                 }
@@ -137,6 +161,11 @@ const GoalsComponent = () => {
                         }
 
                         setCurrentPage(desiredPage || (pages[0] ?? ''));
+
+                        // Keep track of the scope we just loaded so future mappings are correct
+                        prevScopeRef.current = scope;
+                        // Clear the last-switch marker now that we've handled the mapping
+                        lastSwitchFromRef.current = null;
 
                         // Initialize user categories
                         await initializeUserCategories();
@@ -333,16 +362,16 @@ const GoalsComponent = () => {
                         <button
                             key={s}
                             title={`Select ${s}ly view`}
-                                                                                        onClick={() => {
-                                                                                                            // persist the currently-viewed page for the active scope before switching
-                                                                                                                                            const next = { ...pageByScopeRef.current, [scope]: currentPage || pageByScopeRef.current[scope] };
-                                                                                                                                            setPageByScope(next);
-                                                                                                                                            pageByScopeRef.current = next;
-                                                                                                                                            try { savePageByScope(next); } catch (e) {}
-                                                                                                                                            // Record which scope we're switching from so the next fetch can map correctly
-                                                                                                                                            lastSwitchFromRef.current = scope;
-                                                                                                                                            setScope(s as 'week' | 'month' | 'year');
-                                                                                                        }}
+                                onClick={() => {
+                                // persist the currently-viewed page for the active scope before switching
+                                    const next = { ...pageByScopeRef.current, [scope]: currentPage || pageByScopeRef.current[scope] };
+                                    setPageByScope(next);
+                                    pageByScopeRef.current = next;
+                                    try { savePageByScope(next); } catch (e) {}
+                                    // Record which scope we're switching from so the next fetch can map correctly
+                                    lastSwitchFromRef.current = scope;
+                                    setScope(s as 'week' | 'month' | 'year');
+                                }}
                             className={`btn-ghost ${scope === s ? 'text-brand-60 hover:text-brand-70 dark:text-brand-20 dark:hover:text-brand-10 font-bold underline' : ''}`}
                         >
                             <span className="hidden md:inline sm:inline">{s.charAt(0).toUpperCase() + s.slice(1)}</span>

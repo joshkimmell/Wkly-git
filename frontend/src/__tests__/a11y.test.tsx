@@ -1,4 +1,4 @@
-import React from 'react';
+// React import intentionally omitted in this file to avoid unused-symbol linting in TS builds
 import { describe, it, expect, vi } from 'vitest';
 
 // Mock MUI modules to simple DOM-only components so tests don't pull in
@@ -7,7 +7,44 @@ import { describe, it, expect, vi } from 'vitest';
 vi.mock('@mui/material', () => {
   const React = require('react');
   return {
-    TextField: (props: any) => React.createElement('input', { ...props }),
+    TextField: (props: any) => {
+      // Remove MUI-only props before rendering native elements to avoid React warnings
+      const { select, multiline, minRows, fullWidth, variant, InputLabelProps, label, children, id, ...rest } = props || {};
+      const safeProps = { ...(rest || {}) } as any;
+      const elementId = id || `tf-${Math.random().toString(36).slice(2, 8)}`;
+      // ensure id is present for association
+      safeProps.id = elementId;
+      // render label when provided to give the native element an accessible name
+      const labelEl = label ? React.createElement('label', { htmlFor: elementId }, label) : null;
+      let inputEl: any = null;
+      if (select) {
+        inputEl = React.createElement('select', { ...safeProps }, children);
+      } else if (multiline) {
+        // pass rows if provided via minRows
+        if (minRows) safeProps.rows = minRows;
+        inputEl = React.createElement('textarea', { ...safeProps });
+      } else {
+        inputEl = React.createElement('input', { ...safeProps });
+      }
+      return React.createElement('div', null, labelEl, inputEl);
+    },
+    MenuItem: (props: any) => React.createElement('option', { ...props }, props.children),
+    FormControlLabel: (props: any) => {
+      const { control, label, ...rest } = props || {};
+      // control may be a React element; render it inside the label so it's associated
+      return React.createElement('label', { ...rest }, control ? React.createElement('span', null, control, ' ', label) : label);
+    },
+    Switch: (props: any) => {
+      const { inputProps, ...rest } = props || {};
+      // Merge top-level rest props with inputProps (often contains aria-label)
+      const merged = { ...(rest || {}), ...(inputProps || {}) };
+      return React.createElement('input', { type: 'checkbox', ...merged });
+    },
+    Checkbox: (props: any) => {
+      const { inputProps, ...rest } = props || {};
+      const merged = { ...(rest || {}), ...(inputProps || {}) };
+      return React.createElement('input', { type: 'checkbox', ...merged });
+    },
     // spread other named exports as pass-through where needed
     __esModule: true,
   };

@@ -1,0 +1,47 @@
+.tiptap-editor {
+  border: 1px solid var(--primary-border);
+  border-radius: 8px;
+  gap: 0;
+}
+.tiptap-toolbar {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border-bottom: 1px solid var(--primary-border, #ddd);
+  background: transparent;
+}
+.tiptap-content {
+  padding: 1em;
+  min-height: auto;
+  gap: 0;
+}
+.tiptap-content :where(p, h1, h2, h3, ul, ol) {
+  margin: 0;
+  min-height: 3rem;
+}
+
+/* Floating label styles */
+.tiptap-container {
+  position: relative;
+  border-radius: 8px;
+}
+.tiptap-container.has-label .tiptap-content {
+  padding-top: 24px; /* make room for label */
+  min-height: max-content;
+}
+.tiptap-label {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  transition: transform 0.12s ease, font-size 0.12s ease, color 0.12s ease;
+  color: var(--secondary-text, #666);
+  font-size: 0.95rem;
+  pointer-events: auto;
+  cursor: text;
+}
+.tiptap-container.tiptap-filled .tiptap-label,
+.tiptap-label.floating {
+  transform: translateY(-14px) scale(0.85);
+  font-size: 0.8rem;
+  color: var(--secondary-link, #760086);
+}

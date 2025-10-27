@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { TextField } from '@mui/material';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
@@ -209,12 +210,13 @@ const AllAccomplishments = () => {
 
       {/* Filter Input */}
       <div className="mt-4 h-10 flex items-center space-x-2">
-        <input
+        <TextField
           type="text"
           value={filter}
           onChange={(e) => handleFilterChange(e.target.value)}
           placeholder="Filter by title, category, or impact"
-          className="block w-full h-10 p-2 rounded-md border-gray-30 shadow-sm focus:border-brand-50 focus:ring-brand-50 sm:text-sm"
+          className="block w-full h-10"
+          fullWidth
         />
         <button
           onClick={() => setSortDirection(dir => (dir === 'asc' ? 'desc' : 'asc'))}
@@ -259,13 +261,10 @@ const AllAccomplishments = () => {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Title</label>
-                  <input
-                    type="text"
+                  <TextField
                     value={newAccomplishment.title}
-                    onChange={(e) =>
-                      setNewAccomplishment({ ...newAccomplishment, title: e.target.value })
-                    }
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    onChange={(e) => setNewAccomplishment({ ...newAccomplishment, title: e.target.value })}
+                    fullWidth
                   />
                 </div>
                 <div>
@@ -281,13 +280,10 @@ const AllAccomplishments = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Impact</label>
-                  <input
-                    type="text"
+                  <TextField
                     value={newAccomplishment.impact}
-                    onChange={(e) =>
-                      setNewAccomplishment({ ...newAccomplishment, impact: e.target.value })
-                    }
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    onChange={(e) => setNewAccomplishment({ ...newAccomplishment, impact: e.target.value })}
+                    fullWidth
                   />
                 </div>
               </div>

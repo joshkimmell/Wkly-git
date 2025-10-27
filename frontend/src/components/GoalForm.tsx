@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getWeekStartDate, fetchCategories } from '@utils/functions'; // Import fetchCategories from functions.ts
 import { Category, Goal } from '@utils/goalUtils'; // Import the addCategory function
 import supabase from '@lib/supabase'; // Import Supabase client
@@ -7,8 +7,8 @@ import LoadingSpinner from '@components/LoadingSpinner';
 import { SearchIcon, RefreshCw } from 'lucide-react';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP } from '@lib/modal';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css'; // Import Quill styles
+import TiptapEditor from '@components/TiptapEditor';
+import { TextField, MenuItem, Checkbox, FormControlLabel, Switch } from '@mui/material';
 
 // Expose fetchCategoriesSimple for testing in the browser console
 // (window as any).fetchCategoriesSimple = fetchCategoriesSimple;
@@ -36,7 +36,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredCategories, setFilteredCategories] = useState(categories);
-  const quillRef = useRef<any>(null);
+  
 
   // Goals context for optimistic UI updates
   const { addGoalToCache, updateGoalInCache, removeGoalFromCache, replaceGoalInCache, refreshGoals: ctxRefresh } = useGoalsContext();
@@ -398,23 +398,18 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
   return (
     <>
     <form id="goalForm" className="space-y-4">
-      <div className="mt-6 flex justify-end space-x-4">
+      <div className="mt-6 flex justify-end space-x-4 items-center">
         <label className="block text-sm font-medium text-gray-700">Generate goals</label>
-        <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-          {/* Toggle switch to replace the checkbox */}
-          <input
-            type="checkbox"
-            name="toggle"
-            id="toggle"
-            className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-2 appearance-none cursor-pointer"
-            checked={showWizard}
-            onChange={(e) => setShowWizard(e.target.checked)}
-          />
-          <label
-            htmlFor="toggle"
-            className="toggle-label block overflow-hidden h-6 rounded-full cursor-pointer"
-          ></label>
-        </div>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={showWizard}
+              onChange={(e) => setShowWizard(e.target.checked)}
+              inputProps={{ 'aria-label': 'Generate goals toggle' }}
+            />
+          }
+          label=""
+        />
       </div>
     </form>
     {/* Wizard steps */}
@@ -425,12 +420,16 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
             <label htmlFor="natural-language-input" className="block text-sm font-medium text-gray-70" >
               Describe your goal
             </label>
-            <textarea
+            <TextField
               id="natural-language-input"
               value={naturalLanguageInput}
               onChange={(e) => setNaturalLanguageInput(e.target.value)}
-              className="mt-1 block w-full h-[20vh] border-b-gray-30 shadow-sm focus:border-b-2 sm:text-lg md:text-xl lg:text-2xl placeholer:gray-50 placeholder:italic"
+              className="mt-1 block w-full"
               placeholder='Describe your goal in a few sentences, e.g. "I want to improve my physical fitness by exercising regularly and eating healthier."'
+              multiline
+              minRows={6}
+              fullWidth
+              variant="outlined"
             />
             <div className="mt-4 space-x-4 w-full justify-end ">
               <button
@@ -469,20 +468,23 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
             <h3 className="text-lg font-medium">Select Steps to Include as Goals</h3>
             <div className='flex w-full items-center justify-between'>
               <div className='mt-2 flex items-center m-2'>
-                <input
-                  type="checkbox"
-                  id="select-all"
-                  checked={selectedSteps.length === generatedPlan.length && generatedPlan.length > 0}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setSelectedSteps(generatedPlan.map((_, index) => index));
-                    } else {
-                      setSelectedSteps([]);
-                    }
-                  }}
-                  className="m-2 size-5 rounded-full cursor-pointer"
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      id="select-all"
+                      checked={selectedSteps.length === generatedPlan.length && generatedPlan.length > 0}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedSteps(generatedPlan.map((_, index) => index));
+                        } else {
+                          setSelectedSteps([]);
+                        }
+                      }}
+                      inputProps={{ 'aria-label': 'Select all generated steps' }}
+                    />
+                  }
+                  label="Select All"
                 />
-                <label htmlFor="select-all" className="ml-2 cursor-pointer">Select All</label>
               </div>
               <button type="button" title="Regenerate Plan" onClick={handleGeneratePlan} className="btn-secondary size-sm">
                 <RefreshCw className="inline-block" />
@@ -496,11 +498,11 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                   onClick={() => toggleStepSelection(index)}
                 >
                   <div className="flex items-start w-full">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={selectedSteps.includes(index)}
-                      onChange={(e) => e.stopPropagation()} // Prevent parent click event
-                      className="step-checkbox m-2 size-5 rounded-full cursor-pointer"
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => e.stopPropagation()}
+                      inputProps={{ 'aria-label': `Select step ${index + 1}` }}
                     />
                     <div className="ml-4">
                       <strong>{step.title}</strong>: {step.description}
@@ -546,8 +548,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                 >
                     <div className="p-4 bg-gray-10 dark:bg-gray-80 rounded-lg shadow-lg w-full max-w-md">
                       <h2 className="text-lg font-bold mb-4">Select or Add a Category</h2>
-                      <input
-                        type="text"
+                      <TextField
+                        id="category-search"
                         value={searchTerm}
                         onChange={(e) => {
                           setSearchTerm(e.target.value);
@@ -556,8 +558,10 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                           );
                           setFilteredCategories(filtered);
                         }}
-                        className="w-full text-md p-2 border border-gray-60 focus:outline-none focus:ring-2 focus:ring-brand-50 mb-4 placeholder:gray-50 placeholder:italic"
+                        className="w-full"
                         placeholder="Find or create a category"
+                        fullWidth
+                        variant="outlined"
                       />
                       <ul className="max-h-60 text-gray-80 dark:text-gray-30 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-70">
                         {filteredCategories.map((category) => (
@@ -642,9 +646,9 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
               <label htmlFor="week_start-wizard" className="block text-sm font-medium text-gray-700">
                 Week Start
               </label>
-              <input
-                type="date"
+              <TextField
                 id="week_start-wizard"
+                type="date"
                 value={newGoal.week_start}
                 onChange={(e) => {
                   const selectedDate = new Date(e.target.value);
@@ -657,6 +661,9 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                 }}
                 className="mt-1 w-full"
                 required
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                variant="outlined"
               />
             </div>
             <div className="mt-4 space-x-2 w-full justify-end">
@@ -710,37 +717,36 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
   // Manual form
   <form onSubmit={handleAddGoal} className="space-y-4">
           <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-              Title
-            </label>
-            <input
-              type="text"
+            <TextField
               id="title"
+              label="Title"
               value={newGoal.title}
               onChange={(e) => setNewGoal({ ...newGoal, title: e.target.value })}
-              className="mt-1 block w-full border-gray-30 focus:border-b-2 focus:ring-0"
+              className="mt-1 block w-full"
               placeholder="Name your goal..."
               required
+              fullWidth
+              variant="outlined"
             />
           </div>
 
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+            {/* <label htmlFor="description" className="block text-sm font-medium text-gray-700">
               Description
-            </label>
+            </label> */}
             
-            <ReactQuill
-              ref={quillRef}
+            <TiptapEditor
               value={newGoal.description}
               onChange={(value) => setNewGoal({ ...newGoal, description: value })}
-              theme="snow"
+              placeholder="Describe this goal in a few sentences"
+              label="Description"
             />
           </div>
 
           <div>
-            <label htmlFor="category" className="block text-sm font-medium text-gray-30 dark:text-gray-70">
+            {/* <label htmlFor="category" className="block text-sm font-medium text-gray-30 dark:text-gray-70">
               Category
-            </label>
+            </label> */}
             <div className="relative">
               <button
                 onClick={() => {
@@ -748,7 +754,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                   setFilteredCategories(categories);
                   setIsCategoryModalOpen(true);
                 }}
-                className="btn-ghost w-full text-left justify-between text-xl sm:text-lg md:text-xl lg:text-2xl"
+                className="btn-ghost hover:background-gray-80 w-full text-left justify-between text-xl sm:text-lg md:text-xl lg:text-2xl"
               >
                 {newGoal.category || '-- Select a category --'}
                 <SearchIcon className="w-5 h-5 inline-block ml-2" />
@@ -772,8 +778,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
               >
                   <div className="p-4 bg-gray-10 dark:bg-gray-80 rounded-lg shadow-lg w-full max-w-md">
                     <h2 className="text-lg font-bold mb-4">Select or Add a Category</h2>
-                    <input
-                      type="text"
+                    <TextField
+                      id="category-search-manual"
                       value={searchTerm}
                       onChange={(e) => {
                         setSearchTerm(e.target.value);
@@ -782,8 +788,10 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                         );
                         setFilteredCategories(filtered);
                       }}
-                      className="w-full text-md p-2 border border-gray-60 focus:outline-none focus:ring-2 focus:ring-brand-50 mb-4 placeholder:gray-50 placeholder:italic"
+                      className="w-full"
                       placeholder="Find or create a category"
+                      fullWidth
+                      variant="outlined"
                     />
                     <ul className="max-h-60 text-gray-80 dark:text-gray-30 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-70">
                       {filteredCategories.map((category) => (
@@ -865,42 +873,27 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
           </div>
 
           <div>
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700">
-              Status
-            </label>
-            <select
+            <TextField
               id="status"
+              select
+              label="Status"
               value={newGoal.status || 'Not started'}
               onChange={(e) => setNewGoal({ ...newGoal, status: e.target.value as any })}
-              className="mt-1 w-full"
+              className="mt-2 w-full"
+              fullWidth
+              variant="outlined"
             >
-              <option>Not started</option>
-              <option>In progress</option>
-              <option>Blocked</option>
-              <option>Done</option>
-            </select>
+              <MenuItem value="Not started">Not started</MenuItem>
+              <MenuItem value="In progress">In progress</MenuItem>
+              <MenuItem value="Blocked">Blocked</MenuItem>
+              <MenuItem value="Done">Done</MenuItem>
+            </TextField>
           </div>
-
           <div>
-            <label htmlFor="status_notes" className="block text-sm font-medium text-gray-700">
-              Status notes (optional)
-            </label>
-            <textarea
-              id="status_notes"
-              value={newGoal.status_notes || ''}
-              onChange={(e) => setNewGoal({ ...newGoal, status_notes: e.target.value })}
-              className="mt-1 w-full"
-              rows={3}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="week_start" className="block text-sm font-medium text-gray-700">
-              Week Start
-            </label>
-            <input
-              type="date"
+            <TextField
               id="week_start"
+              label="Week Start"
+              type="date"
               value={newGoal.week_start}
               onChange={(e) => {
                 const selectedDate = new Date(e.target.value);
@@ -911,8 +904,11 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                   setNewGoal({ ...newGoal, week_start: calculatedMonday });
                 }
               }}
-              className="mt-1 w-full"
+              className="mt-2 w-full"
               required
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+              variant="outlined"
             />
           </div>
 

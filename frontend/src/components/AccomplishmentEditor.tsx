@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { TextField } from '@mui/material';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { Accomplishment } from '@utils/goalUtils'; // Import the addCategory function
@@ -52,17 +53,15 @@ const AccomplishmentEditor: React.FC<AccomplishmentEditorProps> = ({
   return (
     <form onSubmit={handleSave} id="accomplishmentEditorForm">
 
-      <label htmlFor="title_acc" className="block mb-2 text-sm font-medium text-gray-700">
-        Title
-      </label>
-      <input
-        type="text"
-        name="title_acc"
+      <label htmlFor="title_acc" className="block mb-2 text-sm font-medium text-gray-700">Title</label>
+      <TextField
         id="title_acc"
+        name="title_acc"
         value={updatedAccomplishment.title}
         onChange={(e) => handleFieldChange('title', e.target.value)}
-        className="w-full p-2 mb-4"
         placeholder="Enter accomplishment title"
+        fullWidth
+        className="mb-4"
       />
 
       <label htmlFor="description_acc" className="block mb-2 text-sm font-medium text-gray-700">
@@ -75,18 +74,16 @@ const AccomplishmentEditor: React.FC<AccomplishmentEditorProps> = ({
         className="mb-4"
       />
 
-        <label htmlFor="impact" className="block mb-2 text-sm font-medium text-gray-70">
-        Impact (Optional)
-        </label>
-        <input
-        name="impact"
+      <label htmlFor="impact" className="block mb-2 text-sm font-medium text-gray-70">Impact (Optional)</label>
+      <TextField
         id="impact"
-        type="text"
+        name="impact"
         value={updatedAccomplishment.impact || ''}
         onChange={(e) => handleFieldChange('impact', e.target.value)}
-        className="w-full p-2 mb-4"
         placeholder="Enter impact (optional)"
-        />
+        fullWidth
+        className="mb-4"
+      />
         
 
       <div className="flex justify-end mt-4 space-x-2 text-gray-90 dark:text-gray-10">
