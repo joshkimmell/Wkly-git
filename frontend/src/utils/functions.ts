@@ -645,11 +645,12 @@ export const getWeekStartDate = (date: Date = new Date()): string => {
     console.error('Invalid date passed to getWeekStartDate:', date);
     return new Date().toISOString().split('T')[0]; // Fallback to current date
   }
+  // Use UTC-based calculations to avoid local timezone shifts affecting the resulting day
   const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - (day === 0 ? 6 : day - 1); // Adjust when day is Sunday (0)
-  d.setDate(diff);
-  return d.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+  const day = d.getUTCDay();
+  const diff = d.getUTCDate() - (day === 0 ? 6 : day - 1); // Adjust when day is Sunday (0)
+  d.setUTCDate(diff);
+  return d.toISOString().split('T')[0]; // Format as YYYY-MM-DD (UTC)
 };
 
 // export const getMonday = (date: Date): string => {

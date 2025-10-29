@@ -225,8 +225,9 @@ const Login = () => {
             <h1 className="text-3xl font-bold text-left mb-4">Login</h1>
             <form onSubmit={handleLogin} className='flex flex-col gap-4 space-y-4 p-4'>
               <div className="w-full">
-                <label>Email:</label>
+                <label htmlFor="login-email">Email:</label>
                 <input
+                  id="login-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -235,9 +236,10 @@ const Login = () => {
                 />
               </div>
               <div>
-                <label>Password:</label>
+                <label htmlFor="login-password">Password:</label>
                 <div className="relative">
                   <input
+                    id="login-password"
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -291,8 +293,9 @@ const Login = () => {
                       <h2 className="text-2xl font-bold text-left mb-4">Register</h2>
                       <form onSubmit={handleRegister} className='flex flex-col space-y-4 p-4'>
                         <div className='relative w-full'>
-                          <label>Email:</label>
+                          <label htmlFor="register-email">Email:</label>
                           <input
+                            id="register-email"
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
@@ -301,9 +304,10 @@ const Login = () => {
                           />
                         </div>
                         <div>
-                          <label>Password:</label>
+                          <label htmlFor="register-password">Password:</label>
                           <div className="relative w-full">
                             <input
+                              id="register-password"
                               type={showPassword ? 'text' : 'password'}
                               value={password}
                               onChange={(e) => setPassword(e.target.value)}
@@ -321,9 +325,10 @@ const Login = () => {
                           </div>
                         </div>
                         <div className='pb-4'>
-                          <label>Re-enter Password:</label>
+                          <label htmlFor="register-reenter">Re-enter Password:</label>
                           <div className="relative w-full">
                             <input
+                              id="register-reenter"
                               type={showPasswordReEnter ? 'text' : 'password'}
                               value={passwordReEnter}
                               onChange={(e) => setPasswordReEnter(e.target.value)}
@@ -341,8 +346,9 @@ const Login = () => {
                           </div>
                         </div>
                         <div className="border-t pt-6 border-gray-20 dark:border-gray-70 mb-4"> 
-                          <label>Username (Optional):</label>
+                          <label htmlFor="register-username">Username (Optional):</label>
                           <input
+                            id="register-username"
                             type="text"
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
@@ -351,8 +357,9 @@ const Login = () => {
                           />
                         </div>
                         <div>
-                          <label>Full Name (Optional):</label>
+                          <label htmlFor="register-fullname">Full Name (Optional):</label>
                           <input
+                            id="register-fullname"
                             type="text"
                             value={fullName}
                             onChange={(e) => setFullName(e.target.value)}

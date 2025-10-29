@@ -1,7 +1,9 @@
 import { modalClasses } from '@styles/classes';
-import React, { useState, useEffect, useRef } from 'react';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import React, { useState, useEffect } from 'react';
+import { TextField, MenuItem } from '@mui/material';
+// import ReactQuill from 'react-quill';
+// import 'react-quill/dist/quill.snow.css';
+import RichTextEditor from './RichTextEditor';
 import { Goal } from '@utils/goalUtils'; // Import the addCategory function
 import { getWeekStartDate, fetchCategories } from '@utils/functions';
 import { supabase } from '@lib/supabase'; // Import Supabase client
@@ -50,7 +52,7 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
     status_notes: '' as any,
     });
     const [tempCategory, setTempCategory] = useState(initialCategory); // Temporary category state
-    const quillRef = useRef<ReactQuill | null>(null);
+    // const quillRef = useRef<ReactQuill | null>(null);
 
     const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -177,16 +179,14 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
                 className="w-full p-2 mb-4 border rounded"
                 placeholder="Enter goal title"
             /> */}
-            <label htmlFor="title_goal" className="block text-sm font-medium text-gray-70">
-              Title
-            </label>
-            <input
-              type="text"
+            <label htmlFor="title_goal" className="block text-sm font-medium text-gray-70">Title</label>
+            <TextField
               id="title_goal"
               value={updatedGoal.title}
               onChange={(e) => handleFieldChange('title', e.target.value)}
-              className="mt-1 block w-full border-gray-30 focus:border-b-2 focus:ring-0"
               required
+              fullWidth
+              className="mt-1"
             />
             {/* ReactQuill editor for editing the content */}
               {/* <ReactQuill
@@ -211,12 +211,19 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
                 Description
               </label>
               {/* ReactQuill editor for editing the content */}
-              <ReactQuill
+              {/* <ReactQuill
                   ref={quillRef}
                   id="description_goal"
                   value={updatedGoal.description}
                   theme="snow"
                   onChange={(value) => handleFieldChange('description', value)} // Update description state
+              /> */}
+              <RichTextEditor 
+                id="goal_description"
+                value={updatedGoal.description} 
+                onChange={(value) => handleFieldChange('description', value)}
+                placeholder="Describe this goal in a few sentences"
+                label="Description" 
               />
               <input
                   type="hidden"
@@ -233,10 +240,10 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
               <a
                 id="category_goal"
                 onClick={handleCategoryModalOpen}
-                className="btn-ghost text-brand-60 dark:text-brand-20 cursor-pointer flex px-4 py-1 rounded-md w-full text-left items-center justify-between text-xl sm:text-lg md:text-xl lg:text-2xl"
+                className="btn-ghost text-brand-60 dark:text-brand-20 cursor-pointer flex px-4 py-1 rounded-md w-full text-left items-center justify-between text-lg lg:text-xl"
               >
                 {tempCategory || '-- Select a category --'}
-                <SearchIcon className="w-5 h-5 inline-block ml-2" />
+                <SearchIcon className="w-4 h-4 inline-block ml-2" />
               </a>
 
               {/* Category selection modal: always-rendered Modal with conditional content */}
@@ -260,9 +267,8 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
                 {isCategoryModalOpen && (
                   <div className="p-4 bg-gray-10 dark:bg-gray-90 rounded-lg shadow-lg w-full max-w-md">
                     <h2 className="text-lg font-bold mb-4">Select or Add a Category</h2>
-                    <input
+                    <TextField
                       id="category_search"
-                      type="text"
                       value={searchTerm}
                       onChange={(e) => {
                         setSearchTerm(e.target.value);
@@ -271,8 +277,9 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
                         );
                         setFilteredCategories(filtered);
                       }}
-                      className="w-full text-md p-2 border border-gray-60 focus:outline-none focus:ring-2 focus:ring-brand-50 mb-4 placeholder:gray-50 placeholder:italic"
                       placeholder="Find or create a category"
+                      fullWidth
+                      className="mb-4"
                     />
                     <ul className="max-h-60 text-gray-80 dark:text-gray-30 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-70">
                       {filteredCategories.map((category) => (
@@ -357,35 +364,44 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
               <label htmlFor="week_start" className="block text-sm font-medium text-gray-700">
                   Week Start
               </label>
-              <input
+              <TextField
                   type="date"
                   id="week_start"
                   value={updatedGoal.week_start}
                   onChange={(e) => handleFieldChange('week_start', e.target.value)}
-                  className="mt-1 block w-full border-gray-30 focus:border-b-2 focus:ring-0"
+                  className="mt-1"
+                  fullWidth
                   required
               />
           </div>
           <div>
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700">
-              Status
-            </label>
-            <select
+            <TextField
               id="status"
+              select
+              label="Status"
               value={updatedGoal.status || 'Not started'}
               onChange={(e) => setUpdatedGoal((prev) => ({ ...prev, status: e.target.value as any }))}
-              className="mt-1 block w-full border-gray-30 focus:border-b-2 focus:ring-0"
+              fullWidth
+              className="mt-1"
             >
-              <option>Not started</option>
-              <option>In progress</option>
-              <option>Blocked</option>
-              <option>Done</option>
-            </select>
+              <MenuItem value="Not started">Not started</MenuItem>
+              <MenuItem value="In progress">In progress</MenuItem>
+              <MenuItem value="Blocked">Blocked</MenuItem>
+              <MenuItem value="Done">Done</MenuItem>
+            </TextField>
           </div>
-          <div>
-            <label htmlFor="status_notes" className="block text-sm font-medium text-gray-700">Status notes (optional)</label>
-            <textarea id="status_notes" value={updatedGoal.status_notes || ''} onChange={(e) => setUpdatedGoal((prev) => ({ ...prev, status_notes: e.target.value }))} className="mt-1 block w-full border-gray-30 focus:border-b-2 focus:ring-0" rows={3} />
-          </div>
+          {/* <div>
+            <TextField
+              id="status_notes"
+              label="Status notes (optional)"
+              value={updatedGoal.status_notes || ''}
+              onChange={(e) => setUpdatedGoal((prev) => ({ ...prev, status_notes: e.target.value }))}
+              fullWidth
+              multiline
+              rows={3}
+              className="mt-1"
+            />
+          </div> */}
           <div className="flex justify-end mt-4 space-x-2 text-gray-90 dark:text-gray-10">
               <button className="btn btn-secondary" onClick={onRequestClose} type="button">
                   Cancel

@@ -2,6 +2,7 @@
 // This component allows users to generate summaries based on a selected period (weekly, quarterly, yearly).
 
 import React, { useState, useEffect } from 'react';
+import { TextField } from '@mui/material';
 import { saveSummary, deleteSummary, getWeekStartDate, generateSummary } from '@utils/functions';
 import supabase from '@lib/supabase';
 import SummaryEditor from '@components/SummaryEditor';
@@ -244,11 +245,12 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
               <ReactQuill value={additionalContext} onChange={setAdditionalContext} className="mb-4" />
 
               <label className="block mb-2 font-medium">Response Length:</label>
-              <input
+              <TextField
                 type="number"
                 value={responseLength}
                 onChange={(e) => setResponseLength(Number(e.target.value))}
-                className="block w-full p-2 border rounded mb-4"
+                className="block w-full mb-4"
+                fullWidth
               />
 
               <div className="flex justify-end space-x-4">

@@ -2,7 +2,19 @@ import { Handler } from '@netlify/functions';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
-dotenv.config({ path: '/.env' });
+// Load .env from working directory if present (use default behaviour)
+dotenv.config();
+
+// Log environment diagnostics (masked key only) to help local debugging — do not log full secrets
+try {
+  const nodeEnv = process.env.NODE_ENV || 'undefined';
+  const cwd = process.cwd();
+  const rawKey = process.env.OPENAI_API_KEY || '';
+  const masked = rawKey ? `${rawKey.slice(0,4)}...${rawKey.slice(-4)}` : '(not set)';
+  console.debug('[generatePlan] env diagnostics:', { nodeEnv, cwd, openaiKeyPresent: !!rawKey, openaiKeyMasked: rawKey ? masked : '(not set)' });
+} catch (e) {
+  console.debug('[generatePlan] env diagnostics failed to read env');
+}
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -26,7 +38,34 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const { input } = JSON.parse(event.body || '{}');
+    // Log raw incoming body for debugging (helps catch unexpected shapes)
+    console.debug('[generatePlan] raw event.body:', event.body);
+    // Try to parse JSON, then fall back to urlencoded or raw body
+    let input: string | undefined;
+    try {
+      const parsed = JSON.parse(event.body || '{}');
+      input = parsed?.input;
+      console.debug('[generatePlan] parsed JSON body:', parsed);
+    } catch (e) {
+      // not JSON; try URLSearchParams
+      try {
+        const params = new URLSearchParams(event.body || '');
+        if (params.has('input')) input = params.get('input') || undefined;
+        else input = (event.body || '').trim() || undefined;
+        console.debug('[generatePlan] parsed urlencoded/raw body, input:', input);
+      } catch (ee) {
+        console.warn('[generatePlan] Failed to parse non-JSON body');
+      }
+    }
+
+    // Make sure OpenAI key is available
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('[generatePlan] OPENAI_API_KEY is missing');
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: 'Server misconfiguration: missing OpenAI API key.' }),
+      };
+    }
 
     if (!input) {
       return {
@@ -46,17 +85,28 @@ export const handler: Handler = async (event) => {
     ]
     Ensure the response is a valid JSON array and nothing else.`;
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [
-        { role: 'system', content: 'You are a helpful assistant that is good at breaking large goals into steps and determines the timeframe for each step, then generates JSON responses only.' },
-        { role: 'user', content: prompt },
-      ],
-      max_tokens: 500,
-      temperature: 0.7,
-    });
+    let response: any;
+    try {
+      response = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          { role: 'system', content: 'You are a helpful assistant that is good at breaking large goals into steps and determines the timeframe for each step, then generates JSON responses only.' },
+          { role: 'user', content: prompt },
+        ],
+        max_tokens: 500,
+        temperature: 0.7,
+      });
+    } catch (openaiErr) {
+      // Log the full error server-side for debugging (do not return raw error to client)
+      console.error('OpenAI API error (server-side):', openaiErr);
+      return {
+        statusCode: 500,
+        // Return a generic message to avoid leaking secrets in responses
+        body: JSON.stringify({ error: 'OpenAI API error. Check server logs for details.' }),
+      };
+    }
 
-    const generatedText = response.choices[0].message?.content;
+    const generatedText = response?.choices?.[0]?.message?.content || response?.choices?.[0]?.text || undefined;
 
     console.log('OpenAI Response:', generatedText); // Log the response for debugging
 

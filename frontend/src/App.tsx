@@ -15,6 +15,8 @@ import AllAccomplishments from '@components/AllAccomplishments';
 import { Award, Home, Text } from 'lucide-react';
 import LoadingSpinner from '@components/LoadingSpinner';
 import ProfileManagement from '@components/ProfileManagement';
+import AppMuiThemeProvider from './mui/muiTheme';
+import MuiCompareDemo from '@components/MuiCompareDemo';
 
 
 
@@ -90,6 +92,7 @@ const App: React.FC = () => {
 
   return (
     <SessionContextProvider supabaseClient={supabase}>
+    <AppMuiThemeProvider mode={theme}>
     <div className={`${current}`}>
       <div className={`min-h-screen bg-gray-10 dark:bg-gray-90 text-gray-90 dark:text-gray-10`}>
         <Header   
@@ -138,6 +141,7 @@ const App: React.FC = () => {
             <Routes>
               {/* <Route path="/" element={<WeeklyGoals />} /> */}
               <Route path="/" element={<AllGoals />} />
+              <Route path="/mui-demo" element={<MuiCompareDemo />} />
               <Route path="/accomplishments" element={<AllAccomplishments />} />
               <Route path="/summaries" element={<AllSummaries />} />
               <Route path="/auth" element={<Navigate to="/" replace />} />
@@ -145,9 +149,10 @@ const App: React.FC = () => {
             </Routes>
           </main>
         </GoalsProvider>
-        <ToastNotification theme={theme} />
       </div>
     </div>
+    </AppMuiThemeProvider>
+        <ToastNotification theme={theme} />
     </SessionContextProvider>
   );
 }

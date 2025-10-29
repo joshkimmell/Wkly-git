@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { TextField } from '@mui/material';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import { Summary } from '@utils/goalUtils'; // Adjust the import path as necessary
@@ -235,12 +236,13 @@ const AllSummaries = () => {
 
       {/* Filter Input */}
       <div className="mt-4 h-10 flex items-center space-x-2">
-        <input
+        <TextField
           type="text"
           value={filter}
           onChange={(e) => handleFilterChange(e.target.value)}
           placeholder="Filter by title, category, or impact"
-          className="block w-full h-10 p-2 rounded-md border-gray-30 shadow-sm focus:border-brand-50 focus:ring-brand-50 sm:text-sm"
+          className="block w-full h-10"
+          fullWidth
         />
         <button
           onClick={() => setSortDirection(dir => (dir === 'asc' ? 'desc' : 'asc'))}
@@ -321,41 +323,36 @@ const AllSummaries = () => {
             <h3 className="text-lg font-medium text-gray-900 mb-4">Add Summary</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Title</label>
-                <input
+                <label htmlFor="summary-title" className="block text-sm font-medium text-gray-700">Title</label>
+                <TextField
+                  id="summary-title"
                   name="title"
-                  type="text"
                   value={newSummary.title}
-                  onChange={(e) =>
-                    setNewSummary({ ...newSummary, title: e.target.value })
-                  }
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  onChange={(e) => setNewSummary({ ...newSummary, title: e.target.value })}
+                  fullWidth
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Select timeframe</label>
-                <input
+                <label htmlFor="summary-week-start" className="block text-sm font-medium text-gray-700">Select timeframe</label>
+                <TextField
+                  id="summary-week-start"
                   name="week_start"
                   type="date"
                   value={newSummary.week_start}
-                  onChange={(e) =>
-                    setNewSummary({ ...newSummary, week_start: e.target.value })
-                  }
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  onChange={(e) => setNewSummary({ ...newSummary, week_start: e.target.value })}
+                  fullWidth
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Content</label>
+                <label htmlFor="summary-content" className="block text-sm font-medium text-gray-700">Content</label>
                 <ReactQuill
-                  id={newSummary.id}
+                  id="summary-content"
                   value={newSummary.content}
                   className=""
-                  
                   onChange={(value) =>
                     setNewSummary({ ...newSummary, content: value })
                   }
                 />
-                
                 <input
                   type="hidden"
                   name="content"

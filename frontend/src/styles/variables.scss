@@ -34,7 +34,7 @@ $border-radius: 8px;
 $box-shadow: 0px 2px 4.9px rgba(0, 0, 0, 0.6);
 $transition: all 0.3s ease-in-out;
 $max-width: 1200px;
-$container-padding: 16px;
+$container-padding: 1em;
 $container-margin: 0 auto;
 
 
@@ -42,7 +42,7 @@ $container-margin: 0 auto;
 // COLORS ---
 // Theme tokens
 $theme-dark: (
-    background: $gray-100,
+    background-color: $gray-100,
     background-inverse: $gray-0,
     primary-text: $gray-10,
     secondary-text: $gray-30,
@@ -54,8 +54,8 @@ $theme-dark: (
     tertiary-icon: $brand-10,
     inverse-icon: $brand-0,
     interactive-icon: $brand-30,
-    primary-border: $brand-70,
-    secondary-border: $brand-60,
+    primary-border: $brand-50,
+    secondary-border: $brand-70,
     tertiary-border: $brand-50,
     primary-button: $brand-30,
     secondary-button: $brand-20,
@@ -69,8 +69,9 @@ $theme-dark: (
 );
 
 $theme-light: (
-    background: $gray-0,
+    background-color: $gray-0,
     background-inverse: $gray-100,
+    layer-1: $gray-0,
     primary-text: $gray-100,
     secondary-text: $gray-70,
     tertiary-text: $gray-50,
@@ -96,41 +97,44 @@ $theme-light: (
 );
 
 
-// $background: map-get($theme-dark, background);
+// $background-color: map-get($theme-dark, background);
 // $background-inverse: map-get($theme-dark, background-inverse);
 // ---- text colors
-$primary-text: $gray-10;
-$secondary-text: $gray-30;
-$tertiary-text: $gray-50;
-$inverse-text: $gray-90;
-$button-text: $gray-0;
-// ---- icon colors
-$primary-icon: $brand-30;
-$secondary-icon: $brand-20;
-$tertiary-icon: $brand-10;
-$inverse-icon: $brand-0;
-$interactive-icon: $brand-30;
-// ---- border colors
-$primary-border: $brand-70;
-$secondary-border: $brand-60;
-$tertiary-border: $brand-50;
-// ---- button colors
-$primary-button: $brand-30;
-$secondary-button: $brand-20;
-$tertiary-button: $brand-10;
-$primary-button-hover: $brand-20;
-$secondary-button-hover: $brand-10;
-$tertiary-button-hover: $brand-0;
-// ---- link colors
-$primary-link: $brand-30;
-$secondary-link: $brand-20;
-$tertiary-link: $brand-10;
+// $primary-text: $gray-10;
+// $secondary-text: $gray-30;
+// $tertiary-text: $gray-50;
+// $inverse-text: $gray-90;
+// $button-text: $gray-0;
+// // ---- icon colors
+// $primary-icon: $brand-30;
+// $secondary-icon: $brand-20;
+// $tertiary-icon: $brand-10;
+// $inverse-icon: $brand-0;
+// $interactive-icon: $brand-30;
+// // ---- border colors
+// $primary-border: $brand-70;
+// $secondary-border: $brand-60;
+// $tertiary-border: $brand-50;
+// // ---- button colors
+// $primary-button: $brand-30;
+// $secondary-button: $brand-20;
+// $tertiary-button: $brand-10;
+// $primary-button-hover: $brand-20;
+// $secondary-button-hover: $brand-10;
+// $tertiary-button-hover: $brand-0;
+// // ---- link colors
+// $primary-link: $brand-30;
+// $secondary-link: $brand-20;
+// $tertiary-link: $brand-10;
 
 
 
 @mixin theme-vars($theme-map) {
-  --background: #{map.get($theme-map, background)};
+  --background-color: #{map.get($theme-map, background-color)};
   --background-inverse: #{map.get($theme-map, background-inverse)};
+  // layer-1 should be background-inverse at 20% opacity
+  $__layer_inv: map.get($theme-map, background-inverse);
+  --layer-1: #{rgba($__layer_inv, 0.1) + var(--background-color)};
   --primary-text: #{map.get($theme-map, primary-text)};
   --secondary-text: #{map.get($theme-map, secondary-text)};
   --tertiary-text: #{map.get($theme-map, tertiary-text)};
@@ -153,4 +157,44 @@ $tertiary-link: $brand-10;
   --primary-link: #{map.get($theme-map, primary-link)};
   --secondary-link: #{map.get($theme-map, secondary-link)};
   --tertiary-link: #{map.get($theme-map, tertiary-link)};
+  // additional tokens useful for MUI mapping
+  --font-family: #{$font-family};
+  --font-size: #{$font-size};
+  --line-height: #{$line-height};
+  --border-radius: #{$border-radius};
+  --box-shadow: #{$box-shadow};
+  --transition: #{$transition};
+  --max-width: #{$max-width};
+  --container-padding: #{$container-padding};
+  --primary-brand-100: #{$brand-100};
+  --primary-brand-90: #{$brand-90};
+  --primary-brand-80: #{$brand-80};
+  --primary-brand-70: #{$brand-70};
+  --primary-brand-60: #{$brand-60};
+  --primary-brand-50: #{$brand-50};
+  --primary-brand-40: #{$brand-40};
+  --primary-brand-30: #{$brand-30};
+  --primary-brand-20: #{$brand-20};
+  --primary-brand-10: #{$brand-10};
+  --primary-brand-0: #{$brand-0};
+  --gray-100: #{$gray-100};
+  --gray-90: #{$gray-90};
+  --gray-80: #{$gray-80};
+  --gray-70: #{$gray-70};
+  --gray-60: #{$gray-60};
+  --gray-50: #{$gray-50};
+  --gray-40: #{$gray-40};
+  --gray-30: #{$gray-30};
+  --gray-20: #{$gray-20};
+  --gray-10: #{$gray-10};
+  --gray-0: #{$gray-0};
+}
+
+// Apply theme variables to :root (light) and .dark (dark mode)
+:root {
+  @include theme-vars($theme-light);
+}
+
+.dark {
+  @include theme-vars($theme-dark);
 }
