@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import '../styles/variables.scss';
-import { text } from 'body-parser';
 
 type Props = {
   mode: 'theme-dark' | 'theme-light';
@@ -38,20 +37,20 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
   // on <body> swaps these vars, so we just read the same names for both modes.
   // Provide sensible hex fallbacks that match the $brand and $gray tokens.
   const primary = readCssVar(['--primary-button', '--color-button-primary'], isDark ? '#c300dc' /* brand-30 */ : '#4d0057' /* brand-70 */);
-  const background = readCssVar(['--background-color', '--color-background-color', '--background-color'], isDark ? 'gray-90' : 'gray-10');
-  const paper = readCssVar(['--background-color', '--color-background-color'], isDark ? '--background-color' : 'background-color');
-  const textPrimary = readCssVar(['--primary-text', '--color-text-primary', '--primary-text-color'], isDark ? 'gray-10' : 'gray-90');
+  const ghost = readCssVar(['--ghost-button', '--color-ghost-primary'], isDark ? '#c300dc' /* brand-30 */ : '#4d0057' /* brand-70 */);
+  // explicit sensible hex fallbacks so MUI always has correct colors
+  const background = readCssVar(['--background-color', '--color-background-color', '--background-color'], isDark ? '#0b0b0b' /* very dark */ : '#ffffff' /* white */);
+  const paper = readCssVar(['--background-color', '--color-background-color'], isDark ? '#282828' : '#f4f4f4');
+  const textPrimary = readCssVar(['--primary-text', '--color-text-primary', '--primary-text-color'], isDark ? '#E6E6E6' /* light text in dark mode */ : '#111827' /* dark text in light mode */);
   const textSecondary = readCssVar(['--secondary-text', '--color-text-secondary'], isDark ? '#B3B3B3' : '#4D4D4D');
   const textPlaceholder = readCssVar(['--placeholder-text', '--color-text-placeholder'], isDark ? '#7A7A7A' : '#A0A0A0');
-  const divider = readCssVar(['--primary-border', '--color-border-primary'], '$brand-50');
+  const divider = readCssVar(['--primary-border', '--color-border-primary'], isDark ? '#3f3f46' : '#e5e7eb');
   const link = readCssVar(['--primary-link', '--color-link-primary'], primary);
   const fontFamily = readCssVar(['--font-family'], "'Open Sans', 'Helvetica Neue', Helvetica, sans-serif");
   const fontSize = readCssVar(['--font-size'], '16px');
   const borderRadius = readCssVar(['--border-radius'], '8px');
   const boxShadow = readCssVar(['--box-shadow'], '0px 2px 4.9px rgba(0,0,0,0.6)');
-  
-
-  return createTheme({
+  const theme = createTheme({
     palette: {
       mode: isDark ? 'dark' : 'light',
       primary: {
@@ -78,6 +77,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
           ':root': {
             // mirror a few helpful tokens so MUI internals and components can read them
             '--wkly-btn-primary': primary,
+            '--wkly-btn-ghost': ghost,
             '--wkly-background': background,
             '--wkly-text-primary': textPrimary,
             '--wkly-text-secondary': textSecondary,
@@ -94,14 +94,14 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
         },
         styleOverrides: {
           root: {
-            class: primary,
             borderRadius: borderRadius,
             textTransform: 'none',
-            backgroundColor: 'var(--wkly-background, ' + background + ')',
+            // by default buttons shouldn't override the global background color
+            backgroundColor: 'transparent',
             boxShadow: 'none',
-            // use the wkly primary for contained variants via palette mapping
+            color: textPrimary,
+          },
         },
-    },
       },
       MuiInputBase: {
         styleOverrides: {
@@ -126,9 +126,6 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
             '& .MuiInputBase-root': {
               backgroundColor: 'transparent',
             },
-            // '& .MuiFormLabel-root': {
-            //   color: textPrimary,
-            // },
           },
         },
       },
@@ -145,7 +142,6 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
             padding: '10px 12px',
             '&::placeholder': {
               color: textSecondary,
-            //   opacity: 0.4,
             },
           },
         },
@@ -179,6 +175,21 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
           },
         },
       },
+      MuiSvgIcon: {
+        styleOverrides: {
+          root: {
+            color: textPrimary,
+          },
+        },
+      },
+      MuiPaper: {
+        styleOverrides: {
+          root: {
+            backgroundColor: paper,
+            color: textPrimary,
+          },
+        },
+      },
       MuiSwitch: {
         styleOverrides: {
           root: {
@@ -193,7 +204,41 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
       },
     },
   });
-};
+
+  // Now augment the theme to add a contrast-aware contained button variant.
+  try {
+    const contrastText = theme.palette.getContrastText(primary || '#000');
+    theme.components = theme.components || {};
+    theme.components.MuiButton = theme.components.MuiButton || {};
+    theme.components.MuiButton.styleOverrides = {
+      ...(theme.components.MuiButton.styleOverrides || {}),
+      contained: {
+        backgroundColor: primary,
+        color: contrastText,
+        '&:hover': {
+          // slightly reduce brightness on hover for feedback
+          filter: 'brightness(0.95)',
+        },
+      },
+    } as any;
+  } catch (e) {
+    // If palette.getContrastText fails (e.g. primary is a CSS var), fall back safely
+    theme.components = theme.components || {};
+    theme.components.MuiButton = theme.components.MuiButton || {};
+    theme.components.MuiButton.styleOverrides = {
+      ...(theme.components.MuiButton.styleOverrides || {}),
+      contained: {
+        backgroundColor: primary,
+        color: isDark ? '#000000' : '#ffffff',
+        '&:hover': {
+          filter: 'brightness(0.95)',
+        },
+      },
+    } as any;
+  }
+
+  return theme;
+}
 
 const AppMuiThemeProvider: React.FC<Props> = ({ mode, children }) => {
   const theme = useMemo(() => buildTheme(mode), [mode]);

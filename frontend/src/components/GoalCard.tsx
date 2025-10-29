@@ -47,6 +47,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
   const [selectedAccomplishment, setSelectedAccomplishment] = useState<Accomplishment | null>(null);
   const [isAccomplishmentLoading, setIsAccomplishmentLoading] = useState(false);
   const [isNotesLoading, setIsNotesLoading] = useState(false);
+  const [notesCount, setNotesCount] = useState<number | null>(null);
   // Notes state
   const [notes, setNotes] = useState<Array<{ id: string; content: string; created_at: string; updated_at: string }>>([]);
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
@@ -58,6 +59,56 @@ const GoalCard: React.FC<GoalCardProps> = ({
   const [editingNoteContent, setEditingNoteContent] = useState('');
   // Local status state for optimistic UI updates when changing status inline
   const { refreshGoals } = useGoalsContext();
+
+  // Cache the current authenticated user's id to avoid repeated supabase.auth.getUser() calls
+  const userIdRef = React.useRef<string | null>(null);
+  const getCachedUserId = async () => {
+    if (userIdRef.current) return userIdRef.current;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        userIdRef.current = user.id;
+        return user.id;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  // Simple in-memory per-goal notesCount TTL cache to avoid repeated lightweight queries
+  // Map<goalId, { count: number, expiresAt: number }>
+  const notesCountCacheRef = React.useRef<Record<string, { count: number; expiresAt: number }>>({});
+  const NOTES_COUNT_TTL_MS = 30 * 1000; // 30s TTL
+
+  const fetchNotesCount = async (idArg?: string) => {
+    try {
+      const idToUse = idArg ?? goal.id;
+      if (typeof idToUse === 'string' && idToUse.startsWith('temp-')) {
+        setNotesCount(0);
+        return 0;
+      }
+      // check cache
+      const cached = notesCountCacheRef.current[idToUse];
+      if (cached && cached.expiresAt > Date.now()) {
+        setNotesCount(cached.count);
+        return cached.count;
+      }
+      const userId = await getCachedUserId();
+      if (!userId) return null;
+      const res = await fetch(`/api/getNotes?goal_id=${idToUse}&count_only=1`, { headers: { Authorization: `Bearer ${userId}` } });
+      if (!res.ok) throw new Error(await res.text());
+      const json = await res.json();
+      const count = typeof json?.count === 'number' ? json.count : Number(json) || 0;
+      // store in cache
+      notesCountCacheRef.current[idToUse] = { count, expiresAt: Date.now() + NOTES_COUNT_TTL_MS };
+      setNotesCount(count);
+      return count;
+    } catch (err) {
+      console.error('Error fetching notes count:', err);
+      return null;
+    }
+  };
 
   const [localStatus, setLocalStatus] = useState<string | undefined>(goal.status);
   const [statusAnchorEl, setStatusAnchorEl] = useState<null | HTMLElement>(null);
@@ -122,9 +173,9 @@ const GoalCard: React.FC<GoalCardProps> = ({
         setNotes([]);
         return;
       }
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-      const res = await fetch(`/api/getNotes?goal_id=${idToUse}`, { headers: { Authorization: `Bearer ${user.id}` } });
+      const userId = await getCachedUserId();
+      if (!userId) throw new Error('User not authenticated');
+      const res = await fetch(`/api/getNotes?goal_id=${idToUse}`, { headers: { Authorization: `Bearer ${userId}` } });
       if (!res.ok) throw new Error(await res.text());
       const json = await res.json();
       setNotes(json || []);
@@ -169,6 +220,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
       if (!res.ok) throw new Error(await res.text());
       // reconcile with server copy
       await fetchNotes();
+      // refresh the lightweight count too
+      try { await fetchNotesCount(); } catch (e) { /* ignore */ }
     } catch (err: any) {
       console.error('Error creating note:', err);
       // remove temp note
@@ -190,6 +243,11 @@ const GoalCard: React.FC<GoalCardProps> = ({
       });
       if (!res.ok) throw new Error(await res.text());
       await fetchNotes();
+      try { 
+        // invalidate cache for this goal so next lightweight fetch is fresh
+        try { delete notesCountCacheRef.current[goal.id as string]; } catch (e) { /* ignore */ }
+        await fetchNotesCount(); 
+      } catch (e) { /* ignore */ }
       setEditingNoteId(null);
       setEditingNoteContent('');
     } catch (err: any) {
@@ -209,6 +267,10 @@ const GoalCard: React.FC<GoalCardProps> = ({
       const res = await fetch(`/api/deleteNote?note_id=${noteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${user.id}` } });
       if (!res.ok) throw new Error(await res.text());
       // success; nothing else
+      try { 
+        delete notesCountCacheRef.current[goal.id as string];
+        await fetchNotesCount(); 
+      } catch (e) { /* ignore */ }
     } catch (err: any) {
       console.error('Error deleting note:', err);
       // rollback
@@ -290,28 +352,34 @@ const GoalCard: React.FC<GoalCardProps> = ({
     fetchAccomplishments();
 
     // Preload notes only after an authenticated user is available.
-    // If the user isn't available immediately (auth is async), subscribe to auth state changes
-    // and fetch notes when the user signs in.
+    // We no longer eagerly preload notes for every GoalCard on mount because that can
+    // produce many duplicate network requests and auth checks. Instead, cache the
+    // authenticated user's id locally and only fetch notes when the user explicitly
+    // opens the notes modal (openNotesModal) or when a temp id is replaced.
     let authListener: { data?: { subscription?: any } } | null = null;
-    const tryFetchNotes = async () => {
+    const primeUserCache = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          await fetchNotes();
+          userIdRef.current = user.id;
+          // fetch lightweight count on initial prime so UI can show note counts without fetching full notes
+          (async () => { try { await fetchNotesCount(); } catch (e) { /* ignore */ } })();
         } else {
-          // subscribe to auth changes
+          // subscribe to auth changes so we can populate the cache once available
           authListener = supabase.auth.onAuthStateChange((_event, session) => {
             if (session?.user) {
-              fetchNotes();
+              userIdRef.current = session.user.id;
+              // fetch count once auth arrives
+              (async () => { try { await fetchNotesCount(); } catch (e) { /* ignore */ } })();
             }
           });
         }
       } catch (err) {
-        console.error('Error checking auth for notes preload:', err);
+        console.error('Error priming auth cache for notes:', err);
       }
     };
 
-    tryFetchNotes();
+    primeUserCache();
 
     return () => {
       // cleanup listener if present
@@ -449,8 +517,10 @@ const GoalCard: React.FC<GoalCardProps> = ({
               className="relative btn-ghost flex items-center gap-2 dark:hover:bg-gray-90"
               title="Notes"
             >
-              {notes.length > 0 && (
-                <div className={objectCounter}>{notes.length}</div>
+              {/* Prefer showing full loaded notes length; fall back to notesCount (lightweight) if present */}
+              {(typeof notesCount === 'number' && notesCount != 0) && (
+              
+                <div className={objectCounter}>{notes.length > 0 ? notes.length : (notesCount ?? 0)}</div>
               )}
               <NotesIcon className="w-5 h-5" />
             </button>

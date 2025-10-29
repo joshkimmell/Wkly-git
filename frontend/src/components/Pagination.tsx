@@ -3,6 +3,7 @@ import { Menu, MenuButton, MenuItems } from '@headlessui/react';
 import PageMenuItem from '@components/PageMenuItem';
 import { ArrowLeft, ArrowRight, ChevronDownIcon, CalendarCheck } from 'lucide-react'; 
 import { getWeekStartDate } from '@utils/functions';
+import { Tooltip } from '@mui/material';
 
 type PaginationProps = {
   pages: string[]; // Array of raw page values (e.g., "2025-06-06", "2025-06", "2025")
@@ -94,29 +95,34 @@ const Pagination: React.FC<PaginationProps> = ({ pages, currentPage, onPageChang
 
   return (
     <div className="flex items-center space-x-2">
+      <Tooltip title={`Current ${scope}`} placement="top" arrow>
+          <span>
+            <button
+              onClick={() => onPageChange(currentPageFromToday ?? currentPage)}
+              disabled={currentPageFromToday === currentPage}
+              // title={`Current ${scope}`}
+              aria-label={`Current ${scope}`}
+              className="btn-ghost"
+            >
+              {/* Current {scope} */}
+              <CalendarCheck className="w-5 h-5" />
+              <span className="sr-only">Current {scope}</span>
+            </button>
+          </span>
+          </Tooltip>
       
-      <button
-        onClick={() => onPageChange(currentPageFromToday ?? currentPage)}
-        disabled={currentPageFromToday === currentPage}
-        title={`Current ${scope}`}
-        aria-label={`Current ${scope}`}
-        className="btn-ghost"
-      >
-        {/* Current {scope} */}
-        <CalendarCheck className="w-5 h-5" />
-        <span className="sr-only">Current {scope}</span>
-      </button>
-      
-      <button
-        onClick={handlePrevious}
-        disabled={currentIndex <= 0}
-        className="btn-ghost disabled:opacity-50"
-        title={`Next ${scope}`}
-        aria-label={`Next ${scope}`}
-      >
-        <ArrowLeft className="w-5 h-5" />
-        <span className="sr-only">Next {scope}</span>
-      </button>
+      <span>
+        <button
+          onClick={handlePrevious}
+          disabled={currentIndex <= 0}
+          className="btn-ghost disabled:opacity-50"
+          title={`Next ${scope}`}
+          aria-label={`Next ${scope}`}
+        >
+          <ArrowLeft className="w-5 h-5" />
+          <span className="sr-only">Next {scope}</span>
+        </button>
+      </span>
       
       <Menu as="div" className="relative inline-block items-center w-full sm:w-56 text-center">
       <div>
@@ -151,16 +157,18 @@ const Pagination: React.FC<PaginationProps> = ({ pages, currentPage, onPageChang
         </div>
       </MenuItems>
     </Menu>
-      <button
-        onClick={handleNext}
-        disabled={currentIndex === pages.length - 1}
-        className="btn-ghost disabled:opacity-50"
-        title={`Previous ${scope}`}
-        aria-label={`Previous ${scope}`}
-      >
-        <ArrowRight className="w-5 h-5" />
-        <span className="sr-only">Previous {scope}</span>
-      </button>
+      <span>
+        <button
+          onClick={handleNext}
+          disabled={currentIndex === pages.length - 1}
+          className="btn-ghost disabled:opacity-50"
+          title={`Previous ${scope}`}
+          aria-label={`Previous ${scope}`}
+        >
+          <ArrowRight className="w-5 h-5" />
+          <span className="sr-only">Previous {scope}</span>
+        </button>
+      </span>
       
     </div>
   );

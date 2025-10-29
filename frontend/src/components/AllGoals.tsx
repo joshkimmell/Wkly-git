@@ -14,10 +14,10 @@ import { mapPageForScope, loadPageByScope, savePageByScope } from '@utils/pagina
 import 'react-datepicker/dist/react-datepicker.css';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
-import { PlusSquare as SquarePlus, X as CloseButton, Search as SearchIcon, Filter as FilterIcon } from 'lucide-react';
+import { PlusSquare as SquarePlus, X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowBigUp, ArrowBigDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useGoalsContext } from '@context/GoalsContext';
 import { notifyError } from '@components/ToastyNotification';
-import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, InputLabel, Select, MenuItem, Tooltip } from '@mui/material';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type { Dayjs } from 'dayjs';
@@ -30,11 +30,13 @@ const GoalsComponent = () => {
     const [indexedGoals, setIndexedGoals] = useState<Record<string, Goal[]>>({});
     const [pages, setPages] = useState<string[]>([]);
     const [currentPage, setCurrentPage] = useState<string>('');
+    const currentPageRef = useRef<string>(currentPage);
     // Remember last selected page per scope so switching maintains context
     const [pageByScope, setPageByScope] = useState<Record<string, string>>({});
     const [scope, setScope] = useState<'week' | 'month' | 'year'>('week');
     const prevScopeRef = useRef<string>(scope);
     const pageByScopeRef = useRef<Record<string, string>>(pageByScope);
+    const initializedRef = useRef<boolean>(false);
     const fetchIdRef = useRef(0);
     const lastSwitchFromRef = useRef<string | null>(null);
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -119,7 +121,9 @@ const GoalsComponent = () => {
 
                         // Decide which page to show for this scope
                         const prevScope = lastSwitchFromRef.current ?? prevScopeRef.current;
-                        const remembered = pageByScopeRef.current[scope];
+                        // Prefer the authoritative state value first (may have been set during mount),
+                        // then fall back to the ref which is kept in sync.
+                        const remembered = pageByScope[scope] || pageByScopeRef.current[scope];
                         let desiredPage: string | undefined = remembered;
 
                         // If we have a remembered page for this scope (the last selected), prefer it and do not overwrite.
@@ -137,10 +141,9 @@ const GoalsComponent = () => {
 
                         // If still no desired page, fall back to sensible defaults (current date)
                         if (!desiredPage) {
-                            const today = new Date();
-                            if (scope === 'week') desiredPage = getWeekStartDate(today);
-                            else if (scope === 'month') desiredPage = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-                            else desiredPage = `${today.getFullYear()}`;
+                            // Use computeDefaultForScope so defaults remain consistent across code paths
+                            const { computeDefaultForScope } = await import('@utils/pagination');
+                            desiredPage = computeDefaultForScope(scope as any);
                         }
 
                         // Scope-specific adjustments: prefer pages starting with the desired prefix
@@ -185,7 +188,22 @@ const GoalsComponent = () => {
                             }
                         }
 
-                        setCurrentPage(desiredPage || (pages[0] ?? ''));
+                        // Only set the initial page on first successful fetch to avoid flip-flopping.
+                        // On subsequent fetches, only update currentPage if the current value is missing
+                        // from the newly-fetched pages (e.g., it was removed) to avoid switching views.
+                        if (!initializedRef.current) {
+                            const initial = desiredPage || (pages[0] ?? '');
+                            setCurrentPage(initial);
+                            currentPageRef.current = initial;
+                            initializedRef.current = true;
+                        } else {
+                            const cp = currentPageRef.current || currentPage;
+                            if (!cp || !pages.includes(cp)) {
+                                const fallback = desiredPage || (pages[0] ?? '');
+                                setCurrentPage(fallback);
+                                currentPageRef.current = fallback;
+                            }
+                        }
 
                         // Keep track of the scope we just loaded so future mappings are correct
                         prevScopeRef.current = scope;
@@ -234,22 +252,26 @@ const GoalsComponent = () => {
     }
 
     // Function to refresh goals (keeps current selection where possible)
-    const refreshGoals = async () => {
+    const refreshGoals = async () : Promise<{indexedGoals: Record<string, Goal[]>, pages: string[]}> => {
         try {
     console.debug('[AllGoals] refreshGoals: called');
         const { indexedGoals, pages } = await fetchAllGoalsIndexed(scope);
     console.debug('[AllGoals] refreshGoals: fetched', { pages: pages.length, keys: Object.keys(indexedGoals).slice(0,5) });
         setIndexedGoals(indexedGoals);
         setPages(pages);
-
+        // Keep the latest currentPage in a ref to avoid stale closures from async callers
         // If currentPage is not present in new pages, try to choose a sensible fallback
-        if (pages.length > 0) {
-            if (!currentPage || !pages.includes(currentPage)) {
+            if (pages.length > 0) {
+            const cp = currentPageRef.current;
+            if (!cp || !pages.includes(cp)) {
                 setCurrentPage(pages[0]);
+                currentPageRef.current = pages[0];
             }
         }
+        return { indexedGoals, pages };
         } catch (error) {
         console.error('Error refreshing goals:', error);
+        return { indexedGoals: {}, pages: [] };
         }
     };
   
@@ -289,18 +311,16 @@ const GoalsComponent = () => {
     useEffect(() => {
         try {
             console.debug('[AllGoals] GoalsContext.lastUpdated changed, syncing local indexed goals');
-            // call local refresh to re-index for current scope
-            // If there are newly added IDs, remember them so we can navigate to the correct page after refresh
             const added = lastAddedIds && lastAddedIds.length > 0 ? [...lastAddedIds] : undefined;
             (async () => {
-                await refreshGoals();
-                // if there were added ids, navigate to the page containing the first one
-                if (added && added.length > 0) {
-                    // find the page that contains the newly added id
-                    for (const p of pages) {
-                        const list = indexedGoals[p] || [];
+                const fresh = await refreshGoals();
+                // if there were added ids, navigate to the page containing the first one using fresh data
+                if (added && added.length > 0 && fresh.pages && fresh.pages.length > 0) {
+                    for (const p of fresh.pages) {
+                        const list = fresh.indexedGoals[p] || [];
                         if (list.some((g) => added.includes(g.id))) {
                             setCurrentPage(p);
+                            currentPageRef.current = p;
                             break;
                         }
                     }
@@ -420,11 +440,12 @@ const GoalsComponent = () => {
   };
 
   const handlePageChange = (page: string) => {
-        setCurrentPage(page);
-        const next = { ...pageByScopeRef.current, [scope]: page };
-        setPageByScope(next);
-        pageByScopeRef.current = next;
-        try { savePageByScope(next); } catch (e) { /* ignore */ }
+      setCurrentPage(page);
+      currentPageRef.current = page;
+      const next = { ...pageByScopeRef.current, [scope]: page };
+      setPageByScope(next);
+      pageByScopeRef.current = next;
+      try { savePageByScope(next); } catch (e) { /* ignore */ }
   };
 
     // persist pageByScope whenever it changes (e.g., scope switches)
@@ -549,6 +570,7 @@ const GoalsComponent = () => {
                     
                         {/* Filter button + MUI TextField replacement for filter input */}
                         <>
+                        <Tooltip title="Open filters" placement="top" arrow>
                         <IconButton
                             className="btn-ghost mr-2"
                             size="small"
@@ -557,6 +579,7 @@ const GoalsComponent = () => {
                         >
                             <FilterIcon className="w-4 h-4" />
                         </IconButton>
+                        </Tooltip>
                         <Popover
                             open={Boolean(filterAnchorEl)}
                             anchorEl={filterAnchorEl}
@@ -660,48 +683,55 @@ const GoalsComponent = () => {
                             placeholder="Filter by title, category, or impact"
                             
                             fullWidth
-                                                                        InputProps={{
-                                                                                startAdornment: (
-                                                                                        <InputAdornment position="start">
-                                                                                                <SearchIcon />
-                                                                                        </InputAdornment>
-                                                                                ),
-                                                                                endAdornment: showClear ? (
-                                                                                    <InputAdornment position="end">
-                                                                                        <IconButton
-                                                                                            size="small"
-                                                                                            aria-label="Clear filter"
-                                                                                            onMouseDown={(e) => e.preventDefault()} // prevent input blur
-                                                                                            onClick={() => {
-                                                                                                handleFilterChange('');
-                                                                                                // return focus to input
-                                                                                                filterInputRef.current?.focus();
-                                                                                            }}
-                                                                                            onFocus={() => { if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current); setClearButtonFocused(true); }}
-                                                                                            onBlur={() => { blurTimeoutRef.current = window.setTimeout(() => setClearButtonFocused(false), 150); }}
-                                                                                        >
-                                                                                            <CloseButton className="w-4 h-4" />
-                                                                                        </IconButton>
-                                                                                    </InputAdornment>
-                                                                                ) : null,
-                                                                        }}
+                            InputProps={{
+                                    startAdornment: (
+                                            <InputAdornment position="start">
+                                                    <SearchIcon className='w-4 h-4' />
+                                            </InputAdornment>
+                                    ),
+                                    endAdornment: showClear ? (
+                                        <InputAdornment position="end">
+                                            <IconButton
+                                                size="small"
+                                                aria-label="Clear filter"
+                                                onMouseDown={(e) => e.preventDefault()} // prevent input blur
+                                                onClick={() => {
+                                                    handleFilterChange('');
+                                                    // return focus to input
+                                                    filterInputRef.current?.focus();
+                                                }}
+                                                onFocus={() => { if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current); setClearButtonFocused(true); }}
+                                                onBlur={() => { blurTimeoutRef.current = window.setTimeout(() => setClearButtonFocused(false), 150); }}
+                                            >
+                                                <CloseButton className="w-4 h-4" />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ) : null,
+                            }}
                     />
+                    
+                    <Tooltip title={`Sort by creation date (${sortDirection === 'asc' ? 'ascending' : 'descending'})`} placement="top" arrow>
                     <button
                     onClick={() => setSortDirection(dir => (dir === 'asc' ? 'desc' : 'asc'))}
                     className="btn-ghost px-3 py-2"
-                    title="Toggle sort direction"
+                    // title="Toggle sort direction"
                     >
-                    {sortDirection === 'desc' ? '↑' : '↓'}
+                    {sortDirection === 'desc' ? <ArrowUp className='w-5 h-5' /> : <ArrowDown className='w-5 h-5' />}
                     </button>
+                    </Tooltip>
+
+                    {/* Add Goal Button */}
+                    <Tooltip title={`Add a new goal`} placement="top" arrow>
                     <button
                         onClick={openGoalModal}
                         className="btn-primary gap-2 flex ml-auto sm:mt-0 md:pr-2 sm:pr-2 xs:pr-0"
-                        title={`Add a new goal for the current ${scope}`}
+                        // title={`Add a new goal for the current ${scope}`}
                         aria-label={`Add a new goal for the current ${scope}`}
                         >
-                        <SquarePlus className="w-5 h-5" />
-                        <span className="block flex text-nowrap">Add Goal</span>
+                        <PlusIcon className="w-5 h-5" />
+                        {/* <span className="block flex text-nowrap">Add Goal</span> */}
                     </button>
+                    </Tooltip>
                 </div> 
 
                 {/* Goals List */}
@@ -799,9 +829,9 @@ const GoalsComponent = () => {
                 <GoalForm
                     newGoal={newGoal}
                     setNewGoal={setNewGoal}
-                    handleClose={closeGoalModal}
-                    categories={UserCategories.map((cat: any) => typeof cat === 'string' ? cat : cat.name)}
-                    refreshGoals={refreshGoals} // Pass only refreshGoals
+                                handleClose={closeGoalModal}
+                                categories={UserCategories.map((cat: any) => typeof cat === 'string' ? cat : cat.name)}
+                                refreshGoals={() => refreshGoals().then(() => {})}
                 />
             )}
         </div>
