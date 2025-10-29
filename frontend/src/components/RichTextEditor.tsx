@@ -1,16 +1,65 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { IconButton, Tooltip } from '@mui/material';
+
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { IconButton, Tooltip, TextField } from '@mui/material';
 import { Bold, Italic, List, Hash, Quote } from 'lucide-react';
-import './tiptap.css';
+import '@styles/richtext.css';
 
 type Props = {
+  id: string;
   value: string;
   onChange: (val: string) => void;
   placeholder?: string;
   label?: string;
 };
 
-const TiptapEditor: React.FC<Props> = ({ value, onChange, placeholder, label }) => {
+// custom input component that TextField will render instead of <input>
+const ContentEditableInput = React.forwardRef<HTMLDivElement, any>(function ContentEditableInput(
+  { inputRef, value, onChange, className, placeholder, ...props }: any,
+  forwardedRef,
+) {
+  // localRef points to the DOM node so we can update innerHTML only when needed
+  const localRef = React.useRef<HTMLDivElement | null>(null);
+
+  // stable ref callback to attach both forwardedRef and MUI's inputRef
+  const setRefs = useCallback((el: HTMLDivElement | null) => {
+    localRef.current = el;
+    if (typeof forwardedRef === 'function') forwardedRef(el);
+    else if (forwardedRef) (forwardedRef as any).current = el;
+    if (typeof inputRef === 'function') inputRef(el);
+    else if (inputRef) (inputRef as any).current = el;
+  }, [forwardedRef, inputRef]);
+
+  // Only update the DOM content when the incoming `value` differs from current DOM
+  // and the element is not focused (to avoid clobbering caret while typing).
+  useEffect(() => {
+    const el = localRef.current;
+    if (!el) return;
+    // if focused, skip DOM overwrite to preserve caret/selection
+    if (document.activeElement === el) return;
+    const incoming = value || '';
+    if (el.innerHTML !== incoming) {
+      el.innerHTML = incoming;
+    }
+  }, [value]);
+
+  return (
+    <div
+      ref={setRefs}
+      contentEditable
+      suppressContentEditableWarning
+      className={(className || '') + ' richtext-contenteditable'}
+      role="textbox"
+      aria-multiline="true"
+      onInput={(e) => {
+        const html = (e.currentTarget as HTMLElement).innerHTML || '';
+        if (onChange) onChange({ target: { value: html } });
+      }}
+      {...props}
+    />
+  );
+});
+
+const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, label }) => {
   // local html state for the contentEditable editor
   const [html, setHtml] = useState<string>(value || '');
   const contentRef = useRef<HTMLDivElement | null>(null);
@@ -18,7 +67,7 @@ const TiptapEditor: React.FC<Props> = ({ value, onChange, placeholder, label }) 
 
   // Floating label state
   const [focused, setFocused] = useState(false);
-  const [hasContent, setHasContent] = useState(Boolean(value && value.trim()));
+  const [hasContent, setHasContent] = useState<boolean>(Boolean(value && String(value).trim()));
   const [activeBold, setActiveBold] = useState(false);
   const [activeItalic, setActiveItalic] = useState(false);
 
@@ -33,14 +82,28 @@ const TiptapEditor: React.FC<Props> = ({ value, onChange, placeholder, label }) 
         const el = contentRef.current;
         if (!el) return;
         try {
-          const range = document.createRange();
-          range.selectNodeContents(el);
-          range.collapse(false);
-          const sel = window.getSelection();
-          sel?.removeAllRanges();
-          sel?.addRange(range);
+          // move caret to the end (deepest text node) to avoid appearing reversed
+          const moveCaretToEnd = (container: Node) => {
+            const range = document.createRange();
+            let node: Node | null = container;
+            // drill down to the last descendant text node
+            while (node && node.lastChild) node = node.lastChild;
+            if (!node) node = container;
+            // if it's a text node, set offset to its length, otherwise place after it
+            if (node.nodeType === Node.TEXT_NODE) {
+              range.setStart(node as Node, (node as Text).length);
+            } else {
+              range.setStartAfter(node as Node);
+            }
+            range.collapse(true);
+            const sel = window.getSelection();
+            sel?.removeAllRanges();
+            sel?.addRange(range);
+          };
+
+          moveCaretToEnd(el);
           // keep focus on editor
-          el.focus();
+          (el as HTMLElement).focus();
         } catch (err) {
           // ignore selection errors
         }
@@ -48,6 +111,25 @@ const TiptapEditor: React.FC<Props> = ({ value, onChange, placeholder, label }) 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, focused]);
+
+  // ensure the floating-label state updates immediately when parent value changes
+  // prefer the actual contentEditable text (if mounted) so `hasContent` reflects
+  // the ContentEditableInput and not the TextField's native input element.
+  useEffect(() => {
+    const contentText = contentRef.current?.innerText;
+    if (typeof contentText === 'string') {
+      setHasContent(Boolean(contentText.trim()));
+      return;
+    }
+    setHasContent(Boolean(value && String(value).trim()));
+  }, [value]);
+
+  // on mount or when the ref becomes available, initialize hasContent from the
+  // actual contentEditable DOM so the floating label is correct immediately.
+  useEffect(() => {
+    const el = contentRef.current;
+    if (el) setHasContent(Boolean((el.innerText || '').trim()));
+  }, []);
 
   useEffect(() => {
     const el = contentRef.current;
@@ -61,9 +143,9 @@ const TiptapEditor: React.FC<Props> = ({ value, onChange, placeholder, label }) 
       setHtml(newHtml);
       onChange(newHtml);
     };
-    el.addEventListener('focus', handleFocus);
-    el.addEventListener('blur', handleBlur);
-    el.addEventListener('input', handleInput);
+  el.addEventListener('focus', handleFocus);
+  el.addEventListener('blur', handleBlur);
+  el.addEventListener('input', handleInput);
 
     // keyboard shortcuts (Ctrl/Cmd+B, I)
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -78,7 +160,7 @@ const TiptapEditor: React.FC<Props> = ({ value, onChange, placeholder, label }) 
         applyCommand('italic');
       }
     };
-    el.addEventListener('keydown', handleKeyDown as any);
+  el.addEventListener('keydown', handleKeyDown as any);
 
     // update active states when selection changes
     const updateActive = () => {
@@ -261,134 +343,126 @@ const TiptapEditor: React.FC<Props> = ({ value, onChange, placeholder, label }) 
 
 
   return (
-  <div className="tiptap-editor gap-0" lang="en-US" dir="ltr">
-    <div className={`tiptap-container ${focused || hasContent ? 'tiptap-filled' : ''}`} lang="en-US" dir="ltr">
-            {/* {label && (
-                <label
-                    className={`tiptap-label ${focused || hasContent ? 'floating' : ''}`}
-                    onClick={() => editor?.commands.focus()}
-                >
-                    {label}
-                </label>
-            )} */}
-            <div className="tiptap-content p-0" role="textbox" aria-multiline="true">
-                {/* <EditorContent 
-                    editor={editor}
-                    label="Description"
-                    className="outline"
-                /> */}
-                {/* <TextArea
-                    minRows={5}
-                    value={value}
-                    onChange={(e) => onChange(e.target.value)}
-                    placeholder={placeholder || 'Start typing...'}
-                    label={label || 'Description'}
-                    className="w-full border-0 p-0 m-0 outline-none resize-none bg-transparent"
-                /> */}
-        <div className="tiptap-textfield-wrapper relative w-full">
+    <>
+      {/* <div className="richtext-container" lang="en-US" dir="ltr"> */}
+        <div className={`richtext-container w-full ${label ? 'has-label' : ''} ${(focused ? 'richtext-focused' : '') || (hasContent ? 'richtext-filled' : '')}`}>
           {label && (
-            <label className={`tiptap-label ${focused || hasContent ? 'floating' : ''}`} onClick={() => contentRef.current?.focus()}>{label}</label>
+            <label className={`richtext-label ${focused || hasContent ? 'floating richtext-filled' : ''}`} onClick={() => contentRef.current?.focus()}>{label}</label>
           )}
-          <div
-            id="goal-description"
-            ref={(el) => {
-              contentRef.current = el;
+          <TextField
+            id={id}
+            multiline
+            fullWidth
+            value={html}
+            placeholder={placeholder}
+            /* label shown above as a custom floating label */
+            inputRef={(el: any) => { contentRef.current = el; }}
+            InputProps={{
+              inputComponent: ContentEditableInput as any,
+              inputProps: { value: html, placeholder },
             }}
-            contentEditable
-            suppressContentEditableWarning
-            role="textbox"
-            aria-multiline="true"
-            className="tiptap-contenteditable text-gray-90 dark:text-gray-10 w-full min-h-[6rem] p-4 border rounded outline-none"
-            lang="en-US"
-            dir="ltr"
-            dangerouslySetInnerHTML={{ __html: html || '' }}
+            onChange={() => { /* handled by contentEditable's onInput */ }}
+            sx={{
+              borderRadius: 0,
+              '&::before': {
+                border: '1px solid var(--Textarea-focusedHighlight)',
+                transform: 'scaleX(0)',
+                left: 0,
+                right: 0,
+                bottom: '-2px',
+                top: 'unset',
+                transition: 'transform .15s cubic-bezier(0.1,0.9,0.2,1)',
+                borderRadius: 0,
+              },
+              '&:focus-within::before': {
+                transform: 'scaleX(1)',
+              },
+              '& .richtext-contenteditable': { paddingBottom: '3.25rem' },
+              '& label.richtext-filled': { transform: 'translate(14px, -6px) scale(0.75)'}, 
+            }}
           />
-          {!hasContent && focused && (
-            <div className="tiptap-placeholder absolute top-3 left-3 pointer-events-none">{placeholder || 'Start typing...'}</div>
-          )}
-        </div>
-                <div className="tiptap-toolbar absolute bottom-0 left-0 z-10">
-                  <Tooltip title="Bold (Ctrl/Cmd+B)" arrow>
-                    <span>
-                    <IconButton
-                      aria-label="Bold"
-                      aria-pressed={activeBold}
-                      color={activeBold ? 'primary' : 'default'}
-                      size="small"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => { applyCommand('bold'); }}
-                    >
-                      <Bold size={16} />
-                    </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Tooltip title="Italic (Ctrl/Cmd+I)" arrow>
-                    <span>
-                    <IconButton
-                      aria-label="Italic"
-                      aria-pressed={activeItalic}
-                      color={activeItalic ? 'primary' : 'default'}
-                      size="small"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => { applyCommand('italic'); }}
-                    >
-                      <Italic size={16} />
-                    </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Tooltip title="Heading" arrow>
-                    <span>
-                    <IconButton
-                      aria-label="Heading"
-                      size="small"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => { applyCommand('formatBlock:h2'); }}
-                    >
-                      <Hash size={16} />
-                    </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Tooltip title="Bullet list" arrow>
-                    <span>
-                    <IconButton
-                      aria-label="Bullet list"
-                      size="small"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => { applyCommand('insertUnorderedList'); }}
-                    >
-                      <List size={16} />
-                    </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Tooltip title="Ordered list" arrow>
-                    <span>
-                    <IconButton
-                      aria-label="Ordered list"
-                      size="small"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => { applyCommand('insertOrderedList'); }}
-                    >
-                      <List size={16} />
-                    </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Tooltip title="Blockquote" arrow>
-                    <span>
-                    <IconButton
-                      aria-label="Blockquote"
-                      size="small"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => { applyCommand('formatBlock:blockquote'); }}
-                    >
-                      <Quote size={16} />
-                    </IconButton>
-                    </span>
-                  </Tooltip>
-                </div>
-            </div>
-        </div>
-    </div>
+          <div className="richtext-toolbar">
+            <Tooltip title="Bold (Ctrl/Cmd+B)" arrow>
+              <span>
+              <IconButton
+                aria-label="Bold"
+                aria-pressed={activeBold}
+                color={activeBold ? 'primary' : 'default'}
+                size="small"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { applyCommand('bold'); }}
+              >
+                <Bold size={16} />
+              </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Italic (Ctrl/Cmd+I)" arrow>
+              <span>
+              <IconButton
+                aria-label="Italic"
+                aria-pressed={activeItalic}
+                color={activeItalic ? 'primary' : 'default'}
+                size="small"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { applyCommand('italic'); }}
+              >
+                <Italic size={16} />
+              </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Heading" arrow>
+              <span>
+              <IconButton
+                aria-label="Heading"
+                size="small"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { applyCommand('formatBlock:h2'); }}
+              >
+                <Hash size={16} />
+              </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Bullet list" arrow>
+              <span>
+              <IconButton
+                aria-label="Bullet list"
+                size="small"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { applyCommand('insertUnorderedList'); }}
+              >
+                <List size={16} />
+              </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Ordered list" arrow>
+              <span>
+              <IconButton
+                aria-label="Ordered list"
+                size="small"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { applyCommand('insertOrderedList'); }}
+              >
+                <List size={16} />
+              </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Blockquote" arrow>
+              <span>
+              <IconButton
+                aria-label="Blockquote"
+                size="small"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { applyCommand('formatBlock:blockquote'); }}
+              >
+                <Quote size={16} />
+              </IconButton>
+              </span>
+            </Tooltip>
+          </div>
+        {/* </div> */}
+      </div>
+    </>
   );
 };
 
-export default TiptapEditor;
+export default RichTextEditor;

@@ -15,6 +15,9 @@ interface GoalsContextProps {
   removeGoalFromCache: (id: string) => void;
   isRefreshing: boolean;
   lastUpdated?: number;
+  // IDs recently added (set by bulk/single add flows) so UI can navigate to them after refresh
+  lastAddedIds?: string[];
+  setLastAddedIds?: (ids: string[] | undefined) => void;
 }
 
 const GoalsContext = createContext<GoalsContextProps | undefined>(undefined);
@@ -23,11 +26,14 @@ export const GoalsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [goals, setGoals] = useState<Goal[]>([]);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [lastUpdated, setLastUpdated] = useState<number | undefined>(undefined);
+  const [lastAddedIds, setLastAddedIds] = useState<string[] | undefined>(undefined);
 
   const refreshGoals = async () => {
     try {
       setIsRefreshing(true);
+  console.debug('[GoalsContext] refreshGoals: starting');
       const fetched = await fetchAllGoals();
+      console.debug('[GoalsContext] refreshGoals: fetched', { count: (fetched || []).length });
       setGoals(fetched || []);
       setLastUpdated(Date.now());
     } catch (err) {
@@ -61,6 +67,11 @@ export const GoalsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           channel = supabase
             .channel('public:goals')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'goals' }, (payload: any) => {
+              try {
+                console.debug('[GoalsContext] realtime event', { eventType: payload.eventType, payload });
+              } catch (e) {
+                // ignore logging errors
+              }
               const row = payload.new ?? payload.old;
               if (!row) return;
               if (payload.eventType === 'INSERT') {
@@ -108,11 +119,16 @@ export const GoalsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // internal map of listeners waiting for tempId -> newId resolution
   const tempListenersRef = React.useRef<Record<string, Array<(newId: string) => void>>>({});
 
-  const addGoalToCache = (g: Goal) => setGoals((prev) => [g, ...prev]);
+  const addGoalToCache = (g: Goal) => {
+    console.debug('[GoalsContext] addGoalToCache: adding', { id: g.id });
+    setGoals((prev) => [g, ...prev]);
+  };
   const updateGoalInCache = (g: Goal) => setGoals((prev) => prev.map((p) => (p.id === g.id ? g : p)));
 
   const replaceGoalInCache = (oldId: string, newGoal: Goal) => {
-    setGoals((prev) => prev.map((p) => (p.id === oldId ? newGoal : p)));
+    console.debug('[GoalsContext] replaceGoalInCache: replacing', { oldId, newId: newGoal.id });
+  console.debug('[GoalsContext] replaceGoalInCache: replacing', { oldId, newId: newGoal.id });
+  setGoals((prev) => prev.map((p) => (p.id === oldId ? newGoal : p)));
     // notify listeners waiting for this temp id
     const listeners = tempListenersRef.current[oldId];
     if (listeners && listeners.length > 0) {
@@ -127,6 +143,8 @@ export const GoalsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  
+
   const subscribeToTempId = (tempId: string, cb: (newId: string) => void) => {
     if (!tempListenersRef.current[tempId]) tempListenersRef.current[tempId] = [];
     tempListenersRef.current[tempId].push(cb);
@@ -140,7 +158,7 @@ export const GoalsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const removeGoalFromCache = (id: string) => setGoals((prev) => prev.filter((p) => p.id !== id));
 
   return (
-    <GoalsContext.Provider value={{ goals, refreshGoals, addGoalToCache, updateGoalInCache, replaceGoalInCache, subscribeToTempId, removeGoalFromCache, isRefreshing, lastUpdated }}>
+    <GoalsContext.Provider value={{ goals, refreshGoals, addGoalToCache, updateGoalInCache, replaceGoalInCache, subscribeToTempId, removeGoalFromCache, isRefreshing, lastUpdated, lastAddedIds, setLastAddedIds }}>
       {children}
     </GoalsContext.Provider>
   );

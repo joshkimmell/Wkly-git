@@ -268,14 +268,14 @@ const AllAccomplishments = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Description</label>
-                  <textarea
+                  <TextField
+                    label="Description"
                     value={newAccomplishment.description}
-                    onChange={(e) =>
-                      setNewAccomplishment({ ...newAccomplishment, description: e.target.value })
-                    }
+                    onChange={(e) => setNewAccomplishment({ ...newAccomplishment, description: e.target.value })}
+                    multiline
                     rows={4}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    fullWidth
+                    size="small"
                   />
                 </div>
                 <div>

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import '../styles/variables.scss';
+import { text } from 'body-parser';
 
 type Props = {
   mode: 'theme-dark' | 'theme-light';
@@ -37,10 +38,11 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
   // on <body> swaps these vars, so we just read the same names for both modes.
   // Provide sensible hex fallbacks that match the $brand and $gray tokens.
   const primary = readCssVar(['--primary-button', '--color-button-primary'], isDark ? '#c300dc' /* brand-30 */ : '#4d0057' /* brand-70 */);
-  const background = readCssVar(['--background', '--color-background', '--background-color'], isDark ? '#181818' : '#F4F4F4');
-  const paper = readCssVar(['--background', '--color-background'], isDark ? 'gray-100' : 'gray-10');
-  const textPrimary = readCssVar(['--primary-text', '--color-text-primary', '--primary-text-color'], isDark ? '#F8C1FF' : '#181818');
+  const background = readCssVar(['--background-color', '--color-background-color', '--background-color'], isDark ? 'gray-90' : 'gray-10');
+  const paper = readCssVar(['--background-color', '--color-background-color'], isDark ? '--background-color' : 'background-color');
+  const textPrimary = readCssVar(['--primary-text', '--color-text-primary', '--primary-text-color'], isDark ? 'gray-10' : 'gray-90');
   const textSecondary = readCssVar(['--secondary-text', '--color-text-secondary'], isDark ? '#B3B3B3' : '#4D4D4D');
+  const textPlaceholder = readCssVar(['--placeholder-text', '--color-text-placeholder'], isDark ? '#7A7A7A' : '#A0A0A0');
   const divider = readCssVar(['--primary-border', '--color-border-primary'], '$brand-50');
   const link = readCssVar(['--primary-link', '--color-link-primary'], primary);
   const fontFamily = readCssVar(['--font-family'], "'Open Sans', 'Helvetica Neue', Helvetica, sans-serif");
@@ -75,9 +77,11 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
         styleOverrides: {
           ':root': {
             // mirror a few helpful tokens so MUI internals and components can read them
-            '--wkly-primary': primary,
+            '--wkly-btn-primary': primary,
             '--wkly-background': background,
             '--wkly-text-primary': textPrimary,
+            '--wkly-text-secondary': textSecondary,
+            '--wkly-text-placeholder': textPlaceholder,
             '--wkly-divider': divider,
             '--wkly-radius': borderRadius,
             '--wkly-shadow': boxShadow,
@@ -86,15 +90,15 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
       },
       MuiButton: {
         defaultProps: {
-          disableElevation: true,
+          disableElevation: false,
         },
         styleOverrides: {
           root: {
-            class: 'btn-primary',
+            class: primary,
             borderRadius: borderRadius,
             textTransform: 'none',
-            backgroundColor: 'var(--wkly-primary, ' + primary + ')',
-            // boxShadow: 'none',
+            backgroundColor: 'var(--wkly-background, ' + background + ')',
+            boxShadow: 'none',
             // use the wkly primary for contained variants via palette mapping
         },
     },
@@ -122,9 +126,9 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
             '& .MuiInputBase-root': {
               backgroundColor: 'transparent',
             },
-            '& .MuiFormLabel-root': {
-              color: textSecondary,
-            },
+            // '& .MuiFormLabel-root': {
+            //   color: textPrimary,
+            // },
           },
         },
       },
@@ -139,6 +143,10 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
           },
           input: {
             padding: '10px 12px',
+            '&::placeholder': {
+              color: textSecondary,
+            //   opacity: 0.4,
+            },
           },
         },
       },
@@ -155,7 +163,8 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
         styleOverrides: {
           root: {
             color: textSecondary,
-            fontSize: '0.9rem',
+            fontSize: '0.875rem',
+            backgroundColor: 'transparent',
           },
         },
       },

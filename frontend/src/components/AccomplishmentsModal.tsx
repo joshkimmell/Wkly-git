@@ -46,10 +46,9 @@ export default function AccomplishmentsModal({ goalTitle, isOpen, onClose, accom
             </div>
         <div className="space-y-4 max-h-[60vh] overflow-y-auto">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Add a new accomplishment</label>
-            <TextField value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="mt-1 block w-full" fullWidth />
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description (optional)" rows={3} className="mt-1 block w-full border-gray-30 focus:border-b-2 focus:ring-0" />
-            <TextField value={impact} onChange={(e) => setImpact(e.target.value)} placeholder="Impact (optional)" className="mt-1 block w-full" fullWidth />
+            <TextField value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" label="Add a new accomplishment" className="mt-1 block w-full" fullWidth />
+            <TextField value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description (optional)" label="Description (optional)" multiline rows={3} className="mt-1 block w-full" fullWidth size="small" />
+            <TextField value={impact} onChange={(e) => setImpact(e.target.value)} placeholder="Impact (optional)" label="Impact (optional)" className="mt-1 block w-full" fullWidth />
             <div className="mt-2 flex justify-end gap-2">
               <button className="btn-primary" onClick={handleAdd} disabled={loading}><PlusIcon className="w-4 h-4 inline mr-1" />Add accomplishment</button>
             </div>

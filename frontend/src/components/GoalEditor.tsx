@@ -1,8 +1,9 @@
 import { modalClasses } from '@styles/classes';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TextField, MenuItem } from '@mui/material';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+// import ReactQuill from 'react-quill';
+// import 'react-quill/dist/quill.snow.css';
+import RichTextEditor from './RichTextEditor';
 import { Goal } from '@utils/goalUtils'; // Import the addCategory function
 import { getWeekStartDate, fetchCategories } from '@utils/functions';
 import { supabase } from '@lib/supabase'; // Import Supabase client
@@ -51,7 +52,7 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
     status_notes: '' as any,
     });
     const [tempCategory, setTempCategory] = useState(initialCategory); // Temporary category state
-    const quillRef = useRef<ReactQuill | null>(null);
+    // const quillRef = useRef<ReactQuill | null>(null);
 
     const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -210,12 +211,19 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
                 Description
               </label>
               {/* ReactQuill editor for editing the content */}
-              <ReactQuill
+              {/* <ReactQuill
                   ref={quillRef}
                   id="description_goal"
                   value={updatedGoal.description}
                   theme="snow"
                   onChange={(value) => handleFieldChange('description', value)} // Update description state
+              /> */}
+              <RichTextEditor 
+                id="goal_description"
+                value={updatedGoal.description} 
+                onChange={(value) => handleFieldChange('description', value)}
+                placeholder="Describe this goal in a few sentences"
+                label="Description" 
               />
               <input
                   type="hidden"
@@ -232,10 +240,10 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
               <a
                 id="category_goal"
                 onClick={handleCategoryModalOpen}
-                className="btn-ghost text-brand-60 dark:text-brand-20 cursor-pointer flex px-4 py-1 rounded-md w-full text-left items-center justify-between text-xl sm:text-lg md:text-xl lg:text-2xl"
+                className="btn-ghost text-brand-60 dark:text-brand-20 cursor-pointer flex px-4 py-1 rounded-md w-full text-left items-center justify-between text-lg lg:text-xl"
               >
                 {tempCategory || '-- Select a category --'}
-                <SearchIcon className="w-5 h-5 inline-block ml-2" />
+                <SearchIcon className="w-4 h-4 inline-block ml-2" />
               </a>
 
               {/* Category selection modal: always-rendered Modal with conditional content */}
@@ -382,7 +390,7 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
               <MenuItem value="Done">Done</MenuItem>
             </TextField>
           </div>
-          <div>
+          {/* <div>
             <TextField
               id="status_notes"
               label="Status notes (optional)"
@@ -393,7 +401,7 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
               rows={3}
               className="mt-1"
             />
-          </div>
+          </div> */}
           <div className="flex justify-end mt-4 space-x-2 text-gray-90 dark:text-gray-10">
               <button className="btn btn-secondary" onClick={onRequestClose} type="button">
                   Cancel

@@ -11,9 +11,13 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@esbuild-kit/esm-loader": "^2.6.5",
     "@headlessui/react": "^2.2.4",
     "@lexical/react": "^0.36.2",
+    "@mui/joy": "^5.0.0-beta.52",
+    "@mui/x-date-pickers": "^8.15.0",
     "@supabase/auth-helpers-react": "^0.5.0",
     "@supabase/auth-ui-react": "^0.4.7",
     "@supabase/auth-ui-shared": "^0.1.8",
@@ -26,6 +30,7 @@
     "body-parser": "^2.2.0",
     "cors": "^2.8.5",
     "date-fns": "^3.3.1",
+    "dayjs": "^1.11.18",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "fastify": "^5.2.2",

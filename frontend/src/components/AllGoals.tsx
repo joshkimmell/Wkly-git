@@ -14,7 +14,14 @@ import { mapPageForScope, loadPageByScope, savePageByScope } from '@utils/pagina
 import 'react-datepicker/dist/react-datepicker.css';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
-import { PlusSquare as SquarePlus } from 'lucide-react';
+import { PlusSquare as SquarePlus, X as CloseButton, Search as SearchIcon, Filter as FilterIcon } from 'lucide-react';
+import { useGoalsContext } from '@context/GoalsContext';
+import { notifyError } from '@components/ToastyNotification';
+import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import type { Dayjs } from 'dayjs';
+import type { ChangeEvent } from 'react';
 type Goal = GoalUtilsGoal & {
   created_at?: string;
 };
@@ -64,6 +71,24 @@ const GoalsComponent = () => {
         title: string;
     } | null>(null); // State for selected summary
     const [filter, setFilter] = useState<string>('');
+    const [filterFocused, setFilterFocused] = useState<boolean>(false);
+    const [clearButtonFocused, setClearButtonFocused] = useState<boolean>(false);
+    const filterInputRef = useRef<HTMLInputElement | null>(null);
+    const blurTimeoutRef = useRef<number | null>(null);
+    const showClear = filter.length > 0 || filterFocused || clearButtonFocused;
+        // Filter popover state and criteria
+        const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLElement | null>(null);
+        const [filterStatus, setFilterStatus] = useState<string>('');
+        const [filterCategory, setFilterCategory] = useState<string>('');
+    const [filterStartDate, setFilterStartDate] = useState<Dayjs | null>(null);
+    const [filterEndDate, setFilterEndDate] = useState<Dayjs | null>(null);
+
+        // filter popover anchor is controlled via `filterAnchorEl` and setFilterAnchorEl
+
+        // derive category options from UserCategories
+        const categoryOptions = (UserCategories || []).map((cat: any) => (typeof cat === 'string' ? cat : cat.name));
+        // derive statuses from current goals if available
+        const statusOptions = Array.from(new Set(Object.values(indexedGoals).flat().map((g) => (g.status || '').toString()).filter(Boolean)));
 
     // Set the default scope to the current week
             useEffect(() => {
@@ -211,7 +236,9 @@ const GoalsComponent = () => {
     // Function to refresh goals (keeps current selection where possible)
     const refreshGoals = async () => {
         try {
+    console.debug('[AllGoals] refreshGoals: called');
         const { indexedGoals, pages } = await fetchAllGoalsIndexed(scope);
+    console.debug('[AllGoals] refreshGoals: fetched', { pages: pages.length, keys: Object.keys(indexedGoals).slice(0,5) });
         setIndexedGoals(indexedGoals);
         setPages(pages);
 
@@ -256,12 +283,113 @@ const GoalsComponent = () => {
     //    }
     //};
 // Delete a goal
-    const handleDeleteGoal = async (goalId: string) => {
+    const { refreshGoals: ctxRefresh, removeGoalFromCache, lastUpdated, lastAddedIds, setLastAddedIds } = useGoalsContext();
+
+    // When the global goals cache is updated (via context), ensure this component refreshes
+    useEffect(() => {
         try {
+            console.debug('[AllGoals] GoalsContext.lastUpdated changed, syncing local indexed goals');
+            // call local refresh to re-index for current scope
+            // If there are newly added IDs, remember them so we can navigate to the correct page after refresh
+            const added = lastAddedIds && lastAddedIds.length > 0 ? [...lastAddedIds] : undefined;
+            (async () => {
+                await refreshGoals();
+                // if there were added ids, navigate to the page containing the first one
+                if (added && added.length > 0) {
+                    // find the page that contains the newly added id
+                    for (const p of pages) {
+                        const list = indexedGoals[p] || [];
+                        if (list.some((g) => added.includes(g.id))) {
+                            setCurrentPage(p);
+                            break;
+                        }
+                    }
+                }
+                // clear the context marker
+                try { if (typeof setLastAddedIds === 'function') setLastAddedIds(undefined); } catch (e) { /* ignore */ }
+            })();
+        } catch (e) {
+            console.warn('[AllGoals] Failed to sync after context update (ignored):', e);
+        }
+    }, [lastUpdated]);
+
+    const handleDeleteGoal = async (goalId: string) => {
+        // Optimistic UI: remove from local indexedGoals immediately
+        const previousIndexed = { ...indexedGoals };
+        try {
+        console.debug('[AllGoals] handleDeleteGoal: deleting (optimistic)', { goalId, currentPage });
+        setIndexedGoals((prev) => {
+            const copy: Record<string, Goal[]> = { ...prev };
+            if (copy[currentPage]) copy[currentPage] = copy[currentPage].filter((g) => g.id !== goalId);
+            return copy;
+        });
+
+        // Also remove from global cache so other components reflect change immediately
+        try {
+            if (removeGoalFromCache) removeGoalFromCache(goalId);
+        } catch (e) {
+            console.warn('[AllGoals] removeGoalFromCache failed (ignored):', e);
+        }
+
+        // Attempt server delete
         await deleteGoal(goalId);
-        await refreshGoals(); // Refresh goals after deleting
+
+        // After server reports success, ensure the local indexed state truly reflects deletion.
+        // Retry fetching indexed goals a few times to avoid flicker caused by race conditions.
+        const maxAttempts = 3;
+        let attempt = 0;
+        let foundStill = true;
+        while (attempt < maxAttempts) {
+            try {
+                const { indexedGoals: freshIndexed, pages: freshPages } = await fetchAllGoalsIndexed(scope);
+                // check whether goalId remains anywhere
+                const exists = Object.values(freshIndexed).some((list) => list.some((g) => g.id === goalId));
+                // update local state to the fresh snapshot
+                setIndexedGoals(freshIndexed);
+                setPages(freshPages);
+                if (!exists) {
+                    foundStill = false;
+                    break;
+                }
+            } catch (e) {
+                console.warn('[AllGoals] refresh attempt failed (ignored):', e);
+            }
+            // backoff before retrying
+            await new Promise((res) => setTimeout(res, 250 * Math.pow(2, attempt)));
+            attempt += 1;
+        }
+
+        if (foundStill) {
+            // As a fallback, trigger a full context refresh and final reconcile
+            try {
+                if (ctxRefresh) { await ctxRefresh(); console.debug('[AllGoals] handleDeleteGoal: ctxRefresh finished'); }
+                const { indexedGoals: finalIndexed, pages: finalPages } = await fetchAllGoalsIndexed(scope);
+                setIndexedGoals(finalIndexed);
+                setPages(finalPages);
+                const stillExists = Object.values(finalIndexed).some((list) => list.some((g) => g.id === goalId));
+                if (stillExists) {
+                    // server did not remove the row or there's a deeper issue; rollback optimistic removal
+                    setIndexedGoals(previousIndexed);
+                    notifyError('Goal appeared to not be deleted (server still contains it). It has been restored locally.');
+                    return;
+                }
+            } catch (e) {
+                console.warn('[AllGoals] final reconcile after delete failed (ignored):', e);
+            }
+        }
+
+        // If we reach here, deletion is confirmed and local state updated
         } catch (error) {
         console.error('Error deleting goal:', error);
+        // rollback optimistic removal
+        try {
+            setIndexedGoals(previousIndexed);
+            // best-effort: refresh from server to reconcile
+            try { await refreshGoals(); } catch (e) { /* ignore */ }
+        } catch (e) {
+            console.warn('[AllGoals] rollback after delete failed (ignored):', e);
+        }
+        notifyError('Failed to delete goal.');
         }
     };
 
@@ -315,13 +443,46 @@ const GoalsComponent = () => {
   // Update the Goals list rendering logic to apply filtering and sorting
   const sortedAndFilteredGoals = (indexedGoals[currentPage] || [])
     .filter((goal) => {
-      if (!filter) return true;
-      return (
-        goal.title.toLowerCase().includes(filter.toLowerCase()) ||
-        goal.category.toLowerCase().includes(filter.toLowerCase()) ||
-        goal.description.toLowerCase().includes(filter.toLowerCase()) ||
-        goal.week_start.toLowerCase().includes(filter.toLowerCase())
-      );
+            // text filter
+            const textMatch = !filter || (
+                goal.title.toLowerCase().includes(filter.toLowerCase()) ||
+                goal.category.toLowerCase().includes(filter.toLowerCase()) ||
+                goal.description.toLowerCase().includes(filter.toLowerCase()) ||
+                (goal.week_start || '').toLowerCase().includes(filter.toLowerCase())
+            );
+
+            if (!textMatch) return false;
+
+            // status filter
+            if (filterStatus && (goal.status || '') !== filterStatus) return false;
+
+            // category filter
+            if (filterCategory && (goal.category || '') !== filterCategory) return false;
+
+                    // time range filter - compare week_start (YYYY-MM-DD)
+                    const compareGoalDate = (dateStr: string | undefined): Date | null => {
+                        if (!dateStr) return null;
+                        const d = new Date(dateStr);
+                        if (isNaN(d.getTime())) return null;
+                        return d;
+                    };
+
+                    if (filterStartDate) {
+                        try {
+                            const goalDate = compareGoalDate(goal.week_start);
+                            const start = filterStartDate instanceof Object && 'toDate' in filterStartDate ? (filterStartDate as any).toDate() : (filterStartDate as unknown as Date);
+                            if (goalDate && start && goalDate < start) return false;
+                        } catch (e) { /* ignore parse errors */ }
+                    }
+                    if (filterEndDate) {
+                        try {
+                            const goalDate = compareGoalDate(goal.week_start);
+                            const end = filterEndDate instanceof Object && 'toDate' in filterEndDate ? (filterEndDate as any).toDate() : (filterEndDate as unknown as Date);
+                            if (goalDate && end && goalDate > end) return false;
+                        } catch (e) { /* ignore parse errors */ }
+                    }
+
+            return true;
     })
     .sort((a, b) => {
       if (sortDirection === 'asc') {
@@ -385,13 +546,145 @@ const GoalsComponent = () => {
             <div id="allGoals" className="flex flex-col gap-4 2xl:w-2/3 w-full">
                 {/* Filter and Sort Controls */}
                 <div className="mt-4 h-10 flex items-center space-x-2">
-                    <input
-                    type="text"
-                    id='goal-filter'
-                    value={filter}
-                    onChange={(e) => handleFilterChange(e.target.value)}
-                    placeholder="Filter by title, category, or impact"
-                    className="block w-full h-10 p-2 border-gray-300 shadow-sm text-sm sm:text-xl"
+                    
+                        {/* Filter button + MUI TextField replacement for filter input */}
+                        <>
+                        <IconButton
+                            className="btn-ghost mr-2"
+                            size="small"
+                            aria-label="Open filters"
+                            onClick={(e) => setFilterAnchorEl(e.currentTarget)}
+                        >
+                            <FilterIcon className="w-4 h-4" />
+                        </IconButton>
+                        <Popover
+                            open={Boolean(filterAnchorEl)}
+                            anchorEl={filterAnchorEl}
+                            onClose={() => setFilterAnchorEl(null)}
+                            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                        >
+                            <Box sx={{ p: 2, width: 280 }}>
+                                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                                    <InputLabel id="filter-status-label">Status</InputLabel>
+                                    <Select
+                                        labelId="filter-status-label"
+                                        value={filterStatus}
+                                        label="Status"
+                                        onChange={(e) => setFilterStatus((e.target as HTMLInputElement).value)}
+                                    >
+                                        <MenuItem value="">Any</MenuItem>
+                                        {statusOptions.map((s) => (
+                                            <MenuItem key={s} value={s}>{s}</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                                    <InputLabel id="filter-category-label">Category</InputLabel>
+                                    <Select
+                                        labelId="filter-category-label"
+                                        value={filterCategory}
+                                        label="Category"
+                                        onChange={(e) => setFilterCategory((e.target as HTMLInputElement).value)}
+                                    >
+                                        <MenuItem value="">Any</MenuItem>
+                                        {categoryOptions.map((c) => (
+                                            <MenuItem key={c} value={c}>{c}</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                                {scope === 'year' && (
+                                  <div className="flex flex-col space-y-2 mb-2">
+                                  <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                      <div>
+                                          <label className="block text-sm text-gray-60 mb-1">Start</label>
+                                          <DatePicker
+                                              value={filterStartDate}
+                                              onChange={(v: Dayjs | null) => setFilterStartDate(v)}
+                                              slotProps={{ textField: { size: 'small' } }}
+                                              maxDate={filterEndDate || undefined}
+                                          />
+                                      </div>
+                                      <div>
+                                          <label className="block text-sm text-gray-60 mb-1">End</label>
+                                          <DatePicker
+                                              value={filterEndDate}
+                                              onChange={(v: Dayjs | null) => setFilterEndDate(v)}
+                                              slotProps={{ textField: { size: 'small' } }}
+                                              minDate={filterStartDate || undefined}
+                                          />
+                                      </div>
+                                  </LocalizationProvider>
+                                  </div>
+                                )}
+                                <div className="flex justify-end space-x-2">
+                                    <button
+                                        type="button"
+                                        className="btn-ghost"
+                                        onClick={() => {
+                                            setFilterStatus('');
+                                            setFilterCategory('');
+                                            setFilterStartDate(null);
+                                            setFilterEndDate(null);
+                                        }}
+                                    >
+                                        Clear
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn-primary"
+                                        onClick={() => setFilterAnchorEl(null)}
+                                    >
+                                        Apply
+                                    </button>
+                                </div>
+                            </Box>
+                        </Popover>
+                        </>
+                        <TextField
+                            id="goal-filter"
+                            size="small"
+                            value={filter}
+                            inputRef={(el) => { filterInputRef.current = el; }}
+                            onFocus={() => {
+                                if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current);
+                                setFilterFocused(true);
+                            }}
+                            onBlur={() => {
+                                // delay clearing so clicks on the clear button register
+                                blurTimeoutRef.current = window.setTimeout(() => {
+                                    setFilterFocused(false);
+                                    blurTimeoutRef.current = null;
+                                }, 150);
+                            }}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => handleFilterChange(e.target.value)}
+                            placeholder="Filter by title, category, or impact"
+                            
+                            fullWidth
+                                                                        InputProps={{
+                                                                                startAdornment: (
+                                                                                        <InputAdornment position="start">
+                                                                                                <SearchIcon />
+                                                                                        </InputAdornment>
+                                                                                ),
+                                                                                endAdornment: showClear ? (
+                                                                                    <InputAdornment position="end">
+                                                                                        <IconButton
+                                                                                            size="small"
+                                                                                            aria-label="Clear filter"
+                                                                                            onMouseDown={(e) => e.preventDefault()} // prevent input blur
+                                                                                            onClick={() => {
+                                                                                                handleFilterChange('');
+                                                                                                // return focus to input
+                                                                                                filterInputRef.current?.focus();
+                                                                                            }}
+                                                                                            onFocus={() => { if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current); setClearButtonFocused(true); }}
+                                                                                            onBlur={() => { blurTimeoutRef.current = window.setTimeout(() => setClearButtonFocused(false), 150); }}
+                                                                                        >
+                                                                                            <CloseButton className="w-4 h-4" />
+                                                                                        </IconButton>
+                                                                                    </InputAdornment>
+                                                                                ) : null,
+                                                                        }}
                     />
                     <button
                     onClick={() => setSortDirection(dir => (dir === 'asc' ? 'desc' : 'asc'))}

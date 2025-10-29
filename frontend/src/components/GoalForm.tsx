@@ -7,11 +7,9 @@ import LoadingSpinner from '@components/LoadingSpinner';
 import { SearchIcon, RefreshCw } from 'lucide-react';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP } from '@lib/modal';
-import TiptapEditor from '@components/TiptapEditor';
+import RichTextEditor from '@components/RichTextEditor';
+import { notifySuccess, notifyError } from '@components/ToastyNotification';
 import { TextField, MenuItem, Checkbox, FormControlLabel, Switch } from '@mui/material';
-
-// Expose fetchCategoriesSimple for testing in the browser console
-// (window as any).fetchCategoriesSimple = fetchCategoriesSimple;
 
 export interface AddGoalProps {
   newGoal: Goal; // Updated to use the full Goal type
@@ -21,7 +19,6 @@ export interface AddGoalProps {
   categories: string[];
   refreshGoals: () => Promise<void>; // Added refreshGoals prop to refresh the goals
 }
-
 
 const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, refreshGoals }) => {
   // const [categories, setCategories] = React.useState<{ id: string; name: string }[]>([]); // Update state type to match the expected structure
@@ -36,10 +33,17 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredCategories, setFilteredCategories] = useState(categories);
+
+  // small deterministic hash for stable keys (djb2)
+  const hashString = (s: string) => {
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = (h * 33) ^ s.charCodeAt(i);
+    return (h >>> 0).toString(36);
+  };
   
 
   // Goals context for optimistic UI updates
-  const { addGoalToCache, updateGoalInCache, removeGoalFromCache, replaceGoalInCache, refreshGoals: ctxRefresh } = useGoalsContext();
+  const { addGoalToCache, updateGoalInCache, removeGoalFromCache, replaceGoalInCache, refreshGoals: ctxRefresh, setLastAddedIds } = useGoalsContext();
 
   // Set the default `week_start` to the current week's Monday
   useEffect(() => {
@@ -55,9 +59,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
   useEffect(() => {
     const fetchAndSetCategories = async () => {
       try {
-        const { UserCategories } = await fetchCategories(); // Use fetchCategories from functions.ts
-
-        // console.log('Fetched UserCategories:', UserCategories); // Debug log to inspect the structure
+        const { UserCategories } = await fetchCategories(); 
 
         // Ensure the data is transformed into an array of objects with id and name
         const transformedCategories = Array.isArray(UserCategories)
@@ -135,15 +137,16 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         setSelectedSteps([]);
 
         // Reset the wizard to defaults
-        setNewGoal({
-            id: '',
-            title: '',
-            description: '',
-            category: '',
-            week_start: '',
-            user_id: '',
-            created_at: ''
-        });
+    setNewGoal(prev => ({
+      ...prev,
+      id: '',
+      title: '',
+      description: '',
+      category: '',
+      week_start: '',
+      user_id: '',
+      created_at: ''
+    }));
         setCurrentStep(1);
         setSelectedSteps([]);
         setGeneratedPlan([]);
@@ -209,15 +212,16 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
   // Optimistic UI: add a temporary goal to the cache first
 
   const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      const tempGoal: Goal = { ...goalToInsert, id: tempId, created_at: new Date().toISOString() } as any;
-
-      addGoalToCache(tempGoal as Goal);
+    const tempGoal: Goal = { ...goalToInsert, id: tempId, created_at: new Date().toISOString() } as any;
+    console.debug('[GoalForm] addGoal: adding temp goal to cache', { tempId, tempGoal });
+    addGoalToCache(tempGoal as Goal);
 
       // Insert the goal into the database
       const { data: insertData, error } = await supabase.from('goals').insert(goalToInsert).select().single();
 
       if (error) {
         // rollback
+        console.debug('[GoalForm] addGoal: insert error, rolling back temp', { tempId, error });
         removeGoalFromCache(tempId);
         throw new Error(`Error adding goal to the database: ${error.message}`);
       }
@@ -226,16 +230,67 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       if (insertData && insertData.id) {
         const serverGoal = { ...(insertData as any) } as Goal;
         // replace temp id with server row so subscribers can react
+        console.debug('[GoalForm] addGoal: insert succeeded, replacing temp with server row', { tempId, serverGoal });
         replaceGoalInCache(tempId, serverGoal);
+        // notify and refresh
+        try {
+          console.debug('[GoalForm] addGoal: attempting ctxRefresh then parent refresh');
+          if (ctxRefresh) {
+            await ctxRefresh();
+            console.debug('[GoalForm] addGoal: ctxRefresh finished');
+          }
+          // always call parent refreshGoals to update callers that maintain their own indexed state
+          try {
+            await refreshGoals();
+            console.debug('[GoalForm] addGoal: parent refreshGoals finished');
+          } catch (e) {
+            console.warn('[GoalForm] addGoal: parent refresh failed (ignored):', e);
+          }
+        } catch (e) {
+          console.warn('Refresh after add failed (ignored):', e);
+        }
+        // reset the form
+        setNewGoal(prev => ({
+          ...prev,
+          id: '',
+          title: '',
+          description: '',
+          category: '',
+          week_start: '',
+          user_id: '',
+          created_at: ''
+        }));
+        notifySuccess('Goal added');
       } else {
         // As a fallback, refresh from server
-        await (ctxRefresh ? ctxRefresh() : refreshGoals());
+        try {
+          console.debug('[GoalForm] addGoal: server did not return row, calling refresh fallback');
+          if (ctxRefresh) await ctxRefresh();
+          else await refreshGoals();
+          console.debug('[GoalForm] addGoal: fallback refresh finished');
+          // reset the form
+          setNewGoal(prev => ({
+            ...prev,
+            id: '',
+            title: '',
+            description: '',
+            category: '',
+            week_start: '',
+            user_id: '',
+            created_at: ''
+          }));
+          notifySuccess('Goal added');
+        } catch (e) {
+          notifyError('Failed to refresh goals after adding');
+          console.error('Refresh after add failed:', e);
+        }
       }
 
       // Close the modal
       handleClose();
     } catch (error) {
       console.error('Error adding goal:', error);
+      notifyError('Failed to add goal.');
     }
   };
 
@@ -276,8 +331,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
 
         const results = await Promise.all(insertPromises);
 
-      // Replace temp entries with server rows where possible
-      let replacedAny = false;
+        const createdIds: string[] = [];
+        // Replace temp entries with server rows where possible
       for (let i = 0; i < results.length; i++) {
         const res = results[i];
         if (res.error) {
@@ -285,6 +340,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         }
         const rows = (res as any).data || (res as any).body || null;
         if (rows && rows[0] && rows[0].id) {
+          createdIds.push(rows[0].id);
           // map back to the temp id and replace
           const mappedTemp = temps[i];
           if (mappedTemp) {
@@ -292,16 +348,35 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
           } else {
             updateGoalInCache(rows[0] as Goal);
           }
-          replacedAny = true;
         }
       }
+        // Store created IDs in context so pages can auto-navigate after refresh
+        try {
+          if (typeof setLastAddedIds === 'function') setLastAddedIds(createdIds);
+        } catch (e) {
+          console.warn('Failed to set lastAddedIds on context (ignored):', e);
+        }
 
-        if (!replacedAny) {
-          // If server didn't return rows, refresh full list as fallback
-          await (ctxRefresh ? ctxRefresh() : refreshGoals());
+        // Ensure we refresh global cache and the parent local indexed state regardless
+        try {
+          console.debug('[GoalForm] bulkAddGoals: attempting ctxRefresh after bulk insert');
+          if (ctxRefresh) {
+            await ctxRefresh();
+            console.debug('[GoalForm] bulkAddGoals: ctxRefresh finished');
+          }
+        } catch (e) {
+          console.warn('Bulk add ctxRefresh failed (ignored):', e);
+        }
+
+        try {
+          await refreshGoals();
+          console.debug('[GoalForm] bulkAddGoals: parent refresh finished');
+        } catch (e) {
+          console.warn('Bulk add parent refresh failed (ignored):', e);
         }
 
         console.log('All goals successfully inserted.');
+        notifySuccess('Goals added');
       } catch (err) {
         // Rollback: remove any temp entries added to the cache
         try {
@@ -313,9 +388,10 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         throw err;
       }
 
-      console.log('All goals successfully inserted.');
+        notifySuccess('Goals added');
     } catch (err) {
       console.error('Error during bulk goal insertion or refresh:', err);
+      notifyError('Failed to add goals.');
     }
   };
 
@@ -371,28 +447,6 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       console.error('Error adding goals:', error);
     }
   };
-
-  // useEffect(() => {
-  //   console.log('Generated Plan:', generatedPlan);
-  // }, [generatedPlan]);
-
-  // function closeGoalModal(event: React.MouseEvent<HTMLButtonElement, MouseEvent>): void {
-  //   event.preventDefault();
-  //   // If you want to reset the form, you can do so here, e.g.:
-  //   // setNewGoal({ ... }); // Reset to initial state if needed
-  //   // Then close the modal:
-  //   if (typeof onAddCategory === 'function') {
-  //     setIsAddingCategory(false);
-  //     setNewCategory('');
-  //   }
-  //   // If you have a prop to close the modal, call it:
-  //   if (typeof (AddGoal as any).defaultProps?.closeGoalModal === 'function') {
-  //     (AddGoal as any).defaultProps.closeGoalModal();
-  //   }
-  // }
-  // console.log('addGoal week_start:', newGoal.week_start);
-  // console.log('addGoal request:', newGoal);
-  // console.log('addGoal categories:', categories);
   
   
   return (
@@ -417,25 +471,19 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       <form onSubmit={handleBulkAddGoals} className="space-y-4">
         {currentStep === 1 && (
           <div>
-            <label htmlFor="natural-language-input" className="block text-sm font-medium text-gray-70" >
-              Describe your goal
-            </label>
             <TextField
               id="natural-language-input"
               value={naturalLanguageInput}
               onChange={(e) => setNaturalLanguageInput(e.target.value)}
               className="mt-1 block w-full"
+              label="Describe your goal"
               placeholder='Describe your goal in a few sentences, e.g. "I want to improve my physical fitness by exercising regularly and eating healthier."'
               multiline
               minRows={6}
               fullWidth
-              variant="outlined"
             />
             <div className="mt-4 space-x-4 w-full justify-end ">
-              <button
-                onClick={handleClose}
-                className="btn-secondary"
-              >
+              <button type="button" onClick={handleClose} className="btn-secondary">
                 Cancel
               </button>
               <button type="button" onClick={() => { handleGeneratePlan(); goToNextStep(); }} className="btn-primary mt-4">
@@ -454,10 +502,16 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
               </div>
             )}
             {error && (
-              <div className="absolute h-full w-full gap-2 bg-gray-10 dark:bg-gray-90 justify-center items-center">
+              <div className="h-full w-full gap-2 bg-gray-10 dark:bg-gray-90 justify-center items-center">
                 <h2 className='text-lg font-bold'>Error!</h2> 
                 <p className='text-red-500 h-1/2 overflow-auto p-4 mt-4 mb-4 items-start'>{error}</p>
                 <div className="mt-4 space-x-2">
+                  <button
+                    onClick={handleClose}
+                    className="btn-secondary"
+                  >
+                    Cancel
+                  </button>
                   <button type="button" onClick={goToPreviousStep} className="btn-secondary">
                     Back
                   </button>
@@ -465,6 +519,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                 </div>
               </div>
             )}
+            {!isGenerating && !error && generatedPlan.length != 0 && (
+              <>
             <h3 className="text-lg font-medium">Select Steps to Include as Goals</h3>
             <div className='flex w-full items-center justify-between'>
               <div className='mt-2 flex items-center m-2'>
@@ -493,7 +549,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
             <ul className="max-h-96 overflow-y-auto border-b-2 border-gray-30">
               {generatedPlan.map((step, index) => (
                 <li
-                  key={index}
+                  key={`${step.title ?? 'step'}-${index}`}
                   className="flex gap-4 bg-gray-10 hover:bg-gray-30 dark:bg-gray-90 dark:hover:bg-gray-80 p-4 items-start space-x-2 text-gray-90 dark:text-gray-20 cursor-pointer"
                   onClick={() => toggleStepSelection(index)}
                 >
@@ -519,6 +575,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
               </label>
               <div className="mt-2 mb-4">
                 <button
+                  type="button"
                   onClick={() => {
                     setSearchTerm('');
                     setFilteredCategories(categories);
@@ -561,15 +618,15 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                         className="w-full"
                         placeholder="Find or create a category"
                         fullWidth
-                        variant="outlined"
+                        
                       />
                       <ul className="max-h-60 text-gray-80 dark:text-gray-30 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-70">
-                        {filteredCategories.map((category) => (
-                          <li
-                            key={category.id}
+                        {filteredCategories.map((category, idx) => (
+                            <li
+                              key={category?.id ?? hashString(category?.name || String(idx))}
                             className="p-2 hover:bg-gray-20 dark:hover:bg-gray-70 cursor-pointer"
                             onClick={() => {
-                              setNewGoal({ ...newGoal, category: category.name });
+                              setNewGoal(prev => ({ ...prev, category: category.name }));
                               setIsCategoryModalOpen(false);
                             }}
                           >
@@ -620,7 +677,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                                 console.log('Category already exists.');
                               }
 
-                              setNewGoal({ ...newGoal, category: searchTerm.trim() });
+                              setNewGoal(prev => ({ ...prev, category: searchTerm.trim() }));
                               setIsCategoryModalOpen(false);
                             } catch (error) {
                               console.error('Unexpected error:', error);
@@ -653,24 +710,24 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                 onChange={(e) => {
                   const selectedDate = new Date(e.target.value);
                   if (selectedDate.getDay() === 0) {
-                    setNewGoal({ ...newGoal, week_start: selectedDate.toISOString().split('T')[0] });
+                    setNewGoal(prev => ({ ...prev, week_start: selectedDate.toISOString().split('T')[0] }));
                   } else {
                     const calculatedMonday = getWeekStartDate(selectedDate);
-                    setNewGoal({ ...newGoal, week_start: calculatedMonday });
+                    setNewGoal(prev => ({ ...prev, week_start: calculatedMonday }));
                   }
                 }}
                 className="mt-1 w-full"
                 required
                 fullWidth
                 InputLabelProps={{ shrink: true }}
-                variant="outlined"
-              />
+                
+                />
             </div>
             <div className="mt-4 space-x-2 w-full justify-end">
               <button
                 onClick={handleClose}
                 className="btn-secondary"
-              >
+                >
                 Cancel
               </button>
               <button type="button" onClick={goToPreviousStep} className="btn-secondary">
@@ -680,6 +737,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                 Apply Plan
               </button>
             </div>
+            </>
+            )}
           </div>
         )}
 
@@ -687,8 +746,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
           <div>
             <h3 className="text-lg font-medium">Review Selected Steps</h3>
             <ul className="list-disc pl-5 text-xl text-gray-90 dark:text-gray-20">
-              {generatedPlan.filter((_, index) => selectedSteps.includes(index)).map((step, index) => (
-                <li className='mt-4' key={index}>
+                      {generatedPlan.filter((_, index) => selectedSteps.includes(index)).map((step, index) => (
+                <li className='mt-4' key={`${step.title ?? 'step'}-${index}`}>
                   <h4>{step.title}</h4> <span className='block text-md text-gray-60'>{step.description}</span> <span className='text-sm'>Category: {newGoal.category} | Week Start: {newGoal.week_start}</span>
                 </li>
               ))}
@@ -721,34 +780,28 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
               id="title"
               label="Title"
               value={newGoal.title}
-              onChange={(e) => setNewGoal({ ...newGoal, title: e.target.value })}
-              className="mt-1 block w-full"
+              onChange={(e) => setNewGoal(prev => ({ ...prev, title: e.target.value }))}
+              // className="mt-1 block w-full"
               placeholder="Name your goal..."
               required
               fullWidth
-              variant="outlined"
             />
           </div>
 
-          <div>
-            {/* <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-              Description
-            </label> */}
-            
-            <TiptapEditor
-              value={newGoal.description}
-              onChange={(value) => setNewGoal({ ...newGoal, description: value })}
-              placeholder="Describe this goal in a few sentences"
-              label="Description"
-            />
+          <div>            
+            <RichTextEditor 
+                id="description"
+                label="Description" 
+                value={newGoal.description} 
+                onChange={(value) => setNewGoal(prev => ({ ...prev, description: value }))}
+                placeholder="Describe this goal in a few sentences"
+              />
           </div>
 
           <div>
-            {/* <label htmlFor="category" className="block text-sm font-medium text-gray-30 dark:text-gray-70">
-              Category
-            </label> */}
             <div className="relative">
               <button
+                type="button"
                 onClick={() => {
                   setSearchTerm('');
                   setFilteredCategories(categories);
@@ -791,15 +844,15 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                       className="w-full"
                       placeholder="Find or create a category"
                       fullWidth
-                      variant="outlined"
+                      
                     />
                     <ul className="max-h-60 text-gray-80 dark:text-gray-30 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-70">
-                      {filteredCategories.map((category) => (
+                      {filteredCategories.map((category, idx) => (
                         <li
-                          key={category.id}
+                          key={category?.id ?? category?.name ?? idx}
                           className="p-2 hover:bg-gray-20 dark:hover:bg-gray-70 cursor-pointer"
                           onClick={() => {
-                            setNewGoal({ ...newGoal, category: category.name });
+                            setNewGoal(prev => ({ ...prev, category: category.name }));
                             setIsCategoryModalOpen(false);
                           }}
                         >
@@ -812,6 +865,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                     </ul>
                     {filteredCategories.length === 0 && (
                       <button
+                        type="button"
                         onClick={async () => {
                           if (!searchTerm.trim()) return;
 
@@ -850,7 +904,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                               console.log('Category already exists.');
                             }
 
-                            setNewGoal({ ...newGoal, category: searchTerm.trim() });
+                            setNewGoal(prev => ({ ...prev, category: searchTerm.trim() }));
                             setIsCategoryModalOpen(false);
                           } catch (error) {
                             console.error('Unexpected error:', error);
@@ -861,10 +915,11 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                         Save as New Category
                       </button>
                     )}
-                    <button
-                      onClick={() => setIsCategoryModalOpen(false)}
-                      className="btn-secondary mt-4"
-                    >
+                      <button
+                        type="button"
+                        onClick={() => setIsCategoryModalOpen(false)}
+                        className="btn-secondary mt-4"
+                      >
                       Cancel
                     </button>
                   </div>
@@ -878,10 +933,10 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
               select
               label="Status"
               value={newGoal.status || 'Not started'}
-              onChange={(e) => setNewGoal({ ...newGoal, status: e.target.value as any })}
+              onChange={(e) => setNewGoal(prev => ({ ...prev, status: e.target.value as any }))}
               className="mt-2 w-full"
               fullWidth
-              variant="outlined"
+              
             >
               <MenuItem value="Not started">Not started</MenuItem>
               <MenuItem value="In progress">In progress</MenuItem>
@@ -898,22 +953,23 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
               onChange={(e) => {
                 const selectedDate = new Date(e.target.value);
                 if (selectedDate.getDay() === 0) {
-                  setNewGoal({ ...newGoal, week_start: selectedDate.toISOString().split('T')[0] });
+                  setNewGoal(prev => ({ ...prev, week_start: selectedDate.toISOString().split('T')[0] }));
                 } else {
                   const calculatedMonday = getWeekStartDate(selectedDate);
-                  setNewGoal({ ...newGoal, week_start: calculatedMonday });
+                  setNewGoal(prev => ({ ...prev, week_start: calculatedMonday }));
                 }
               }}
               className="mt-2 w-full"
               required
               fullWidth
               InputLabelProps={{ shrink: true }}
-              variant="outlined"
+              
             />
           </div>
 
           <div className="mt-6 flex justify-end space-x-4">
             <button
+              type="button"
               onClick={handleClose}
               className="btn-secondary"
               >

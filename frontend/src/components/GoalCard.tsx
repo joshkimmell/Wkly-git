@@ -5,6 +5,9 @@ import supabase from '@lib/supabase'; // Ensure this is the correct path to your
 import { Goal, Accomplishment } from '@utils/goalUtils'; // Adjust the import path as necessary
 import { Trash, Edit, Award, X as CloseButton } from 'lucide-react';
 import { FileText as NotesIcon, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
+import { Chip, Menu, MenuItem, TextField } from '@mui/material';
+import type { ChangeEvent } from 'react';
+import { STATUSES, STATUS_COLORS, type Status } from '../constants/statuses';
 import { cardClasses, modalClasses, objectCounter } from '@styles/classes'; // Adjust the import path as necessary
 import { notifyError, notifySuccess } from './ToastyNotification';
 // import { Link } from 'react-router-dom';
@@ -53,6 +56,14 @@ const GoalCard: React.FC<GoalCardProps> = ({
   const [newNoteContent, setNewNoteContent] = useState('');
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState('');
+  // Local status state for optimistic UI updates when changing status inline
+  const { refreshGoals } = useGoalsContext();
+
+  const [localStatus, setLocalStatus] = useState<string | undefined>(goal.status);
+  const [statusAnchorEl, setStatusAnchorEl] = useState<null | HTMLElement>(null);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+  const statusColors = STATUS_COLORS;
 
   const { subscribeToTempId } = useGoalsContext();
 
@@ -314,6 +325,11 @@ const GoalCard: React.FC<GoalCardProps> = ({
     };
   }, [goal.id]);
 
+  // Keep localStatus in sync with prop changes
+  useEffect(() => {
+    setLocalStatus(goal.status);
+  }, [goal.status]);
+
   // Subscribe to temp-id replacement so this component can proactively fetch
   // accomplishments and notes even if the parent doesn't re-render immediately.
   useEffect(() => {
@@ -345,9 +361,59 @@ const GoalCard: React.FC<GoalCardProps> = ({
     <div key={goal.id} className={`${cardClasses} shadow-xl`}>
       <div className="goal-header flex flex-row w-full justify-between items-center">
         <div className="flex items-center gap-2">
-          {goal.status && (
-            <div className="card-status text-nowrap">
-              {goal.status}
+          {localStatus && (
+            <div>
+              <Chip
+                label={localStatus}
+                size="small"
+                onClick={(e) => setStatusAnchorEl(e.currentTarget)}
+                variant={localStatus === 'Not started' ? 'outlined' : 'filled'}
+                sx={
+                  localStatus === 'Not started'
+                    ? { borderColor: statusColors[localStatus || 'Not started'], color: statusColors[localStatus || 'Not started'] }
+                    : { bgcolor: statusColors[localStatus || 'Not started'], color: '#fff' }
+                }
+                className="cursor-pointer"
+              />
+              <Menu
+                anchorEl={statusAnchorEl}
+                open={Boolean(statusAnchorEl)}
+                onClose={() => setStatusAnchorEl(null)}
+              >
+                {STATUSES.map((s: Status) => (
+                  <MenuItem
+                    key={s}
+                    disabled={isUpdatingStatus}
+                    selected={s === localStatus}
+                    onClick={async () => {
+                      setStatusAnchorEl(null);
+                      if (s === localStatus) return; // no-op
+                      const prev = localStatus;
+                      setLocalStatus(s);
+                      setIsUpdatingStatus(true);
+                      try {
+                        const { error } = await supabase
+                          .from('goals')
+                          .update({ status: s, status_set_at: new Date().toISOString() })
+                          .eq('id', goal.id);
+                        if (error) throw error;
+                        notifySuccess('Status updated');
+                        // Ensure parent list is refreshed
+                        try { await refreshGoals(); } catch (e) { /* ignore */ }
+                      } catch (err: any) {
+                        console.error('Failed to update status:', err);
+                        setLocalStatus(prev);
+                        notifyError('Failed to update status');
+                      } finally {
+                        setIsUpdatingStatus(false);
+                      }
+                    }}
+                  >
+                    <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 6, background: statusColors[s], marginRight: 8 }} />
+                    {s}
+                  </MenuItem>
+                ))}
+              </Menu>
             </div>
           )}
         </div>
@@ -364,80 +430,6 @@ const GoalCard: React.FC<GoalCardProps> = ({
       </div>
       {/* Footer with accomplishments and actions */}
       <footer className="mt-2 text-sm text-gray-50 dark:text-gray-30 flex flex-col items-left justify-between">
-        {/* Status display */}
-        <div className="mb-2">
-          {/* {goal.status && (
-            <div className="inline-block px-2 py-1 rounded text-xs font-semibold bg-gray-20 dark:bg-gray-80 mr-2">
-              {goal.status}
-            </div>
-          )} */}
-          {/* {goal.status_set_at && (
-            <div className="text-xs text-gray-50 dark:text-gray-40 inline-block ml-2">Set: {new Date(goal.status_set_at).toLocaleString()}</div>
-          )} */}
-          {/* {goal.status_notes && (
-
-            <div className="mt-1 text-sm text-gray-60 dark:text-gray-40">Notes: <span dangerouslySetInnerHTML={{ __html: goal.status_notes }} /></div>
-          )} */}
-        </div>
-       {/* { accomplishments.length > 0 && ( 
-          <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="px-0 text-gray-90 dark:text-gray-10 bg-transparent hover:bg-transparent border-none focus-visible:outline-none  flex flex-row items-center justify-between w-full"
-          >
-            <h4 className="text-sm font-semibold text-gray-90 dark:text-gray-10  flex flex-row items-center justify-between w-full">
-              Accomplishments ({accomplishments.length})
-            {isExpanded ? (
-              <ChevronUp className="w-5 h-5" />
-            ) : (
-              <ChevronDown className="w-5 h-5" />
-            )}
-          </h4>
-            
-        </button>
-          )} 
-        
-           {isExpanded && (
-            <div className="goal_accomplishments mt-4">
-              <ul className="list-none list-inside text-gray-700 mt-2 space-y-1">
-                {accomplishments.map((accomplishment) => (
-                  <li
-                    key={accomplishment.id}
-                    className="dark:bg-gray-90 dark:bg-opacity-30 hover:bg-gray-20 dark:hover:bg-gray-90 flex flex-row justify-between items-start space-x-2 border-b rounded-md border-gray-30 dark:border-gray-70 p-2 m-2"
-                  >
-                    <div className="flex flex-col">
-                      <h5 className="text-md font-semibold text-brand-80 dark:text-brand-20">
-                        {accomplishment.title}
-                      </h5>
-                      <p className="text-md text-gray-60 dark:text-gray-40">
-                        <span dangerouslySetInnerHTML={{ __html: accomplishment.description }} />
-                      </p>
-                      {accomplishment.impact?.trim() && (
-                      <label className="text-sm text-gray-40 dark:text-gray-50">
-                        <span dangerouslySetInnerHTML={{ __html: `Impact: ` + accomplishment.impact }} />
-                      </label>
-                      )}
-                    </div>
-                    <div className="flex flex-row justify-end">
-                      <button
-                        type="button"
-                        onClick={() => deleteAccomplishment(accomplishment.id)}
-                        className="btn-ghost w-auto opacity-50 hover:opacity-100"
-                      >
-                        <Trash className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openEditAccomplishmentModal(accomplishment)}
-                        className="btn-ghost w-auto opacity-50 hover:opacity-100"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )} */}
           <div className='flex flex-row w-full justify-end items-end gap-2'>
           <button
             // to='#'
@@ -525,8 +517,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
     {isNotesModalOpen && (
       <div id="editNotes" className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50">
         <div className={`${modalClasses} w-full max-w-2xl`}> 
-          <div className='flex flex-row w-full justify-between'>
-              <h3 className="text-lg font-medium text-gray-90 mb-4">Notes for "{goal.title}"</h3>
+          <div className='flex flex-row w-full justify-between items-start'>
+              <h3 className="text-lg font-medium text-gray-90 mb-4">Notes for <br />"{goal.title}"</h3>
               {/* <h4 className="text-md font-semibold mb-2">Existing accomplishments</h4> */}
               <div className="mb-4 flex justify-end">
                   <button className="btn-ghost" onClick={closeNotesModal}>
@@ -535,32 +527,53 @@ const GoalCard: React.FC<GoalCardProps> = ({
               </div>
           </div>
           <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Add a new note</label>
-              <textarea value={newNoteContent} onChange={(e) => setNewNoteContent(e.target.value)} className="mt-1 block w-full border-gray-30 focus:border-b-2 focus:ring-0" rows={3} />
+            <div className="mt-4">
+              {/* <label className="block text-sm font-medium text-gray-700">Add a new note</label> */}
+              <TextField
+                value={newNoteContent}
+                onChange={(e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setNewNoteContent(e.target.value)}
+                className="mt-4 block w-full"
+                label="Add a new note"
+                multiline
+                rows={3}
+                size="small"
+                
+              />
               <div className="mt-2 flex justify-end gap-2">
                 {/* <button className="btn-ghost" onClick={() => { setNewNoteContent(''); }}>Cancel</button> */}
                 <button className="btn-primary" onClick={createNote} disabled={isNotesLoading}><PlusIcon className="w-4 h-4 inline mr-1" />Add note</button>
                 {isNotesLoading && <div className="ml-2 text-sm text-gray-500">Saving...</div>}
               </div>
             </div>
-
+            {isNotesLoading && notes.length === 0 ? (
+              <div className="text-sm text-gray-50">Loading notes...</div>
+            ) : null
+            }
+            { notes.length != 0 && (
             <div>
               <h4 className="text-md font-semibold mb-2">Existing notes</h4>
               <ul className="space-y-3">
                 {notes.map((note) => (
                   <li key={note.id} className="p-3 border rounded bg-gray-10 dark:bg-gray-80 dark:border-gray-70">
-                    <div className="flex justify-between items-start">
-                      <div className="text-sm font-semibold text-gray-70 dark:text-gray-20" dangerouslySetInnerHTML={{ __html: note.content }} />
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-between gap-2">
                         <div className="text-xs text-gray-40">{new Date(note.created_at).toLocaleString()}</div>
-                        <button className="btn-ghost" onClick={() => { setEditingNoteId(note.id); setEditingNoteContent(note.content); }} title="Edit note"><Edit className="w-4 h-4" /></button>
-                        <button className="btn-ghost" onClick={() => setNoteDeleteTarget(note.id)} title="Delete note" disabled={isNotesLoading}><Trash className="w-4 h-4" /></button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button className="btn-ghost" onClick={() => { setEditingNoteId(note.id); setEditingNoteContent(note.content); }} title="Edit note"><Edit className="w-4 h-4" /></button>
+                          <button className="btn-ghost" onClick={() => setNoteDeleteTarget(note.id)} title="Delete note" disabled={isNotesLoading}><Trash className="w-4 h-4" /></button>
+                        </div>
                       </div>
-                    </div>
+                      <div className="text-sm text-gray-70 dark:text-gray-20" dangerouslySetInnerHTML={{ __html: note.content }} />
                     {editingNoteId === note.id && (
                       <div className="mt-2">
-                        <textarea className="mt-1 block w-full border-gray-30 focus:border-b-2 focus:ring-0" value={editingNoteContent} onChange={(e) => setEditingNoteContent(e.target.value)} rows={3} />
+                        <TextField
+                          value={editingNoteContent}
+                          onChange={(e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setEditingNoteContent(e.target.value)}
+                          multiline
+                          rows={3}
+                          size="small"
+                          
+                          className="mt-1 block w-full"
+                        />
                         <div className="mt-2 flex justify-end gap-2">
                           <button className="btn-ghost" onClick={() => { setEditingNoteId(null); setEditingNoteContent(''); }}>Cancel</button>
                           <button className="btn-primary" onClick={() => updateNote(note.id, editingNoteContent)}><SaveIcon className="w-4 h-4 inline mr-1" />Save</button>
@@ -569,11 +582,9 @@ const GoalCard: React.FC<GoalCardProps> = ({
                     )}
                   </li>
                 ))}
-                {notes.length === 0 && (
-                  <li className="text-sm text-gray-500">No notes yet.</li>
-                )}
               </ul>
             </div>
+            )}
           </div>
           <ConfirmModal
             isOpen={!!noteDeleteTarget}
