@@ -8,6 +8,9 @@ import App from './App';
 import './index.css';
 import '@components/components.scss';
 
+// Dev-only: log a redacted OpenAI key to ensure we're using the most recent VITE variable
+// DEV key redacted logging removed for clean production output
+
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
       <BrowserRouter

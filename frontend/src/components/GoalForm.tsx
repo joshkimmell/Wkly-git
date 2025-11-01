@@ -213,36 +213,32 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
 
   const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const tempGoal: Goal = { ...goalToInsert, id: tempId, created_at: new Date().toISOString() } as any;
-    console.debug('[GoalForm] addGoal: adding temp goal to cache', { tempId, tempGoal });
+  // adding temp goal to cache (optimistic)
     addGoalToCache(tempGoal as Goal);
 
       // Insert the goal into the database
       const { data: insertData, error } = await supabase.from('goals').insert(goalToInsert).select().single();
 
       if (error) {
-        // rollback
-        console.debug('[GoalForm] addGoal: insert error, rolling back temp', { tempId, error });
+  // rollback
+  // insert error, rolling back temp
         removeGoalFromCache(tempId);
         throw new Error(`Error adding goal to the database: ${error.message}`);
       }
 
-      // Replace temp with the server-provided row (if available)
+        // Replace temp with the server-provided row (if available)
       if (insertData && insertData.id) {
         const serverGoal = { ...(insertData as any) } as Goal;
         // replace temp id with server row so subscribers can react
-        console.debug('[GoalForm] addGoal: insert succeeded, replacing temp with server row', { tempId, serverGoal });
         replaceGoalInCache(tempId, serverGoal);
         // notify and refresh
         try {
-          console.debug('[GoalForm] addGoal: attempting ctxRefresh then parent refresh');
           if (ctxRefresh) {
             await ctxRefresh();
-            console.debug('[GoalForm] addGoal: ctxRefresh finished');
           }
           // always call parent refreshGoals to update callers that maintain their own indexed state
           try {
             await refreshGoals();
-            console.debug('[GoalForm] addGoal: parent refreshGoals finished');
           } catch (e) {
             console.warn('[GoalForm] addGoal: parent refresh failed (ignored):', e);
           }
@@ -262,12 +258,10 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         }));
         notifySuccess('Goal added');
       } else {
-        // As a fallback, refresh from server
+          // As a fallback, refresh from server
         try {
-          console.debug('[GoalForm] addGoal: server did not return row, calling refresh fallback');
           if (ctxRefresh) await ctxRefresh();
           else await refreshGoals();
-          console.debug('[GoalForm] addGoal: fallback refresh finished');
           // reset the form
           setNewGoal(prev => ({
             ...prev,
@@ -317,8 +311,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         return { tempId: id, payload: goal };
       });
 
-      try {
-        // Insert all goals into the database
+        try {
+          // Insert all goals into the database
         const insertPromises = steps.map((step) => {
         const payload = {
           ...step,
@@ -359,10 +353,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
 
         // Ensure we refresh global cache and the parent local indexed state regardless
         try {
-          console.debug('[GoalForm] bulkAddGoals: attempting ctxRefresh after bulk insert');
           if (ctxRefresh) {
             await ctxRefresh();
-            console.debug('[GoalForm] bulkAddGoals: ctxRefresh finished');
           }
         } catch (e) {
           console.warn('Bulk add ctxRefresh failed (ignored):', e);
@@ -370,7 +362,6 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
 
         try {
           await refreshGoals();
-          console.debug('[GoalForm] bulkAddGoals: parent refresh finished');
         } catch (e) {
           console.warn('Bulk add parent refresh failed (ignored):', e);
         }

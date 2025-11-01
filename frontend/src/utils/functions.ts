@@ -12,9 +12,6 @@ const backend = '/api';
 export const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
 export const supabaseKey = (import.meta as any).env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 export const openaiApiKey = (import.meta as any).env.VITE_OPENAI_API_KEY;
-// export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-// export const supabaseKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-// export const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
 
 export const handleError = (error: any, setError: React.Dispatch<React.SetStateAction<string | null>>) => {
     console.error(error);
@@ -65,11 +62,13 @@ export const fetchAllGoals = async (): Promise<Goal[]> => {
   if (!user) throw new Error('User is not authenticated');
   const userId = user.id;
 
-  const response = await fetch(`${baseUrl}${backend}/getAllGoals?user_id=${userId}`, {
+  // Use a relative /api path so the dev server can proxy requests to the functions runtime
+  // This avoids cross-origin requests to the functions host (localhost:8888) which can
+  // trigger CORS/preflight failures when custom headers are present.
+  const response = await fetch(`/api/getAllGoals?user_id=${userId}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${userId}`,
     },
   });
 

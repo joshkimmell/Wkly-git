@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { fetchAllGoalsIndexed, deleteGoal, updateGoal, saveSummary, UserCategories, initializeUserCategories, addCategory, getWeekStartDate } from '../utils/functions';
+import { fetchAllGoalsIndexed, deleteGoal, updateGoal, saveSummary, UserCategories, initializeUserCategories, addCategory, getWeekStartDate, indexDataByScope } from '../utils/functions';
 import Pagination from './Pagination';
 import GoalCard from '@components/GoalCard';
 import GoalForm from '@components/GoalForm';
@@ -14,10 +14,10 @@ import { mapPageForScope, loadPageByScope, savePageByScope } from '@utils/pagina
 import 'react-datepicker/dist/react-datepicker.css';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
-import { PlusSquare as SquarePlus, X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowBigUp, ArrowBigDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon } from 'lucide-react';
 import { useGoalsContext } from '@context/GoalsContext';
 import { notifyError } from '@components/ToastyNotification';
-import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, InputLabel, Select, MenuItem, Tooltip } from '@mui/material';
+import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, InputLabel, Select, MenuItem, Tooltip, Menu } from '@mui/material';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type { Dayjs } from 'dayjs';
@@ -39,7 +39,10 @@ const GoalsComponent = () => {
     const initializedRef = useRef<boolean>(false);
     const fetchIdRef = useRef(0);
     const lastSwitchFromRef = useRef<string | null>(null);
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+    // Default: Date Descending
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+    const [sortBy, setSortBy] = useState<'date' | 'category' | 'status'>('date');
+    const [sortAnchorEl, setSortAnchorEl] = useState<HTMLElement | null>(null);
     const [isGoalModalOpen, setIsGoalModalOpen] = useState(false); // Modal state
     const [isEditorOpen, setIsEditorOpen] = useState(false); // Editor modal state
     const [newGoal, setNewGoal] = useState<Goal>({
@@ -111,6 +114,40 @@ const GoalsComponent = () => {
             useEffect(() => {
                 const fetchGoalsAndCategories = async () => {
                     const id = ++fetchIdRef.current;
+                    // If we have a global in-memory goals cache (from GoalsContext), prefer
+                    // building an indexed view from it and skip the network entirely. This
+                    // avoids refetches when the user already loaded goals earlier in the session.
+                    try {
+                        if (ctxGoals && ctxGoals.length > 0) {
+                            const clientIndexed = indexDataByScope(ctxGoals as any, scope);
+                            const clientPages = Object.keys(clientIndexed).sort((a, b) => (a > b ? -1 : 1));
+                            if (Object.keys(clientIndexed).length > 0) {
+                                // using client-indexed goals (no fetch)
+                                setIndexedGoals(clientIndexed as Record<string, Goal[]>);
+                                setPages(clientPages);
+
+                                const cachedPage = pageByScopeRef.current[scope] || clientPages[0];
+                                if (!initializedRef.current) {
+                                    setCurrentPage(cachedPage);
+                                    currentPageRef.current = cachedPage;
+                                    initializedRef.current = true;
+                                } else {
+                                    const cp = currentPageRef.current || currentPage;
+                                    if (!cp || !clientPages.includes(cp)) {
+                                        setCurrentPage(clientPages[0]);
+                                        currentPageRef.current = clientPages[0];
+                                    }
+                                }
+
+                                prevScopeRef.current = scope;
+                                lastSwitchFromRef.current = null;
+                                await initializeUserCategories();
+                                return;
+                            }
+                        }
+                                        } catch (e) {
+                                                // ignore and fall back to server fetch
+                                        }
                     try {
                         // Fetch goals for the selected scope
                         const { indexedGoals, pages } = await fetchAllGoalsIndexed(scope);
@@ -138,6 +175,9 @@ const GoalsComponent = () => {
                                 desiredPage = mapPageForScope(prevSelected, scope, pages);
                             }
                         }
+
+                                                // Development debug: show mapping inputs so we can repro scope-switch flips quickly
+                                                // mapping debug removed for production
 
                         // If still no desired page, fall back to sensible defaults (current date)
                         if (!desiredPage) {
@@ -191,19 +231,23 @@ const GoalsComponent = () => {
                         // Only set the initial page on first successful fetch to avoid flip-flopping.
                         // On subsequent fetches, only update currentPage if the current value is missing
                         // from the newly-fetched pages (e.g., it was removed) to avoid switching views.
-                        if (!initializedRef.current) {
-                            const initial = desiredPage || (pages[0] ?? '');
-                            setCurrentPage(initial);
-                            currentPageRef.current = initial;
-                            initializedRef.current = true;
-                        } else {
-                            const cp = currentPageRef.current || currentPage;
-                            if (!cp || !pages.includes(cp)) {
-                                const fallback = desiredPage || (pages[0] ?? '');
-                                setCurrentPage(fallback);
-                                currentPageRef.current = fallback;
-                            }
-                        }
+                                                if (!initializedRef.current) {
+                                                        const initial = desiredPage || (pages[0] ?? '');
+                                                        // set initial page
+                                                        setCurrentPage(initial);
+                                                        currentPageRef.current = initial;
+                                                        initializedRef.current = true;
+                                                        // after setting initial page
+                                                } else {
+                                                        const cp = currentPageRef.current || currentPage;
+                                                        if (!cp || !pages.includes(cp)) {
+                                                                const fallback = desiredPage || (pages[0] ?? '');
+                                                                // set fallback page
+                                                                setCurrentPage(fallback);
+                                                                currentPageRef.current = fallback;
+                                                                // after setting fallback page
+                                                        }
+                                                }
 
                         // Keep track of the scope we just loaded so future mappings are correct
                         prevScopeRef.current = scope;
@@ -254,9 +298,7 @@ const GoalsComponent = () => {
     // Function to refresh goals (keeps current selection where possible)
     const refreshGoals = async () : Promise<{indexedGoals: Record<string, Goal[]>, pages: string[]}> => {
         try {
-    console.debug('[AllGoals] refreshGoals: called');
         const { indexedGoals, pages } = await fetchAllGoalsIndexed(scope);
-    console.debug('[AllGoals] refreshGoals: fetched', { pages: pages.length, keys: Object.keys(indexedGoals).slice(0,5) });
         setIndexedGoals(indexedGoals);
         setPages(pages);
         // Keep the latest currentPage in a ref to avoid stale closures from async callers
@@ -305,7 +347,7 @@ const GoalsComponent = () => {
     //    }
     //};
 // Delete a goal
-    const { refreshGoals: ctxRefresh, removeGoalFromCache, lastUpdated, lastAddedIds, setLastAddedIds } = useGoalsContext();
+    const { refreshGoals: ctxRefresh, removeGoalFromCache, lastUpdated, lastAddedIds, setLastAddedIds, goals: ctxGoals } = useGoalsContext();
 
     // When the global goals cache is updated (via context), ensure this component refreshes
     useEffect(() => {
@@ -505,13 +547,25 @@ const GoalsComponent = () => {
 
             return true;
     })
-    .sort((a, b) => {
-      if (sortDirection === 'asc') {
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      } else {
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      }
-    });
+        .sort((a, b) => {
+            const dir = sortDirection === 'asc' ? 1 : -1;
+            if (sortBy === 'date') {
+                return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+            }
+            if (sortBy === 'category') {
+                const ca = (a.category || '').toLowerCase();
+                const cb = (b.category || '').toLowerCase();
+                if (ca < cb) return -1 * dir;
+                if (ca > cb) return 1 * dir;
+                return 0;
+            }
+            // status
+            const sa = (a.status || '').toLowerCase();
+            const sb = (b.status || '').toLowerCase();
+            if (sa < sb) return -1 * dir;
+            if (sa > sb) return 1 * dir;
+            return 0;
+        });
 
     // Add a function to highlight filtered words
 //   const applyHighlight = (text: string, filter: string) => {
@@ -545,14 +599,50 @@ const GoalsComponent = () => {
                             key={s}
                             title={`Select ${s}ly view`}
                                 onClick={() => {
-                                // persist the currently-viewed page for the active scope before switching
-                                    const next = { ...pageByScopeRef.current, [scope]: currentPage || pageByScopeRef.current[scope] };
+                                    // persist the currently-viewed page for the active scope before switching
+                                    const persistedForOld = currentPage || pageByScopeRef.current[scope];
+                                    const next = { ...pageByScopeRef.current, [scope]: persistedForOld };
                                     setPageByScope(next);
                                     pageByScopeRef.current = next;
                                     try { savePageByScope(next); } catch (e) {}
-                                    // Record which scope we're switching from so the next fetch can map correctly
-                                    lastSwitchFromRef.current = scope;
-                                    setScope(s as 'week' | 'month' | 'year');
+
+                                    // Compute a tentative page for the new scope so the UI doesn't flip to a default.
+                                    // - week (YYYY-MM-DD) -> month (YYYY-MM)
+                                    // - month (YYYY-MM) -> week (YYYY-MM-01) as a reasonable anchor
+                                    // - preserve year where possible
+                                    let tentative: string | undefined = pageByScopeRef.current[s];
+                                    if (!tentative) {
+                                        if (s === 'month') {
+                                            if (currentPage && /^\d{4}-\d{2}-\d{2}$/.test(currentPage)) {
+                                                tentative = currentPage.slice(0, 7); // YYYY-MM
+                                            } else if (currentPage && /^\d{4}-\d{2}$/.test(currentPage)) {
+                                                tentative = currentPage;
+                                            }
+                                        } else if (s === 'week') {
+                                            if (currentPage && /^\d{4}-\d{2}$/.test(currentPage)) {
+                                                tentative = `${currentPage}-01`; // first day of month as anchor week page
+                                            } else if (currentPage && /^\d{4}-\d{2}-\d{2}$/.test(currentPage)) {
+                                                tentative = currentPage;
+                                            }
+                                        } else if (s === 'year') {
+                                            if (currentPage && /^\d{4}-\d{2}-\d{2}$/.test(currentPage)) tentative = currentPage.slice(0, 4);
+                                            else if (currentPage && /^\d{4}-\d{2}$/.test(currentPage)) tentative = currentPage.slice(0, 4);
+                                        }
+                                    }
+
+                                    if (tentative) {
+                                        setCurrentPage(tentative);
+                                        currentPageRef.current = tentative;
+                                    }
+
+                                                                        // Record which scope we're switching from so the next fetch can map correctly
+                                                                        try {
+                                                                             
+                                                                            console.debug('[AllGoals] scope-click', { from: scope, to: s, tentative, currentPage, pageByScope: pageByScopeRef.current });
+                                                                        } catch (e) { /* ignore */ }
+
+                                                                        lastSwitchFromRef.current = scope;
+                                                                        setScope(s as 'week' | 'month' | 'year');
                                 }}
                             className={`btn-ghost ${scope === s ? 'text-brand-60 hover:text-brand-70 dark:text-brand-20 dark:hover:text-brand-10 font-bold underline' : ''}`}
                         >
@@ -710,15 +800,82 @@ const GoalsComponent = () => {
                             }}
                     />
                     
-                    <Tooltip title={`Sort by creation date (${sortDirection === 'asc' ? 'ascending' : 'descending'})`} placement="top" arrow>
-                    <button
-                    onClick={() => setSortDirection(dir => (dir === 'asc' ? 'desc' : 'asc'))}
-                    className="btn-ghost px-3 py-2"
-                    // title="Toggle sort direction"
-                    >
-                    {sortDirection === 'desc' ? <ArrowUp className='w-5 h-5' /> : <ArrowDown className='w-5 h-5' />}
-                    </button>
-                    </Tooltip>
+                                        <Tooltip title={`Sort: ${sortBy.charAt(0).toUpperCase() + sortBy.slice(1)} (${sortDirection === 'asc' ? 'descending' : 'ascending'})`} placement="top" arrow>
+                                                            <span className="flex items-center space-x-2">
+                                                                <IconButton
+                                                                    onClick={(e) => setSortAnchorEl(e.currentTarget)}
+                                                                    className="btn-ghost px-3 py-2"
+                                                                    aria-label={`Sort: ${sortBy} ${sortDirection}`}
+                                                                    aria-controls={sortAnchorEl ? 'sort-menu' : undefined}
+                                                                    aria-haspopup="true"
+                                                                    aria-expanded={sortAnchorEl ? 'true' : undefined}
+                                                                >
+                                                                    {/* Visible sort label to indicate active sort field and direction */}
+                                                                    <span className="hidden sm:flex items-center space-x-3 text-gray-70 dark:text-gray-30">
+                                                                        {sortBy === 'date' && ( 
+                                                                            <span role="img" aria-label="Sort by date" title="Sort by date" className='text-brand-60 dark:text-brand-20'>
+                                                                            <CalendarIcon className="w-4 h-4" />
+                                                                        </span>
+                                                                        )}
+                                                                         {sortBy === 'status' && ( 
+                                                                            <span role="img" aria-label="Sort by status" title="Sort by status" className='text-brand-60 dark:text-brand-20'>
+                                                                            <Check className="w-4 h-4" />
+                                                                        </span>
+                                                                        )}
+                                                                         {sortBy === 'category' && ( 
+                                                                            <span role="img" aria-label="Sort by category" title="Sort by category" className='text-brand-60 dark:text-brand-20'>
+                                                                            <TagIcon className="w-4 h-4" />
+                                                                        </span>
+                                                                        )}
+                                                                    </span>
+                                                                    {sortDirection === 'desc' ? <ArrowUp className='w-5 h-5' /> : <ArrowDown className='w-5 h-5' />}
+                                                                </IconButton>
+                                                            </span>
+                                                        </Tooltip>
+                                        <Menu
+                                            id="sort-menu"
+                                            anchorEl={sortAnchorEl}
+                                            open={Boolean(sortAnchorEl)}
+                                            onClose={() => setSortAnchorEl(null)}
+                                            MenuListProps={{ 'aria-labelledby': 'sort-button' }}
+                                        >
+                                            <MenuItem
+                                                selected={sortBy === 'date' && sortDirection === 'asc'}
+                                                onClick={() => { setSortBy('date'); setSortDirection('asc'); setSortAnchorEl(null); }}
+                                            >
+                                                <CalendarIcon className="w-4 h-4" /><ArrowUp className="w-4 h-4 mr-8" /> Date Ascending 
+                                            </MenuItem>
+                                            <MenuItem
+                                                selected={sortBy === 'date' && sortDirection === 'desc'}
+                                                onClick={() => { setSortBy('date'); setSortDirection('desc'); setSortAnchorEl(null); }}
+                                            >
+                                                <CalendarIcon className="w-4 h-4" /><ArrowDown className="w-4 h-4 mr-8" /> Date Descending 
+                                            </MenuItem>
+                                            <MenuItem
+                                                selected={sortBy === 'category' && sortDirection === 'asc'}
+                                                onClick={() => { setSortBy('category'); setSortDirection('asc'); setSortAnchorEl(null); }}
+                                            >
+                                                <TagIcon className="w-4 h-4" /><ArrowUp className="w-4 h-4 mr-8" /> Category Ascending 
+                                            </MenuItem>
+                                            <MenuItem
+                                                selected={sortBy === 'category' && sortDirection === 'desc'}
+                                                onClick={() => { setSortBy('category'); setSortDirection('desc'); setSortAnchorEl(null); }}
+                                            >
+                                                <TagIcon className="w-4 h-4" /><ArrowDown className="w-4 h-4 mr-8" /> Category Descending 
+                                            </MenuItem>
+                                            <MenuItem
+                                                selected={sortBy === 'status' && sortDirection === 'asc'}
+                                                onClick={() => { setSortBy('status'); setSortDirection('asc'); setSortAnchorEl(null); }}
+                                            >
+                                                <Check className="w-4 h-4" /><ArrowUp className="w-4 h-4 mr-8" /> Status Ascending 
+                                            </MenuItem>
+                                            <MenuItem
+                                                selected={sortBy === 'status' && sortDirection === 'desc'}
+                                                onClick={() => { setSortBy('status'); setSortDirection('desc'); setSortAnchorEl(null); }}
+                                            >
+                                                <Check className="w-4 h-4" /><ArrowDown className="w-4 h-4 mr-8" /> Status Descending 
+                                            </MenuItem>
+                                        </Menu>
 
                     {/* Add Goal Button */}
                     <Tooltip title={`Add a new goal`} placement="top" arrow>
