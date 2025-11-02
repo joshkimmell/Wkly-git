@@ -10,9 +10,9 @@ export const mockSupabaseAuthGetUser = (overrides?: Partial<{ id: string }>) => 
   // jest style mocking is not available in Vitest here, so overwrite the function directly
   // but keep a reference to restore if necessary
   try {
-    // @ts-ignore
-    supabase.auth.getUser = getUser;
-  } catch (e) {
+    // test shim: assign fake implementation for getUser (use any to bypass typing)
+    (supabase as any).auth.getUser = getUser;
+  } catch {
     // ignore in case it's read-only in test environment
   }
   return fakeUser;

@@ -1,11 +1,12 @@
-// React import intentionally omitted in this file to avoid unused-symbol linting in TS builds
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// Import React for our test mocks and elements
+import * as React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 
 // Mock MUI modules to simple DOM-only components so tests don't pull in
 // MUI's internal hooks or a second React copy. These mocks are safe for
 // static a11y checks and keep axe focused on our markup.
 vi.mock('@mui/material', () => {
-  const React = require('react');
   return {
     TextField: (props: any) => {
       // Remove MUI-only props before rendering native elements to avoid React warnings
@@ -29,8 +30,8 @@ vi.mock('@mui/material', () => {
       return React.createElement('div', null, labelEl, inputEl);
     },
     MenuItem: (props: any) => React.createElement('option', { ...props }, props.children),
-    FormControlLabel: (props: any) => {
-      const { control, label, ...rest } = props || {};
+    FormControlLabel: (props: { control?: React.ReactNode; label?: React.ReactNode } = {}) => {
+      const { control, label, ...rest } = props;
       // control may be a React element; render it inside the label so it's associated
       return React.createElement('label', { ...rest }, control ? React.createElement('span', null, control, ' ', label) : label);
     },
@@ -65,17 +66,17 @@ vi.mock('@mui/material', () => {
 
 vi.mock('@mui/material/Avatar', () => ({
   __esModule: true,
-  default: (props: any) => require('react').createElement('img', { alt: props.alt, src: props.src }),
+  default: (props: any) => React.createElement('img', { alt: props.alt, src: props.src }),
 }));
 
 vi.mock('@mui/material/ButtonBase', () => ({
   __esModule: true,
-  default: (props: any) => require('react').createElement('div', { ...props }),
+  default: (props: any) => React.createElement('div', { ...props }),
 }));
 
 vi.mock('@mui/material/CircularProgress', () => ({
   __esModule: true,
-  default: (props: any) => require('react').createElement('div', { ...props }),
+  default: (props: any) => React.createElement('div', { ...props }),
 }));
 
 vi.mock('@mui/material/styles', () => ({

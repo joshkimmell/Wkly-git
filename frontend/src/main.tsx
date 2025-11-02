@@ -29,5 +29,5 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
 try {
   Modal.setAppElement('#root');
 } catch (e) {
-  // Ignore in non-browser or test environments where document may not be available
+  void e; // Silence unused variable warning
 }
