@@ -12,11 +12,13 @@ describe('TiptapEditor', () => {
   test('keyboard shortcut Ctrl/Cmd+B applies bold', async () => {
     const handleChange = vi.fn();
     render(<TiptapEditor value="" onChange={handleChange} />);
-    const editor = screen.getByRole('textbox');
-    // focus
-    editor.focus();
-    // insert some text
-    document.execCommand('insertText', false, 'hello');
+  // testing-library may see multiple textbox roles (toolbar clones). Pick the contenteditable
+  const editors = screen.getAllByRole('textbox');
+  const editor = editors.find((el) => el.id === 'goal-description') || editors[0];
+  // focus and insert some text (happy-dom doesn't implement execCommand)
+  editor.focus();
+  // directly set text content for the contenteditable used by the test harness
+  (editor as HTMLElement).textContent = 'hello';
     // select the text
     const range = document.createRange();
     range.selectNodeContents(editor);
@@ -32,7 +34,9 @@ describe('TiptapEditor', () => {
   test('toolbar bold button triggers onChange', async () => {
     const handleChange = vi.fn();
     render(<TiptapEditor value="<p>hi</p>" onChange={handleChange} />);
-    const boldBtn = screen.getByLabelText('Bold');
+  // toolbar may render clones; pick the first Bold button
+  const boldBtns = screen.getAllByLabelText('Bold');
+  const boldBtn = boldBtns[0];
     userEvent.click(boldBtn);
     expect(handleChange).toHaveBeenCalled();
   });

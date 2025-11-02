@@ -207,42 +207,40 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       }
 
       // Remove fields that should not be sent to the database
-      const { created_at, id, ...goalToInsert } = goal;
+  const { created_at: _created_at, id: _id, ...goalToInsert } = goal as unknown as Record<string, unknown>;
+      void _created_at;
+      void _id;
 
   // Optimistic UI: add a temporary goal to the cache first
 
   const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const tempGoal: Goal = { ...goalToInsert, id: tempId, created_at: new Date().toISOString() } as any;
-    console.debug('[GoalForm] addGoal: adding temp goal to cache', { tempId, tempGoal });
-    addGoalToCache(tempGoal as Goal);
+    const tempGoal = { ...(goalToInsert as Record<string, unknown>), id: tempId, created_at: new Date().toISOString() } as unknown as Goal;
+  // adding temp goal to cache (optimistic)
+    addGoalToCache(tempGoal);
 
       // Insert the goal into the database
       const { data: insertData, error } = await supabase.from('goals').insert(goalToInsert).select().single();
 
       if (error) {
-        // rollback
-        console.debug('[GoalForm] addGoal: insert error, rolling back temp', { tempId, error });
+  // rollback
+  // insert error, rolling back temp
         removeGoalFromCache(tempId);
         throw new Error(`Error adding goal to the database: ${error.message}`);
       }
 
-      // Replace temp with the server-provided row (if available)
+        // Replace temp with the server-provided row (if available)
       if (insertData && insertData.id) {
-        const serverGoal = { ...(insertData as any) } as Goal;
+  const serverGoal = (insertData as unknown) as Goal;
         // replace temp id with server row so subscribers can react
-        console.debug('[GoalForm] addGoal: insert succeeded, replacing temp with server row', { tempId, serverGoal });
         replaceGoalInCache(tempId, serverGoal);
         // notify and refresh
         try {
-          console.debug('[GoalForm] addGoal: attempting ctxRefresh then parent refresh');
           if (ctxRefresh) {
             await ctxRefresh();
-            console.debug('[GoalForm] addGoal: ctxRefresh finished');
           }
           // always call parent refreshGoals to update callers that maintain their own indexed state
           try {
             await refreshGoals();
-            console.debug('[GoalForm] addGoal: parent refreshGoals finished');
           } catch (e) {
             console.warn('[GoalForm] addGoal: parent refresh failed (ignored):', e);
           }
@@ -262,12 +260,10 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         }));
         notifySuccess('Goal added');
       } else {
-        // As a fallback, refresh from server
+          // As a fallback, refresh from server
         try {
-          console.debug('[GoalForm] addGoal: server did not return row, calling refresh fallback');
           if (ctxRefresh) await ctxRefresh();
           else await refreshGoals();
-          console.debug('[GoalForm] addGoal: fallback refresh finished');
           // reset the form
           setNewGoal(prev => ({
             ...prev,
@@ -317,8 +313,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         return { tempId: id, payload: goal };
       });
 
-      try {
-        // Insert all goals into the database
+        try {
+          // Insert all goals into the database
         const insertPromises = steps.map((step) => {
         const payload = {
           ...step,
@@ -329,7 +325,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         return supabase.from('goals').insert(payload).select();
       });
 
-        const results = await Promise.all(insertPromises);
+  type InsertResult = { data?: unknown[]; body?: unknown[]; error?: unknown };
+  const results = await Promise.all(insertPromises) as InsertResult[];
 
         const createdIds: string[] = [];
         // Replace temp entries with server rows where possible
@@ -338,9 +335,13 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         if (res.error) {
           throw res.error;
         }
-        const rows = (res as any).data || (res as any).body || null;
-        if (rows && rows[0] && rows[0].id) {
-          createdIds.push(rows[0].id);
+  const maybe = res as InsertResult;
+  const rows = (maybe.data as unknown[] | undefined) || (maybe.body as unknown[] | undefined) || null;
+        if (rows && rows[0]) {
+          const row0 = rows[0] as { id?: string };
+          if (row0.id) {
+            createdIds.push(row0.id);
+          }
           // map back to the temp id and replace
           const mappedTemp = temps[i];
           if (mappedTemp) {
@@ -359,10 +360,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
 
         // Ensure we refresh global cache and the parent local indexed state regardless
         try {
-          console.debug('[GoalForm] bulkAddGoals: attempting ctxRefresh after bulk insert');
           if (ctxRefresh) {
             await ctxRefresh();
-            console.debug('[GoalForm] bulkAddGoals: ctxRefresh finished');
           }
         } catch (e) {
           console.warn('Bulk add ctxRefresh failed (ignored):', e);
@@ -370,7 +369,6 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
 
         try {
           await refreshGoals();
-          console.debug('[GoalForm] bulkAddGoals: parent refresh finished');
         } catch (e) {
           console.warn('Bulk add parent refresh failed (ignored):', e);
         }
@@ -556,8 +554,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                   <div className="flex items-start w-full">
                     <Checkbox
                       checked={selectedSteps.includes(index)}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => e.stopPropagation()}
+                      onClick={(e) => { e.stopPropagation(); toggleStepSelection(index); }}
+                      onChange={(e) => { e.stopPropagation(); toggleStepSelection(index); }}
                       inputProps={{ 'aria-label': `Select step ${index + 1}` }}
                     />
                     <div className="ml-4">
@@ -933,7 +931,16 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
               select
               label="Status"
               value={newGoal.status || 'Not started'}
-              onChange={(e) => setNewGoal(prev => ({ ...prev, status: e.target.value as any }))}
+              onChange={(e) => {
+                const val = e.target.value;
+                // Narrow to allowed statuses when possible
+                const allowed = ['Not started', 'In progress', 'Blocked', 'Done', 'On hold'] as const;
+                if (typeof val === 'string' && (allowed as readonly string[]).includes(val)) {
+                  setNewGoal(prev => ({ ...prev, status: val as Goal['status'] }));
+                } else {
+                  setNewGoal(prev => ({ ...prev, status: prev.status }));
+                }
+              }}
               className="mt-2 w-full"
               fullWidth
               

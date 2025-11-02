@@ -240,7 +240,7 @@ const TiptapEditor: React.FC<Props> = ({ value, onChange, placeholder, label }) 
       const handlePaste = (e: ClipboardEvent) => {
         e.preventDefault();
         const clipboard = (e.clipboardData || (window as any).clipboardData);
-        let html = clipboard?.getData && (clipboard.getData('text/html') || clipboard.getData('text/plain'));
+        const html = clipboard?.getData && (clipboard.getData('text/html') || clipboard.getData('text/plain'));
         const clean = sanitize(html || '');
         try {
           // insert sanitized HTML
