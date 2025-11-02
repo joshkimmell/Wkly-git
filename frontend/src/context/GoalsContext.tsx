@@ -30,10 +30,9 @@ export const GoalsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const refreshGoals = async () => {
     try {
-      setIsRefreshing(true);
-  console.debug('[GoalsContext] refreshGoals: starting');
+    setIsRefreshing(true);
       const fetched = await fetchAllGoals();
-      console.debug('[GoalsContext] refreshGoals: fetched', { count: (fetched || []).length });
+  // fetched goals
       setGoals(fetched || []);
       setLastUpdated(Date.now());
     } catch (err) {
@@ -67,8 +66,9 @@ export const GoalsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           channel = supabase
             .channel('public:goals')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'goals' }, (payload: any) => {
+              // handle realtime payload (no verbose logging in production)
               try {
-                console.debug('[GoalsContext] realtime event', { eventType: payload.eventType, payload });
+                // minimal handling
               } catch (e) {
                 // ignore logging errors
               }

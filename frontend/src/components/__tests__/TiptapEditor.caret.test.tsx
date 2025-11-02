@@ -7,7 +7,10 @@ describe('TiptapEditor caret preservation', () => {
     const onChange = vi.fn();
     const { rerender } = render(<TiptapEditor value="Hello" onChange={onChange} />);
 
-  screen.getByRole('textbox');
+  // prefer the contenteditable with id when present (avoids toolbar clones)
+  const editors = screen.getAllByRole('textbox');
+  const editorEl = editors.find((el) => (el as HTMLElement).id === 'goal-description') || editors[0];
+  expect(editorEl).toBeTruthy();
 
     // stub createRange/selectNodeContents/collapse and selection APIs
     const fakeRange = {

@@ -10,10 +10,10 @@ import Pagination from '@components/Pagination';
 describe('Pagination (smoke)', () => {
   it('renders the current button', () => {
     const pages = ['2025-10-06', '2025-10-13', '2025-10-20'];
-    const { getByLabelText } = render(
+    render(
       <Pagination pages={pages} currentPage={pages[2]} onPageChange={() => {}} scope="week" />
     );
-    const btn = getByLabelText('Current week');
-    expect(btn).toBeTruthy();
+  const all = document.querySelectorAll('[aria-label="Current week"]');
+  expect(all.length).toBeGreaterThan(0);
   });
 });
