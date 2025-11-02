@@ -1,5 +1,6 @@
 import React from "react";
 import supabase from "@lib/supabase";
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { notifyError, notifySuccess } from "@components/ToastyNotification";
 import { v4 as uuidv4 } from "uuid";
 import { Category, Goal, Summary, Accomplishment } from "@utils/goalUtils"; // Adjust the import path as necessary
@@ -9,16 +10,16 @@ const baseUrl = import.meta.env.DEV ? 'http://localhost:8888' : ''; // Use local
 const backend = '/api';
 
 // export const backendUrl = backend + '/api/summaries';
-export const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
-export const supabaseKey = (import.meta as any).env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-export const openaiApiKey = (import.meta as any).env.VITE_OPENAI_API_KEY;
+export const supabaseUrl = ((import.meta as unknown) as { env?: { VITE_SUPABASE_URL?: string } }).env?.VITE_SUPABASE_URL ?? '';
+export const supabaseKey = ((import.meta as unknown) as { env?: { VITE_SUPABASE_SERVICE_ROLE_KEY?: string } }).env?.VITE_SUPABASE_SERVICE_ROLE_KEY ?? '';
+export const openaiApiKey = ((import.meta as unknown) as { env?: { VITE_OPENAI_API_KEY?: string } }).env?.VITE_OPENAI_API_KEY ?? '';
 
-export const handleError = (error: any, setError: React.Dispatch<React.SetStateAction<string | null>>) => {
-    console.error(error);
-    setError(error instanceof Error ? error.message : 'An unknown error occurred');
+export const handleError = (error: unknown, setError: React.Dispatch<React.SetStateAction<string | null>>) => {
+  console.error(error);
+  setError(error instanceof Error ? error.message : 'An unknown error occurred');
 };
 
-export const fetchWithAuth = async (url: string, userId: string) => {
+export const fetchWithAuth = async (url: string, userId: string): Promise<unknown> => {
     const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -26,11 +27,11 @@ export const fetchWithAuth = async (url: string, userId: string) => {
             'Content-Type': 'application/json',
         },
     });
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch');
-    }
-    return await response.json();
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || 'Failed to fetch');
+  }
+  return await response.json();
 };
 
 
@@ -349,8 +350,10 @@ export const initializeUserCategories = async (): Promise<void> => {
       return;
     }
 
-    UserCategories = data.map((category) => ({ id: category.cat_id, name: category.name }));
-    // console.log('User categories initialized:', UserCategories);
+    UserCategories = (data || []).map((category: unknown) => {
+      const row = category as { cat_id?: string; name?: string };
+      return { id: row.cat_id ?? '', name: row.name ?? '' };
+    });
   } catch (err) {
     console.error('Unexpected error initializing user categories:', err);
     UserCategories = [];
@@ -359,14 +362,16 @@ export const initializeUserCategories = async (): Promise<void> => {
 
 
 // Add a new goal
-export const addGoal = async (newGoal: any) => {
+export const addGoal = async (newGoal: Partial<Goal>) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User is not authenticated');
   const userId = user.id;
 
-  // Exclude unnecessary fields like id and created_at
-  const { id, created_at, ...filteredGoal } = newGoal;
-  const goalToSend = { ...filteredGoal, user_id: userId };
+  // Exclude unnecessary fields like id and created_at safely
+  const { id: _maybeId, created_at: _maybeCreatedAt, ...filteredGoal } = newGoal as Partial<Record<string, unknown>>;
+  void _maybeId;
+  void _maybeCreatedAt;
+  const goalToSend = { ...filteredGoal, user_id: userId } as Record<string, unknown>;
 
   // // console.log('addGoal request:', goalToSend);
   // console.log('addGoal payload:', goalToSend);
@@ -427,8 +432,9 @@ export const addGoal = async (newGoal: any) => {
 // };
 
 // Set goals in the local state or perform any other action
-export function setGoals(_data: any) {
-    throw new Error("Function not implemented.");
+export function setGoals(_data: unknown) {
+  // noop: kept for compatibility; intentionally unimplemented
+  void _data;
 }
 // Delete a goal
 
@@ -453,7 +459,7 @@ export const deleteGoal = async (goalId: string) => {
   return response.json();
 };
 export const handleDeleteGoal = async (
-    supabase: any,
+  supabase: SupabaseClient,
     goalId: string,
     _setFilteredGoals: React.Dispatch<React.SetStateAction<Goal[]>>,
     fetchGoals: () => Promise<void>,
@@ -469,7 +475,7 @@ export const handleDeleteGoal = async (
     }
 };
 
-export const updateGoal = async (goalId: string, updatedGoal: any) => {
+export const updateGoal = async (goalId: string, updatedGoal: Partial<Goal> | Record<string, unknown>) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User is not authenticated');
   const userId = user.id;
@@ -695,10 +701,9 @@ export const generateSummary = async (
   }[],
   responseLength?: number // Add optional responseLength parameter
 ): Promise<string> => {
-  try {
-    const summaryId = id || uuidv4();
+  const summaryId = id || uuidv4();
 
-    const response = await fetch(`${baseUrl}${backend}/generateSummary`, {
+  const response = await fetch(`${baseUrl}${backend}/generateSummary`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -722,10 +727,6 @@ export const generateSummary = async (
 
     const data = await response.json();
     return data.summary;
-  } catch (error) {
-    console.error('Error in generateSummary:', error);
-    throw error;
-  }
 };
 
 // Save a summary to the database
@@ -737,7 +738,6 @@ export const saveSummary = async (
   selectedRange: Date,
   scope: 'week' | 'month' | 'year' // Add scope parameter
 ) => {
-  try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User is not authenticated');
 
@@ -779,9 +779,6 @@ export const saveSummary = async (
     setLocalSummaryId(data.summary_id);
     notifySuccess('Summary saved successfully!');
     return data;
-  } catch (error) {
-    throw error;
-  }
 };
 
 // Fetch summaries for a user
@@ -814,7 +811,7 @@ export const fetchSummaries = async (userId: string, id: string): Promise<Summar
 };
 
 // Add a new summary
-export const createSummary = async (newSummary: any) => {
+export const createSummary = async (newSummary: Record<string, unknown>) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User is not authenticated');
   const userId = user.id;

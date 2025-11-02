@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { fetchAllGoalsIndexed, deleteGoal, updateGoal, saveSummary, UserCategories, initializeUserCategories, addCategory, getWeekStartDate, indexDataByScope } from '../utils/functions';
 import Pagination from './Pagination';
 import GoalCard from '@components/GoalCard';
@@ -90,8 +90,8 @@ const GoalsComponent = () => {
 
         // filter popover anchor is controlled via `filterAnchorEl` and setFilterAnchorEl
 
-        // derive category options from UserCategories
-        const categoryOptions = (UserCategories || []).map((cat: any) => (typeof cat === 'string' ? cat : cat.name));
+    // derive category options from UserCategories
+    const categoryOptions = (UserCategories || []).map((cat) => (typeof cat === 'string' ? cat : (cat as { name?: string }).name || ''));
         // derive statuses from current goals if available
         const statusOptions = Array.from(new Set(Object.values(indexedGoals).flat().map((g) => (g.status || '').toString()).filter(Boolean)));
 
@@ -119,7 +119,9 @@ const GoalsComponent = () => {
                     // avoids refetches when the user already loaded goals earlier in the session.
                     try {
                         if (ctxGoals && ctxGoals.length > 0) {
-                            const clientIndexed = indexDataByScope(ctxGoals as any, scope);
+                            // ctxGoals items don't include `scope`, add it transiently for indexing
+                            const withScope = (ctxGoals as unknown as Goal[]).map((g) => ({ ...g, scope }));
+                            const clientIndexed = indexDataByScope(withScope, scope);
                             const clientPages = Object.keys(clientIndexed).sort((a, b) => (a > b ? -1 : 1));
                             if (Object.keys(clientIndexed).length > 0) {
                                 // using client-indexed goals (no fetch)
@@ -145,9 +147,9 @@ const GoalsComponent = () => {
                                 return;
                             }
                         }
-                                        } catch (e) {
-                                                // ignore and fall back to server fetch
-                                        }
+                    } catch {
+                        // ignore and fall back to server fetch
+                    }
                     try {
                         // Fetch goals for the selected scope
                         const { indexedGoals, pages } = await fetchAllGoalsIndexed(scope);
@@ -183,7 +185,7 @@ const GoalsComponent = () => {
                         if (!desiredPage) {
                             // Use computeDefaultForScope so defaults remain consistent across code paths
                             const { computeDefaultForScope } = await import('@utils/pagination');
-                            desiredPage = computeDefaultForScope(scope as any);
+                            desiredPage = computeDefaultForScope(scope);
                         }
 
                         // Scope-specific adjustments: prefer pages starting with the desired prefix
@@ -263,6 +265,11 @@ const GoalsComponent = () => {
 
                 fetchGoalsAndCategories();
                 // debug logs removed after fixing mapping race conditions
+            // The effect below intentionally only depends on `scope` to control when we fetch
+            // goals. `ctxGoals`, `currentPage`, and `pageByScope` are accessed via refs or
+            // handled in separate effects to avoid refetch loops. If that behavior needs
+            // to change, remove the eslint-disable and add the dependencies.
+            // eslint-disable-next-line react-hooks/exhaustive-deps
             }, [scope]);
 
             // Mirror pageByScope into a ref to avoid re-running the fetch effect on its changes
@@ -296,7 +303,7 @@ const GoalsComponent = () => {
     }
 
     // Function to refresh goals (keeps current selection where possible)
-    const refreshGoals = async () : Promise<{indexedGoals: Record<string, Goal[]>, pages: string[]}> => {
+    const refreshGoals = useCallback(async () : Promise<{indexedGoals: Record<string, Goal[]>, pages: string[]}> => {
         try {
         const { indexedGoals, pages } = await fetchAllGoalsIndexed(scope);
         setIndexedGoals(indexedGoals);
@@ -315,7 +322,7 @@ const GoalsComponent = () => {
         console.error('Error refreshing goals:', error);
         return { indexedGoals: {}, pages: [] };
         }
-    };
+    }, [scope]);
   
 // Add a new goal
     //const handleAddGoal = async (event: React.FormEvent, goal?: Goal) => {
@@ -351,8 +358,7 @@ const GoalsComponent = () => {
 
     // When the global goals cache is updated (via context), ensure this component refreshes
     useEffect(() => {
-        try {
-            console.debug('[AllGoals] GoalsContext.lastUpdated changed, syncing local indexed goals');
+                    try {
             const added = lastAddedIds && lastAddedIds.length > 0 ? [...lastAddedIds] : undefined;
             (async () => {
                 const fresh = await refreshGoals();
@@ -360,7 +366,7 @@ const GoalsComponent = () => {
                 if (added && added.length > 0 && fresh.pages && fresh.pages.length > 0) {
                     for (const p of fresh.pages) {
                         const list = fresh.indexedGoals[p] || [];
-                        if (list.some((g) => added.includes(g.id))) {
+                        if (list.some((g: Goal) => added.includes(g.id))) {
                             setCurrentPage(p);
                             currentPageRef.current = p;
                             break;
@@ -368,18 +374,17 @@ const GoalsComponent = () => {
                     }
                 }
                 // clear the context marker
-                try { if (typeof setLastAddedIds === 'function') setLastAddedIds(undefined); } catch (e) { /* ignore */ }
+                try { if (typeof setLastAddedIds === 'function') setLastAddedIds(undefined); } catch { /* ignore */ }
             })();
-        } catch (e) {
-            console.warn('[AllGoals] Failed to sync after context update (ignored):', e);
+        } catch (err) {
+            console.warn('[AllGoals] Failed to sync after context update (ignored):', err);
         }
-    }, [lastUpdated]);
+    }, [lastUpdated, lastAddedIds, refreshGoals, setLastAddedIds]);
 
     const handleDeleteGoal = async (goalId: string) => {
         // Optimistic UI: remove from local indexedGoals immediately
         const previousIndexed = { ...indexedGoals };
-        try {
-        console.debug('[AllGoals] handleDeleteGoal: deleting (optimistic)', { goalId, currentPage });
+    try {
         setIndexedGoals((prev) => {
             const copy: Record<string, Goal[]> = { ...prev };
             if (copy[currentPage]) copy[currentPage] = copy[currentPage].filter((g) => g.id !== goalId);
@@ -389,8 +394,8 @@ const GoalsComponent = () => {
         // Also remove from global cache so other components reflect change immediately
         try {
             if (removeGoalFromCache) removeGoalFromCache(goalId);
-        } catch (e) {
-            console.warn('[AllGoals] removeGoalFromCache failed (ignored):', e);
+        } catch (err) {
+            console.warn('[AllGoals] removeGoalFromCache failed (ignored):', err);
         }
 
         // Attempt server delete
@@ -413,8 +418,8 @@ const GoalsComponent = () => {
                     foundStill = false;
                     break;
                 }
-            } catch (e) {
-                console.warn('[AllGoals] refresh attempt failed (ignored):', e);
+            } catch (err) {
+                console.warn('[AllGoals] refresh attempt failed (ignored):', err);
             }
             // backoff before retrying
             await new Promise((res) => setTimeout(res, 250 * Math.pow(2, attempt)));
@@ -435,21 +440,21 @@ const GoalsComponent = () => {
                     notifyError('Goal appeared to not be deleted (server still contains it). It has been restored locally.');
                     return;
                 }
-            } catch (e) {
-                console.warn('[AllGoals] final reconcile after delete failed (ignored):', e);
+            } catch (err) {
+                console.warn('[AllGoals] final reconcile after delete failed (ignored):', err);
             }
         }
 
         // If we reach here, deletion is confirmed and local state updated
-        } catch (error) {
-        console.error('Error deleting goal:', error);
+    } catch (error) {
+    console.error('Error deleting goal:', error);
         // rollback optimistic removal
-        try {
+            try {
             setIndexedGoals(previousIndexed);
             // best-effort: refresh from server to reconcile
-            try { await refreshGoals(); } catch (e) { /* ignore */ }
-        } catch (e) {
-            console.warn('[AllGoals] rollback after delete failed (ignored):', e);
+            try { await refreshGoals(); } catch { /* ignore */ }
+        } catch (err) {
+            console.warn('[AllGoals] rollback after delete failed (ignored):', err);
         }
         notifyError('Failed to delete goal.');
         }
@@ -484,17 +489,17 @@ const GoalsComponent = () => {
   const handlePageChange = (page: string) => {
       setCurrentPage(page);
       currentPageRef.current = page;
-      const next = { ...pageByScopeRef.current, [scope]: page };
-      setPageByScope(next);
-      pageByScopeRef.current = next;
-      try { savePageByScope(next); } catch (e) { /* ignore */ }
+    const next = { ...pageByScopeRef.current, [scope]: page };
+    setPageByScope(next);
+    pageByScopeRef.current = next;
+    try { savePageByScope(next); } catch { /* ignore */ }
   };
 
     // persist pageByScope whenever it changes (e.g., scope switches)
     useEffect(() => {
         try {
             savePageByScope(pageByScope);
-        } catch (e) {
+        } catch {
             // ignore
         }
     }, [pageByScope]);
@@ -530,19 +535,33 @@ const GoalsComponent = () => {
                         return d;
                     };
 
+                    const isDayjsLike = (v: unknown): v is { toDate: () => Date } => {
+                        return typeof v === 'object' && v !== null && 'toDate' in v && typeof (v as { toDate?: unknown }).toDate === 'function';
+                    };
+
                     if (filterStartDate) {
                         try {
                             const goalDate = compareGoalDate(goal.week_start);
-                            const start = filterStartDate instanceof Object && 'toDate' in filterStartDate ? (filterStartDate as any).toDate() : (filterStartDate as unknown as Date);
+                            let start: Date | undefined;
+                            if (isDayjsLike(filterStartDate)) {
+                                start = filterStartDate.toDate();
+                            } else {
+                                start = filterStartDate as unknown as Date;
+                            }
                             if (goalDate && start && goalDate < start) return false;
-                        } catch (e) { /* ignore parse errors */ }
+                        } catch { /* ignore parse errors */ }
                     }
                     if (filterEndDate) {
                         try {
                             const goalDate = compareGoalDate(goal.week_start);
-                            const end = filterEndDate instanceof Object && 'toDate' in filterEndDate ? (filterEndDate as any).toDate() : (filterEndDate as unknown as Date);
+                            let end: Date | undefined;
+                            if (isDayjsLike(filterEndDate)) {
+                                end = filterEndDate.toDate();
+                            } else {
+                                end = filterEndDate as unknown as Date;
+                            }
                             if (goalDate && end && goalDate > end) return false;
-                        } catch (e) { /* ignore parse errors */ }
+                        } catch { /* ignore parse errors */ }
                     }
 
             return true;
@@ -604,7 +623,7 @@ const GoalsComponent = () => {
                                     const next = { ...pageByScopeRef.current, [scope]: persistedForOld };
                                     setPageByScope(next);
                                     pageByScopeRef.current = next;
-                                    try { savePageByScope(next); } catch (e) {}
+                                    try { savePageByScope(next); } catch { /* ignore */ }
 
                                     // Compute a tentative page for the new scope so the UI doesn't flip to a default.
                                     // - week (YYYY-MM-DD) -> month (YYYY-MM)
@@ -637,9 +656,8 @@ const GoalsComponent = () => {
 
                                                                         // Record which scope we're switching from so the next fetch can map correctly
                                                                         try {
-                                                                             
-                                                                            console.debug('[AllGoals] scope-click', { from: scope, to: s, tentative, currentPage, pageByScope: pageByScopeRef.current });
-                                                                        } catch (e) { /* ignore */ }
+                                                                            // debug removed in production
+                                                                        } catch { /* ignore */ }
 
                                                                         lastSwitchFromRef.current = scope;
                                                                         setScope(s as 'week' | 'month' | 'year');
@@ -983,11 +1001,11 @@ const GoalsComponent = () => {
         >
         <div className={`${modalClasses}`}>
             {isGoalModalOpen && (
-                <GoalForm
+                    <GoalForm
                     newGoal={newGoal}
                     setNewGoal={setNewGoal}
                                 handleClose={closeGoalModal}
-                                categories={UserCategories.map((cat: any) => typeof cat === 'string' ? cat : cat.name)}
+                                categories={UserCategories.map((cat: unknown) => typeof cat === 'string' ? (cat as string) : ((cat as { name?: string })?.name || ''))}
                                 refreshGoals={() => refreshGoals().then(() => {})}
                 />
             )}
@@ -1018,9 +1036,26 @@ const GoalsComponent = () => {
                         }
                     }}
                     onRequestClose={closeEditor}
-                    onSave={async (updatedDescription, updatedTitle, updatedCategory, updatedWeekStart, status, status_notes) => {
+                    onSave={async (updatedDescription: string, updatedTitle: string, updatedCategory: string, updatedWeekStart: string, status?: string, status_notes?: string) => {
                         try {
                             if (selectedGoal) {
+                                // Narrow status to the allowed Goal['status'] union safely
+                                const allowedStatuses = ['Not started', 'In progress', 'Blocked', 'Done', 'On hold'] as const;
+                                let narrowedStatus: Goal['status'] | undefined;
+                                if (typeof status === 'string' && (allowedStatuses as readonly string[]).includes(status)) {
+                                    narrowedStatus = status as Goal['status'];
+                                }
+
+                                // compute final status ensuring it matches Goal['status'] union
+                                let finalStatus: Goal['status'] | undefined;
+                                if (narrowedStatus) {
+                                    finalStatus = narrowedStatus;
+                                } else if (typeof selectedGoal.status === 'string' && (allowedStatuses as readonly string[]).includes(selectedGoal.status)) {
+                                    finalStatus = selectedGoal.status as Goal['status'];
+                                } else {
+                                    finalStatus = undefined;
+                                }
+
                                 await handleUpdateGoal(selectedGoal.id, {
                                     id: selectedGoal.id,
                                     user_id: selectedGoal.user_id,
@@ -1029,8 +1064,8 @@ const GoalsComponent = () => {
                                     description: updatedDescription,
                                     category: updatedCategory,
                                     week_start: updatedWeekStart,
-                                    status: (status as any) || selectedGoal?.status,
-                                    status_notes: (status_notes as any) || selectedGoal?.status_notes,
+                                    status: finalStatus,
+                                    status_notes: status_notes ?? selectedGoal?.status_notes,
                                 });
                                 await refreshGoals(); // Refetch goals after saving
                             }
