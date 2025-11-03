@@ -17,7 +17,8 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon } from 'lucide-react';
 import { useGoalsContext } from '@context/GoalsContext';
 import { notifyError } from '@components/ToastyNotification';
-import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, InputLabel, Select, MenuItem, Tooltip, Menu } from '@mui/material';
+import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, InputLabel, Select, MenuItem, Tooltip, Menu, Chip, Badge, Checkbox, ListItemText } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type { Dayjs } from 'dayjs';
@@ -82,11 +83,12 @@ const GoalsComponent = () => {
     const blurTimeoutRef = useRef<number | null>(null);
     const showClear = filter.length > 0 || filterFocused || clearButtonFocused;
         // Filter popover state and criteria
-        const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLElement | null>(null);
-        const [filterStatus, setFilterStatus] = useState<string>('');
-        const [filterCategory, setFilterCategory] = useState<string>('');
+    const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLElement | null>(null);
+    const [filterStatus, setFilterStatus] = useState<string[]>([]);
+    const [filterCategory, setFilterCategory] = useState<string[]>([]);
     const [filterStartDate, setFilterStartDate] = useState<Dayjs | null>(null);
     const [filterEndDate, setFilterEndDate] = useState<Dayjs | null>(null);
+    const [summaryAnchorEl, setSummaryAnchorEl] = useState<HTMLElement | null>(null);
 
         // filter popover anchor is controlled via `filterAnchorEl` and setFilterAnchorEl
 
@@ -94,6 +96,15 @@ const GoalsComponent = () => {
     const categoryOptions = (UserCategories || []).map((cat) => (typeof cat === 'string' ? cat : (cat as { name?: string }).name || ''));
         // derive statuses from current goals if available
         const statusOptions = Array.from(new Set(Object.values(indexedGoals).flat().map((g) => (g.status || '').toString()).filter(Boolean)));
+
+    // Count of active filters to display as a badge on the filter button
+    const selectedFiltersCount =
+        (filterStatus?.length || 0) +
+        (filterCategory?.length || 0) +
+        (filterStartDate && filterEndDate ? 1 : 0) +
+        (filter && filter.trim().length > 0 ? 1 : 0);
+
+    const theme = useTheme();
 
     // Set the default scope to the current week
             useEffect(() => {
@@ -521,11 +532,11 @@ const GoalsComponent = () => {
 
             if (!textMatch) return false;
 
-            // status filter
-            if (filterStatus && (goal.status || '') !== filterStatus) return false;
+            // status filter (multi-select)
+            if (filterStatus && filterStatus.length > 0 && !filterStatus.includes((goal.status || ''))) return false;
 
-            // category filter
-            if (filterCategory && (goal.category || '') !== filterCategory) return false;
+            // category filter (multi-select)
+            if (filterCategory && filterCategory.length > 0 && !filterCategory.includes((goal.category || ''))) return false;
 
                     // time range filter - compare week_start (YYYY-MM-DD)
                     const compareGoalDate = (dateStr: string | undefined): Date | null => {
@@ -596,6 +607,7 @@ const GoalsComponent = () => {
 //   };
 
   return (
+  
     <div className={`space-y-6`}>
         <div className="flex justify-between items-center w-full">
             <h1 className="text-2xl font-bold text-gray-90 block sm:hidden">{scope.charAt(0).toUpperCase() + scope.slice(1)}ly goals</h1>
@@ -676,236 +688,380 @@ const GoalsComponent = () => {
                 {/* Filter and Sort Controls */}
                 <div className="mt-4 h-10 flex items-center space-x-2">
                     
-                        {/* Filter button + MUI TextField replacement for filter input */}
-                        <>
-                        <Tooltip title="Open filters" placement="top" arrow>
+                    {/* Filter button + MUI TextField replacement for filter input */}
+                    <>
+                    <Tooltip title="Open filters" placement="top" arrow>
+                    <span>
+                    <Badge badgeContent={selectedFiltersCount} color="primary" invisible={selectedFiltersCount === 0}>
                         <IconButton
                             className="btn-ghost mr-2"
                             size="small"
-                            aria-label="Open filters"
+                            aria-label={`Open filters${selectedFiltersCount > 0 ? ` (${selectedFiltersCount} active)` : ''}`}
                             onClick={(e) => setFilterAnchorEl(e.currentTarget)}
                         >
                             <FilterIcon className="w-4 h-4" />
                         </IconButton>
-                        </Tooltip>
-                        <Popover
-                            open={Boolean(filterAnchorEl)}
-                            anchorEl={filterAnchorEl}
-                            onClose={() => setFilterAnchorEl(null)}
-                            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-                        >
-                            <Box sx={{ p: 2, width: 280 }}>
-                                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                                    <InputLabel id="filter-status-label">Status</InputLabel>
+                    </Badge>
+                    </span>
+                    </Tooltip>
+                    <Popover
+                        open={Boolean(filterAnchorEl)}
+                        anchorEl={filterAnchorEl}
+                        onClose={() => setFilterAnchorEl(null)}
+                        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                    >
+                        <Box sx={{ p: 2, width: 280, bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100' }}>
+                            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                                <InputLabel id="filter-status-label">Status</InputLabel>
                                     <Select
                                         labelId="filter-status-label"
+                                        multiple
                                         value={filterStatus}
                                         label="Status"
-                                        onChange={(e) => setFilterStatus((e.target as HTMLInputElement).value)}
+                                        onChange={(e) => {
+                                            const val = (e.target as HTMLInputElement).value;
+                                            setFilterStatus(typeof val === 'string' ? val.split(',') : (val as string[]));
+                                        }}
+                                        renderValue={(selected) => (selected as string[]).join(', ')}
                                     >
-                                        <MenuItem value="">Any</MenuItem>
+                                        <MenuItem value="">
+                                            <ListItemText primary="Any" />
+                                        </MenuItem>
                                         {statusOptions.map((s) => (
-                                            <MenuItem key={s} value={s}>{s}</MenuItem>
+                                            <MenuItem key={s} value={s}>
+                                                <Checkbox size="small" checked={(filterStatus || []).indexOf(s) > -1} />
+                                                <ListItemText primary={s} />
+                                            </MenuItem>
                                         ))}
                                     </Select>
-                                </FormControl>
-                                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                                    <InputLabel id="filter-category-label">Category</InputLabel>
+                            </FormControl>
+                            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                                <InputLabel id="filter-category-label">Category</InputLabel>
                                     <Select
                                         labelId="filter-category-label"
+                                        multiple
                                         value={filterCategory}
                                         label="Category"
-                                        onChange={(e) => setFilterCategory((e.target as HTMLInputElement).value)}
+                                        onChange={(e) => {
+                                            const val = (e.target as HTMLInputElement).value;
+                                            setFilterCategory(typeof val === 'string' ? val.split(',') : (val as string[]));
+                                        }}
+                                        renderValue={(selected) => (selected as string[]).join(', ')}
                                     >
-                                        <MenuItem value="">Any</MenuItem>
+                                        <MenuItem value="">
+                                            <ListItemText primary="Any" />
+                                        </MenuItem>
                                         {categoryOptions.map((c) => (
-                                            <MenuItem key={c} value={c}>{c}</MenuItem>
+                                            <MenuItem key={c} value={c}>
+                                                <Checkbox size="small" checked={(filterCategory || []).indexOf(c) > -1} />
+                                                <ListItemText primary={c} />
+                                            </MenuItem>
                                         ))}
                                     </Select>
-                                </FormControl>
-                                {scope === 'year' && (
-                                  <div className="flex flex-col space-y-2 mb-2">
-                                  <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                      <div>
-                                          <label className="block text-sm text-gray-60 mb-1">Start</label>
-                                          <DatePicker
-                                              value={filterStartDate}
-                                              onChange={(v: Dayjs | null) => setFilterStartDate(v)}
-                                              slotProps={{ textField: { size: 'small' } }}
-                                              maxDate={filterEndDate || undefined}
-                                          />
-                                      </div>
-                                      <div>
-                                          <label className="block text-sm text-gray-60 mb-1">End</label>
-                                          <DatePicker
-                                              value={filterEndDate}
-                                              onChange={(v: Dayjs | null) => setFilterEndDate(v)}
-                                              slotProps={{ textField: { size: 'small' } }}
-                                              minDate={filterStartDate || undefined}
-                                          />
-                                      </div>
-                                  </LocalizationProvider>
-                                  </div>
-                                )}
-                                <div className="flex justify-end space-x-2">
-                                    <button
-                                        type="button"
-                                        className="btn-ghost"
-                                        onClick={() => {
-                                            setFilterStatus('');
-                                            setFilterCategory('');
-                                            setFilterStartDate(null);
-                                            setFilterEndDate(null);
-                                        }}
-                                    >
-                                        Clear
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="btn-primary"
-                                        onClick={() => setFilterAnchorEl(null)}
-                                    >
-                                        Apply
-                                    </button>
+                            </FormControl>
+                            {scope === 'year' && (
+                                <div className="flex flex-col space-y-2 mb-2">
+                                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                    <div>
+                                        <label className="block text-sm text-gray-60 mb-1">Start</label>
+                                        <DatePicker
+                                            value={filterStartDate}
+                                            onChange={(v: Dayjs | null) => setFilterStartDate(v)}
+                                            slotProps={{ textField: { size: 'small' } }}
+                                            maxDate={filterEndDate || undefined}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm text-gray-60 mb-1">End</label>
+                                        <DatePicker
+                                            value={filterEndDate}
+                                            onChange={(v: Dayjs | null) => setFilterEndDate(v)}
+                                            slotProps={{ textField: { size: 'small' } }}
+                                            minDate={filterStartDate || undefined}
+                                        />
+                                    </div>
+                                </LocalizationProvider>
                                 </div>
-                            </Box>
-                        </Popover>
-                        </>
-                        <TextField
-                            id="goal-filter"
-                            size="small"
-                            value={filter}
-                            inputRef={(el) => { filterInputRef.current = el; }}
-                            onFocus={() => {
-                                if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current);
-                                setFilterFocused(true);
-                            }}
-                            onBlur={() => {
-                                // delay clearing so clicks on the clear button register
-                                blurTimeoutRef.current = window.setTimeout(() => {
-                                    setFilterFocused(false);
-                                    blurTimeoutRef.current = null;
-                                }, 150);
-                            }}
-                            onChange={(e: ChangeEvent<HTMLInputElement>) => handleFilterChange(e.target.value)}
-                            placeholder="Filter by title, category, or impact"
-                            
-                            fullWidth
-                            InputProps={{
-                                    startAdornment: (
-                                            <InputAdornment position="start">
-                                                    <SearchIcon className='w-4 h-4' />
-                                            </InputAdornment>
-                                    ),
-                                    endAdornment: showClear ? (
-                                        <InputAdornment position="end">
-                                            <IconButton
-                                                size="small"
-                                                aria-label="Clear filter"
-                                                onMouseDown={(e) => e.preventDefault()} // prevent input blur
-                                                onClick={() => {
-                                                    handleFilterChange('');
-                                                    // return focus to input
-                                                    filterInputRef.current?.focus();
-                                                }}
-                                                onFocus={() => { if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current); setClearButtonFocused(true); }}
-                                                onBlur={() => { blurTimeoutRef.current = window.setTimeout(() => setClearButtonFocused(false), 150); }}
-                                            >
-                                                <CloseButton className="w-4 h-4" />
-                                            </IconButton>
-                                        </InputAdornment>
-                                    ) : null,
-                            }}
-                    />
-                    
-                                        <Tooltip title={`Sort: ${sortBy.charAt(0).toUpperCase() + sortBy.slice(1)} (${sortDirection === 'asc' ? 'descending' : 'ascending'})`} placement="top" arrow>
-                                                            <span className="flex items-center space-x-2">
-                                                                <IconButton
-                                                                    onClick={(e) => setSortAnchorEl(e.currentTarget)}
-                                                                    className="btn-ghost px-3 py-2"
-                                                                    aria-label={`Sort: ${sortBy} ${sortDirection}`}
-                                                                    aria-controls={sortAnchorEl ? 'sort-menu' : undefined}
-                                                                    aria-haspopup="true"
-                                                                    aria-expanded={sortAnchorEl ? 'true' : undefined}
-                                                                >
-                                                                    {/* Visible sort label to indicate active sort field and direction */}
-                                                                    <span className="hidden sm:flex items-center space-x-3 text-gray-70 dark:text-gray-30">
-                                                                        {sortBy === 'date' && ( 
-                                                                            <span role="img" aria-label="Sort by date" title="Sort by date" className='text-brand-60 dark:text-brand-20'>
-                                                                            <CalendarIcon className="w-4 h-4" />
-                                                                        </span>
-                                                                        )}
-                                                                         {sortBy === 'status' && ( 
-                                                                            <span role="img" aria-label="Sort by status" title="Sort by status" className='text-brand-60 dark:text-brand-20'>
-                                                                            <Check className="w-4 h-4" />
-                                                                        </span>
-                                                                        )}
-                                                                         {sortBy === 'category' && ( 
-                                                                            <span role="img" aria-label="Sort by category" title="Sort by category" className='text-brand-60 dark:text-brand-20'>
-                                                                            <TagIcon className="w-4 h-4" />
-                                                                        </span>
-                                                                        )}
-                                                                    </span>
-                                                                    {sortDirection === 'desc' ? <ArrowUp className='w-5 h-5' /> : <ArrowDown className='w-5 h-5' />}
-                                                                </IconButton>
-                                                            </span>
-                                                        </Tooltip>
-                                        <Menu
-                                            id="sort-menu"
-                                            anchorEl={sortAnchorEl}
-                                            open={Boolean(sortAnchorEl)}
-                                            onClose={() => setSortAnchorEl(null)}
-                                            MenuListProps={{ 'aria-labelledby': 'sort-button' }}
+                            )}
+                            <div className="flex justify-end space-x-2">
+                                        <button
+                                    type="button"
+                                    className="btn-ghost"
+                                    onClick={() => {
+                                        setFilterStatus([]);
+                                        setFilterCategory([]);
+                                        setFilterStartDate(null);
+                                        setFilterEndDate(null);
+                                    }}
+                                >
+                                    Clear
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn-primary"
+                                    onClick={() => setFilterAnchorEl(null)}
+                                >
+                                    Done
+                                </button>
+                            </div>
+                        </Box>
+                    </Popover>
+                    </>
+
+                    {/* Selected filter tags (status, category, date range) */}
+                    <div className="hidden sm:flex items-center space-x-2 ml-2">
+                        {selectedFiltersCount >= 4 ? (
+                            <>
+                                <Chip
+                                    label={`${selectedFiltersCount} filters`}
+                                    size="small"
+                                    onClick={(e) => setSummaryAnchorEl(e.currentTarget)}
+                                    className="gap-2 bg-gray-30 dark:bg-gray-70 text-gray-70 dark:text-gray-30 cursor-pointer"
+                                />
+                                <Menu
+                                    anchorEl={summaryAnchorEl}
+                                    open={Boolean(summaryAnchorEl)}
+                                    onClose={() => setSummaryAnchorEl(null)}
+                                    anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                                    transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                                    PaperProps={{ sx: { bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100', p: 1 } }}
+                                >
+                                    {/* build combined list of filters */}
+                                    {[
+                                        ...((filterStatus || []).map((s) => ({ key: `status:${s}`, type: 'status' as const, label: `Status: ${s}`, value: s }))),
+                                        ...((filterCategory || []).map((c) => ({ key: `category:${c}`, type: 'category' as const, label: `Category: ${c}`, value: c }))),
+                                        ...(filterStartDate && filterEndDate ? [{ key: 'range', type: 'range' as const, label: `Range: ${filterStartDate.format('YYYY-MM-DD')} → ${filterEndDate.format('YYYY-MM-DD')}`, value: `${filterStartDate.format('YYYY-MM-DD')}|${filterEndDate.format('YYYY-MM-DD')}` }] : []),
+                                        ...(filter && filter.trim() ? [{ key: 'text', type: 'text' as const, label: `Search: ${filter}`, value: filter }] : []),
+                                    ].map((item) => (
+                                        <MenuItem
+                                            key={item.key}
+                                            onClick={() => {
+                                                // deselect individual
+                                                if (item.type === 'status') setFilterStatus((prev) => (prev || []).filter((v) => v !== item.value));
+                                                else if (item.type === 'category') setFilterCategory((prev) => (prev || []).filter((v) => v !== item.value));
+                                                else if (item.type === 'range') { setFilterStartDate(null); setFilterEndDate(null); }
+                                                else if (item.type === 'text') { setFilter(''); }
+                                            }}
                                         >
-                                            <MenuItem
-                                                selected={sortBy === 'date' && sortDirection === 'asc'}
-                                                onClick={() => { setSortBy('date'); setSortDirection('asc'); setSortAnchorEl(null); }}
-                                            >
-                                                <CalendarIcon className="w-4 h-4" /><ArrowUp className="w-4 h-4 mr-8" /> Date Ascending 
-                                            </MenuItem>
-                                            <MenuItem
-                                                selected={sortBy === 'date' && sortDirection === 'desc'}
-                                                onClick={() => { setSortBy('date'); setSortDirection('desc'); setSortAnchorEl(null); }}
-                                            >
-                                                <CalendarIcon className="w-4 h-4" /><ArrowDown className="w-4 h-4 mr-8" /> Date Descending 
-                                            </MenuItem>
-                                            <MenuItem
-                                                selected={sortBy === 'category' && sortDirection === 'asc'}
-                                                onClick={() => { setSortBy('category'); setSortDirection('asc'); setSortAnchorEl(null); }}
-                                            >
-                                                <TagIcon className="w-4 h-4" /><ArrowUp className="w-4 h-4 mr-8" /> Category Ascending 
-                                            </MenuItem>
-                                            <MenuItem
-                                                selected={sortBy === 'category' && sortDirection === 'desc'}
-                                                onClick={() => { setSortBy('category'); setSortDirection('desc'); setSortAnchorEl(null); }}
-                                            >
-                                                <TagIcon className="w-4 h-4" /><ArrowDown className="w-4 h-4 mr-8" /> Category Descending 
-                                            </MenuItem>
-                                            <MenuItem
-                                                selected={sortBy === 'status' && sortDirection === 'asc'}
-                                                onClick={() => { setSortBy('status'); setSortDirection('asc'); setSortAnchorEl(null); }}
-                                            >
-                                                <Check className="w-4 h-4" /><ArrowUp className="w-4 h-4 mr-8" /> Status Ascending 
-                                            </MenuItem>
-                                            <MenuItem
-                                                selected={sortBy === 'status' && sortDirection === 'desc'}
-                                                onClick={() => { setSortBy('status'); setSortDirection('desc'); setSortAnchorEl(null); }}
-                                            >
-                                                <Check className="w-4 h-4" /><ArrowDown className="w-4 h-4 mr-8" /> Status Descending 
-                                            </MenuItem>
-                                        </Menu>
+                                            <Checkbox size="small" checked={true} />
+                                            <ListItemText primary={item.label} />
+                                        </MenuItem>
+                                    ))}
+                                </Menu>
+                                {/* Ghost clear-all button next to summary chip */}
+                                
+                                <button
+                                    type="button"
+                                    className="btn-ghost ml-1"
+                                    title="Clear all filters"
+                                    onClick={() => {
+                                        setFilter('');
+                                        setFilterStatus([]);
+                                        setFilterCategory([]);
+                                        setFilterStartDate(null);
+                                        setFilterEndDate(null);
+                                        filterInputRef.current?.focus();
+                                    }}
+                                >
+                                    <Tooltip title="Clear all filters" placement="top" arrow>
+                                        <CloseButton className="w-4 h-4" />
+                                    </Tooltip>
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                {filterStatus && filterStatus.length > 0 && (
+                                    filterStatus.map((s) => (
+                                        <Chip
+                                            key={`status-${s}`}
+                                            label={`Status: ${s}`}
+                                            size="small"
+                                            onDelete={() => setFilterStatus((prev) => (prev || []).filter((v) => v !== s))}
+                                            deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
+                                            className="gap-2 bg-gray-30 dark:bg-gray-70 text-gray-70 dark:text-gray-30"
+                                        />
+                                    ))
+                                )}
+                                {filterCategory && filterCategory.length > 0 && (
+                                    filterCategory.map((c) => (
+                                        <Chip
+                                            key={`cat-${c}`}
+                                            label={`Category: ${c}`}
+                                            size="small"
+                                            onDelete={() => setFilterCategory((prev) => (prev || []).filter((v) => v !== c))}
+                                            deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
+                                            className="gap-2 bg-gray-30 dark:bg-gray-70 text-gray-70 dark:text-gray-30"
+                                        />
+                                    ))
+                                )}
+                                {filterStartDate && filterEndDate && (
+                                    <Chip
+                                        label={`Range: ${filterStartDate?.format('YYYY-MM-DD')} → ${filterEndDate?.format('YYYY-MM-DD')}`}
+                                        size="small"
+                                        onDelete={() => { setFilterStartDate(null); setFilterEndDate(null); }}
+                                        deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
+                                        className="gap-2 bg-gray-30 dark:bg-gray-70 text-gray-70 dark:text-gray-30"
+                                    />
+                                )}
+                                {/* Ghost clear-all button */}
+                                {selectedFiltersCount > 0 && (
+                                <button
+                                    type="button"
+                                    className="btn-ghost ml-1"
+                                    title="Clear all filters"
+                                    onClick={() => {
+                                        setFilter('');
+                                        setFilterStatus([]);
+                                        setFilterCategory([]);
+                                        setFilterStartDate(null);
+                                        setFilterEndDate(null);
+                                        filterInputRef.current?.focus();
+                                    }}
+                                    >
+                                    <Tooltip title="Clear all filters" placement='top' arrow>
+                                        <CloseButton className="w-4 h-4" />
+                                    </Tooltip>
+                                </button>
+                                )}
+                            </>
+                        )}
+                    </div>
+
+                    <TextField
+                        id="goal-filter"
+                        size="small"
+                        value={filter}
+                        inputRef={(el) => { filterInputRef.current = el; }}
+                        onFocus={() => {
+                            if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current);
+                            setFilterFocused(true);
+                        }}
+                        onBlur={() => {
+                            // delay clearing so clicks on the clear button register
+                            blurTimeoutRef.current = window.setTimeout(() => {
+                                setFilterFocused(false);
+                                blurTimeoutRef.current = null;
+                            }, 150);
+                        }}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => handleFilterChange(e.target.value)}
+                        placeholder="Filter by title, category, or impact"
+                        
+                        fullWidth
+                        InputProps={{
+                                startAdornment: (
+                                        <InputAdornment position="start">
+                                                <SearchIcon className='w-4 h-4' />
+                                        </InputAdornment>
+                                ),
+                                endAdornment: showClear ? (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            size="small"
+                                            aria-label="Clear filter"
+                                            onMouseDown={(e) => e.preventDefault()} // prevent input blur
+                                            onClick={() => {
+                                                handleFilterChange('');
+                                                // return focus to input
+                                                filterInputRef.current?.focus();
+                                            }}
+                                            onFocus={() => { if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current); setClearButtonFocused(true); }}
+                                            onBlur={() => { blurTimeoutRef.current = window.setTimeout(() => setClearButtonFocused(false), 150); }}
+                                        >
+                                            <CloseButton className="w-4 h-4" />
+                                        </IconButton>
+                                    </InputAdornment>
+                                ) : null,
+                        }}
+                    />
+                
+                    <Tooltip title={`Sort: ${sortBy.charAt(0).toUpperCase() + sortBy.slice(1)} (${sortDirection === 'asc' ? 'ascending' : 'descending'})`} placement="top" arrow>
+                        <span className="flex items-center space-x-2">
+                            <IconButton
+                                onClick={(e) => setSortAnchorEl(e.currentTarget)}
+                                className="btn-ghost px-3 py-2"
+                                aria-label={`Sort: ${sortBy} ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
+                                aria-controls={sortAnchorEl ? 'sort-menu' : undefined}
+                                aria-haspopup="true"
+                                aria-expanded={sortAnchorEl ? 'true' : undefined}
+                            >
+                                {/* Visible sort label to indicate active sort field and direction */}
+                                <span className="hidden sm:flex items-center space-x-3 text-gray-70 dark:text-gray-30">
+                                    {sortBy === 'date' && ( 
+                                        <span role="img" aria-label="Sort by date" title="Sort by date" className='text-brand-60 dark:text-brand-20'>
+                                        <CalendarIcon className="w-4 h-4" />
+                                    </span>
+                                    )}
+                                    {sortBy === 'status' && ( 
+                                        <span role="img" aria-label="Sort by status" title="Sort by status" className='text-brand-60 dark:text-brand-20'>
+                                        <Check className="w-4 h-4" />
+                                    </span>
+                                    )}
+                                    {sortBy === 'category' && ( 
+                                        <span role="img" aria-label="Sort by category" title="Sort by category" className='text-brand-60 dark:text-brand-20'>
+                                        <TagIcon className="w-4 h-4" />
+                                    </span>
+                                    )}
+                                </span>
+                                {sortDirection === 'desc' ? <ArrowDown className='w-5 h-5' /> : <ArrowUp className='w-5 h-5' />}
+                            </IconButton>
+                        </span>
+                    </Tooltip>
+                    <Menu
+                        id="sort-menu"
+                        anchorEl={sortAnchorEl}
+                        open={Boolean(sortAnchorEl)}
+                        onClose={() => setSortAnchorEl(null)}
+                        MenuListProps={{ 'aria-labelledby': 'sort-button' }}
+                    >
+                        <MenuItem
+                            selected={sortBy === 'date' && sortDirection === 'asc'}
+                            onClick={() => { setSortBy('date'); setSortDirection('asc'); setSortAnchorEl(null); }}
+                        >
+                            <CalendarIcon className="w-4 h-4" /><ArrowUp className="w-4 h-4 mr-8" /> Date Ascending 
+                        </MenuItem>
+                        <MenuItem
+                            selected={sortBy === 'date' && sortDirection === 'desc'}
+                            onClick={() => { setSortBy('date'); setSortDirection('desc'); setSortAnchorEl(null); }}
+                        >
+                            <CalendarIcon className="w-4 h-4" /><ArrowDown className="w-4 h-4 mr-8" /> Date Descending 
+                        </MenuItem>
+                        <MenuItem
+                            selected={sortBy === 'category' && sortDirection === 'asc'}
+                            onClick={() => { setSortBy('category'); setSortDirection('asc'); setSortAnchorEl(null); }}
+                        >
+                            <TagIcon className="w-4 h-4" /><ArrowUp className="w-4 h-4 mr-8" /> Category Ascending 
+                        </MenuItem>
+                        <MenuItem
+                            selected={sortBy === 'category' && sortDirection === 'desc'}
+                            onClick={() => { setSortBy('category'); setSortDirection('desc'); setSortAnchorEl(null); }}
+                        >
+                            <TagIcon className="w-4 h-4" /><ArrowDown className="w-4 h-4 mr-8" /> Category Descending 
+                        </MenuItem>
+                        <MenuItem
+                            selected={sortBy === 'status' && sortDirection === 'asc'}
+                            onClick={() => { setSortBy('status'); setSortDirection('asc'); setSortAnchorEl(null); }}
+                        >
+                            <Check className="w-4 h-4" /><ArrowUp className="w-4 h-4 mr-8" /> Status Ascending 
+                        </MenuItem>
+                        <MenuItem
+                            selected={sortBy === 'status' && sortDirection === 'desc'}
+                            onClick={() => { setSortBy('status'); setSortDirection('desc'); setSortAnchorEl(null); }}
+                        >
+                            <Check className="w-4 h-4" /><ArrowDown className="w-4 h-4 mr-8" /> Status Descending 
+                        </MenuItem>
+                    </Menu>
 
                     {/* Add Goal Button */}
                     <Tooltip title={`Add a new goal`} placement="top" arrow>
-                    <button
-                        onClick={openGoalModal}
-                        className="btn-primary gap-2 flex ml-auto sm:mt-0 md:pr-2 sm:pr-2 xs:pr-0"
-                        // title={`Add a new goal for the current ${scope}`}
-                        aria-label={`Add a new goal for the current ${scope}`}
-                        >
-                        <PlusIcon className="w-5 h-5" />
-                        {/* <span className="block flex text-nowrap">Add Goal</span> */}
-                    </button>
+                        <button
+                            onClick={openGoalModal}
+                            className="btn-primary gap-2 flex ml-auto sm:mt-0 md:pr-2 sm:pr-2 xs:pr-0"
+                            // title={`Add a new goal for the current ${scope}`}
+                            aria-label={`Add a new goal for the current ${scope}`}
+                            >
+                            <PlusIcon className="w-5 h-5" />
+                            {/* <span className="block flex text-nowrap">Add Goal</span> */}
+                        </button>
                     </Tooltip>
                 </div> 
 
@@ -987,95 +1143,97 @@ const GoalsComponent = () => {
                     </Modal>
                 </div>
             </div>
-        </div>
-    <div>
+            {/* </div> */}
 
-        {/* Add Goal Modal */}
-        <Modal
-            isOpen={isGoalModalOpen}
-            onRequestClose={closeGoalModal}
-            ariaHideApp={ARIA_HIDE_APP}
-            // parentSelector={() => document.getElementById('app')!}
-            className={`fixed inset-0 flex md:items-center justify-center z-50`}
-            overlayClassName={`${overlayClasses}`}
-        >
-        <div className={`${modalClasses}`}>
-            {isGoalModalOpen && (
-                    <GoalForm
-                    newGoal={newGoal}
-                    setNewGoal={setNewGoal}
-                                handleClose={closeGoalModal}
-                                categories={UserCategories.map((cat: unknown) => typeof cat === 'string' ? (cat as string) : ((cat as { name?: string })?.name || ''))}
-                                refreshGoals={() => refreshGoals().then(() => {})}
-                />
-            )}
-        </div>
-        </Modal>
-        {/* Goal Editor Modal */}
-        <Modal
-            isOpen={isEditorOpen}
-            onRequestClose={closeEditor}
-            ariaHideApp={ARIA_HIDE_APP}
-            className={`fixed inset-0 flex items-center justify-center z-50`}
-            overlayClassName={`${overlayClasses}`}
-        >
-            {isEditorOpen && (
-                <GoalEditor
-                    title={selectedGoal?.title || ''}
-                    description={selectedGoal?.description || ''}
-                    category={selectedGoal?.category || ''}
-                    week_start={selectedGoal?.week_start || ''}
-                    onAddCategory={async (newCategory: string) => {
-                        try {
-                            await addCategory(newCategory); // Ensure backend consistency
-                            setSelectedGoal((prevGoal) =>
-                                prevGoal ? { ...prevGoal, category: newCategory } : null
-                            );
-                        } catch (error) {
-                            console.error('Error adding category:', error);
-                        }
-                    }}
+            <div>
+
+                {/* Add Goal Modal */}
+                <Modal
+                    isOpen={isGoalModalOpen}
+                    onRequestClose={closeGoalModal}
+                    ariaHideApp={ARIA_HIDE_APP}
+                    // parentSelector={() => document.getElementById('app')!}
+                    className={`fixed inset-0 flex md:items-center justify-center z-50`}
+                    overlayClassName={`${overlayClasses}`}
+                >
+                <div className={`${modalClasses}`}>
+                    {isGoalModalOpen && (
+                            <GoalForm
+                            newGoal={newGoal}
+                            setNewGoal={setNewGoal}
+                                        handleClose={closeGoalModal}
+                                        categories={UserCategories.map((cat: unknown) => typeof cat === 'string' ? (cat as string) : ((cat as { name?: string })?.name || ''))}
+                                        refreshGoals={() => refreshGoals().then(() => {})}
+                        />
+                    )}
+                </div>
+                </Modal>
+                {/* Goal Editor Modal */}
+                <Modal
+                    isOpen={isEditorOpen}
                     onRequestClose={closeEditor}
-                    onSave={async (updatedDescription: string, updatedTitle: string, updatedCategory: string, updatedWeekStart: string, status?: string, status_notes?: string) => {
-                        try {
-                            if (selectedGoal) {
-                                // Narrow status to the allowed Goal['status'] union safely
-                                const allowedStatuses = ['Not started', 'In progress', 'Blocked', 'Done', 'On hold'] as const;
-                                let narrowedStatus: Goal['status'] | undefined;
-                                if (typeof status === 'string' && (allowedStatuses as readonly string[]).includes(status)) {
-                                    narrowedStatus = status as Goal['status'];
+                    ariaHideApp={ARIA_HIDE_APP}
+                    className={`fixed inset-0 flex items-center justify-center z-50`}
+                    overlayClassName={`${overlayClasses}`}
+                >
+                    {isEditorOpen && (
+                        <GoalEditor
+                            title={selectedGoal?.title || ''}
+                            description={selectedGoal?.description || ''}
+                            category={selectedGoal?.category || ''}
+                            week_start={selectedGoal?.week_start || ''}
+                            onAddCategory={async (newCategory: string) => {
+                                try {
+                                    await addCategory(newCategory); // Ensure backend consistency
+                                    setSelectedGoal((prevGoal) =>
+                                        prevGoal ? { ...prevGoal, category: newCategory } : null
+                                    );
+                                } catch (error) {
+                                    console.error('Error adding category:', error);
                                 }
+                            }}
+                            onRequestClose={closeEditor}
+                            onSave={async (updatedDescription: string, updatedTitle: string, updatedCategory: string, updatedWeekStart: string, status?: string, status_notes?: string) => {
+                                try {
+                                    if (selectedGoal) {
+                                        // Narrow status to the allowed Goal['status'] union safely
+                                        const allowedStatuses = ['Not started', 'In progress', 'Blocked', 'Done', 'On hold'] as const;
+                                        let narrowedStatus: Goal['status'] | undefined;
+                                        if (typeof status === 'string' && (allowedStatuses as readonly string[]).includes(status)) {
+                                            narrowedStatus = status as Goal['status'];
+                                        }
 
-                                // compute final status ensuring it matches Goal['status'] union
-                                let finalStatus: Goal['status'] | undefined;
-                                if (narrowedStatus) {
-                                    finalStatus = narrowedStatus;
-                                } else if (typeof selectedGoal.status === 'string' && (allowedStatuses as readonly string[]).includes(selectedGoal.status)) {
-                                    finalStatus = selectedGoal.status as Goal['status'];
-                                } else {
-                                    finalStatus = undefined;
+                                        // compute final status ensuring it matches Goal['status'] union
+                                        let finalStatus: Goal['status'] | undefined;
+                                        if (narrowedStatus) {
+                                            finalStatus = narrowedStatus;
+                                        } else if (typeof selectedGoal.status === 'string' && (allowedStatuses as readonly string[]).includes(selectedGoal.status)) {
+                                            finalStatus = selectedGoal.status as Goal['status'];
+                                        } else {
+                                            finalStatus = undefined;
+                                        }
+
+                                        await handleUpdateGoal(selectedGoal.id, {
+                                            id: selectedGoal.id,
+                                            user_id: selectedGoal.user_id,
+                                            created_at: selectedGoal.created_at,
+                                            title: updatedTitle,
+                                            description: updatedDescription,
+                                            category: updatedCategory,
+                                            week_start: updatedWeekStart,
+                                            status: finalStatus,
+                                            status_notes: status_notes ?? selectedGoal?.status_notes,
+                                        });
+                                        await refreshGoals(); // Refetch goals after saving
+                                    }
+                                } catch (error) {
+                                    console.error('Error saving goal:', error);
                                 }
-
-                                await handleUpdateGoal(selectedGoal.id, {
-                                    id: selectedGoal.id,
-                                    user_id: selectedGoal.user_id,
-                                    created_at: selectedGoal.created_at,
-                                    title: updatedTitle,
-                                    description: updatedDescription,
-                                    category: updatedCategory,
-                                    week_start: updatedWeekStart,
-                                    status: finalStatus,
-                                    status_notes: status_notes ?? selectedGoal?.status_notes,
-                                });
-                                await refreshGoals(); // Refetch goals after saving
-                            }
-                        } catch (error) {
-                            console.error('Error saving goal:', error);
-                        }
-                    }}
-                />
-            )}
-        </Modal>
+                            }}
+                        />
+                    )}
+                </Modal>
+            </div>
         </div>
     </div>
   );
