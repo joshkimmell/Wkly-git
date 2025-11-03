@@ -441,7 +441,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
                     ? { borderColor: statusColors[localStatus || 'Not started'], color: statusColors[localStatus || 'Not started'] }
                     : { bgcolor: statusColors[localStatus || 'Not started'], color: '#fff' }
                 }
-                className="cursor-pointer"
+                className="cursor-pointer text-sm font-medium"
               />
               <Menu
                 anchorEl={statusAnchorEl}
@@ -452,6 +452,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
                   <MenuItem
                     key={s}
                     disabled={isUpdatingStatus}
+                    className='text-xs'
                     selected={s === localStatus}
                     onClick={async () => {
                       setStatusAnchorEl(null);

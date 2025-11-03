@@ -28,7 +28,7 @@ const readCssVar = (names: string[], fallback: string, preferBody = true) => {
       try {
         const v = getComputedStyle(src as Element).getPropertyValue(name);
         if (v && v.trim()) return v.trim();
-      } catch (e) {
+      } catch {
         // ignore and try next
       }
     }
@@ -175,6 +175,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
   const textPrimaryHex = modeTokens[chosenMode].textPrimary || normalizeColorToHex(textPrimary) || textPrimary;
   const textSecondaryHex = modeTokens[chosenMode].textSecondary || normalizeColorToHex(textSecondary) || textSecondary;
   const dividerHex = modeTokens[chosenMode].divider || normalizeColorToHex(divider) || divider;
+  
 
   // Debug: log computed values so we can trace theme rebuilds when toggling
   // Computed theme tokens available here for debugging when needed
@@ -217,6 +218,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
             '--wkly-shadow': boxShadow,
             // small runtime hint derived from computed background (used to keep helper referenced)
             '--wkly-is-dark-hint': isDarkFromBg ? '1' : '0',
+            '--wkly-chip-label-font-size': '0.75em',
           } as React.CSSProperties,
         },
       },
@@ -232,6 +234,35 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
             backgroundColor: 'transparent',
             boxShadow: 'none',
             color: textPrimaryHex,
+          },
+        },
+      },
+      MuiChip: {
+        styleOverrides: {
+          root: {
+            borderRadius: '9999px',
+            // match .card-category padding: .125rem .625rem
+            padding: '0.125em 0.625em',
+            height: 'auto',
+            // keep chip compact like the tag
+            minHeight: 'auto',
+            display: 'inline-flex',
+            alignItems: 'center',
+          },
+          label: {
+            // match .card-category font-size and line-height
+            fontSize: '0.75rem',
+            lineHeight: '0.85rem',
+            fontWeight: 500,
+            paddingLeft: 0,
+            paddingRight: 0,
+          },
+        },
+      },
+      MuiMenuItem: {
+        styleOverrides: {
+          root: {
+            fontSize: '0.875rem', // 14px
           },
         },
       },
@@ -352,8 +383,8 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
           filter: 'brightness(0.95)',
         },
       },
-    } as any;
-  } catch (e) {
+    };
+  } catch {
     // If palette.getContrastText fails (e.g. primary is a CSS var), fall back safely
     theme.components = theme.components || {};
     theme.components.MuiButton = theme.components.MuiButton || {};
@@ -366,7 +397,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
           filter: 'brightness(0.95)',
         },
       },
-    } as any;
+    };
   }
 
   return theme;
