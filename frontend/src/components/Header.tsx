@@ -29,15 +29,13 @@ export function isMenuHidden(): boolean {
 
 // Update `HeaderProps` to make `isOpen` optional
 interface HeaderProps {
-  theme: 'theme-dark' | 'theme-light';
-  toggleTheme: () => void;
-  isOpen?: boolean; // Made optional
-  handleLogout?: () => Promise<void>; // Optional logout function
+    theme: 'theme-dark' | 'theme-light';
+    toggleTheme: () => void;
+    isOpen?: boolean; // Made optional
+    handleLogout?: () => Promise<void>; // Optional logout function
 }
 
-interface ThemeState {
-    theme: 'theme-dark' | 'theme-light';
-}
+// Theme is provided by the parent App via props; avoid local ThemeState here.
 
 // interface MenuState {
 //     isOpen: boolean;
@@ -46,10 +44,6 @@ interface ThemeState {
 // Update the `Header` component to conditionally require `handleLogout`
 const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     // navigation not required in this component
-    const [themeState, setTheme] = useState<ThemeState['theme']>(
-        localStorage.getItem('theme') as ThemeState['theme'] ||
-        (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-    );
     const [menuOpen, setIsOpen] = useState<MenuBtnProps['isOpen']>(isOpen);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -92,16 +86,9 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
         // You can add any additional logic here if needed});
     };
 
-    useEffect(() => {
-        // Set the initial `data-theme` attribute based on the theme state
-        document.documentElement.setAttribute('data-theme', themeState);
-
-        if (themeState === 'theme-dark') {
-            document.body.classList.add('dark');
-        } else {
-            document.body.classList.remove('dark');
-        }
-    }, [themeState]);
+    // The app-level `theme` and `toggleTheme` are provided via props.
+    // Avoid maintaining a separate local themeState here which can diverge
+    // from the app-level state. Use the passed-in props directly.
 
     // Derive authentication state from the session provided by the auth hook.
     // This avoids making unauthenticated calls on mount which produced noisy
@@ -111,12 +98,8 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     }, [session]);
 
     const toggleThemeInternal = (): void => {
-        const newTheme = themeState === 'theme-dark' ? 'theme-light' : 'theme-dark';
-        setTheme(newTheme);
-        localStorage.setItem('theme', newTheme);
-
-        // Update the `data-theme` attribute on the `html` element
-        document.documentElement.setAttribute('data-theme', newTheme);
+        // Delegate to the app-level toggle so MUI provider and DOM stay in sync.
+        props.toggleTheme();
     };
 
     const handleMenuOpen = (event: React.MouseEvent<HTMLLabelElement>) => {
@@ -144,7 +127,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                         className="btn-ghost ml-4 p-2 rounded absolute top-0 right-0"
                         aria-label="Toggle theme"
                     >
-                        {themeState === 'theme-dark' ? (
+                        {props.theme === 'theme-dark' ? (
                             <Sun className="w-5 h-5 stroke-gray-10 hover:stroke-gray-30 focus:outline-none" />
                         ) : (
                             <Moon className="w-5 h-5 stroke-gray-10 hover:stroke-gray-30 focus:outline-none" />

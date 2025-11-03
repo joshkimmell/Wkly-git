@@ -23,9 +23,14 @@ import MuiCompareDemo from '@components/MuiCompareDemo';
 const App: React.FC = () => {
   const { session, isLoading } = useAuth();
   const navigate = useNavigate();
-  const [theme, setTheme] = useState<'theme-dark' | 'theme-light'>(
-    window.matchMedia('(prefers-color-scheme: dark)').matches ? 'theme-dark' : 'theme-light'
-  );
+  const [theme, setTheme] = useState<'theme-dark' | 'theme-light'>(() => {
+    // Prefer an explicit user preference saved in localStorage, then fall
+    // back to the OS preference. Keep values in the form expected by the
+    // rest of the app: 'theme-dark' | 'theme-light'.
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('theme') : null;
+    if (stored === 'theme-dark' || stored === 'theme-light') return stored;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'theme-dark' : 'theme-light';
+  });
   const [isOpen, /*setIsOpen*/] = useState(false);
 
   const toggleTheme = () => setTheme(prev => (prev === 'theme-dark' ? 'theme-light' : 'theme-dark'));
@@ -52,12 +57,25 @@ const App: React.FC = () => {
 
 
   useEffect(() => {
-  if (theme === 'theme-dark') {
-    document.body.classList.add('dark');
-  } else {
-    document.body.classList.remove('dark');
-  }
-}, [theme]);
+    // Keep the DOM attributes & localStorage in sync with the app-level
+    // theme so CSS variables and class-based styles update for both
+    // Tailwind/class-based styling and the MUI theme provider.
+    if (theme === 'theme-dark') {
+      document.body.classList.add('dark');
+    } else {
+      document.body.classList.remove('dark');
+    }
+    try {
+      document.documentElement.setAttribute('data-theme', theme);
+    } catch (e) {
+      // ignore
+    }
+    try {
+      localStorage.setItem('theme', theme);
+    } catch (e) {
+      // ignore
+    }
+  }, [theme]);
 
   const current = theme;
 
