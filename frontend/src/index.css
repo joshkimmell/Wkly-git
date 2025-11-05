@@ -69,8 +69,12 @@
   }
 
   .card-category {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-10 dark:bg-brand-80 text-brand-90 dark:text-brand-10 mt-2;
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-10 dark:bg-brand-80 text-brand-90 dark:text-brand-10 mt-2 text-nowrap;
   }
+
+  .card-status {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium mt-2;
+  } 
   .card-category span.highlight {
     @apply inline bg-brand-30 text-brand-80 ;
   }
@@ -86,7 +90,7 @@
 
 @theme static {
   --*: initial;
-  --color-background: var(--color-gray-0);
+  --color-background: var(--color-gray-10);
   --color-background-inverse: var(--color-gray-100);
 
   --color-text-primary: var(--color-gray-90);
@@ -220,54 +224,6 @@
     /* background: blue !important; */
     @apply bg-brand-30 dark:bg-brand-60;
 }
-  /* .ql-bubble .ql-toolbar button.ql-active .ql-stroke {
-    @apply text-brand-50 dark:text-brand-80;
-  } */
-  /* .ql-bubble .ql-toolbar button.ql-active {
-    @apply text-gray-50 dark:text-gray-90;
-  } */
-  /* .ql-snow .ql-toolbar {
-    @apply bg-gray-10 dark:bg-gray-90 border border-gray-30 dark:border-gray-70 rounded-md shadow-sm flex items-center justify-between p-2;
-  }
-  .ql-snow .ql-toolbar button {
-    @apply text-gray-70 dark:text-gray-40 hover:text-gray-90 dark:hover:text-gray-10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-70;
-  }
-  .ql-snow .ql-toolbar .ql-active {
-    @apply text-brand-70 dark:text-brand-10;
-} */
-   /* .ql-toolbar button {
-    @apply text-gray-70 dark:text-gray-40 hover:text-gray-90 dark:hover:text-gray-10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-70;
-  }
-  .ql-toolbar .ql-active {
-    @apply text-brand-70 dark:text-brand-10;
-  } */
-  /* .ql-snow .ql-picker-options {
-    @apply bg-gray-10 dark:bg-gray-90 text-gray-70 dark:text-gray-40 border border-gray-30 dark:border-gray-70;
-  }
-  .ql-snow .ql-picker-item {
-    @apply text-gray-70 dark:text-gray-40 hover:bg-gray-20 dark:hover:bg-gray-80;
-  }
-  .ql-snow .ql-picker-label {
-    @apply text-gray-70 dark:text-gray-40;
-  }
-  .ql-snow .ql-picker-item.ql-selected {
-    @apply text-brand-70 dark:text-brand-10 bg-gray-20 dark:bg-gray-80;
-  }
-  .ql-snow .ql-tooltip {
-    @apply bg-gray-10 dark:bg-gray-90 text-gray-70 dark:text-gray-40 border border-gray-30 dark:border-gray-70 shadow-lg;
-  }
-  .ql-snow .ql-tooltip.ql-editing {
-    @apply bg-gray-20 dark:bg-gray-80;
-  }
-  .ql-snow .ql-tooltip.ql-hidden {
-    @apply hidden;
-  }
-  .ql-snow .ql-tooltip.ql-editing .ql-tooltip-editor {
-    @apply bg-gray-10 dark:bg-gray-90 text-gray-70 dark:text-gray-40 border border-gray-30 dark:border-gray-70 rounded-md shadow-sm;
-  }
-  .ql-snow .ql-tooltip.ql-hidden .ql-tooltip-editor {
-    @apply hidden;  
-    } */
   .ql-editor.ql-blank::before {
     @apply text-gray-40 dark:text-gray-30;
   }
