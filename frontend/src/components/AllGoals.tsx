@@ -1074,77 +1074,14 @@ const GoalsComponent = () => {
                     onPageChange={handlePageChange}
                     scope={scope}
                 />
-                {/* Scope Selector */}
-                <div className='flex space-x-2 ml-4'>
-                    {['week', 'month', 'year'].map((s) => (
-                        <button
-                            key={s}
-                            title={`Select ${s}ly view`}
-                                onClick={() => {
-                                    // persist the currently-viewed page for the active scope before switching
-                                    const persistedForOld = currentPage || pageByScopeRef.current[scope];
-                                    const next = { ...pageByScopeRef.current, [scope]: persistedForOld };
-                                    setPageByScope(next);
-                                    pageByScopeRef.current = next;
-                                    try { savePageByScope(next); } catch { /* ignore */ }
-
-                                    // Compute a tentative page for the new scope so the UI doesn't flip to a default.
-                                    // - week (YYYY-MM-DD) -> month (YYYY-MM)
-                                    // - month (YYYY-MM) -> week (YYYY-MM-01) as a reasonable anchor
-                                    // - preserve year where possible
-                                    let tentative: string | undefined = pageByScopeRef.current[s];
-                                    if (!tentative) {
-                                        if (s === 'month') {
-                                            if (currentPage && /^\d{4}-\d{2}-\d{2}$/.test(currentPage)) {
-                                                tentative = currentPage.slice(0, 7); // YYYY-MM
-                                            } else if (currentPage && /^\d{4}-\d{2}$/.test(currentPage)) {
-                                                tentative = currentPage;
-                                            }
-                                        } else if (s === 'week') {
-                                            if (currentPage && /^\d{4}-\d{2}$/.test(currentPage)) {
-                                                tentative = `${currentPage}-01`; // first day of month as anchor week page
-                                            } else if (currentPage && /^\d{4}-\d{2}-\d{2}$/.test(currentPage)) {
-                                                tentative = currentPage;
-                                            }
-                                        } else if (s === 'year') {
-                                            if (currentPage && /^\d{4}-\d{2}-\d{2}$/.test(currentPage)) tentative = currentPage.slice(0, 4);
-                                            else if (currentPage && /^\d{4}-\d{2}$/.test(currentPage)) tentative = currentPage.slice(0, 4);
-                                        }
-                                    }
-
-                                    if (tentative) {
-                                        setCurrentPage(tentative);
-                                        currentPageRef.current = tentative;
-                                    }
-
-                                                                        // Record which scope we're switching from so the next fetch can map correctly
-                                                                        try {
-                                                                            // debug removed in production
-                                                                        } catch { /* ignore */ }
-
-                                                                        console.debug('[AllGoals] scope switch requested', { from: scope, to: s, lastSwitchFromRef: lastSwitchFromRef.current });
-                                                                                                            // We're about to switch scope; enter a short 'loading'
-                                                                                                            // mode so views like Kanban don't read stale indexed data
-                                                                                                            // while the new scoped fetch is in-flight.
-                                                                                                            setIsScopeLoading(true);
-                                                                                                            setIndexedGoals({});
-                                                                                                            setPages([]);
-                                                                                                            setCurrentPage('');
-                                                                                                            currentPageRef.current = '';
-                                                                                                            lastSwitchFromRef.current = scope;
-                                                                                                            setScope(s as 'week' | 'month' | 'year');
-                                }}
-                            className={`btn-ghost ${scope === s ? 'text-brand-60 hover:text-brand-70 dark:text-brand-20 dark:hover:text-brand-10 font-bold underline' : ''}`}
-                        >
-                            <span className="hidden md:inline sm:inline">{s.charAt(0).toUpperCase() + s.slice(1)}</span>
-                            <span className="md:hidden sm:hidden">{s.charAt(0).toUpperCase()}</span>
-                        </button>
-                    ))}
-                </div>
+                
+            </div>
+            <div className="flex space-x-2 items-center">
             </div>
         </div>
         <div className='flex flex-col 2xl:flex-row 2xl:space-x-8 items-start justify-start w-full mb-4'>
             <div id="allGoals" className="flex flex-col gap-4 2xl:w-2/3 w-full">
+                <div className="flex flex-row items-center gap-4 space-x-4">
                  {/* View mode toggle */}
 
                     <ToggleButtonGroup
@@ -1159,14 +1096,86 @@ const GoalsComponent = () => {
                         <Tooltip title="View table" placement="top" arrow><ToggleButton value="table" aria-label="Table view"><Table2Icon /></ToggleButton></Tooltip>
                         <Tooltip title="View kanban board" placement="top" arrow><ToggleButton value="kanban" aria-label="Kanban view"><Kanban /></ToggleButton></Tooltip>
                     </ToggleButtonGroup>
-                    {/* Kanban toggle: show all vs scope-only */}
-                    {viewMode === 'kanban' && (
+                    {/* Scope Selector */}
+                {/* Kanban toggle: show all vs scope-only */}
+                    
                         <FormControlLabel
                             control={<Switch checked={showAllInKanban} onChange={(_, v) => { console.debug('[AllGoals] Kanban switch toggled ->', v); setShowAllInKanban(v); }} size="small" />}
-                            label={showAllInKanban ? 'All' : 'Scope'}
-                            className="ml-2"
+                            label={showAllInKanban ? 'Show all' : 'Scoped'}
+                            className="ml-4 text-sm"
                         />
-                    )}
+                    
+                    {(viewMode !== 'kanban' || (viewMode === 'kanban' && !showAllInKanban)) && (
+
+                        <div className='flex space-x-2 ml-4'>
+                            {['week', 'month', 'year'].map((s) => (
+                                <button
+                                    key={s}
+                                    title={`Select ${s}ly view`}
+                                        onClick={() => {
+                                            // persist the currently-viewed page for the active scope before switching
+                                            const persistedForOld = currentPage || pageByScopeRef.current[scope];
+                                            const next = { ...pageByScopeRef.current, [scope]: persistedForOld };
+                                            setPageByScope(next);
+                                            pageByScopeRef.current = next;
+                                            try { savePageByScope(next); } catch { /* ignore */ }
+
+                                            // Compute a tentative page for the new scope so the UI doesn't flip to a default.
+                                            // - week (YYYY-MM-DD) -> month (YYYY-MM)
+                                            // - month (YYYY-MM) -> week (YYYY-MM-01) as a reasonable anchor
+                                            // - preserve year where possible
+                                            let tentative: string | undefined = pageByScopeRef.current[s];
+                                            if (!tentative) {
+                                                if (s === 'month') {
+                                                    if (currentPage && /^\d{4}-\d{2}-\d{2}$/.test(currentPage)) {
+                                                        tentative = currentPage.slice(0, 7); // YYYY-MM
+                                                    } else if (currentPage && /^\d{4}-\d{2}$/.test(currentPage)) {
+                                                        tentative = currentPage;
+                                                    }
+                                                } else if (s === 'week') {
+                                                    if (currentPage && /^\d{4}-\d{2}$/.test(currentPage)) {
+                                                        tentative = `${currentPage}-01`; // first day of month as anchor week page
+                                                    } else if (currentPage && /^\d{4}-\d{2}-\d{2}$/.test(currentPage)) {
+                                                        tentative = currentPage;
+                                                    }
+                                                } else if (s === 'year') {
+                                                    if (currentPage && /^\d{4}-\d{2}-\d{2}$/.test(currentPage)) tentative = currentPage.slice(0, 4);
+                                                    else if (currentPage && /^\d{4}-\d{2}$/.test(currentPage)) tentative = currentPage.slice(0, 4);
+                                                }
+                                            }
+
+                                            if (tentative) {
+                                                setCurrentPage(tentative);
+                                                currentPageRef.current = tentative;
+                                            }
+
+                                            // Record which scope we're switching from so the next fetch can map correctly
+                                            try {
+                                                // debug removed in production
+                                            } catch { /* ignore */ }
+
+                                            console.debug('[AllGoals] scope switch requested', { from: scope, to: s, lastSwitchFromRef: lastSwitchFromRef.current });
+                                            // We're about to switch scope; enter a short 'loading'
+                                            // mode so views like Kanban don't read stale indexed data
+                                            // while the new scoped fetch is in-flight.
+                                            setIsScopeLoading(true);
+                                            setIndexedGoals({});
+                                            setPages([]);
+                                            setCurrentPage('');
+                                            currentPageRef.current = '';
+                                            lastSwitchFromRef.current = scope;
+                                            setScope(s as 'week' | 'month' | 'year');
+                                        }}
+                                    className={`btn-ghost ${scope === s ? 'text-brand-60 hover:text-brand-70 dark:text-brand-20 dark:hover:text-brand-10 font-bold underline' : ''}`}
+                                >
+                                    <span className="hidden md:inline sm:inline">{s.charAt(0).toUpperCase() + s.slice(1)}</span>
+                                    <span className="md:hidden sm:hidden">{s.charAt(0).toUpperCase()}</span>
+                                </button>
+                            ))}
+                        </div>
+                    )} {/*/ end conditional scope selector*/}
+                </div>
+                    
                 {/* Filter and Sort Controls */}
                 <div className="mt-4 h-10 flex items-center space-x-2">
                     
