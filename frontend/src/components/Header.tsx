@@ -118,8 +118,8 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     };
 
     return (
-        <div className={`header flex items-center dark relative ${menuOpen ? 'header-expanded' : ''}`} style={{ top: 0 }}>
-            {/* {menuOpen === true ? (<p>Menu Open</p>) : (<p>Menu Closed</p>)} */}
+        <div className={`header flex items-center dark relative ${menuOpen ? 'header-expanded top-0' : ''}`}>
+            
             <div className="header-brand">
                 <div className="header-brand--logo-container relative pr-6 flex items-end h-16">
                     <button
@@ -150,20 +150,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                     <>
                     {/* <div className='flex flex-col gap-2'> */}
                     <div className='absolute top-8 sm:top-10 right-3 sm:right-10'>
-                         {/* <Avatar
-                            onClick={handleMenuOpen}
-                            className="ml-auto mr-4 bg-brand-70 dark:bg-brand-30 cursor-pointer justify-end"
-                        >
-                            {profile?.avatar_img ? (
-                                <img
-                                    src={profile.avatar_img}
-                                    alt="User Avatar"
-                                    className="w-full h-full object-cover rounded-full"
-                                />
-                            ) : (
-                                profile?.full_name?.[0]?.toUpperCase() || 'U'
-                            )}
-                        </Avatar> */}
+                         
                         <Avatar
                             isEdit={false}
                             onClick={handleMenuOpen}
@@ -183,9 +170,9 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                         </Menu>
                     </div>
                     {!isMenuHidden() && (
-                        <div className="block sm:hidden">
+                        <div className="relative sm:hidden">
                             <MenuBtn
-                                className="header-brand--menu-btn btn-ghost justify-end"
+                                className="header-brand--menu-btn btn-ghost justify-start top-16"
                                 onClick={handleClick}
                                 isOpen={menuOpen}
                             >
@@ -193,10 +180,6 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                                             <Link onClick={handleMenuItemClick} to="/" className={`${classMenuItem}`}>
                                                 <Home className="w-5 h-5 mr-2" />
                                                 Goals
-                                            </Link>
-                                            <Link onClick={handleMenuItemClick} to="/accomplishments" className={`${classMenuItem}`}>
-                                                <Award className="w-5 h-5 mr-2" />
-                                                Accomplishments
                                             </Link>
                                             <Link onClick={handleMenuItemClick} to="/summaries" className={`${classMenuItem}`}>
                                                 <Text className="w-5 h-5 mr-2" />
@@ -221,39 +204,9 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                             )}
                         </Modal>
                         
-                        {/* </div> */}
                     </>
                 )}
-            </div>
-            {/* {menuOpen && isAuthenticated && (
-                <div className="menu left-0 top-full w-full sm:hidden">
-                    <div className={`menu-container bg-white dark:bg-gray-100 text-brand-80 dark:text-brand-10 align-right`}>
-                        <div className="menu-container--list align-flex-end justify-end flex flex-col space-y-2">
-                            <Link onClick={handleMenuItemClick} to="/" className={`${classMenuItem}`}>
-                                <Home className="w-5 h-5 mr-2" />
-                                Goals
-                            </Link>
-                            <Link onClick={handleMenuItemClick} to="/accomplishments" className={`${classMenuItem}`}>
-                                <Award className="w-5 h-5 mr-2" />
-                                Accomplishments
-                            </Link>
-                            <Link onClick={handleMenuItemClick} to="/summaries" className={`${classMenuItem}`}>
-                                <Text className="w-5 h-5 mr-2" />
-                                Summaries
-                            </Link>
-                            <Link
-                                to="#"
-                                onClick={handleLogoutInternal}
-                                className={`${classMenuItem}`}
-                            >
-                                <LogOut className="w-5 h-5 mr-2" />
-                                Log out
-                            </Link>
-                        </div>
-                    </div>
-                </div>
-            )} */}
-           
+            </div>           
         </div>
     );
 };

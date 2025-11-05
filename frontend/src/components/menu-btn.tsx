@@ -25,7 +25,7 @@ const MenuBtn: React.FC<MenuBtnProps> = ({ onClick, children, className }) => {
   };
 
   return (
-    <div className='flex flex-col align-items-right'>
+    <div className='flex relative flex-col align-items-right'>
       <button onClick={handleToggle} className={`${className} transition-discrete`}>
         {isOpen ? (
           <img src={menuOpenIcon} alt="Menu Open" className="w-6 h-6" />
@@ -41,7 +41,7 @@ const MenuBtn: React.FC<MenuBtnProps> = ({ onClick, children, className }) => {
         unmountOnExit
         nodeRef={nodeRef}
       >
-        <div ref={nodeRef} className="children-container transition-discrete align-items-left absolute right-0 -bottom-40 z-50 bg-white dark:bg-gray-100 shadow-lg rounded-lg p-4">
+        <div ref={nodeRef} className="children-container transition-discrete align-items-left absolute right-0 top-10 z-50 bg-white dark:bg-gray-100 shadow-lg rounded-lg p-4">
           {React.Children.map(children, (child) =>
             React.cloneElement(child as React.ReactElement<any>, {
               onClick: handleMenuClose, // Close menu when a link is clicked

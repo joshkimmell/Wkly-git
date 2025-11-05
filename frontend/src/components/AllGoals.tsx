@@ -14,10 +14,10 @@ import { mapPageForScope, loadPageByScope, savePageByScope } from '@utils/pagina
 import 'react-datepicker/dist/react-datepicker.css';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
-import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, ChevronDown, ChevronUp, Edit, Trash } from 'lucide-react';
+import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, Eye, Edit, Trash, EyeOff } from 'lucide-react';
 import { useGoalsContext } from '@context/GoalsContext';
 // notify helpers imported where needed below
-import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, InputLabel, Select, MenuItem, Tooltip, Menu, Chip, Badge, Checkbox, ListItemText, ToggleButtonGroup, ToggleButton, Table, TableHead, TableBody, TableRow, TableCell, Paper, Typography, Switch, FormControlLabel, CircularProgress } from '@mui/material';
+import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, FormGroup, FormLabel, InputLabel, Select, MenuItem, Tooltip, Menu, Chip, Badge, Checkbox, ListItemText, ToggleButtonGroup, ToggleButton, Table, TableHead, TableBody, TableRow, TableCell, Paper, Typography, Switch, FormControlLabel, CircularProgress } from '@mui/material';
 // dnd-kit was attempted but failed to install; use HTML5 drag/drop fallback
 import { useTheme } from '@mui/material/styles';
 import supabase from '@lib/supabase';
@@ -256,8 +256,9 @@ const GoalsComponent = () => {
 
     // Keep kanbanColumns in sync when indexedGoals change
     useEffect(() => {
-    // Choose source goals for Kanban depending on the user toggle
-    const useFull = viewMode === 'kanban' && showAllInKanban && fullGoals && fullGoals.length > 0;
+    // Choose whether to use the unscoped fullGoals collection depending on the
+    // global 'Show all' toggle. This now applies to all views.
+    const useFull = showAllInKanban && !!fullGoals && fullGoals.length > 0;
     console.debug('[AllGoals] kanbanColumns effect running. useFull=', useFull, { viewMode, showAllInKanban, fullGoalsCount: fullGoals ? fullGoals.length : 0, indexedPages: Object.keys(indexedGoals).length, isScopeLoading });
     // If we're loading a new scope, and the user hasn't requested "All", clear columns
     // to avoid rendering stale IDs from the previous scope.
@@ -270,7 +271,7 @@ const GoalsComponent = () => {
         });
         return;
     }
-    const sourceGoals = useFull ? fullGoals : (indexedGoals[currentPage] || []);
+    const sourceGoals = showAllInKanban ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || []);
         const statuses = ['Not started', 'In progress', 'Blocked', 'On hold', 'Done'];
         const cols: Record<string, string[]> = {} as Record<string, string[]>;
         for (const s of statuses) cols[s] = [];
@@ -969,7 +970,11 @@ const GoalsComponent = () => {
     };
 
     // Filtered & sorted list for the current page (cards/table)
-    const sortedAndFilteredGoals = (indexedGoals[currentPage] || []).filter(goalMatchesFilters).sort((a, b) => {
+    // If the global "Show all" toggle is enabled, present the unscoped fullGoals
+    // list instead of the current page's indexed goals so the toggle applies
+    // consistently across all views.
+    const allIndexedFlattened = Object.values(indexedGoals).flat();
+    const sortedAndFilteredGoals = (showAllInKanban ? (fullGoals || allIndexedFlattened) : (indexedGoals[currentPage] || [])).filter(goalMatchesFilters).sort((a, b) => {
         const dir = sortDirection === 'asc' ? 1 : -1;
         if (sortBy === 'date') {
             return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
@@ -1066,14 +1071,96 @@ const GoalsComponent = () => {
 
         
         <div className="flex justify-between items-start sm:items-center w-full mb-4">
-            <div className='flex flex-col md:flex-row'>
+            <div className='flex flex-col'>
+                {/* Kanban toggle: show all vs scope-only (wrapped in MUI formset for accessibility) */}
+                <FormControl component="fieldset" variant="standard" className="ml-2">
+                    <FormLabel component="legend" className="sr-only">Goal view options</FormLabel>
+                    <FormGroup row>
+                        <FormControlLabel
+                            control={<Switch checked={showAllInKanban} onChange={(_, v) => { console.debug('[AllGoals] Kanban switch toggled ->', v); setShowAllInKanban(v); }} size="small" />}
+                            label={'Show all'}
+                            className="ml-0 text-sm"
+                        />
+
+                        {!showAllInKanban && (
+                            <div className='flex space-x-2'>
+                                {['week', 'month', 'year'].map((s) => (
+                                    <button
+                                        key={s}
+                                        title={`Select ${s}ly view`}
+                                            onClick={() => {
+                                                // persist the currently-viewed page for the active scope before switching
+                                                const persistedForOld = currentPage || pageByScopeRef.current[scope];
+                                                const next = { ...pageByScopeRef.current, [scope]: persistedForOld };
+                                                setPageByScope(next);
+                                                pageByScopeRef.current = next;
+                                                try { savePageByScope(next); } catch { /* ignore */ }
+
+                                                // Compute a tentative page for the new scope so the UI doesn't flip to a default.
+                                                // - week (YYYY-MM-DD) -> month (YYYY-MM)
+                                                // - month (YYYY-MM) -> week (YYYY-MM-01) as a reasonable anchor
+                                                // - preserve year where possible
+                                                let tentative: string | undefined = pageByScopeRef.current[s];
+                                                if (!tentative) {
+                                                    if (s === 'month') {
+                                                        if (currentPage && /^\d{4}-\d{2}-\d{2}$/.test(currentPage)) {
+                                                            tentative = currentPage.slice(0, 7); // YYYY-MM
+                                                        } else if (currentPage && /^\d{4}-\d{2}$/.test(currentPage)) {
+                                                            tentative = currentPage;
+                                                        }
+                                                    } else if (s === 'week') {
+                                                        if (currentPage && /^\d{4}-\d{2}$/.test(currentPage)) {
+                                                            tentative = `${currentPage}-01`; // first day of month as anchor week page
+                                                        } else if (currentPage && /^\d{4}-\d{2}-\d{2}$/.test(currentPage)) {
+                                                            tentative = currentPage;
+                                                        }
+                                                    } else if (s === 'year') {
+                                                        if (currentPage && /^\d{4}-\d{2}-\d{2}$/.test(currentPage)) tentative = currentPage.slice(0, 4);
+                                                        else if (currentPage && /^\d{4}-\d{2}$/.test(currentPage)) tentative = currentPage.slice(0, 4);
+                                                    }
+                                                }
+
+                                                if (tentative) {
+                                                    setCurrentPage(tentative);
+                                                    currentPageRef.current = tentative;
+                                                }
+
+                                                // Record which scope we're switching from so the next fetch can map correctly
+                                                try {
+                                                    // debug removed in production
+                                                } catch { /* ignore */ }
+
+                                                console.debug('[AllGoals] scope switch requested', { from: scope, to: s, lastSwitchFromRef: lastSwitchFromRef.current });
+                                                // We're about to switch scope; enter a short 'loading'
+                                                // mode so views like Kanban don't read stale indexed data
+                                                // while the new scoped fetch is in-flight.
+                                                setIsScopeLoading(true);
+                                                setIndexedGoals({});
+                                                setPages([]);
+                                                setCurrentPage('');
+                                                currentPageRef.current = '';
+                                                lastSwitchFromRef.current = scope;
+                                                setScope(s as 'week' | 'month' | 'year');
+                                            }}
+                                        className={`btn-ghost ${scope === s ? 'text-brand-60 hover:text-brand-70 dark:text-brand-20 dark:hover:text-brand-10 font-bold underline' : ''}`}
+                                    >
+                                        <span className="hidden md:inline sm:inline">{s.charAt(0).toUpperCase() + s.slice(1)}</span>
+                                        <span className="md:hidden sm:hidden">{s.charAt(0).toUpperCase()}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </FormGroup>
+                </FormControl>
                 {/* Pagination */}
+                {!showAllInKanban && (
                 <Pagination
                     pages={pages}
                     currentPage={currentPage}
                     onPageChange={handlePageChange}
                     scope={scope}
                 />
+                )}
                 
             </div>
             <div className="flex space-x-2 items-center">
@@ -1097,83 +1184,7 @@ const GoalsComponent = () => {
                         <Tooltip title="View kanban board" placement="top" arrow><ToggleButton value="kanban" aria-label="Kanban view"><Kanban /></ToggleButton></Tooltip>
                     </ToggleButtonGroup>
                     {/* Scope Selector */}
-                {/* Kanban toggle: show all vs scope-only */}
-                    
-                        <FormControlLabel
-                            control={<Switch checked={showAllInKanban} onChange={(_, v) => { console.debug('[AllGoals] Kanban switch toggled ->', v); setShowAllInKanban(v); }} size="small" />}
-                            label={showAllInKanban ? 'Show all' : 'Scoped'}
-                            className="ml-4 text-sm"
-                        />
-                    
-                    {(viewMode !== 'kanban' || (viewMode === 'kanban' && !showAllInKanban)) && (
-
-                        <div className='flex space-x-2 ml-4'>
-                            {['week', 'month', 'year'].map((s) => (
-                                <button
-                                    key={s}
-                                    title={`Select ${s}ly view`}
-                                        onClick={() => {
-                                            // persist the currently-viewed page for the active scope before switching
-                                            const persistedForOld = currentPage || pageByScopeRef.current[scope];
-                                            const next = { ...pageByScopeRef.current, [scope]: persistedForOld };
-                                            setPageByScope(next);
-                                            pageByScopeRef.current = next;
-                                            try { savePageByScope(next); } catch { /* ignore */ }
-
-                                            // Compute a tentative page for the new scope so the UI doesn't flip to a default.
-                                            // - week (YYYY-MM-DD) -> month (YYYY-MM)
-                                            // - month (YYYY-MM) -> week (YYYY-MM-01) as a reasonable anchor
-                                            // - preserve year where possible
-                                            let tentative: string | undefined = pageByScopeRef.current[s];
-                                            if (!tentative) {
-                                                if (s === 'month') {
-                                                    if (currentPage && /^\d{4}-\d{2}-\d{2}$/.test(currentPage)) {
-                                                        tentative = currentPage.slice(0, 7); // YYYY-MM
-                                                    } else if (currentPage && /^\d{4}-\d{2}$/.test(currentPage)) {
-                                                        tentative = currentPage;
-                                                    }
-                                                } else if (s === 'week') {
-                                                    if (currentPage && /^\d{4}-\d{2}$/.test(currentPage)) {
-                                                        tentative = `${currentPage}-01`; // first day of month as anchor week page
-                                                    } else if (currentPage && /^\d{4}-\d{2}-\d{2}$/.test(currentPage)) {
-                                                        tentative = currentPage;
-                                                    }
-                                                } else if (s === 'year') {
-                                                    if (currentPage && /^\d{4}-\d{2}-\d{2}$/.test(currentPage)) tentative = currentPage.slice(0, 4);
-                                                    else if (currentPage && /^\d{4}-\d{2}$/.test(currentPage)) tentative = currentPage.slice(0, 4);
-                                                }
-                                            }
-
-                                            if (tentative) {
-                                                setCurrentPage(tentative);
-                                                currentPageRef.current = tentative;
-                                            }
-
-                                            // Record which scope we're switching from so the next fetch can map correctly
-                                            try {
-                                                // debug removed in production
-                                            } catch { /* ignore */ }
-
-                                            console.debug('[AllGoals] scope switch requested', { from: scope, to: s, lastSwitchFromRef: lastSwitchFromRef.current });
-                                            // We're about to switch scope; enter a short 'loading'
-                                            // mode so views like Kanban don't read stale indexed data
-                                            // while the new scoped fetch is in-flight.
-                                            setIsScopeLoading(true);
-                                            setIndexedGoals({});
-                                            setPages([]);
-                                            setCurrentPage('');
-                                            currentPageRef.current = '';
-                                            lastSwitchFromRef.current = scope;
-                                            setScope(s as 'week' | 'month' | 'year');
-                                        }}
-                                    className={`btn-ghost ${scope === s ? 'text-brand-60 hover:text-brand-70 dark:text-brand-20 dark:hover:text-brand-10 font-bold underline' : ''}`}
-                                >
-                                    <span className="hidden md:inline sm:inline">{s.charAt(0).toUpperCase() + s.slice(1)}</span>
-                                    <span className="md:hidden sm:hidden">{s.charAt(0).toUpperCase()}</span>
-                                </button>
-                            ))}
-                        </div>
-                    )} {/*/ end conditional scope selector*/}
+                
                 </div>
                     
                 {/* Filter and Sort Controls */}
@@ -1570,7 +1581,8 @@ const GoalsComponent = () => {
                             goal={goal}
                             handleDelete={(goalId) => handleDeleteGoal(goalId)}
                             handleEdit={(goalId) => {
-                                const goalToEdit = indexedGoals[currentPage]?.find((g) => g.id === goalId);
+                                const goalSourceForEdit = showAllInKanban ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || []);
+                                const goalToEdit = goalSourceForEdit.find((g) => g.id === goalId);
                                 if (goalToEdit) {
                                     setSelectedGoal(goalToEdit);
                                     setIsEditorOpen(true);
@@ -1662,23 +1674,46 @@ const GoalsComponent = () => {
                                         return (
                                             <div
                                                 key={status}
-                                                className="flex-1 border border-gray-30 dark:border-gray-70 bg-gray-0 dark:bg-gray-100 p-3 rounded-md"
+                                                className={`${!isCollapsed && ("flex-1" )}border border-gray-30 dark:border-gray-70 bg-gray-0 dark:bg-gray-100 p-3 rounded-md`}
                                                 onDragOver={(e) => handleDragOver(e, status)}
                                                 onDrop={(e) => handleDrop(e, status)}
                                             >
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <h3 className="font-semibold">{status}</h3>
+                                                <div className={`flex items-center justify-between ${!isCollapsed && ('mb-3 w-full ')} `}>
+                                                    {!isCollapsed && (
+                                                        <div className="flex items-center space-x-2">
+                                                        <h3 className="text-nowrap">{status}</h3>
+                                                        </div>
+                                                    )}
                                                     <div className="flex items-center space-x-2">
                                                         {hiddenCount > 0 && (
                                                             <span className="text-sm text-gray-500 dark:text-gray-300">{hiddenCount} hidden</span>
                                                         )}
-                                                        <button
-                                                            aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${status} column`}
-                                                            onClick={() => setCollapsedColumns((prev) => ({ ...prev, [status]: !prev[status] }))}
-                                                            className="btn-ghost p-1"
-                                                        >
-                                                            {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-                                                        </button>
+                                                        {isCollapsed ? (
+                                                            // Compact tile shown when column is collapsed. Clicking it expands the column.
+                                                            <Tooltip title={`${status} — ${allIds.length} items`} placement="top" arrow>
+                                                            <IconButton
+                                                                aria-label={`Show ${status} column`}
+                                                                onClick={() => setCollapsedColumns((prev) => ({ ...prev, [status]: false }))}
+                                                                className="btn-ghost p-1"
+                                                            >
+                                                                <div className="flex items-center">
+                                                                    <Badge badgeContent={allIds.length} color="primary" overlap="circular" className='justify-end right-[-30]'>
+                                                                        <Eye className="w-4 h-4" />
+                                                                    </Badge>
+                                                                </div>
+                                                            </IconButton>
+                                                            </Tooltip>
+                                                        ) : (
+                                                            <Tooltip title={`Collapse ${status} column`} placement="top" arrow>
+                                                                <IconButton
+                                                                    aria-label={`Collapse ${status} column`}
+                                                                    onClick={() => setCollapsedColumns((prev) => ({ ...prev, [status]: !prev[status] }))}
+                                                                    className="btn-ghost p-1"
+                                                                    >
+                                                                    <EyeOff className="w-4 h-4" />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                        )}
                                                     </div>
                                                 </div>
 
@@ -1689,21 +1724,25 @@ const GoalsComponent = () => {
                                                             // which contains unscoped results from the server. When
                                                             // showAllInKanban is false, fall back to the scoped
                                                             // `indexedGoals` map.
-                                                            const goal = (showAllInKanban ? (fullGoals || []) : Object.values(indexedGoals).flat()).find((g) => g.id === id) as Goal | undefined;
+                                                            const goalListForLookup = showAllInKanban ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || []);
+                                                            const goal = (goalListForLookup || []).find((g) => g.id === id) as Goal | undefined;
                                                             if (!goal) return null;
                                                             return (
-                                                                <div key={id} className={`${cardClasses} kanban-card p-2 bg-gray-10 dark:bg-gray-90 rounded shadow-md`} draggable onDragStart={(e) => handleDragStart(e, id)}>
-                                                                    <div className="flex flex-col justify-between items-start">
-                                                                        <div>
-                                                                                <div className="font-medium"><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></div>
-                                                                                <div className="card-category text-nowrap"><span dangerouslySetInnerHTML={renderHTML(goal.category)} /></div>
-                                                                        </div>
-                                                                        <div className="flex flex-row items-end">
-                                                                            <button onClick={() => { setSelectedGoal(goal); setIsEditorOpen(true); }} className="text-sm btn-ghost"><Edit /></button>
-                                                                            <button onClick={() => handleDeleteGoal(goal.id)} className="text-sm btn-ghost"><Trash /></button>
+                                                                <Tooltip key={id} title={<span dangerouslySetInnerHTML={renderHTML(goal.description)} />} placement="top" arrow>
+                                                                    <div className={`${cardClasses} kanban-card p-0 bg-gray-10 dark:bg-gray-90 rounded shadow-md hover:shadow-lg border border-transparent hover:border-gray-20 dark:hover:border-gray-70 transition-shadow`} draggable onDragStart={(e) => handleDragStart(e, id)}>
+                                                                        <div className="flex flex-col justify-between items-start">
+                                                                            <div className="mb-2 gap-2 flex flex-row justify-between w-full items-start">
+                                                                                    <div className="text-sm font-semibold pt-2"><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></div>
+                                                                                    <div className="card-category text-nowrap border"><span dangerouslySetInnerHTML={renderHTML(goal.category)} /></div>
+                                                                            </div>
+                                                                            <div className="flex flex-row w-full justify-end items-end">
+                                                                                <button onClick={() => { setSelectedGoal(goal); setIsEditorOpen(true); }} className="text-sm btn-ghost"><Edit /></button>
+                                                                                <button onClick={() => handleDeleteGoal(goal.id)} className="text-sm btn-ghost"><Trash /></button>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
-                                                                </div>
+                                                                </Tooltip>
+                                                                    
                                                             );
                                                         })}
 
@@ -1730,10 +1769,10 @@ const GoalsComponent = () => {
                     <p className="text-gray-60 dark:text-gray-30">Generate and edit your {scope}ly summary.</p>
                 </div> */}
                 <div id="summary_btn">
-                    <SummaryGenerator 
+                        <SummaryGenerator 
                         summaryId={selectedSummary?.id || ''} 
                         summaryTitle={selectedSummary?.title || `Summary for ${scope}: ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}                                                                                                                                                                                selectedRange={new Date()}
-                        filteredGoals={indexedGoals[currentPage] || []} // Pass the goals for the current page
+                        filteredGoals={showAllInKanban ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || [])} // Pass the goals for the current page or full list
                         scope={scope}
                     />
 
