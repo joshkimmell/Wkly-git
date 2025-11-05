@@ -1656,7 +1656,7 @@ const GoalsComponent = () => {
                 )}
 
                             {viewMode === 'kanban' && (
-                                <div className="flex flex-col mt-2 md:flex-row gap-4 w-full">
+                                <div className="flex flex-col mt-2 lg:flex-row gap-4 w-full">
                                     {isScopeLoading ? (
                                         <div className="w-full flex items-center justify-center p-8">
                                             <div className="flex items-center space-x-3">
