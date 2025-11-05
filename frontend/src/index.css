@@ -223,10 +223,12 @@
   .ql-bubble .ql-toolbar .ql-active, .ql-bubble .ql-toolbar button:hover {
     /* background: blue !important; */
     @apply bg-brand-30 dark:bg-brand-60;
-}
+  }
   .ql-editor.ql-blank::before {
     @apply text-gray-40 dark:text-gray-30;
   }
-  
+  .MuiFormControlLabel-label {
+    @apply text-xs !important;
+  }
   
 } 

@@ -133,12 +133,12 @@ const App: React.FC = () => {
                                 Goals
                               </a>
                           </li>
-                          <li className="me-2">
+                          {/* <li className="me-2">
                               <a href="/accomplishments" className={`${classTabItem} ${window.location.pathname === '/accomplishments' ? ' active' : ''}`} aria-current="page">
                                 <Award className="w-5 h-5 mr-2" />
                                 Accomplishments
                               </a>
-                          </li>
+                          </li> */}
                           <li className="me-2">
                               <a href="/summaries" className={`${classTabItem} ${window.location.pathname === '/summaries' ? ' active' : ''}`} aria-current="page">
                                 <Text className="w-5 h-5 mr-2" />
@@ -159,8 +159,8 @@ const App: React.FC = () => {
             <Routes>
               {/* <Route path="/" element={<WeeklyGoals />} /> */}
               <Route path="/" element={<AllGoals />} />
-              <Route path="/mui-demo" element={<MuiCompareDemo />} />
-              <Route path="/accomplishments" element={<AllAccomplishments />} />
+              {/* <Route path="/mui-demo" element={<MuiCompareDemo />} /> */}
+              {/* <Route path="/accomplishments" element={<AllAccomplishments />} /> */}
               <Route path="/summaries" element={<AllSummaries />} />
               <Route path="/auth" element={<Navigate to="/" replace />} />
               <Route path="/profile" element={<ProfileManagement />} />
