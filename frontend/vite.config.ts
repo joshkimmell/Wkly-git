@@ -35,6 +35,13 @@ export default defineConfig({
             rewrite: (path) => path.replace(/^\/api/, '/.netlify/functions'),
             secure: false, // Set to false if your local server is not using HTTPS
          },
+         // Also proxy direct Netlify Functions paths so code that calls
+         // `/.netlify/functions/<fn>` works during local `vite` dev.
+         '/.netlify/functions': {
+            target: 'http://localhost:8888',
+            changeOrigin: true,
+            secure: false,
+         },
       },
   },
    assetsInclude: ['**/*.svg', '**/*.png'],

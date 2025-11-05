@@ -167,7 +167,10 @@ export const getPagesFromIndexedData = <T>( indexedData: Record<string, T[]> ): 
 // Fetch all goals indexed by week, month, or year
 
 export const fetchAllGoalsIndexed = async (
-    scope: 'week' | 'month' | 'year'
+    scope: 'week' | 'month' | 'year',
+    page?: string, // optional page param: legacy YYYY-MM for month, YYYY for year, or exact week_start
+    start?: string, // optional ISO start date inclusive
+    end?: string // optional ISO end date exclusive
 ): Promise<{ indexedGoals: Record<string, Goal[]>; pages: string[] }> => 
   {
     const { data: { user } } = await supabase.auth.getUser();
@@ -175,8 +178,13 @@ export const fetchAllGoalsIndexed = async (
     const userId = user.id;
 
     try {
-      // const response = await fetch(`${baseUrl}${backend}/getAllGoals?user_id=${userId}&scope=${scope}`);
-      const response = await fetch(`/api/getAllGoals?user_id=${userId}&scope=${scope}`);
+      // Build URL with optional parameters (page, start, end)
+      const params = new URLSearchParams({ user_id: userId, scope });
+      if (page) params.set('page', page);
+      if (start) params.set('start', start);
+      if (end) params.set('end', end);
+      const url = `/api/getAllGoals?${params.toString()}`;
+      const response = await fetch(url);
       if (!response.ok) {
         const errorText = await response.text(); // Read the body once for error logging
         console.error('Error fetching all goals:', errorText);

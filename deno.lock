@@ -11,7 +11,20 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
-        "npm:@netlify/functions@^4.1.5"
+        "npm:@emotion/react@^11.14.0",
+        "npm:@emotion/styled@^11.14.1",
+        "npm:@lexical/react@^0.36.2",
+        "npm:@mui/material@^7.3.4",
+        "npm:@netlify/functions@^4.1.5",
+        "npm:@testing-library/jest-dom@^6.9.1",
+        "npm:@testing-library/react@^16.3.0",
+        "npm:@types/jest@^30.0.0",
+        "npm:@types/react-dom@^19.2.2",
+        "npm:@types/react@^19.2.2",
+        "npm:autoprefixer@^10.4.21",
+        "npm:openai@^6.2.0",
+        "npm:postcss@^8.5.6",
+        "npm:tailwindcss@^4.1.14"
       ]
     }
   }
