@@ -19,10 +19,10 @@ $gray-80: #333333;
 $gray-70: #4D4D4D;
 $gray-60: #666666;
 $gray-50: #808080;
-$gray-40: #999999;
-$gray-30: #B3B3B3;
-$gray-20: #CCCCCC;
-$gray-10: #E6E6E6;
+$gray-40: #a4a4a4;
+$gray-30: #b4b4b4;
+$gray-20: #D7D7D7;
+$gray-10: #EDEDED;
 $gray-0: #F4F4F4;
 
 
@@ -43,7 +43,7 @@ $container-margin: 0 auto;
 // Theme tokens
 $theme-dark: (
     background-color: $gray-100,
-    background-inverse: $gray-0,
+    background-inverse: $gray-10,
     primary-text: $gray-10,
     secondary-text: $gray-30,
     tertiary-text: $gray-50,
@@ -69,7 +69,7 @@ $theme-dark: (
 );
 
 $theme-light: (
-    background-color: $gray-0,
+    background-color: $gray-10,
     background-inverse: $gray-100,
     layer-1: $gray-0,
     primary-text: $gray-100,
@@ -97,44 +97,13 @@ $theme-light: (
 );
 
 
-// $background-color: map-get($theme-dark, background);
-// $background-inverse: map-get($theme-dark, background-inverse);
-// ---- text colors
-// $primary-text: $gray-10;
-// $secondary-text: $gray-30;
-// $tertiary-text: $gray-50;
-// $inverse-text: $gray-90;
-// $button-text: $gray-0;
-// // ---- icon colors
-// $primary-icon: $brand-30;
-// $secondary-icon: $brand-20;
-// $tertiary-icon: $brand-10;
-// $inverse-icon: $brand-0;
-// $interactive-icon: $brand-30;
-// // ---- border colors
-// $primary-border: $brand-70;
-// $secondary-border: $brand-60;
-// $tertiary-border: $brand-50;
-// // ---- button colors
-// $primary-button: $brand-30;
-// $secondary-button: $brand-20;
-// $tertiary-button: $brand-10;
-// $primary-button-hover: $brand-20;
-// $secondary-button-hover: $brand-10;
-// $tertiary-button-hover: $brand-0;
-// // ---- link colors
-// $primary-link: $brand-30;
-// $secondary-link: $brand-20;
-// $tertiary-link: $brand-10;
-
-
 
 @mixin theme-vars($theme-map) {
   --background-color: #{map.get($theme-map, background-color)};
   --background-inverse: #{map.get($theme-map, background-inverse)};
   // layer-1 should be background-inverse at 20% opacity
-  $__layer_inv: map.get($theme-map, background-inverse);
-  --layer-1: #{rgba($__layer_inv, 0.1) + var(--background-color)};
+  // $__layer_inv: map.get($theme-map, background-inverse);
+  // --layer-1: #{rgba($__layer_inv, 0.1) + var(--background-color)};
   --primary-text: #{map.get($theme-map, primary-text)};
   --secondary-text: #{map.get($theme-map, secondary-text)};
   --tertiary-text: #{map.get($theme-map, tertiary-text)};

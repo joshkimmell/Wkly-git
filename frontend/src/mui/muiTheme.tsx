@@ -113,7 +113,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
   const preferBody = mode === 'theme-dark';
   const primary = readCssVar(['--primary-button', '--color-button-primary'], '#4d0057', preferBody);
   const ghost = readCssVar(['--ghost-button', '--color-ghost-primary'], '#4d0057', preferBody);
-  const backgroundRaw = readCssVar(['--background-color', '--color-background-color', '--background-color'], '#ffffff', preferBody);
+  const backgroundRaw = readCssVar(['--background-color', '--color-background-color', '--background-color'], '#ededed', preferBody);
   const textPrimaryRaw = readCssVar(['--primary-text', '--color-text-primary', '--primary-text-color'], '', preferBody);
 
   // Use the explicit `mode` prop as the authoritative signal. The app's
@@ -129,7 +129,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
 
   // explicit sensible hex fallbacks so MUI always has correct colors
   const background = backgroundRaw;
-  const paper = readCssVar(['--background-color', '--color-background-color'], isDark ? '#282828' : '#f4f4f4', preferBody);
+  const paper = readCssVar(['--background-color', '--color-background-color'], isDark ? '#282828' : '#ededed', preferBody);
   const textPrimary = textPrimaryRaw || (isDark ? '#E6E6E6' : '#111827');
   const textSecondary = readCssVar(['--secondary-text', '--color-text-secondary'], isDark ? '#B3B3B3' : '#4D4D4D', preferBody);
   const textPlaceholder = readCssVar(['--placeholder-text', '--color-text-placeholder'], isDark ? '#7A7A7A' : '#A0A0A0', preferBody);
@@ -139,20 +139,12 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
   const fontSize = readCssVar(['--font-size'], '16px', preferBody);
   const borderRadius = readCssVar(['--border-radius'], '8px', preferBody);
   const boxShadow = readCssVar(['--box-shadow'], '0px 2px 4.9px rgba(0,0,0,0.6)', preferBody);
-  // Normalize some values to concrete hex when possible so MUI utilities
-  // like getContrastText receive usable colors instead of raw CSS var strings.
-  // If normalization fails (for example the value is still a CSS var like
-  // "var(--primary-button)"), fall back to a sensible hex based on the
-  // authoritative `mode` prop. This avoids races where the DOM's body
-  // class hasn't been toggled yet but `mode` is known.
-  // Authoritative tokens derived from `src/styles/variables.scss`. We
-  // prefer these based on the selected `mode` to avoid visual inversion
-  // caused by reading CSS variables before the body class is updated.
+
   const modeTokens = {
     light: {
-      primary: '#4d0057', // $brand-70
-      background: '#F4F4F4', // $gray-0
-      paper: '#F4F4F4',
+      primary: '#570082', // $brand-60
+      background: '#ededed', // $gray-10
+      paper: '#F4F4F4', // $gray-0
       textPrimary: '#111827', // near $gray-100
       textSecondary: '#4D4D4D',
       divider: '#e5e7eb',

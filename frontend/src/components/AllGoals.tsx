@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { fetchAllGoalsIndexed, deleteGoal, updateGoal, saveSummary, UserCategories, initializeUserCategories, addCategory, getWeekStartDate, indexDataByScope } from '../utils/functions';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { fetchAllGoalsIndexed, fetchAllGoals, deleteGoal, updateGoal, saveSummary, UserCategories, initializeUserCategories, addCategory, getWeekStartDate, indexDataByScope, applyHighlight } from '../utils/functions';
 import Pagination from './Pagination';
 import GoalCard from '@components/GoalCard';
 import GoalForm from '@components/GoalForm';
@@ -7,18 +7,22 @@ import Modal from 'react-modal';
 import SummaryGenerator from '@components/SummaryGenerator';
 import SummaryEditor from '@components/SummaryEditor';
 import GoalEditor from '@components/GoalEditor';
-import { modalClasses, overlayClasses } from '@styles/classes';
+import { cardClasses, modalClasses, overlayClasses } from '@styles/classes';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import { Goal as GoalUtilsGoal } from '@utils/goalUtils';
 import { mapPageForScope, loadPageByScope, savePageByScope } from '@utils/pagination';
 import 'react-datepicker/dist/react-datepicker.css';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
-import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon } from 'lucide-react';
+import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, ChevronDown, ChevronUp, Edit, Trash } from 'lucide-react';
 import { useGoalsContext } from '@context/GoalsContext';
-import { notifyError } from '@components/ToastyNotification';
-import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, InputLabel, Select, MenuItem, Tooltip, Menu, Chip, Badge, Checkbox, ListItemText } from '@mui/material';
+// notify helpers imported where needed below
+import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, InputLabel, Select, MenuItem, Tooltip, Menu, Chip, Badge, Checkbox, ListItemText, ToggleButtonGroup, ToggleButton, Table, TableHead, TableBody, TableRow, TableCell, Paper, Typography, Switch, FormControlLabel, CircularProgress } from '@mui/material';
+// dnd-kit was attempted but failed to install; use HTML5 drag/drop fallback
 import { useTheme } from '@mui/material/styles';
+import supabase from '@lib/supabase';
+import { STATUSES, STATUS_COLORS, type Status } from '../constants/statuses';
+import { notifyError, notifySuccess } from '@components/ToastyNotification';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type { Dayjs } from 'dayjs';
@@ -27,7 +31,77 @@ type Goal = GoalUtilsGoal & {
   created_at?: string;
 };
 
+// Inline per-goal status component (mirrors GoalCard behavior)
+const InlineStatus: React.FC<{ goal: Goal; onUpdated?: () => void }> = ({ goal, onUpdated }) => {
+    const [localStatus, setLocalStatus] = useState<string | undefined>(goal.status);
+    const [statusAnchorEl, setStatusAnchorEl] = useState<null | HTMLElement>(null);
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+    const statusColors = STATUS_COLORS;
+
+    return (
+        <div>
+            <Chip
+                label={localStatus}
+                size="small"
+                onClick={(e) => setStatusAnchorEl(e.currentTarget)}
+                variant={localStatus === 'Not started' ? 'outlined' : 'filled'}
+                sx={
+                    localStatus === 'Not started'
+                        ? { borderColor: statusColors[localStatus || 'Not started'], color: statusColors[localStatus || 'Not started'] }
+                        : { bgcolor: statusColors[localStatus || 'Not started'], color: '#fff' }
+                }
+                className="cursor-pointer text-sm font-medium"
+            />
+            <Menu anchorEl={statusAnchorEl} open={Boolean(statusAnchorEl)} onClose={() => setStatusAnchorEl(null)}>
+                {STATUSES.map((s: Status) => (
+                    <MenuItem
+                        key={s}
+                        disabled={isUpdatingStatus}
+                        className="text-xs"
+                        selected={s === localStatus}
+                        onClick={async () => {
+                            setStatusAnchorEl(null);
+                            if (s === localStatus) return;
+                            const prev = localStatus;
+                            setLocalStatus(s);
+                            setIsUpdatingStatus(true);
+                            try {
+                                const { error } = await supabase
+                                    .from('goals')
+                                    .update({ status: s, status_set_at: new Date().toISOString() })
+                                    .eq('id', goal.id);
+                                if (error) throw error;
+                                notifySuccess('Status updated');
+                                try { if (onUpdated) await onUpdated(); } catch (e) { /* ignore */ }
+                            } catch (err: any) {
+                                console.error('Failed to update status:', err);
+                                setLocalStatus(prev);
+                                notifyError('Failed to update status');
+                            } finally {
+                                setIsUpdatingStatus(false);
+                            }
+                        }}
+                    >
+                        <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 6, background: statusColors[s], marginRight: 8 }} />
+                        {s}
+                    </MenuItem>
+                ))}
+            </Menu>
+        </div>
+    );
+};
+
 const GoalsComponent = () => {
+    // helper to toggle table sorting from header clicks
+    const toggleSort = (field: 'date' | 'category' | 'status') => {
+        if (sortBy === field) {
+            setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+        } else {
+            setSortBy(field);
+            setSortDirection('asc');
+        }
+    };
+
     const [indexedGoals, setIndexedGoals] = useState<Record<string, Goal[]>>({});
     const [pages, setPages] = useState<string[]>([]);
     const [currentPage, setCurrentPage] = useState<string>('');
@@ -105,6 +179,221 @@ const GoalsComponent = () => {
         (filter && filter.trim().length > 0 ? 1 : 0);
 
     const theme = useTheme();
+    // view mode: 'cards' (default), 'table', or 'kanban'
+    const [viewMode, setViewMode] = useState<'cards' | 'table' | 'kanban'>(() => {
+        try {
+            const v = localStorage.getItem('goals_view_mode');
+            if (v === 'cards' || v === 'table' || v === 'kanban') return v;
+        } catch (e) {
+            // ignore
+        }
+        return 'cards';
+    });
+
+    // Whether Kanban should show all goals (true) or only current scope (false).
+    const [showAllInKanban, setShowAllInKanban] = useState<boolean>(() => {
+        try {
+            const v = localStorage.getItem('kanban_show_all');
+            return v === null ? true : v === 'true';
+        } catch (e) { return true; }
+    });
+
+    useEffect(() => {
+        try {
+            console.debug('[AllGoals] showAllInKanban persisted ->', showAllInKanban);
+            localStorage.setItem('kanban_show_all', showAllInKanban ? 'true' : 'false');
+        } catch {}
+    }, [showAllInKanban]);
+
+    // When user turns OFF 'Show all' ensure we drop the unscoped cache so the
+    // UI and effects only operate on scoped `indexedGoals`. This avoids any
+    // accidental usage of stale `fullGoals` when the toggle is disabled.
+    useEffect(() => {
+        if (!showAllInKanban) {
+            console.debug('[AllGoals] showAllInKanban disabled — clearing fullGoals cache');
+            setFullGoals(null);
+        }
+    }, [showAllInKanban]);
+
+    const handleChangeView = (_: React.MouseEvent<HTMLElement>, value: 'cards' | 'table' | 'kanban' | null) => {
+        if (!value) return;
+        setViewMode(value);
+        try { localStorage.setItem('goals_view_mode', value); } catch { /* ignore */ }
+    };
+
+    // Compute set of visible goal IDs based on active filters so Kanban can respect the same filter
+    // NOTE: moved below after `sortedAndFilteredGoals` is declared to avoid TDZ errors
+
+    // Drag & drop state for Kanban
+    const [draggingId, setDraggingId] = useState<string | null>(null);
+    const [isScopeLoading, setIsScopeLoading] = useState<boolean>(false);
+
+    // Wrapper used to trace and centralize logging for scope-loading state.
+    // This temporary debug helper assigns a short sequence id for each transition
+    // and records timestamps and a short stack snippet so we can trace which
+    // code path set/cleared the flag.
+    // Debug logging was previously used here; keep minimal dev-only traces where
+    // helpful. The detailed tracing wrapper has been removed to clean up the code.
+
+    // Kanban columns mapping: status -> ordered array of goal ids
+    const [kanbanColumns, setKanbanColumns] = useState<Record<string, string[]>>(() => {
+        const statuses = ['Not started', 'In progress', 'Blocked', 'On hold', 'Done'];
+        const out: Record<string, string[]> = {};
+        for (const s of statuses) out[s] = [];
+        return out;
+    });
+
+    // Cache full (unscoped) goals used by Kanban so board shows all goals by default
+    const [fullGoals, setFullGoals] = useState<Goal[] | null>(null);
+
+    // Column collapsed state for Kanban (allow user to hide/show a column)
+    const [collapsedColumns, setCollapsedColumns] = useState<Record<string, boolean>>(() => {
+        const statuses = ['Not started', 'In progress', 'Blocked', 'On hold', 'Done'];
+        const out: Record<string, boolean> = {};
+        for (const s of statuses) out[s] = false;
+        return out;
+    });
+
+    // Keep kanbanColumns in sync when indexedGoals change
+    useEffect(() => {
+    // Choose source goals for Kanban depending on the user toggle
+    const useFull = viewMode === 'kanban' && showAllInKanban && fullGoals && fullGoals.length > 0;
+    console.debug('[AllGoals] kanbanColumns effect running. useFull=', useFull, { viewMode, showAllInKanban, fullGoalsCount: fullGoals ? fullGoals.length : 0, indexedPages: Object.keys(indexedGoals).length, isScopeLoading });
+    // If we're loading a new scope, and the user hasn't requested "All", clear columns
+    // to avoid rendering stale IDs from the previous scope.
+    if (isScopeLoading && viewMode === 'kanban' && !showAllInKanban) {
+    setKanbanColumns((_prev) => {
+            const statuses = ['Not started', 'In progress', 'Blocked', 'On hold', 'Done'];
+            const empty: Record<string, string[]> = {} as Record<string, string[]>;
+            for (const s of statuses) empty[s] = [];
+            return empty;
+        });
+        return;
+    }
+    const sourceGoals = useFull ? fullGoals : (indexedGoals[currentPage] || []);
+        const statuses = ['Not started', 'In progress', 'Blocked', 'On hold', 'Done'];
+        const cols: Record<string, string[]> = {} as Record<string, string[]>;
+        for (const s of statuses) cols[s] = [];
+        for (const g of sourceGoals.filter(goalMatchesFilters)) {
+            const st = (g.status as string) || 'Not started';
+            if (!cols[st]) cols[st] = [];
+            cols[st].push(g.id);
+        }
+        setKanbanColumns(cols);
+    }, [indexedGoals, viewMode, showAllInKanban, fullGoals, currentPage, filter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection]);
+
+    // Keep kanban columns updated when fullGoals or filters change
+    useEffect(() => {
+        if (viewMode !== 'kanban') return;
+        if (!fullGoals) return;
+        const statuses = ['Not started', 'In progress', 'Blocked', 'On hold', 'Done'];
+        const cols: Record<string, string[]> = {} as Record<string, string[]>;
+        for (const s of statuses) cols[s] = [];
+        for (const g of fullGoals.filter(goalMatchesFilters)) {
+            const st = (g.status as string) || 'Not started';
+            if (!cols[st]) cols[st] = [];
+            cols[st].push(g.id);
+        }
+        setKanbanColumns(cols);
+    }, [fullGoals, filter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection, viewMode]);
+
+    // Fetch the full (unscoped) goals list when entering Kanban view AND the user
+    // requested "Show all" so the board shows all goals by default only when needed.
+    useEffect(() => {
+        let mounted = true;
+        const load = async () => {
+            if (viewMode !== 'kanban' || !showAllInKanban) return;
+            try {
+                const all = await fetchAllGoals();
+                if (mounted) setFullGoals(all);
+            } catch (err) {
+                console.error('Failed to fetch full goals for kanban:', err);
+            }
+        };
+        load();
+        return () => { mounted = false; };
+    }, [viewMode, showAllInKanban]);
+
+    // HTML5 Drag & Drop Kanban handlers (visual feedback + reorder)
+    const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+    const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+    const handleDragStart = (e: React.DragEvent, id: string) => {
+        setDraggingId(id);
+        try { e.dataTransfer?.setData('text/plain', id); } catch { /* ignore */ }
+        e.dataTransfer!.effectAllowed = 'move';
+    };
+
+    const handleDragEnd = () => {
+        setDraggingId(null);
+        setDragOverColumn(null);
+        setDragOverIndex(null);
+    };
+
+    const getDropIndex = (e: React.DragEvent, columnEl: HTMLElement) => {
+        const cards = Array.from(columnEl.querySelectorAll('.kanban-card')) as HTMLElement[];
+        for (let i = 0; i < cards.length; i++) {
+            const rect = cards[i].getBoundingClientRect();
+            if (e.clientY < rect.top + rect.height / 2) return i;
+        }
+        return cards.length;
+    };
+
+    const handleDragOver = (e: React.DragEvent, status: string) => {
+        e.preventDefault();
+        const col = e.currentTarget as HTMLElement;
+        const idx = getDropIndex(e, col);
+        setDragOverColumn(status);
+        setDragOverIndex(idx);
+    };
+
+    const handleDrop = async (e: React.DragEvent, status: string) => {
+        e.preventDefault();
+        const id = (() => { try { return e.dataTransfer?.getData('text/plain') || draggingId; } catch { return draggingId; } })();
+        if (!id) { handleDragEnd(); return; }
+        const prevColumns = { ...kanbanColumns };
+        try {
+            // remove from source
+            let sourceCol: string | undefined;
+            for (const k of Object.keys(prevColumns)) {
+                if (prevColumns[k].includes(id)) { sourceCol = k; break; }
+            }
+            if (!sourceCol) { handleDragEnd(); return; }
+            const newCols: Record<string, string[]> = {};
+            for (const k of Object.keys(prevColumns)) newCols[k] = [...prevColumns[k]];
+            // remove id
+            newCols[sourceCol] = newCols[sourceCol].filter((v) => v !== id);
+            // insert into dest
+            const insertIndex = dragOverIndex != null ? dragOverIndex : newCols[status].length;
+            newCols[status].splice(insertIndex, 0, id);
+            setKanbanColumns(newCols);
+
+            // Optimistically update indexedGoals statuses
+            setIndexedGoals((prevIndexedState) => {
+                const copy: Record<string, Goal[]> = {};
+                for (const k of Object.keys(prevIndexedState)) copy[k] = [...prevIndexedState[k]];
+                for (const p of Object.keys(copy)) {
+                    const idx = copy[p].findIndex((g) => g.id === id);
+                    if (idx !== -1) {
+                        copy[p][idx] = { ...copy[p][idx], status: status as Goal['status'] };
+                        break;
+                    }
+                }
+                return copy;
+            });
+
+            const original = Object.values(indexedGoals).flat().find(g => g.id === id) as Goal | undefined;
+            await updateGoal(id, { ...(original || { id, title: '', description: '', category: '', week_start: '', user_id: '' }), status: status as Goal['status'] });
+        } catch (err) {
+            setKanbanColumns(prevColumns);
+            console.error('Failed to move goal:', err);
+            notifyError('Failed to move goal.');
+        } finally {
+            handleDragEnd();
+        }
+    };
+
+    // Old HTML5 drag/drop handlers removed in favor of dnd-kit sortable implementation.
 
     // Set the default scope to the current week
             useEffect(() => {
@@ -155,6 +444,8 @@ const GoalsComponent = () => {
                                 prevScopeRef.current = scope;
                                 lastSwitchFromRef.current = null;
                                 await initializeUserCategories();
+                                    // We used cached client goals to populate pages; clear loading state
+                                    setIsScopeLoading(false);
                                 return;
                             }
                         }
@@ -163,6 +454,7 @@ const GoalsComponent = () => {
                     }
                     try {
                         // Fetch goals for the selected scope
+                        console.debug('[AllGoals] fetchAllGoalsIndexed called with scope=', scope);
                         const { indexedGoals, pages } = await fetchAllGoalsIndexed(scope);
                         // If another fetch started after this one, ignore these results
                         if (id !== fetchIdRef.current) return;
@@ -244,7 +536,7 @@ const GoalsComponent = () => {
                         // Only set the initial page on first successful fetch to avoid flip-flopping.
                         // On subsequent fetches, only update currentPage if the current value is missing
                         // from the newly-fetched pages (e.g., it was removed) to avoid switching views.
-                                                if (!initializedRef.current) {
+                        if (!initializedRef.current) {
                                                         const initial = desiredPage || (pages[0] ?? '');
                                                         // set initial page
                                                         setCurrentPage(initial);
@@ -261,6 +553,51 @@ const GoalsComponent = () => {
                                                                 // after setting fallback page
                                                         }
                                                 }
+                        
+                        // If we determined a desiredPage, ask the server for only that page
+                        // using start/end (or legacy page for week) to reduce payload. This is
+                        // backwards-compatible because initial fetch produced `pages` used
+                        // for mapping; here we optionally replace the full indexedGoals with
+                        // a server-filtered snapshot for the chosen page.
+                        if (desiredPage) {
+                            try {
+                                let startParam: string | undefined;
+                                let endParam: string | undefined;
+                                // compute start/end based on scope and desiredPage
+                                if (scope === 'week') {
+                                    // week scope: use exact page (legacy equality) via `page`
+                                    const resp = await fetchAllGoalsIndexed(scope, desiredPage);
+                                    if (resp && resp.indexedGoals) {
+                                        setIndexedGoals(resp.indexedGoals);
+                                        setPages(resp.pages);
+                                    }
+                                } else if (scope === 'month') {
+                                    const [y, m] = (desiredPage as string).split('-');
+                                    startParam = `${y}-${m}-01`;
+                                    const monthIndex = parseInt(m, 10);
+                                    endParam = monthIndex === 12 ? `${parseInt(y, 10) + 1}-01-01` : `${y}-${String(monthIndex + 1).padStart(2, '0')}-01`;
+                                    const resp = await fetchAllGoalsIndexed(scope, undefined, startParam, endParam);
+                                    if (resp && resp.indexedGoals) {
+                                        setIndexedGoals(resp.indexedGoals);
+                                        setPages(resp.pages);
+                                    }
+                                } else if (scope === 'year') {
+                                    const y = desiredPage as string;
+                                    startParam = `${y}-01-01`;
+                                    endParam = `${parseInt(y, 10) + 1}-01-01`;
+                                    const resp = await fetchAllGoalsIndexed(scope, undefined, startParam, endParam);
+                                    if (resp && resp.indexedGoals) {
+                                        setIndexedGoals(resp.indexedGoals);
+                                        setPages(resp.pages);
+                                    }
+                                }
+                            } catch (err) {
+                                console.warn('[AllGoals] server-filtered page fetch failed (falling back to full indexed):', err);
+                            }
+                        }
+
+                // We've received scoped data — end the loading state.
+                setIsScopeLoading(false);
 
                         // Keep track of the scope we just loaded so future mappings are correct
                         prevScopeRef.current = scope;
@@ -271,6 +608,8 @@ const GoalsComponent = () => {
                         await initializeUserCategories();
                     } catch (error) {
                         console.error('Error fetching goals or initializing categories:', error);
+                            // Ensure we clear loading state on error so the UI doesn't stay blocked
+                            try { setIsScopeLoading(false); } catch {}
                     }
                 };
 
@@ -331,6 +670,8 @@ const GoalsComponent = () => {
         return { indexedGoals, pages };
         } catch (error) {
         console.error('Error refreshing goals:', error);
+        // If refresh failed, ensure we exit the loading state so the UI doesn't stay blocked
+    setIsScopeLoading(false);
         return { indexedGoals: {}, pages: [] };
         }
     }, [scope]);
@@ -366,6 +707,34 @@ const GoalsComponent = () => {
     //};
 // Delete a goal
     const { refreshGoals: ctxRefresh, removeGoalFromCache, lastUpdated, lastAddedIds, setLastAddedIds, goals: ctxGoals } = useGoalsContext();
+
+    // Periodic refresh of fullGoals and refresh on background signals while Kanban is active
+    // Only refresh the unscoped list when the user has chosen to show all goals.
+    useEffect(() => {
+        let mounted = true;
+        const reload = async () => {
+            if (viewMode !== 'kanban' || !showAllInKanban) {
+                console.debug('[AllGoals] reload skipped, viewMode or toggle not set', { viewMode, showAllInKanban });
+                return;
+            }
+            try {
+                console.debug('[AllGoals] reload: fetching fullGoals (showAllInKanban=true)');
+                const all = await fetchAllGoals();
+                if (mounted) setFullGoals(all);
+            } catch (err) {
+                console.error('Error refreshing fullGoals:', err);
+            }
+        };
+
+        // Immediate refresh on background signals
+        if (lastUpdated || (lastAddedIds && lastAddedIds.length > 0)) reload();
+
+        const handle = setInterval(() => {
+            reload();
+        }, 60_000); // refresh every 60 seconds
+
+        return () => { mounted = false; clearInterval(handle); };
+    }, [viewMode, showAllInKanban, lastUpdated, lastAddedIds]);
 
     // When the global goals cache is updated (via context), ensure this component refreshes
     useEffect(() => {
@@ -483,18 +852,11 @@ const GoalsComponent = () => {
 
    // Filter goals based on the filter state
   const handleFilterChange = (filterValue: string) => {
-    setFilter(filterValue);
-    if (filterValue) {
-      const filtered = (indexedGoals[currentPage] || []).filter((goal) =>
-        goal.title.toLowerCase().includes(filterValue.toLowerCase()) ||
-        goal.category.toLowerCase().includes(filterValue.toLowerCase()) ||
-        goal.description.toLowerCase().includes(filterValue.toLowerCase()) ||
-        goal.week_start.toLowerCase().includes(filterValue.toLowerCase())
-      );
-      setIndexedGoals((prev) => ({ ...prev, [currentPage]: filtered }));
-    } else {
-      refreshGoals(); // Reset to all goals if no filter
-    }
+        // Keep the filter as a separate piece of state. Don't mutate the source
+        // `indexedGoals` — let the derived `sortedAndFilteredGoals` compute the
+        // filtered list for each view. This avoids losing data for other pages and
+        // prevents runtime errors when some fields are null.
+        setFilter(filterValue);
   };
 
   const handlePageChange = (page: string) => {
@@ -504,6 +866,10 @@ const GoalsComponent = () => {
     setPageByScope(next);
     pageByScopeRef.current = next;
     try { savePageByScope(next); } catch { /* ignore */ }
+        // Ensure any transient scope-loading state is cleared when the user explicitly
+        // navigates pages. This avoids cases where a previous scope-switch left
+        // `isScopeLoading` true and the UI would stay blocked after pagination.
+    try { setIsScopeLoading(false); } catch {}
   };
 
     // persist pageByScope whenever it changes (e.g., scope switches)
@@ -515,87 +881,169 @@ const GoalsComponent = () => {
         }
     }, [pageByScope]);
 
+    // Defensive effect: if we're showing a page that already exists in `pages`
+    // or Kanban isn't restricted to scoped data, clear any lingering loading
+    // indicator. This covers race conditions where a fetch returned early or
+    // an error path didn't clear `isScopeLoading`.
+    useEffect(() => {
+        try {
+            if (!isScopeLoading) return;
+            // If we're not in scoped kanban mode, there's nothing to wait for
+            if (viewMode !== 'kanban' || showAllInKanban) {
+                setIsScopeLoading(false);
+                return;
+            }
+            // If pages are populated and the current page is available, stop loading
+            if (pages && pages.length > 0 && currentPage && pages.includes(currentPage)) {
+                setIsScopeLoading(false);
+                return;
+            }
+        } catch (err) {
+            // best-effort only
+            try { setIsScopeLoading(false); } catch {}
+        }
+    }, [currentPage, pages, viewMode, showAllInKanban, isScopeLoading]);
+
     // console.log('Indexed Goals:', indexedGoals);
     // console.log('Filtered Goals:', filteredGoals);
     // console.log('Formatted date:', formattedDate);
 
-  // Update the Goals list rendering logic to apply filtering and sorting
-  const sortedAndFilteredGoals = (indexedGoals[currentPage] || [])
-    .filter((goal) => {
-            // text filter
-            const textMatch = !filter || (
-                goal.title.toLowerCase().includes(filter.toLowerCase()) ||
-                goal.category.toLowerCase().includes(filter.toLowerCase()) ||
-                goal.description.toLowerCase().includes(filter.toLowerCase()) ||
-                (goal.week_start || '').toLowerCase().includes(filter.toLowerCase())
-            );
+  // Filtering predicate to be shared across views
+    const goalMatchesFilters = (goal: Goal) => {
+        // text filter (defensive)
+        const q = (filter || '').toString().trim();
+        const qLower = q ? q.toLowerCase() : '';
+        const safe = (v: unknown) => (typeof v === 'string' ? v : '') as string;
+        const textMatch = !qLower || (
+            safe(goal.title).toLowerCase().includes(qLower) ||
+            safe(goal.category).toLowerCase().includes(qLower) ||
+            safe(goal.description).toLowerCase().includes(qLower) ||
+            safe(goal.week_start).toLowerCase().includes(qLower)
+        );
+        if (!textMatch) return false;
 
-            if (!textMatch) return false;
+        // status filter (multi-select)
+        if (filterStatus && filterStatus.length > 0 && !filterStatus.includes((goal.status || ''))) return false;
 
-            // status filter (multi-select)
-            if (filterStatus && filterStatus.length > 0 && !filterStatus.includes((goal.status || ''))) return false;
+        // category filter (multi-select)
+        if (filterCategory && filterCategory.length > 0 && !filterCategory.includes((goal.category || ''))) return false;
 
-            // category filter (multi-select)
-            if (filterCategory && filterCategory.length > 0 && !filterCategory.includes((goal.category || ''))) return false;
+        // time range filter - compare week_start (YYYY-MM-DD)
+        const compareGoalDate = (dateStr: string | undefined): Date | null => {
+            if (!dateStr) return null;
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return null;
+            return d;
+        };
 
-                    // time range filter - compare week_start (YYYY-MM-DD)
-                    const compareGoalDate = (dateStr: string | undefined): Date | null => {
-                        if (!dateStr) return null;
-                        const d = new Date(dateStr);
-                        if (isNaN(d.getTime())) return null;
-                        return d;
-                    };
+        const isDayjsLike = (v: unknown): v is { toDate: () => Date } => {
+            return typeof v === 'object' && v !== null && 'toDate' in v && typeof (v as { toDate?: unknown }).toDate === 'function';
+        };
 
-                    const isDayjsLike = (v: unknown): v is { toDate: () => Date } => {
-                        return typeof v === 'object' && v !== null && 'toDate' in v && typeof (v as { toDate?: unknown }).toDate === 'function';
-                    };
+        if (filterStartDate) {
+            try {
+                const goalDate = compareGoalDate(goal.week_start);
+                let start: Date | undefined;
+                if (isDayjsLike(filterStartDate)) {
+                    start = filterStartDate.toDate();
+                } else {
+                    start = filterStartDate as unknown as Date;
+                }
+                if (goalDate && start && goalDate < start) return false;
+            } catch { /* ignore parse errors */ }
+        }
+        if (filterEndDate) {
+            try {
+                const goalDate = compareGoalDate(goal.week_start);
+                let end: Date | undefined;
+                if (isDayjsLike(filterEndDate)) {
+                    end = filterEndDate.toDate();
+                } else {
+                    end = filterEndDate as unknown as Date;
+                }
+                if (goalDate && end && goalDate > end) return false;
+            } catch { /* ignore parse errors */ }
+        }
 
-                    if (filterStartDate) {
-                        try {
-                            const goalDate = compareGoalDate(goal.week_start);
-                            let start: Date | undefined;
-                            if (isDayjsLike(filterStartDate)) {
-                                start = filterStartDate.toDate();
-                            } else {
-                                start = filterStartDate as unknown as Date;
-                            }
-                            if (goalDate && start && goalDate < start) return false;
-                        } catch { /* ignore parse errors */ }
-                    }
-                    if (filterEndDate) {
-                        try {
-                            const goalDate = compareGoalDate(goal.week_start);
-                            let end: Date | undefined;
-                            if (isDayjsLike(filterEndDate)) {
-                                end = filterEndDate.toDate();
-                            } else {
-                                end = filterEndDate as unknown as Date;
-                            }
-                            if (goalDate && end && goalDate > end) return false;
-                        } catch { /* ignore parse errors */ }
-                    }
+        return true;
+    };
 
-            return true;
-    })
-        .sort((a, b) => {
-            const dir = sortDirection === 'asc' ? 1 : -1;
-            if (sortBy === 'date') {
-                return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-            }
-            if (sortBy === 'category') {
-                const ca = (a.category || '').toLowerCase();
-                const cb = (b.category || '').toLowerCase();
-                if (ca < cb) return -1 * dir;
-                if (ca > cb) return 1 * dir;
-                return 0;
-            }
-            // status
-            const sa = (a.status || '').toLowerCase();
-            const sb = (b.status || '').toLowerCase();
-            if (sa < sb) return -1 * dir;
-            if (sa > sb) return 1 * dir;
+    // Filtered & sorted list for the current page (cards/table)
+    const sortedAndFilteredGoals = (indexedGoals[currentPage] || []).filter(goalMatchesFilters).sort((a, b) => {
+        const dir = sortDirection === 'asc' ? 1 : -1;
+        if (sortBy === 'date') {
+            return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        }
+        if (sortBy === 'category') {
+            const ca = (a.category || '').toLowerCase();
+            const cb = (b.category || '').toLowerCase();
+            if (ca < cb) return -1 * dir;
+            if (ca > cb) return 1 * dir;
             return 0;
-        });
+        }
+        const sa = (a.status || '').toLowerCase();
+        const sb = (b.status || '').toLowerCase();
+        if (sa < sb) return -1 * dir;
+        if (sa > sb) return 1 * dir;
+        return 0;
+    });
+
+    // Filtered & sorted list across all indexed pages (for Kanban view)
+    const sortedAndFilteredAllGoals = Object.values(indexedGoals).flat().filter(goalMatchesFilters).sort((a, b) => {
+        const dir = sortDirection === 'asc' ? 1 : -1;
+        if (sortBy === 'date') {
+            return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        }
+        if (sortBy === 'category') {
+            const ca = (a.category || '').toLowerCase();
+            const cb = (b.category || '').toLowerCase();
+            if (ca < cb) return -1 * dir;
+            if (ca > cb) return 1 * dir;
+            return 0;
+        }
+        const sa = (a.status || '').toLowerCase();
+        const sb = (b.status || '').toLowerCase();
+        if (sa < sb) return -1 * dir;
+        if (sa > sb) return 1 * dir;
+        return 0;
+    });
+
+    // Filtered & sorted list from the unscoped fullGoals cache (when available)
+    const sortedAndFilteredFullGoals = (fullGoals || []).filter(goalMatchesFilters).sort((a, b) => {
+        const dir = sortDirection === 'asc' ? 1 : -1;
+        if (sortBy === 'date') {
+            return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        }
+        if (sortBy === 'category') {
+            const ca = (a.category || '').toLowerCase();
+            const cb = (b.category || '').toLowerCase();
+            if (ca < cb) return -1 * dir;
+            if (ca > cb) return 1 * dir;
+            return 0;
+        }
+        const sa = (a.status || '').toLowerCase();
+        const sb = (b.status || '').toLowerCase();
+        if (sa < sb) return -1 * dir;
+        if (sa > sb) return 1 * dir;
+        return 0;
+    });
+
+    // Compute visible IDs depending on viewMode (kanban wants all-goals filtering)
+    const visibleGoalIds = useMemo(() => {
+        let list: Goal[];
+        if (viewMode === 'kanban') {
+            if (showAllInKanban) {
+                list = sortedAndFilteredFullGoals;
+            } else {
+                // When not showing all in kanban, respect the current page/scope
+                // so the board displays only goals in the selected page.
+                list = sortedAndFilteredGoals;
+            }
+        } else {
+            list = sortedAndFilteredGoals;
+        }
+        return new Set(list.map((g) => g.id));
+    }, [viewMode, showAllInKanban, sortedAndFilteredFullGoals, sortedAndFilteredAllGoals, sortedAndFilteredGoals]);
 
     // Add a function to highlight filtered words
 //   const applyHighlight = (text: string, filter: string) => {
@@ -605,6 +1053,9 @@ const GoalsComponent = () => {
 //     const regex = new RegExp(`(${escapedFilter})`, 'gi');
 //     return text.replace(regex, '<span class="bg-brand-10 text-brand-90 inline-block">$1</span>');
 //   };
+
+    // Use shared HTML-producing highlight helper and render via dangerouslySetInnerHTML
+    const renderHTML = (text?: string | null) => ({ __html: applyHighlight(text ?? '', filter) });
 
   return (
   
@@ -671,8 +1122,17 @@ const GoalsComponent = () => {
                                                                             // debug removed in production
                                                                         } catch { /* ignore */ }
 
-                                                                        lastSwitchFromRef.current = scope;
-                                                                        setScope(s as 'week' | 'month' | 'year');
+                                                                        console.debug('[AllGoals] scope switch requested', { from: scope, to: s, lastSwitchFromRef: lastSwitchFromRef.current });
+                                                                                                            // We're about to switch scope; enter a short 'loading'
+                                                                                                            // mode so views like Kanban don't read stale indexed data
+                                                                                                            // while the new scoped fetch is in-flight.
+                                                                                                            setIsScopeLoading(true);
+                                                                                                            setIndexedGoals({});
+                                                                                                            setPages([]);
+                                                                                                            setCurrentPage('');
+                                                                                                            currentPageRef.current = '';
+                                                                                                            lastSwitchFromRef.current = scope;
+                                                                                                            setScope(s as 'week' | 'month' | 'year');
                                 }}
                             className={`btn-ghost ${scope === s ? 'text-brand-60 hover:text-brand-70 dark:text-brand-20 dark:hover:text-brand-10 font-bold underline' : ''}`}
                         >
@@ -685,6 +1145,28 @@ const GoalsComponent = () => {
         </div>
         <div className='flex flex-col 2xl:flex-row 2xl:space-x-8 items-start justify-start w-full mb-4'>
             <div id="allGoals" className="flex flex-col gap-4 2xl:w-2/3 w-full">
+                 {/* View mode toggle */}
+
+                    <ToggleButtonGroup
+                        value={viewMode}
+                        exclusive
+                        onChange={handleChangeView}
+                        size="small"
+                        aria-label="View mode"
+                        className=""
+                    >
+                        <Tooltip title="View grid" placement="top" arrow><ToggleButton value="cards" aria-label="Cards view"><LayoutGrid /></ToggleButton></Tooltip>
+                        <Tooltip title="View table" placement="top" arrow><ToggleButton value="table" aria-label="Table view"><Table2Icon /></ToggleButton></Tooltip>
+                        <Tooltip title="View kanban board" placement="top" arrow><ToggleButton value="kanban" aria-label="Kanban view"><Kanban /></ToggleButton></Tooltip>
+                    </ToggleButtonGroup>
+                    {/* Kanban toggle: show all vs scope-only */}
+                    {viewMode === 'kanban' && (
+                        <FormControlLabel
+                            control={<Switch checked={showAllInKanban} onChange={(_, v) => { console.debug('[AllGoals] Kanban switch toggled ->', v); setShowAllInKanban(v); }} size="small" />}
+                            label={showAllInKanban ? 'All' : 'Scope'}
+                            className="ml-2"
+                        />
+                    )}
                 {/* Filter and Sort Controls */}
                 <div className="mt-4 h-10 flex items-center space-x-2">
                     
@@ -783,8 +1265,9 @@ const GoalsComponent = () => {
                                 </LocalizationProvider>
                                 </div>
                             )}
+                    
                             <div className="flex justify-end space-x-2">
-                                        <button
+                                <button
                                     type="button"
                                     className="btn-ghost"
                                     onClick={() => {
@@ -807,7 +1290,7 @@ const GoalsComponent = () => {
                         </Box>
                     </Popover>
                     </>
-
+                   
                     {/* Selected filter tags (status, category, date range) */}
                     <div className="hidden sm:flex items-center space-x-2 ml-2">
                         {selectedFiltersCount >= 4 ? (
@@ -973,7 +1456,8 @@ const GoalsComponent = () => {
                                 ) : null,
                         }}
                     />
-                
+                {viewMode === 'cards' && (
+                    <>
                     <Tooltip title={`Sort: ${sortBy.charAt(0).toUpperCase() + sortBy.slice(1)} (${sortDirection === 'asc' ? 'ascending' : 'descending'})`} placement="top" arrow>
                         <span className="flex items-center space-x-2">
                             <IconButton
@@ -1050,6 +1534,8 @@ const GoalsComponent = () => {
                             <Check className="w-4 h-4" /><ArrowDown className="w-4 h-4 mr-8" /> Status Descending 
                         </MenuItem>
                     </Menu>
+                    </>
+                )}                  
 
                     {/* Add Goal Button */}
                     <Tooltip title={`Add a new goal`} placement="top" arrow>
@@ -1063,30 +1549,166 @@ const GoalsComponent = () => {
                             {/* <span className="block flex text-nowrap">Add Goal</span> */}
                         </button>
                     </Tooltip>
+                    
                 </div> 
 
-                {/* Goals List */}
-                <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 3xl:grid-cols-5 gap-4 w-full'>
-                    {sortedAndFilteredGoals.map((goal) => (
-                    <GoalCard
-                        key={goal.id}
-                        goal={goal}
-                        handleDelete={(goalId) => {
-                            handleDeleteGoal(goalId);
-                        }}
-                        handleEdit={(goalId) => {
-                            // console.log('handleEdit called with goalId:', goalId);
-                            const goalToEdit = indexedGoals[currentPage]?.find((goal) => goal.id === goalId);
-                            if (goalToEdit) {
-                                // console.log('Editing goal:', goalToEdit);
-                                setSelectedGoal(goalToEdit);
-                                setIsEditorOpen(true);
-                            }
-                        }}
-                        filter={filter} // Pass the filter prop
-                    />
-                    ))}
-                </div>
+                {/* Goals List - render by viewMode */}
+                {viewMode === 'cards' && (
+                    <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 3xl:grid-cols-5 gap-4 w-full'>
+                        {sortedAndFilteredGoals.map((goal) => (
+                        <GoalCard
+                            key={goal.id}
+                            goal={goal}
+                            handleDelete={(goalId) => handleDeleteGoal(goalId)}
+                            handleEdit={(goalId) => {
+                                const goalToEdit = indexedGoals[currentPage]?.find((g) => g.id === goalId);
+                                if (goalToEdit) {
+                                    setSelectedGoal(goalToEdit);
+                                    setIsEditorOpen(true);
+                                }
+                            }}
+                            filter={filter}
+                        />
+                        ))}
+                    </div>
+                )}
+
+                {viewMode === 'table' && (
+                    <Paper elevation={0} className="w-full">
+                        <Table>
+                            <TableHead>
+                                <TableRow>
+                                        <TableCell>
+                                            Title
+                                        </TableCell>
+                                        <TableCell onClick={() => toggleSort('category')} style={{ cursor: 'pointer' }}>
+                                            <span className="flex items-center">
+                                                Category
+                                                {sortBy === 'category' && (sortDirection === 'asc' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />)}
+                                            </span>
+                                        </TableCell>
+                                        
+                                            <TableCell onClick={() => toggleSort('status')} style={{ cursor: 'pointer' }}>
+                                                <span className="flex items-center">
+                                                    Status
+                                                    {sortBy === 'status' && (sortDirection === 'asc' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />)}
+                                                </span>
+                                            </TableCell>
+                                        
+                                        <TableCell onClick={() => toggleSort('date')} style={{ cursor: 'pointer' }}>
+                                            <span className="flex items-center">
+                                                Week
+                                                {sortBy === 'date' && (sortDirection === 'asc' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />)}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell>Actions</TableCell>
+                                    </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {sortedAndFilteredGoals.map((goal) => (
+                                    <TableRow key={goal.id}>
+                                        <TableCell>
+                                            <Typography variant="body1"><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></Typography>
+                                            {/* <Typography variant="body2" className="text-gray-500"><span dangerouslySetInnerHTML={renderHTML(goal.description)} /></Typography> */}
+                                            <Typography variant="body2" className="text-gray-500">
+                                                <span dangerouslySetInnerHTML={renderHTML(((goal.description || '').substring(0, 100) + ((goal.description || '').length > 200 ? '...' : '')))} />
+                                            </Typography>
+                                        </TableCell>
+                                        
+                                        <TableCell>
+                                            <span className='card-category text-nowrap' dangerouslySetInnerHTML={renderHTML(goal.category)} /></TableCell>
+                                        <TableCell>
+                                            <InlineStatus goal={goal} onUpdated={() => refreshGoals().then(() => {})} />
+                                        </TableCell>
+                                        <TableCell><span className='text-xs' dangerouslySetInnerHTML={renderHTML(goal.week_start)} /></TableCell>
+                                        <TableCell>
+                                            <div className="flex gap-0 items-center">
+                                            <IconButton className='btn-ghost' size="small" onClick={() => { setSelectedGoal(goal); setIsEditorOpen(true); }}><Edit /></IconButton>
+                                            <IconButton className='btn-ghost' size="small" onClick={() => handleDeleteGoal(goal.id)}><Trash /></IconButton>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </Paper>
+                )}
+
+                            {viewMode === 'kanban' && (
+                                <div className="flex flex-col mt-2 md:flex-row gap-4 w-full">
+                                    {isScopeLoading ? (
+                                        <div className="w-full flex items-center justify-center p-8">
+                                            <div className="flex items-center space-x-3">
+                                                <CircularProgress size={20} />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">Loading scope…</span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                    ['Not started', 'In progress', 'Blocked', 'On hold', 'Done'].map((status) => {
+                                        const allIds = kanbanColumns[status] || [];
+                                        const visibleIds = allIds.filter((id) => visibleGoalIds.has(id));
+                                        const hiddenCount = allIds.length - visibleIds.length;
+                                        const isCollapsed = !!collapsedColumns[status];
+
+                                        return (
+                                            <div
+                                                key={status}
+                                                className="flex-1 border border-gray-30 dark:border-gray-70 bg-gray-0 dark:bg-gray-100 p-3 rounded-md"
+                                                onDragOver={(e) => handleDragOver(e, status)}
+                                                onDrop={(e) => handleDrop(e, status)}
+                                            >
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <h3 className="font-semibold">{status}</h3>
+                                                    <div className="flex items-center space-x-2">
+                                                        {hiddenCount > 0 && (
+                                                            <span className="text-sm text-gray-500 dark:text-gray-300">{hiddenCount} hidden</span>
+                                                        )}
+                                                        <button
+                                                            aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${status} column`}
+                                                            onClick={() => setCollapsedColumns((prev) => ({ ...prev, [status]: !prev[status] }))}
+                                                            className="btn-ghost p-1"
+                                                        >
+                                                            {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {!isCollapsed && (
+                                                    <div className="space-y-3">
+                                                        {visibleIds.map((id, _idx) => {
+                                                            // When showing all in kanban, prefer the `fullGoals` cache
+                                                            // which contains unscoped results from the server. When
+                                                            // showAllInKanban is false, fall back to the scoped
+                                                            // `indexedGoals` map.
+                                                            const goal = (showAllInKanban ? (fullGoals || []) : Object.values(indexedGoals).flat()).find((g) => g.id === id) as Goal | undefined;
+                                                            if (!goal) return null;
+                                                            return (
+                                                                <div key={id} className={`${cardClasses} kanban-card p-2 bg-gray-10 dark:bg-gray-90 rounded shadow-md`} draggable onDragStart={(e) => handleDragStart(e, id)}>
+                                                                    <div className="flex flex-col justify-between items-start">
+                                                                        <div>
+                                                                                <div className="font-medium"><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></div>
+                                                                                <div className="card-category text-nowrap"><span dangerouslySetInnerHTML={renderHTML(goal.category)} /></div>
+                                                                        </div>
+                                                                        <div className="flex flex-row items-end">
+                                                                            <button onClick={() => { setSelectedGoal(goal); setIsEditorOpen(true); }} className="text-sm btn-ghost"><Edit /></button>
+                                                                            <button onClick={() => handleDeleteGoal(goal.id)} className="text-sm btn-ghost"><Trash /></button>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+
+                                                        {dragOverColumn === status && dragOverIndex === visibleIds.length && (
+                                                            <div className="p-4 border border-dashed rounded bg-transparent">&nbsp;</div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })
+                                    )}
+                                </div>
+                            )}
                 {sortedAndFilteredGoals.length === 0 && (
                     <div className="text-center text-gray-500 mt-4">
                         No goals found for this {scope}. Try adding one!
