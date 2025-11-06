@@ -11,12 +11,12 @@ import supabase from '@lib/supabase';
 import useAuth from '@hooks/useAuth';
 import Auth from '@components/Auth';
 import AllSummaries from '@components/AllSummaries';
-import AllAccomplishments from '@components/AllAccomplishments';
-import { Award, Home, Text } from 'lucide-react';
+// import AllAccomplishments from '@components/AllAccomplishments';
+import { Home, Text } from 'lucide-react';
 import LoadingSpinner from '@components/LoadingSpinner';
 import ProfileManagement from '@components/ProfileManagement';
 import AppMuiThemeProvider from './mui/muiTheme';
-import MuiCompareDemo from '@components/MuiCompareDemo';
+// import MuiCompareDemo from '@components/MuiCompareDemo';
 
 
 

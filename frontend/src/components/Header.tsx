@@ -2,7 +2,7 @@ import MenuBtn, { MenuBtnProps } from '@components/menu-btn';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import menuClosedIcon from '/images/button-menu.svg';
-import { Sun, Moon, Home, Award, Text } from 'lucide-react';
+import { Sun, Moon, Home, Text } from 'lucide-react';
 import { classMenuItem } from '@styles/classes';
 // supabase client not needed here; use useAuth hook's session instead
 import useAuth from '@hooks/useAuth';
