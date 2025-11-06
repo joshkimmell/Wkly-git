@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { Summary } from '@utils/goalUtils'; // Adjust the import path as necessary
 import { Trash, Edit, Copy } from 'lucide-react';
 import { cardClasses, summaryClasses } from '@styles/classes';
+import { Tooltip, IconButton } from '@mui/material';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
 interface SummaryCardProps {
   id: Summary["id"]; // Corrected type to inherit summary_id
@@ -99,24 +100,29 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
 
         
         <footer className="mt-4 flex justify-end w-full space-x-2">
-           <button
-            onClick={() => handleCopy(content)}
-            className="btn-ghost"
-            >
-            <Copy />
-          </button>
-          <button
-            onClick={() => handleEdit(true)} // Open the editor modal
-            className="btn-ghost" 
-          >
-            <Edit />
-          </button>
-          <button
-            onClick={() => handleDelete(id)}
-            className="btn-ghost"
-            >
-            <Trash />
-          </button>
+          <Tooltip title="Copy" placement="top" arrow>
+            <span>
+              <IconButton aria-label="Copy" onClick={() => handleCopy(content)} size="small" className="btn-ghost">
+                <Copy />
+              </IconButton>
+            </span>
+          </Tooltip>
+
+          <Tooltip title="Edit" placement="top" arrow>
+            <span>
+              <IconButton aria-label="Edit" onClick={() => handleEdit(true)} size="small" className="btn-ghost">
+                <Edit />
+              </IconButton>
+            </span>
+          </Tooltip>
+
+          <Tooltip title="Delete" placement="top" arrow>
+            <span>
+              <IconButton aria-label="Delete" onClick={() => handleDelete(id)} size="small" className="btn-ghost">
+                <Trash />
+              </IconButton>
+            </span>
+          </Tooltip>
         </footer>
       </div>
       

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Edit, Trash, Plus as PlusIcon, X as CloseButton } from 'lucide-react';
 import { modalClasses } from '@styles/classes';
-import { TextField } from '@mui/material';
+import { TextField, Tooltip, IconButton } from '@mui/material';
 import ConfirmModal from './ConfirmModal';
 import { Accomplishment } from '@utils/goalUtils';
 
@@ -39,9 +39,13 @@ export default function AccomplishmentsModal({ goalTitle, isOpen, onClose, accom
         <div className='flex flex-row w-full justify-between'>
                 <h3 className="text-lg font-medium text-gray-90 mb-4">Accomplishments for "{goalTitle}"</h3>
                 <div className="mb-2 flex justify-end">
-                    <button className="btn-ghost" title="Close" onClick={onClose}>
-                        <CloseButton className="w-4 h-4" />
-                    </button>
+                    <Tooltip title="Close" placement="top" arrow>
+                      <span>
+                        <IconButton className="btn-ghost" title="Close" onClick={onClose} size="small" aria-label="Close">
+                          <CloseButton className="w-4 h-4" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
                 </div>
             </div>
         <div className="space-y-4 max-h-[60vh] overflow-y-auto">
@@ -64,8 +68,16 @@ export default function AccomplishmentsModal({ goalTitle, isOpen, onClose, accom
                         <div className='flex flex-row justify-between items-center mb-2'>
                         {acc.created_at && <div className="text-xs dark:text-gray-40 text-gray-70">{new Date(acc.created_at).toLocaleString()}</div>}
                         <div className="flex flex-row justify-end">
-                        <button className="btn-ghost" onClick={() => onEdit(acc)} title="Edit accomplishment"><Edit className="w-4 h-4" /></button>
-                        <button className="btn-ghost" onClick={() => setDeleteTarget(acc.id)} title="Delete accomplishment"><Trash className="w-4 h-4" /></button>
+                        <Tooltip title="Edit accomplishment" placement="top" arrow>
+                          <span>
+                            <IconButton className="btn-ghost" onClick={() => onEdit(acc)} size="small" aria-label="Edit accomplishment"><Edit className="w-4 h-4" /></IconButton>
+                          </span>
+                        </Tooltip>
+                        <Tooltip title="Delete accomplishment" placement="top" arrow>
+                          <span>
+                            <IconButton className="btn-ghost" onClick={() => setDeleteTarget(acc.id)} size="small" aria-label="Delete accomplishment"><Trash className="w-4 h-4" /></IconButton>
+                          </span>
+                        </Tooltip>
                         </div>
                     </div>
                     <div className="flex-1">

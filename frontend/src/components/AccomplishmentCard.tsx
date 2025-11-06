@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { cardClasses } from '@styles/classes'; // Adjust the import path as necessary
 import { TrashIcon, EditIcon } from 'lucide-react';
+import { Tooltip, IconButton } from '@mui/material';
 import ConfirmModal from './ConfirmModal';
 
 interface AccomplishmentCardProps {
@@ -28,8 +29,20 @@ const AccomplishmentCard: React.FC<AccomplishmentCardProps> = ({ id, title, desc
             <p className="hidden"><strong>Created At:</strong> {created_at}</p>
         </div>
         <footer className="mt-2 text-sm text-gray-50 dark:text-gray-30 flex flex-row items-center justify-end space-x-2">
-            <button className='btn-ghost' onClick={() => setConfirmOpen(true)}><TrashIcon className='w-5 h-5' /></button>
-            <button className='btn-ghost' onClick={handleEdit}><EditIcon className='w-5 h-5' /></button>
+            <Tooltip title="Delete" placement="top" arrow>
+              <span>
+                <IconButton className='btn-ghost' size="small" onClick={() => setConfirmOpen(true)} aria-label="Delete accomplishment">
+                  <TrashIcon className='w-5 h-5' />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Edit" placement="top" arrow>
+              <span>
+                <IconButton className='btn-ghost' size="small" onClick={handleEdit} aria-label="Edit accomplishment">
+                  <EditIcon className='w-5 h-5' />
+                </IconButton>
+              </span>
+            </Tooltip>
         </footer>
         <ConfirmModal
           isOpen={confirmOpen}

@@ -2,12 +2,13 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { fetchAllGoalsIndexed, fetchAllGoals, deleteGoal, updateGoal, saveSummary, UserCategories, initializeUserCategories, addCategory, getWeekStartDate, indexDataByScope, applyHighlight } from '../utils/functions';
 import Pagination from './Pagination';
 import GoalCard from '@components/GoalCard';
+import GoalKanbanCard from '@components/GoalKanbanCard';
 import GoalForm from '@components/GoalForm';
 import Modal from 'react-modal';
 import SummaryGenerator from '@components/SummaryGenerator';
 import SummaryEditor from '@components/SummaryEditor';
 import GoalEditor from '@components/GoalEditor';
-import { cardClasses, modalClasses, overlayClasses } from '@styles/classes';
+import { modalClasses, overlayClasses } from '@styles/classes';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import { Goal as GoalUtilsGoal } from '@utils/goalUtils';
 import { mapPageForScope, loadPageByScope, savePageByScope } from '@utils/pagination';
@@ -37,20 +38,20 @@ const InlineStatus: React.FC<{ goal: Goal; onUpdated?: () => void }> = ({ goal, 
     const [statusAnchorEl, setStatusAnchorEl] = useState<null | HTMLElement>(null);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const statusColors = STATUS_COLORS;
-
+    
+    
     return (
         <div>
             <Chip
                 label={localStatus}
-                size="small"
                 onClick={(e) => setStatusAnchorEl(e.currentTarget)}
-                variant={localStatus === 'Not started' ? 'outlined' : 'filled'}
+                variant='outlined'
                 sx={
                     localStatus === 'Not started'
                         ? { borderColor: statusColors[localStatus || 'Not started'], color: statusColors[localStatus || 'Not started'] }
                         : { bgcolor: statusColors[localStatus || 'Not started'], color: '#fff' }
                 }
-                className="cursor-pointer text-sm font-medium"
+                className="cursor-pointer text-sm font-medium card-status"
             />
             <Menu anchorEl={statusAnchorEl} open={Boolean(statusAnchorEl)} onClose={() => setStatusAnchorEl(null)}>
                 {STATUSES.map((s: Status) => (
@@ -163,6 +164,8 @@ const GoalsComponent = () => {
     const [filterStartDate, setFilterStartDate] = useState<Dayjs | null>(null);
     const [filterEndDate, setFilterEndDate] = useState<Dayjs | null>(null);
     const [summaryAnchorEl, setSummaryAnchorEl] = useState<HTMLElement | null>(null);
+
+
 
         // filter popover anchor is controlled via `filterAnchorEl` and setFilterAnchorEl
 
@@ -319,9 +322,9 @@ const GoalsComponent = () => {
     const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
-    const handleDragStart = (e: React.DragEvent, id: string) => {
-        setDraggingId(id);
-        try { e.dataTransfer?.setData('text/plain', id); } catch { /* ignore */ }
+    const handleDragStart = (e: React.DragEvent, goalId: string) => {
+        setDraggingId(goalId);
+        try { e.dataTransfer?.setData('text/plain', goalId); } catch { /* ignore */ }
         e.dataTransfer!.effectAllowed = 'move';
     };
 
@@ -353,7 +356,14 @@ const GoalsComponent = () => {
         const id = (() => { try { return e.dataTransfer?.getData('text/plain') || draggingId; } catch { return draggingId; } })();
         if (!id) { handleDragEnd(); return; }
         const prevColumns = { ...kanbanColumns };
+        // Prepare rollback snapshots outside try so they are available in catch
+        let prevIndexedSnapshot: Record<string, Goal[]> | null = null;
+        let prevFullGoals: Goal[] | null = null;
         try {
+            // Snapshot current indexed and full goals so we can rollback on failure
+            prevIndexedSnapshot = {};
+            for (const k of Object.keys(indexedGoals)) prevIndexedSnapshot[k] = [...(indexedGoals[k] || [])];
+            prevFullGoals = fullGoals ? [...fullGoals] : null;
             // remove from source
             let sourceCol: string | undefined;
             for (const k of Object.keys(prevColumns)) {
@@ -383,10 +393,18 @@ const GoalsComponent = () => {
                 return copy;
             });
 
+            // If we're showing all goals in Kanban, make the same optimistic
+            // update to the `fullGoals` cache so the board moves immediately.
+            if (fullGoals) {
+                setFullGoals((prev) => prev ? prev.map((g) => (g.id === id ? { ...(g as Goal), status: status as Goal['status'] } : g)) : prev);
+            }
             const original = Object.values(indexedGoals).flat().find(g => g.id === id) as Goal | undefined;
             await updateGoal(id, { ...(original || { id, title: '', description: '', category: '', week_start: '', user_id: '' }), status: status as Goal['status'] });
         } catch (err) {
-            setKanbanColumns(prevColumns);
+            // rollback optimistic updates
+            try { setKanbanColumns(prevColumns); } catch (e) { /* ignore */ }
+            try { if (prevIndexedSnapshot) setIndexedGoals(prevIndexedSnapshot); } catch (e) { /* ignore */ }
+            try { if (prevFullGoals) setFullGoals(prevFullGoals); } catch (e) { /* ignore */ }
             console.error('Failed to move goal:', err);
             notifyError('Failed to move goal.');
         } finally {
@@ -765,6 +783,7 @@ const GoalsComponent = () => {
     const handleDeleteGoal = async (goalId: string) => {
         // Optimistic UI: remove from local indexedGoals immediately
         const previousIndexed = { ...indexedGoals };
+        const prevFullSnapshot = fullGoals ? [...fullGoals] : null;
     try {
         setIndexedGoals((prev) => {
             const copy: Record<string, Goal[]> = { ...prev };
@@ -777,6 +796,11 @@ const GoalsComponent = () => {
             if (removeGoalFromCache) removeGoalFromCache(goalId);
         } catch (err) {
             console.warn('[AllGoals] removeGoalFromCache failed (ignored):', err);
+        }
+
+        // Also optimistically remove from fullGoals if present (Show All mode relies on this)
+        if (fullGoals) {
+            setFullGoals((prev) => prev ? prev.filter((g) => g.id !== goalId) : prev);
         }
 
         // Attempt server delete
@@ -832,6 +856,7 @@ const GoalsComponent = () => {
         // rollback optimistic removal
             try {
             setIndexedGoals(previousIndexed);
+            if (prevFullSnapshot) setFullGoals(prevFullSnapshot);
             // best-effort: refresh from server to reconcile
             try { await refreshGoals(); } catch { /* ignore */ }
         } catch (err) {
@@ -843,11 +868,39 @@ const GoalsComponent = () => {
 
 // Update a goal
     const handleUpdateGoal = async (goalId: string, updatedGoal: Goal) => {
+        // Snapshot for rollback
+        const prevIndexedSnapshot: Record<string, Goal[]> = {};
+        for (const k of Object.keys(indexedGoals)) prevIndexedSnapshot[k] = [...(indexedGoals[k] || [])];
+        const prevFullSnapshot = fullGoals ? [...fullGoals] : null;
         try {
+        // Optimistically update indexedGoals (scoped view)
+        setIndexedGoals((prev) => {
+            const copy: Record<string, Goal[]> = {};
+            for (const k of Object.keys(prev)) copy[k] = [...prev[k]];
+            for (const p of Object.keys(copy)) {
+                const idx = copy[p].findIndex((g) => g.id === goalId);
+                if (idx !== -1) {
+                    copy[p][idx] = { ...copy[p][idx], ...(updatedGoal as Partial<Goal>) } as Goal;
+                    break;
+                }
+            }
+            return copy;
+        });
+
+        // Optimistically update fullGoals if present
+        if (fullGoals) {
+            setFullGoals((prev) => prev ? prev.map((g) => (g.id === goalId ? { ...(g as Goal), ...(updatedGoal as Partial<Goal>) } : g)) : prev);
+        }
+
         await updateGoal(goalId, updatedGoal);
-        await refreshGoals(); // Refresh goals after deleting
+        // best-effort refresh to reconcile any server-side transforms
+        try { await refreshGoals(); } catch { /* ignore */ }
         } catch (error) {
         console.error('Error updating goal:', error);
+        // rollback
+        try { setIndexedGoals(prevIndexedSnapshot); } catch (e) { /* ignore */ }
+        try { if (prevFullSnapshot) setFullGoals(prevFullSnapshot); } catch (e) { /* ignore */ }
+        notifyError('Failed to update goal.');
         }
     };
 
@@ -1674,14 +1727,15 @@ const GoalsComponent = () => {
                                         return (
                                             <div
                                                 key={status}
-                                                className={`${!isCollapsed && ("flex-1" )}border border-gray-30 dark:border-gray-70 bg-gray-0 dark:bg-gray-100 p-3 rounded-md`}
+                                                className={`${!isCollapsed && ("flex-1" )} border border-gray-30 dark:border-gray-70 bg-gray-0 dark:bg-gray-100 dark:bg-opacity-30 p-3 rounded-md`}
                                                 onDragOver={(e) => handleDragOver(e, status)}
                                                 onDrop={(e) => handleDrop(e, status)}
                                             >
                                                 <div className={`flex items-center justify-between ${!isCollapsed && ('mb-3 w-full ')} `}>
                                                     {!isCollapsed && (
                                                         <div className="flex items-center space-x-2">
-                                                        <h3 className="text-nowrap">{status}</h3>
+                                                            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 6, background: STATUS_COLORS[status], marginRight: 8 }} />
+                                                            <div className="text-nowrap" style={{color: STATUS_COLORS[status]}}>{status}</div>
                                                         </div>
                                                     )}
                                                     <div className="flex items-center space-x-2">
@@ -1690,29 +1744,42 @@ const GoalsComponent = () => {
                                                         )}
                                                         {isCollapsed ? (
                                                             // Compact tile shown when column is collapsed. Clicking it expands the column.
-                                                            <Tooltip title={`${status} — ${allIds.length} items`} placement="top" arrow>
+                                                            <div className="flex items-center">
+                                                            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 6, background: STATUS_COLORS[status], marginRight: 8 }} />
+                                                            <Tooltip title={`Show "${status}" column`} placement="top" arrow>
                                                             <IconButton
                                                                 aria-label={`Show ${status} column`}
                                                                 onClick={() => setCollapsedColumns((prev) => ({ ...prev, [status]: false }))}
                                                                 className="btn-ghost p-1"
                                                             >
                                                                 <div className="flex items-center">
-                                                                    <Badge badgeContent={allIds.length} color="primary" overlap="circular" className='justify-end right-[-30]'>
+                                                                    <Badge 
+                                                                        badgeContent={allIds.length} 
+                                                                        color="primary"
+                                                                        // variant='dot'
+                                                                        anchorOrigin={{
+                                                                            vertical: 'top',
+                                                                            horizontal: 'right',
+                                                                        }}
+                                                                    >
                                                                         <Eye className="w-4 h-4" />
                                                                     </Badge>
                                                                 </div>
                                                             </IconButton>
                                                             </Tooltip>
+                                                            </div>
                                                         ) : (
-                                                            <Tooltip title={`Collapse ${status} column`} placement="top" arrow>
+                                                            
+                                                            <Tooltip title={`Hide column`} placement="top" arrow>
                                                                 <IconButton
-                                                                    aria-label={`Collapse ${status} column`}
+                                                                    aria-label={`Hide ${status} column`}
                                                                     onClick={() => setCollapsedColumns((prev) => ({ ...prev, [status]: !prev[status] }))}
                                                                     className="btn-ghost p-1"
                                                                     >
                                                                     <EyeOff className="w-4 h-4" />
                                                                 </IconButton>
                                                             </Tooltip>
+                                                        
                                                         )}
                                                     </div>
                                                 </div>
@@ -1728,20 +1795,24 @@ const GoalsComponent = () => {
                                                             const goal = (goalListForLookup || []).find((g) => g.id === id) as Goal | undefined;
                                                             if (!goal) return null;
                                                             return (
-                                                                <Tooltip key={id} title={<span dangerouslySetInnerHTML={renderHTML(goal.description)} />} placement="top" arrow>
-                                                                    <div className={`${cardClasses} kanban-card p-0 bg-gray-10 dark:bg-gray-90 rounded shadow-md hover:shadow-lg border border-transparent hover:border-gray-20 dark:hover:border-gray-70 transition-shadow`} draggable onDragStart={(e) => handleDragStart(e, id)}>
-                                                                        <div className="flex flex-col justify-between items-start">
-                                                                            <div className="mb-2 gap-2 flex flex-row justify-between w-full items-start">
-                                                                                    <div className="text-sm font-semibold pt-2"><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></div>
-                                                                                    <div className="card-category text-nowrap border"><span dangerouslySetInnerHTML={renderHTML(goal.category)} /></div>
-                                                                            </div>
-                                                                            <div className="flex flex-row w-full justify-end items-end">
-                                                                                <button onClick={() => { setSelectedGoal(goal); setIsEditorOpen(true); }} className="text-sm btn-ghost"><Edit /></button>
-                                                                                <button onClick={() => handleDeleteGoal(goal.id)} className="text-sm btn-ghost"><Trash /></button>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </Tooltip>
+                                                            
+                                                            <GoalKanbanCard
+                                                                key={id}
+                                                                goal={goal}
+                                                                handleDelete={(id) => handleDeleteGoal(id)}
+                                                                handleEdit={(id) => {
+                                                                    const goalSourceForEdit = showAllInKanban ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || []);
+                                                                    const goalToEdit = goalSourceForEdit.find((g) => g.id === id);
+                                                                    if (goalToEdit) {
+                                                                        setSelectedGoal(goalToEdit);
+                                                                        setIsEditorOpen(true);
+                                                                    }
+                                                                }}
+                                                                filter={filter}
+                                                                draggable
+                                                                onDragStart={(e) => handleDragStart(e, id)}
+                                                            />
+                                                                
                                                                     
                                                             );
                                                         })}

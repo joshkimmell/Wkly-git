@@ -3,11 +3,11 @@ import { useGoalsContext } from '@context/GoalsContext';
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 // import { handleDeleteGoal } from '@utils/functions';
 import { Goal, Accomplishment } from '@utils/goalUtils'; // Adjust the import path as necessary
-import { Trash, Edit, Award, X as CloseButton } from 'lucide-react';
+import { Trash, Edit, Award, X as CloseButton, ChevronUp, ChevronDown } from 'lucide-react';
 import { FileText as NotesIcon, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
-import { Chip, Menu, MenuItem, TextField, Tooltip, IconButton } from '@mui/material';
+import { TextField, Tooltip, IconButton } from '@mui/material';
 import type { ChangeEvent } from 'react';
-import { STATUSES, STATUS_COLORS, type Status } from '../constants/statuses';
+// import { STATUSES, STATUS_COLORS, type Status } from '../constants/statuses';
 import { cardClasses, modalClasses, objectCounter } from '@styles/classes'; // Adjust the import path as necessary
 import { notifyError, notifySuccess } from './ToastyNotification';
 // import { Link } from 'react-router-dom';
@@ -16,19 +16,34 @@ import AccomplishmentEditor from './AccomplishmentEditor'; // Import the Accompl
 import AccomplishmentsModal from './AccomplishmentsModal';
 import ConfirmModal from './ConfirmModal';
 
-interface GoalCardProps {
-  goal: Goal; // Add the goal prop to access goal properties
+// interface GoalKanbanCardProps {
+//   goal: Goal; // Add the goal prop to access goal properties
+//   handleDelete: (goalId: string) => void;
+//   handleEdit: (goalId: string) => void;
+//   filter: string; // Accept filter as a prop
+//   draggable 
+//   onDragStart={(e) => handleDragStart(e, id)}
+// }
+interface GoalKanbanCardProps {
+  goal: Goal;
   handleDelete: (goalId: string) => void;
   handleEdit: (goalId: string) => void;
-  filter: string; // Accept filter as a prop
+  // onDragStart accepts the native drag event so parents can forward their
+  // handler directly and capture the goal id in their closure
+  // (e.g. `onDragStart={(e) => handleDragStart(e, id)}`).
+  onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
+  filter: string;
+  draggable?: boolean;
 }
 
 // const GoalCard: React.FC<GoalCardProps> = ({ goal }) => {
-const GoalCard: React.FC<GoalCardProps> = ({ 
+const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({ 
   goal, 
   handleDelete, 
   handleEdit,
-  filter // Accept filter as a prop
+  onDragStart,
+  filter, // Accept filter as a prop
+  draggable = true,
  }) => {
   // // const handleDeleteGoal = (goalId: string) => {
   //   // Implement the delete logic here
@@ -58,7 +73,11 @@ const GoalCard: React.FC<GoalCardProps> = ({
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState('');
   // Local status state for optimistic UI updates when changing status inline
-  const { refreshGoals } = useGoalsContext();
+  // We call useGoalsContext to ensure any context subscriptions remain active.
+  useGoalsContext();
+
+  // Local expanded state for this single card (clicking expands only this card)
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Cache the current authenticated user's id to avoid repeated supabase.auth.getUser() calls
   const userIdRef = React.useRef<string | null>(null);
@@ -110,11 +129,11 @@ const GoalCard: React.FC<GoalCardProps> = ({
     }
   };
 
-  const [localStatus, setLocalStatus] = useState<string | undefined>(goal.status);
-  const [statusAnchorEl, setStatusAnchorEl] = useState<null | HTMLElement>(null);
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  // const [localStatus, setLocalStatus] = useState<string | undefined>(goal.status);
+  // const [statusAnchorEl, setStatusAnchorEl] = useState<null | HTMLElement>(null);
+  // const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
-  const statusColors = STATUS_COLORS;
+  // const statusColors = STATUS_COLORS;
 
   const { subscribeToTempId } = useGoalsContext();
 
@@ -393,10 +412,10 @@ const GoalCard: React.FC<GoalCardProps> = ({
     };
   }, [goal.id]);
 
-  // Keep localStatus in sync with prop changes
-  useEffect(() => {
-    setLocalStatus(goal.status);
-  }, [goal.status]);
+  // // Keep localStatus in sync with prop changes
+  // useEffect(() => {
+  //   setLocalStatus(goal.status);
+  // }, [goal.status]);
 
   // Subscribe to temp-id replacement so this component can proactively fetch
   // accomplishments and notes even if the parent doesn't re-render immediately.
@@ -425,76 +444,51 @@ const GoalCard: React.FC<GoalCardProps> = ({
 
   // accomplishment creation now handled via AccomplishmentsModal onCreate (optimistic updates)
 
+   // Use shared HTML-producing highlight helper and render via dangerouslySetInnerHTML
+      const renderHTML = (text?: string | null) => ({ __html: applyHighlight(text ?? '', filter) });
+
   return (
-    <div key={goal.id} className={`${cardClasses} shadow-xl`}>
-      <div className="goal-header flex flex-row w-full justify-between items-center">
-        <div className="flex items-center gap-2">
-          {localStatus && (
-            <div>
-              <Chip
-                label={localStatus}
-                onClick={(e) => setStatusAnchorEl(e.currentTarget)}
-                variant='outlined'
-                sx={
-                  localStatus === 'Not started'
-                    ? { borderColor: statusColors[localStatus || 'Not started'], color: statusColors[localStatus || 'Not started'] }
-                    : { bgcolor: statusColors[localStatus || 'Not started'], color: '#fff' }
-                }
-                className="card-status cursor-pointer"
-              />
-              <Menu
-                anchorEl={statusAnchorEl}
-                open={Boolean(statusAnchorEl)}
-                onClose={() => setStatusAnchorEl(null)}
-              >
-                {STATUSES.map((s: Status) => (
-                  <MenuItem
-                    key={s}
-                    disabled={isUpdatingStatus}
-                    className='text-xs'
-                    selected={s === localStatus}
-                    onClick={async () => {
-                      setStatusAnchorEl(null);
-                      if (s === localStatus) return; // no-op
-                      const prev = localStatus;
-                      setLocalStatus(s);
-                      setIsUpdatingStatus(true);
-                      try {
-                        const { error } = await supabase
-                          .from('goals')
-                          .update({ status: s, status_set_at: new Date().toISOString() })
-                          .eq('id', goal.id);
-                        if (error) throw error;
-                        notifySuccess('Status updated');
-                        // Ensure parent list is refreshed
-                        try { await refreshGoals(); } catch (e) { /* ignore */ }
-                      } catch (err: any) {
-                        console.error('Failed to update status:', err);
-                        setLocalStatus(prev);
-                        notifyError('Failed to update status');
-                      } finally {
-                        setIsUpdatingStatus(false);
-                      }
-                    }}
-                  >
-                    <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 6, background: statusColors[s], marginRight: 8 }} />
-                    {s}
-                  </MenuItem>
-                ))}
-              </Menu>
-            </div>
-          )}
-        </div>
+    <div
+      key={goal.id}
+      className={`${cardClasses} min-w-40 p-0 bg-gray-10 dark:bg-gray-80 rounded shadow-md hover:shadow-lg border border-transparent hover:border-gray-20 dark:hover:border-gray-70 transition-shadow`}
+      draggable={draggable}
+  onDragStart={(e) => { if (typeof onDragStart === 'function') onDragStart(e); }}
+    >
+      <div className="goal-header flex flex-row w-full justify-end items-center">
+        
         <div className="tabs flex flex-row items-center justify-end w-full">
           <span className="card-category" dangerouslySetInnerHTML={{ __html: applyHighlight(goal.category, filter) || 'No category provided.' }}>
           </span>
         </div>
       </div>
-      <div className="goal-content flex flex-col mt-2 flex-grow">
-        <h4 className={`card-title text-lg text-gray-90 dark:text-gray-10 font-medium`} dangerouslySetInnerHTML={{ __html: applyHighlight(goal.title, filter) || 'Untitled Goal' }}>
-        </h4>
-        <p className={`text-gray-60 dark:text-gray-40 mt-1`} dangerouslySetInnerHTML={{ __html: applyHighlight(goal.description, filter) || 'No description provided.' }}>
-        </p>
+
+      <div className="mb-2 gap-1 flex flex-col justify-between w-full items-start">
+        <div className="text-sm font-semibold pt-2 "><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></div>
+        {goal.description ? (
+          <>
+            {!isExpanded ? (
+              <div
+                className="text-xs pt-2"
+                dangerouslySetInnerHTML={{ __html: goal.description.substring(0, 100) + (goal.description.length > 100 ? '...' : '') }}
+              />
+            ) : (
+              <div className="text-xs pt-2"><span dangerouslySetInnerHTML={renderHTML(goal.description)} /></div>
+            )}
+            { goal.description.length >= 100 && (
+            <button
+              onClick={() => setIsExpanded((s) => !s)}
+              className="btn-ghost inline items-center justify-start shadow-0 p-0"
+              type="button"
+            >
+              {isExpanded ? (
+                <span className="text-xs text-brand-60 dark:text-brand-20">Show Less <ChevronUp className="w-3 h-3 inline-block ml-1" /></span>
+              ) : (
+                <span className="text-xs text-brand-60 dark:text-brand-20">Show More <ChevronDown className="w-3 h-3 inline-block ml-1" /></span>
+              )}
+            </button>
+            )}
+          </>
+        ) : null}
       </div>
       {/* Footer with accomplishments and actions */}
       <footer className="mt-2 text-sm text-gray-50 dark:text-gray-30 flex flex-col items-left justify-between">
@@ -538,6 +532,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
             </Tooltip>
           </div>
       </footer>
+
+      
         
     {/* Accomplishments modal (extracted component) */}
     <AccomplishmentsModal
@@ -715,21 +711,48 @@ const GoalCard: React.FC<GoalCardProps> = ({
   );
 };
       
-export default GoalCard;
+export default GoalKanbanCard;
 
-      // <div key={goal.id} className="bg-white shadow-sm border rounded-lg p-4">
-      //   <h4 className="text-lg font-medium text-gray-900">{goal.title}</h4>
-      //   <p className="text-gray-600 mt-1">{goal.description}</p>
-      //   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 mt-2">
-      //     {goal.category}
-      //   </span>
-      //   {/* <p className="text-sm text-gray-500 mt-2">{goal.impact}</p> */}
-      //   <div className="mt-4 flex justify-end space-x-2">
-      //     <button
-      //       onClick={() => handleDeleteGoal(goal.id)}
-      //       className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-      //     >
-      //       Delete
-      //     </button>
-      //   </div>
+// <div key={id} className={`${cardClasses} kanban-card min-w-40 p-0 bg-gray-10 dark:bg-gray-90 rounded shadow-md hover:shadow-lg border border-transparent hover:border-gray-20 dark:hover:border-gray-70 transition-shadow`} draggable onDragStart={(e) => handleDragStart(e, id)}>
+      //     <div className="flex flex-col justify-end items-start">
+      //         <div className="flex flex-row justify-end w-full items-start">
+      //             <div className="card-category"><span dangerouslySetInnerHTML={renderHTML(goal.category)} /></div>
+      //         </div>
+      //         <div className="mb-2 gap-1 flex flex-col justify-between w-full items-start">
+      //             <div className="text-sm font-semibold pt-2 "><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></div>
+      //             {goal.description ? (
+      //                 <>
+      //                     {!expandedCards[goal.id] ? (
+      //                         <div
+      //                             className="text-xs pt-2"
+      //                             dangerouslySetInnerHTML={{ __html: goal.description.substring(0, 100) + (goal.description.length > 100 ? '...' : '') }}
+      //                         />
+      //                     ) : (
+      //                         <div className="text-xs pt-2"><span dangerouslySetInnerHTML={renderHTML(goal.description)} /></div>
+      //                     )}
+      //                     { goal.description.length >= 100 && (
+      //                     <button
+      //                         onClick={() => toggleExpanded(goal.id)}
+      //                         className="btn-ghost inline items-center justify-start shadow-0 p-0"
+      //                         type="button"
+      //                     >
+      //                         {expandedCards[goal.id] ? (
+      //                             <span className="text-xs text-brand-60 dark:text-brand-20">Show Less <ChevronUp className="w-3 h-3 inline-block ml-1" /></span>
+      //                         ) : (
+      //                             <span className="text-xs text-brand-60 dark:text-brand-20">Show More <ChevronDown className="w-3 h-3 inline-block ml-1" /></span>
+      //                         )}
+      //                     </button>
+      //                     )}
+      //                 </>
+      //             ) : null}
+      //         </div>
+      //         <div className="flex flex-row w-full justify-end items-end">
+      //             <Tooltip title="Edit" placement="top" arrow>
+      //                 <button aria-label={`Edit ${goal.title}`} onClick={() => { setSelectedGoal(goal); setIsEditorOpen(true); }} className="text-sm btn-ghost"><Edit className='w-3 h-3' /></button>
+      //             </Tooltip>
+      //             <Tooltip title="Delete" placement="top" arrow>
+      //                 <button aria-label={`Delete ${goal.title}`} onClick={() => handleDeleteGoal(goal.id)} className="text-sm btn-ghost"><Trash className='w-3 h-3' /></button>
+      //             </Tooltip>
+      //         </div>
+      //     </div>
       // </div>
