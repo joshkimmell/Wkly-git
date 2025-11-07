@@ -9,6 +9,7 @@ import { Chip, Menu, MenuItem, TextField, Tooltip, IconButton } from '@mui/mater
 import type { ChangeEvent } from 'react';
 import { STATUSES, STATUS_COLORS, type Status } from '../constants/statuses';
 import { cardClasses, modalClasses, objectCounter } from '@styles/classes'; // Adjust the import path as necessary
+import useGoalExtras from '@hooks/useGoalExtras';
 import { notifyError, notifySuccess } from './ToastyNotification';
 // import { Link } from 'react-router-dom';
 import { applyHighlight } from '@utils/functions'; // Adjust the import path as necessary
@@ -47,7 +48,6 @@ const GoalCard: React.FC<GoalCardProps> = ({
   const [selectedAccomplishment, setSelectedAccomplishment] = useState<Accomplishment | null>(null);
   const [isAccomplishmentLoading, setIsAccomplishmentLoading] = useState(false);
   const [isNotesLoading, setIsNotesLoading] = useState(false);
-  const [notesCount, setNotesCount] = useState<number | null>(null);
   // Notes state
   const [notes, setNotes] = useState<Array<{ id: string; content: string; created_at: string; updated_at: string }>>([]);
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
@@ -76,39 +76,10 @@ const GoalCard: React.FC<GoalCardProps> = ({
     }
   };
 
-  // Simple in-memory per-goal notesCount TTL cache to avoid repeated lightweight queries
-  // Map<goalId, { count: number, expiresAt: number }>
-  const notesCountCacheRef = React.useRef<Record<string, { count: number; expiresAt: number }>>({});
-  const NOTES_COUNT_TTL_MS = 30 * 1000; // 30s TTL
+  // Shared counts and helpers
+  const { notesCountMap, accomplishmentCountMap, fetchNotesCount, fetchAccomplishmentsCount } = useGoalExtras();
 
-  const fetchNotesCount = async (idArg?: string) => {
-    try {
-      const idToUse = idArg ?? goal.id;
-      if (typeof idToUse === 'string' && idToUse.startsWith('temp-')) {
-        setNotesCount(0);
-        return 0;
-      }
-      // check cache
-      const cached = notesCountCacheRef.current[idToUse];
-      if (cached && cached.expiresAt > Date.now()) {
-        setNotesCount(cached.count);
-        return cached.count;
-      }
-      const userId = await getCachedUserId();
-      if (!userId) return null;
-      const res = await fetch(`/api/getNotes?goal_id=${idToUse}&count_only=1`, { headers: { Authorization: `Bearer ${userId}` } });
-      if (!res.ok) throw new Error(await res.text());
-      const json = await res.json();
-      const count = typeof json?.count === 'number' ? json.count : Number(json) || 0;
-      // store in cache
-      notesCountCacheRef.current[idToUse] = { count, expiresAt: Date.now() + NOTES_COUNT_TTL_MS };
-      setNotesCount(count);
-      return count;
-    } catch (err) {
-      console.error('Error fetching notes count:', err);
-      return null;
-    }
-  };
+  // counts are provided by useGoalExtras (notesCountMap, accomplishmentCountMap)
 
   const [localStatus, setLocalStatus] = useState<string | undefined>(goal.status);
   const [statusAnchorEl, setStatusAnchorEl] = useState<null | HTMLElement>(null);
@@ -244,9 +215,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
       if (!res.ok) throw new Error(await res.text());
       await fetchNotes();
       try { 
-        // invalidate cache for this goal so next lightweight fetch is fresh
-        try { delete notesCountCacheRef.current[goal.id as string]; } catch (e) { /* ignore */ }
-        await fetchNotesCount(); 
+        // invalidate/refresh shared count for this goal
+        await fetchNotesCount?.(goal.id); 
       } catch (e) { /* ignore */ }
       setEditingNoteId(null);
       setEditingNoteContent('');
@@ -268,8 +238,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
       if (!res.ok) throw new Error(await res.text());
       // success; nothing else
       try { 
-        delete notesCountCacheRef.current[goal.id as string];
-        await fetchNotesCount(); 
+        await fetchNotesCount?.(goal.id); 
       } catch (e) { /* ignore */ }
     } catch (err: any) {
       console.error('Error deleting note:', err);
@@ -362,15 +331,17 @@ const GoalCard: React.FC<GoalCardProps> = ({
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           userIdRef.current = user.id;
-          // fetch lightweight count on initial prime so UI can show note counts without fetching full notes
-          (async () => { try { await fetchNotesCount(); } catch (e) { /* ignore */ } })();
+          // prime lightweight shared counts for this goal (non-blocking)
+          (async () => { try { await fetchNotesCount?.(goal.id); } catch (e) { /* ignore */ } })();
+          (async () => { try { await fetchAccomplishmentsCount?.(goal.id); } catch (e) { /* ignore */ } })();
         } else {
           // subscribe to auth changes so we can populate the cache once available
           authListener = supabase.auth.onAuthStateChange((_event, session) => {
             if (session?.user) {
               userIdRef.current = session.user.id;
-              // fetch count once auth arrives
-              (async () => { try { await fetchNotesCount(); } catch (e) { /* ignore */ } })();
+              // prime shared counts once auth arrives
+              (async () => { try { await fetchNotesCount?.(goal.id); } catch (e) { /* ignore */ } })();
+              (async () => { try { await fetchAccomplishmentsCount?.(goal.id); } catch (e) { /* ignore */ } })();
             }
           });
         }
@@ -502,8 +473,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
             <Tooltip title="Accomplishments" placement="top" arrow>
               <span>
                 <IconButton aria-label="Accomplishments" onClick={() => openModal()} size="small" className="btn-ghost">
-                  {accomplishments.length > 0 && (
-                    <div className={objectCounter}>{accomplishments.length}</div>
+                  {(accomplishmentCountMap[goal.id] ?? accomplishments.length) > 0 && (
+                    <div className={objectCounter}>{accomplishmentCountMap[goal.id] ?? accomplishments.length}</div>
                   )}
                   <Award className="w-5 h-5 inline" name="Add accomplishment" />
                 </IconButton>
@@ -513,8 +484,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
             <Tooltip title="Notes" placement="top" arrow>
               <span>
                 <IconButton aria-label="Notes" onClick={openNotesModal} id="openNotes" size="small" className="btn-ghost">
-                  {(typeof notesCount === 'number' && notesCount != 0) && (
-                    <div className={objectCounter}>{notes.length > 0 ? notes.length : (notesCount ?? 0)}</div>
+                  {((notesCountMap[goal.id] ?? (notes.length > 0 ? notes.length : 0)) > 0) && (
+                    <div className={objectCounter}>{notesCountMap[goal.id] ?? (notes.length > 0 ? notes.length : 0)}</div>
                   )}
                   <NotesIcon className="w-5 h-5" />
                 </IconButton>

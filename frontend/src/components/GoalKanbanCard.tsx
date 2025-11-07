@@ -9,6 +9,7 @@ import { TextField, Tooltip, IconButton } from '@mui/material';
 import type { ChangeEvent } from 'react';
 // import { STATUSES, STATUS_COLORS, type Status } from '../constants/statuses';
 import { cardClasses, modalClasses, objectCounter } from '@styles/classes'; // Adjust the import path as necessary
+import useGoalExtras from '@hooks/useGoalExtras';
 import { notifyError, notifySuccess } from './ToastyNotification';
 // import { Link } from 'react-router-dom';
 import { applyHighlight } from '@utils/functions'; // Adjust the import path as necessary
@@ -62,7 +63,6 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
   const [selectedAccomplishment, setSelectedAccomplishment] = useState<Accomplishment | null>(null);
   const [isAccomplishmentLoading, setIsAccomplishmentLoading] = useState(false);
   const [isNotesLoading, setIsNotesLoading] = useState(false);
-  const [notesCount, setNotesCount] = useState<number | null>(null);
   // Notes state
   const [notes, setNotes] = useState<Array<{ id: string; content: string; created_at: string; updated_at: string }>>([]);
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
@@ -94,40 +94,23 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
       return null;
     }
   };
+  // Shared counts and helpers
+  const { notesCountMap, accomplishmentCountMap, fetchNotesCount, fetchAccomplishmentsCount } = useGoalExtras();
 
-  // Simple in-memory per-goal notesCount TTL cache to avoid repeated lightweight queries
-  // Map<goalId, { count: number, expiresAt: number }>
-  const notesCountCacheRef = React.useRef<Record<string, { count: number; expiresAt: number }>>({});
-  const NOTES_COUNT_TTL_MS = 30 * 1000; // 30s TTL
-
-  const fetchNotesCount = async (idArg?: string) => {
-    try {
-      const idToUse = idArg ?? goal.id;
-      if (typeof idToUse === 'string' && idToUse.startsWith('temp-')) {
-        setNotesCount(0);
-        return 0;
-      }
-      // check cache
-      const cached = notesCountCacheRef.current[idToUse];
-      if (cached && cached.expiresAt > Date.now()) {
-        setNotesCount(cached.count);
-        return cached.count;
-      }
-      const userId = await getCachedUserId();
-      if (!userId) return null;
-      const res = await fetch(`/api/getNotes?goal_id=${idToUse}&count_only=1`, { headers: { Authorization: `Bearer ${userId}` } });
-      if (!res.ok) throw new Error(await res.text());
-      const json = await res.json();
-      const count = typeof json?.count === 'number' ? json.count : Number(json) || 0;
-      // store in cache
-      notesCountCacheRef.current[idToUse] = { count, expiresAt: Date.now() + NOTES_COUNT_TTL_MS };
-      setNotesCount(count);
-      return count;
-    } catch (err) {
-      console.error('Error fetching notes count:', err);
-      return null;
+  // Proactively prime counts for Kanban cards without waiting for user interaction.
+  // Only fetch when we don't already have a cached value to avoid duplicate requests.
+  useEffect(() => {
+    if (!goal?.id) return;
+    if (typeof goal.id === 'string' && goal.id.startsWith('temp-')) return; // skip temp ids
+    // if no notes count, try to fetch it (hook will guard auth/retries)
+    if (notesCountMap[goal.id] === undefined) {
+      (async () => { try { await fetchNotesCount?.(goal.id); } catch (e) { /* ignore */ } })();
     }
-  };
+    // if no accomplishments count, try to fetch it
+    if (accomplishmentCountMap[goal.id] === undefined) {
+      (async () => { try { await fetchAccomplishmentsCount?.(goal.id); } catch (e) { /* ignore */ } })();
+    }
+  }, [goal?.id, notesCountMap, accomplishmentCountMap, fetchNotesCount, fetchAccomplishmentsCount]);
 
   // const [localStatus, setLocalStatus] = useState<string | undefined>(goal.status);
   // const [statusAnchorEl, setStatusAnchorEl] = useState<null | HTMLElement>(null);
@@ -239,8 +222,8 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
       if (!res.ok) throw new Error(await res.text());
       // reconcile with server copy
       await fetchNotes();
-      // refresh the lightweight count too
-      try { await fetchNotesCount(); } catch (e) { /* ignore */ }
+  // refresh the shared notes count for this goal
+  try { await fetchNotesCount?.(goal.id); } catch (e) { /* ignore */ }
     } catch (err: any) {
       console.error('Error creating note:', err);
       // remove temp note
@@ -263,9 +246,7 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
       if (!res.ok) throw new Error(await res.text());
       await fetchNotes();
       try { 
-        // invalidate cache for this goal so next lightweight fetch is fresh
-        try { delete notesCountCacheRef.current[goal.id as string]; } catch (e) { /* ignore */ }
-        await fetchNotesCount(); 
+        await fetchNotesCount?.(goal.id); 
       } catch (e) { /* ignore */ }
       setEditingNoteId(null);
       setEditingNoteContent('');
@@ -287,8 +268,7 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
       if (!res.ok) throw new Error(await res.text());
       // success; nothing else
       try { 
-        delete notesCountCacheRef.current[goal.id as string];
-        await fetchNotesCount(); 
+        await fetchNotesCount?.(goal.id); 
       } catch (e) { /* ignore */ }
     } catch (err: any) {
       console.error('Error deleting note:', err);
@@ -496,8 +476,8 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
             <Tooltip title="Accomplishments" placement="top" arrow>
               <span>
                 <IconButton aria-label="Accomplishments" onClick={() => openModal()} size="small" className="btn-ghost">
-                  {accomplishments.length > 0 && (
-                    <div className={objectCounter}>{accomplishments.length}</div>
+                  {(accomplishmentCountMap[goal.id] ?? accomplishments.length) > 0 && (
+                    <div className={objectCounter}>{accomplishmentCountMap[goal.id] ?? accomplishments.length}</div>
                   )}
                   <Award className="w-5 h-5 inline" name="Add accomplishment" />
                 </IconButton>
@@ -507,8 +487,8 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
             <Tooltip title="Notes" placement="top" arrow>
               <span>
                 <IconButton aria-label="Notes" onClick={openNotesModal} id="openNotes" size="small" className="btn-ghost">
-                  {(typeof notesCount === 'number' && notesCount != 0) && (
-                    <div className={objectCounter}>{notes.length > 0 ? notes.length : (notesCount ?? 0)}</div>
+                  {((notesCountMap[goal.id] ?? (notes.length > 0 ? notes.length : 0)) > 0) && (
+                    <div className={objectCounter}>{notesCountMap[goal.id] ?? (notes.length > 0 ? notes.length : 0)}</div>
                   )}
                   <NotesIcon className="w-5 h-5" />
                 </IconButton>

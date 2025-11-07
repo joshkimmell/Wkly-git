@@ -5,7 +5,10 @@ import GoalCard from '@components/GoalCard';
 import GoalKanbanCard from '@components/GoalKanbanCard';
 import GoalForm from '@components/GoalForm';
 import Modal from 'react-modal';
+import ConfirmModal from './ConfirmModal';
+import AccomplishmentsModal from './AccomplishmentsModal';
 import SummaryGenerator from '@components/SummaryGenerator';
+import AccomplishmentEditor from './AccomplishmentEditor';
 import SummaryEditor from '@components/SummaryEditor';
 import GoalEditor from '@components/GoalEditor';
 import { modalClasses, overlayClasses } from '@styles/classes';
@@ -15,10 +18,11 @@ import { mapPageForScope, loadPageByScope, savePageByScope } from '@utils/pagina
 import 'react-datepicker/dist/react-datepicker.css';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
-import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, Eye, Edit, Trash, EyeOff } from 'lucide-react';
+import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, Eye, Edit, Trash, EyeOff, ChevronRight, Award, FileText as NotesIcon, Save as SaveIcon } from 'lucide-react';
 import { useGoalsContext } from '@context/GoalsContext';
+import useGoalExtras from '@hooks/useGoalExtras';
 // notify helpers imported where needed below
-import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, FormGroup, FormLabel, InputLabel, Select, MenuItem, Tooltip, Menu, Chip, Badge, Checkbox, ListItemText, ToggleButtonGroup, ToggleButton, Table, TableHead, TableBody, TableRow, TableCell, Paper, Typography, Switch, FormControlLabel, CircularProgress } from '@mui/material';
+import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, FormGroup, FormLabel, InputLabel, Select, MenuItem, Tooltip, Menu, Chip, Badge, Checkbox, ListItemText, ToggleButtonGroup, ToggleButton, Table, TableHead, TableBody, TableRow, TableCell, Paper, Typography, Switch, FormControlLabel, CircularProgress, useMediaQuery } from '@mui/material';
 // dnd-kit was attempted but failed to install; use HTML5 drag/drop fallback
 import { useTheme } from '@mui/material/styles';
 import supabase from '@lib/supabase';
@@ -94,7 +98,7 @@ const InlineStatus: React.FC<{ goal: Goal; onUpdated?: () => void }> = ({ goal, 
 
 const GoalsComponent = () => {
     // helper to toggle table sorting from header clicks
-    const toggleSort = (field: 'date' | 'category' | 'status') => {
+    const toggleSort = (field: 'date' | 'category' | 'status' | 'title') => {
         if (sortBy === field) {
             setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
         } else {
@@ -117,7 +121,7 @@ const GoalsComponent = () => {
     const lastSwitchFromRef = useRef<string | null>(null);
     // Default: Date Descending
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-    const [sortBy, setSortBy] = useState<'date' | 'category' | 'status'>('date');
+    const [sortBy, setSortBy] = useState<'date' | 'category' | 'status' | 'title'>('date');
     const [sortAnchorEl, setSortAnchorEl] = useState<HTMLElement | null>(null);
     const [isGoalModalOpen, setIsGoalModalOpen] = useState(false); // Modal state
     const [isEditorOpen, setIsEditorOpen] = useState(false); // Editor modal state
@@ -142,18 +146,55 @@ const GoalsComponent = () => {
         created_at: string;
         status?: string | null;
         status_notes?: string | null;
-        status_set_at?: string | null;
     } | null>(null);
-    const [selectedSummary, setSelectedSummary] = useState<{
-        id: string;
-        user_id: string;
-        content: string;
-        type: string;
-        title: string;
-    } | null>(null); // State for selected summary
     const [filter, setFilter] = useState<string>('');
     const [filterFocused, setFilterFocused] = useState<boolean>(false);
     const [clearButtonFocused, setClearButtonFocused] = useState<boolean>(false);
+    // Per-row actions menu state (used in table view)
+    const [rowActionsAnchorEl, setRowActionsAnchorEl] = useState<HTMLElement | null>(null);
+    const [rowActionsTargetId, setRowActionsTargetId] = useState<string | null>(null);
+    // Delete confirm modal state
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState<boolean>(false);
+    const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+    // shared accomplishments/notes hook
+    const goalExtras = useGoalExtras();
+    const {
+    accomplishments,
+    accomplishmentCountMap,
+    isAccomplishmentLoading,
+    isAccomplishmentModalOpen,
+    isEditAccomplishmentModalOpen,
+    selectedAccomplishment,
+    setSelectedAccomplishment,
+    setIsEditAccomplishmentModalOpen,
+    deleteAccomplishment,
+    createAccomplishment,
+    saveEditedAccomplishment,
+    openAccomplishments,
+    closeAccomplishments,
+
+    notes,
+    notesCountMap,
+    isNotesLoading,
+    isNotesModalOpen,
+    newNoteContent,
+    setNewNoteContent,
+    editingNoteId,
+    setEditingNoteId,
+    editingNoteContent,
+    setEditingNoteContent,
+        openNotes,
+        closeNotes,
+        createNote,
+        updateNote,
+        deleteNote,
+        fetchNotesCount,
+        fetchAccomplishmentsCount,
+    } = goalExtras;
+    const [selectedSummary, setSelectedSummary] = useState<{ id: string; content?: string; type?: string; title?: string } | null>(null);
+    const [noteDeleteTarget, setNoteDeleteTarget] = useState<string | null>(null);
+    // simple caches
+    
     const filterInputRef = useRef<HTMLInputElement | null>(null);
     const blurTimeoutRef = useRef<number | null>(null);
     const showClear = filter.length > 0 || filterFocused || clearButtonFocused;
@@ -182,6 +223,7 @@ const GoalsComponent = () => {
         (filter && filter.trim().length > 0 ? 1 : 0);
 
     const theme = useTheme();
+    const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
     // view mode: 'cards' (default), 'table', or 'kanban'
     const [viewMode, setViewMode] = useState<'cards' | 'table' | 'kanban'>(() => {
         try {
@@ -1027,24 +1069,51 @@ const GoalsComponent = () => {
     // list instead of the current page's indexed goals so the toggle applies
     // consistently across all views.
     const allIndexedFlattened = Object.values(indexedGoals).flat();
-    const sortedAndFilteredGoals = (showAllInKanban ? (fullGoals || allIndexedFlattened) : (indexedGoals[currentPage] || [])).filter(goalMatchesFilters).sort((a, b) => {
-        const dir = sortDirection === 'asc' ? 1 : -1;
-        if (sortBy === 'date') {
-            return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-        }
-        if (sortBy === 'category') {
-            const ca = (a.category || '').toLowerCase();
-            const cb = (b.category || '').toLowerCase();
-            if (ca < cb) return -1 * dir;
-            if (ca > cb) return 1 * dir;
+    const sortedAndFilteredGoals = useMemo(() => {
+        const source = showAllInKanban ? (fullGoals || allIndexedFlattened) : (indexedGoals[currentPage] || []);
+        return source.filter(goalMatchesFilters).sort((a, b) => {
+            const dir = sortDirection === 'asc' ? 1 : -1;
+            if (sortBy === 'date') {
+                return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+            }
+            if (sortBy === 'category') {
+                const ca = (a.category || '').toLowerCase();
+                const cb = (b.category || '').toLowerCase();
+                if (ca < cb) return -1 * dir;
+                if (ca > cb) return 1 * dir;
+                return 0;
+            }
+            const sa = (a.status || '').toLowerCase();
+            const sb = (b.status || '').toLowerCase();
+            if (sa < sb) return -1 * dir;
+            if (sa > sb) return 1 * dir;
             return 0;
-        }
-        const sa = (a.status || '').toLowerCase();
-        const sb = (b.status || '').toLowerCase();
-        if (sa < sb) return -1 * dir;
-        if (sa > sb) return 1 * dir;
-        return 0;
-    });
+        });
+    }, [showAllInKanban, fullGoals, indexedGoals, currentPage, filter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection]);
+    
+
+    // Proactively fetch counts for visible goals (limit and sequential to avoid spamming)
+    const visibleIdsMemo = useMemo(() => sortedAndFilteredGoals.slice(0, 10).map((g) => g.id), [sortedAndFilteredGoals]);
+    useEffect(() => {
+        if (!visibleIdsMemo || visibleIdsMemo.length === 0) return;
+        let mounted = true;
+        (async () => {
+            for (const id of visibleIdsMemo) {
+                if (!mounted) break;
+                try {
+                    // fetch notes count first, then accomplishments count
+                    await fetchNotesCount(id).catch(() => null);
+                } catch { /* ignore */ }
+                if (!mounted) break;
+                try {
+                    if (fetchAccomplishmentsCount) await fetchAccomplishmentsCount(id).catch(() => null);
+                } catch { /* ignore */ }
+                // small delay to avoid burst (non-blocking)
+                await new Promise((res) => setTimeout(res, 50));
+            }
+        })();
+        return () => { mounted = false; };
+    }, [visibleIdsMemo, fetchNotesCount, fetchAccomplishmentsCount]);
 
     // Filtered & sorted list across all indexed pages (for Kanban view)
     const sortedAndFilteredAllGoals = Object.values(indexedGoals).flat().filter(goalMatchesFilters).sort((a, b) => {
@@ -1233,7 +1302,9 @@ const GoalsComponent = () => {
                         className=""
                     >
                         <Tooltip title="View grid" placement="top" arrow><ToggleButton value="cards" aria-label="Cards view"><LayoutGrid /></ToggleButton></Tooltip>
+                        { !isSmall && (
                         <Tooltip title="View table" placement="top" arrow><ToggleButton value="table" aria-label="Table view"><Table2Icon /></ToggleButton></Tooltip>
+                        )}
                         <Tooltip title="View kanban board" placement="top" arrow><ToggleButton value="kanban" aria-label="Kanban view"><Kanban /></ToggleButton></Tooltip>
                     </ToggleButtonGroup>
                     {/* Scope Selector */}
@@ -1529,7 +1600,24 @@ const GoalsComponent = () => {
                                 ) : null,
                         }}
                     />
-                {viewMode === 'cards' && (
+
+                    {/* Edit Accomplishment Modal (reuses AccomplishmentEditor) */}
+                    {isEditAccomplishmentModalOpen && selectedAccomplishment && (
+                        <div className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50">
+                            <div className={`${modalClasses}`}>
+                                <h3 className="text-lg font-medium text-gray-90 mb-4">Edit Accomplishment</h3>
+                                <AccomplishmentEditor
+                                    accomplishment={selectedAccomplishment}
+                                    onSave={async (updatedDescription?: string, updatedTitle?: string, updatedImpact?: string) => {
+                                        if (!selectedAccomplishment) return;
+                                        await saveEditedAccomplishment(selectedAccomplishment.id, { title: updatedTitle, description: updatedDescription, impact: updatedImpact }, (selectedGoal as any)?.id);
+                                    }}
+                                    onRequestClose={() => { setSelectedAccomplishment(null); setIsEditAccomplishmentModalOpen(false); }}
+                                />
+                            </div>
+                        </div>
+                    )}
+                {viewMode !== 'kanban' && (
                     <>
                     <Tooltip title={`Sort: ${sortBy.charAt(0).toUpperCase() + sortBy.slice(1)} (${sortDirection === 'asc' ? 'ascending' : 'descending'})`} placement="top" arrow>
                         <span className="flex items-center space-x-2">
@@ -1648,12 +1736,18 @@ const GoalsComponent = () => {
                 )}
 
                 {viewMode === 'table' && (
-                    <Paper elevation={0} className="w-full">
-                        <Table>
-                            <TableHead>
-                                <TableRow>
-                                        <TableCell>
-                                            Title
+                    isSmall ? (
+                        setViewMode('cards'), <div></div>
+                    ) : (
+                        <Paper elevation={0} className="w-full">
+                            <Table>
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell onClick={() => toggleSort('title')} style={{ cursor: 'pointer' }}>
+                                            <span className="flex items-center">
+                                                Title
+                                                {sortBy === 'title' && (sortDirection === 'asc' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />)}
+                                            </span>
                                         </TableCell>
                                         <TableCell onClick={() => toggleSort('category')} style={{ cursor: 'pointer' }}>
                                             <span className="flex items-center">
@@ -1661,14 +1755,12 @@ const GoalsComponent = () => {
                                                 {sortBy === 'category' && (sortDirection === 'asc' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />)}
                                             </span>
                                         </TableCell>
-                                        
-                                            <TableCell onClick={() => toggleSort('status')} style={{ cursor: 'pointer' }}>
-                                                <span className="flex items-center">
-                                                    Status
-                                                    {sortBy === 'status' && (sortDirection === 'asc' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />)}
-                                                </span>
-                                            </TableCell>
-                                        
+                                        <TableCell onClick={() => toggleSort('status')} style={{ cursor: 'pointer' }}>
+                                            <span className="flex items-center">
+                                                Status
+                                                {sortBy === 'status' && (sortDirection === 'asc' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />)}
+                                            </span>
+                                        </TableCell>
                                         <TableCell onClick={() => toggleSort('date')} style={{ cursor: 'pointer' }}>
                                             <span className="flex items-center">
                                                 Week
@@ -1677,37 +1769,141 @@ const GoalsComponent = () => {
                                         </TableCell>
                                         <TableCell>Actions</TableCell>
                                     </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {sortedAndFilteredGoals.map((goal) => (
-                                    <TableRow key={goal.id}>
-                                        <TableCell>
-                                            <Typography variant="body1"><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></Typography>
-                                            {/* <Typography variant="body2" className="text-gray-500"><span dangerouslySetInnerHTML={renderHTML(goal.description)} /></Typography> */}
-                                            <Typography variant="body2" className="text-gray-500">
-                                                <span dangerouslySetInnerHTML={renderHTML(((goal.description || '').substring(0, 100) + ((goal.description || '').length > 200 ? '...' : '')))} />
-                                            </Typography>
-                                        </TableCell>
-                                        
-                                        <TableCell>
-                                            <span className='card-category text-nowrap' dangerouslySetInnerHTML={renderHTML(goal.category)} /></TableCell>
-                                        <TableCell>
-                                            <InlineStatus goal={goal} onUpdated={() => refreshGoals().then(() => {})} />
-                                        </TableCell>
-                                        <TableCell><span className='text-xs' dangerouslySetInnerHTML={renderHTML(goal.week_start)} /></TableCell>
-                                        <TableCell>
-                                            <div className="flex gap-0 items-center">
-                                            <IconButton className='btn-ghost' size="small" onClick={() => { setSelectedGoal(goal); setIsEditorOpen(true); }}><Edit /></IconButton>
-                                            <IconButton className='btn-ghost' size="small" onClick={() => handleDeleteGoal(goal.id)}><Trash /></IconButton>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </Paper>
-                )}
+                                </TableHead>
+                                <TableBody>
+                                    {sortedAndFilteredGoals.map((goal) => (
+                                        <TableRow key={goal.id}>
+                                            <TableCell>
+                                                <Typography variant="body1"><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></Typography>
+                                                <Typography variant="body2" className="text-gray-500">
+                                                    <span dangerouslySetInnerHTML={renderHTML(((goal.description || '').substring(0, 100) + ((goal.description || '').length > 200 ? '...' : '')))} />
+                                                </Typography>
+                                            </TableCell>
+                                            <TableCell>
+                                                <span className='card-category text-nowrap' dangerouslySetInnerHTML={renderHTML(goal.category)} />
+                                            </TableCell>
+                                            <TableCell>
+                                                <InlineStatus goal={goal} onUpdated={() => refreshGoals().then(() => {})} />
+                                            </TableCell>
+                                            <TableCell><span className='text-xs' dangerouslySetInnerHTML={renderHTML(goal.week_start)} /></TableCell>
+                                            <TableCell>
+                                                {/* Single chevron button that opens a per-row actions menu */}
+                                                
+                                                <IconButton
+                                                    className="btn-ghost"
+                                                    size="small"
+                                                    aria-controls={rowActionsAnchorEl && rowActionsTargetId === goal.id ? 'row-actions-menu' : undefined}
+                                                    aria-haspopup="true"
+                                                    aria-expanded={rowActionsAnchorEl && rowActionsTargetId === goal.id ? 'true' : undefined}
+                                                    onClick={(e) => {
+                                                        const el = e.currentTarget as HTMLElement;
+                                                        if (rowActionsTargetId === goal.id && rowActionsAnchorEl) {
+                                                            setRowActionsAnchorEl(null);
+                                                            setRowActionsTargetId(null);
+                                                        } else {
+                                                            setRowActionsAnchorEl(el);
+                                                            setRowActionsTargetId(goal.id);
+                                                        }
+                                                    }}
+                                                >
+                                                    {/* Rotate chevron when open to indicate expanded state */}
+                                                { (accomplishmentCountMap[goal.id] || 0) > 0 || (notesCountMap[goal.id] || 0) > 0 ? (
+                                                    <Badge 
+                                                        badgeContent="" 
+                                                        color="primary"
+                                                        variant='dot'
+                                                        anchorOrigin={{
+                                                            vertical: 'top',
+                                                            horizontal: 'right',
+                                                        }}
+                                                    >
+                                                        <ChevronRight className={`w-4 h-4 ${rowActionsTargetId === goal.id && rowActionsAnchorEl ? 'transform rotate-90' : ''}`} />
+                                                    </Badge>
+                                                ) : (
+                                                    <ChevronRight className={`w-4 h-4 ${rowActionsTargetId === goal.id && rowActionsAnchorEl ? 'transform rotate-90' : ''}`} />
+                                                )}
+                                                </IconButton>
 
+                                                <Menu
+                                                    id="row-actions-menu"
+                                                    anchorEl={rowActionsAnchorEl}
+                                                    open={Boolean(rowActionsAnchorEl) && rowActionsTargetId === goal.id}
+                                                    onClose={() => { setRowActionsAnchorEl(null); setRowActionsTargetId(null); }}
+                                                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                                                    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                                                    PaperProps={{ sx: { bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100' } }}
+                                                >
+                                                    <MenuItem 
+                                                        aria-label="Accomplishments" 
+                                                        onClick={() => { setSelectedGoal(goal); openAccomplishments(goal); }} 
+                                                    >
+                                                    <Badge 
+                                                        badgeContent={accomplishmentCountMap[goal.id] ?? 0} 
+                                                        color="primary"
+                                                        anchorOrigin={{
+                                                            vertical: 'top',
+                                                            horizontal: 'right',
+                                                        }}
+                                                    >
+                                                        <Award className="w-4 h-4 mr-2" name="Add accomplishment" />
+                                                    </Badge>
+                                                    {/* {accomplishments.length > 0 && (
+                                                    <div className={objectCounter}>{accomplishments.length}</div>
+                                                    )} */}
+                                                        Accomplishments
+                                                    </MenuItem>
+                                        
+                                                    <MenuItem 
+                                                        aria-label="Notes" onClick={() => { setSelectedGoal(goal); openNotes(goal); }} 
+                                                        id="openNotes"
+                                                        >
+                                                            <Badge 
+                                                                badgeContent={notesCountMap[goal.id] ?? 0} 
+                                                                color="primary"
+                                                                anchorOrigin={{
+                                                                    vertical: 'top',
+                                                                    horizontal: 'right',
+                                                                }}
+                                                            >
+                                                                <NotesIcon className="w-4 h-4 mr-2" />
+                                                            </Badge>
+                                                            {/* {(typeof notesCount === 'number' && notesCount != 0) && (
+                                                            <div className={objectCounter}>{notes.length > 0 ? notes.length : (notesCount ?? 0)}
+                                                            </div>
+                                                            )} */}
+                                                            Notes
+                                                    </MenuItem >
+                                                    <MenuItem
+                                                        onClick={() => {
+                                                            setSelectedGoal(goal);
+                                                            setIsEditorOpen(true);
+                                                            setRowActionsAnchorEl(null);
+                                                            setRowActionsTargetId(null);
+                                                        }}
+                                                    >
+                                                        <Edit className="w-4 h-4 mr-2" />
+                                                        Edit goal
+                                                    </MenuItem>
+                                                        <MenuItem
+                                                            onClick={() => {
+                                                                setRowActionsAnchorEl(null);
+                                                                setRowActionsTargetId(null);
+                                                                setDeleteTargetId(goal.id);
+                                                                setIsDeleteConfirmOpen(true);
+                                                            }}
+                                                        >
+                                                            <Trash className="w-4 h-4 mr-2" />
+                                                            Delete goal
+                                                        </MenuItem>
+                                                </Menu>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </Paper>
+                    )
+                )}
                             {viewMode === 'kanban' && (
                                 <div className="flex flex-col mt-2 lg:flex-row gap-4 w-full">
                                     {isScopeLoading ? (
@@ -1857,28 +2053,28 @@ const GoalsComponent = () => {
                     >
                         <div className={`${modalClasses}`}>
                         {selectedSummary && (
-                          <SummaryEditor
-                            id={selectedSummary.id}
-                            content={selectedSummary.content}
-                            type={selectedSummary.type === 'AI' || selectedSummary.type === 'User' ? selectedSummary.type : 'User'}
-                            title={selectedSummary.title}
-                            onRequestClose={() => setSelectedSummary(null)}
-                            onSave={async (editedTitle, editedContent) => {
-                            try {
-                                await saveSummary(
-                                  setLocalSummaryId,
-                                  editedTitle || selectedSummary.title,
-                                  editedContent,
-                                  'User',
-                                  new Date(),
-                                  scope
-                                );
-                                closeEditor();
-                            } catch (error) {
-                                console.error('Error saving edited summary:', error);
-                            }
-                            }}
-                          />
+                                                    <SummaryEditor
+                                                        id={selectedSummary.id}
+                                                        content={selectedSummary.content || ''}
+                                                        type={selectedSummary.type === 'AI' || selectedSummary.type === 'User' ? selectedSummary.type : 'User'}
+                                                        title={selectedSummary.title || ''}
+                                                        onRequestClose={() => setSelectedSummary(null)}
+                                                        onSave={async (editedTitle, editedContent) => {
+                                                        try {
+                                                                await saveSummary(
+                                                                    setLocalSummaryId,
+                                                                    editedTitle || selectedSummary.title || '',
+                                                                    editedContent || selectedSummary.content || '',
+                                                                    'User',
+                                                                    new Date(),
+                                                                    scope
+                                                                );
+                                                                closeEditor();
+                                                        } catch (error) {
+                                                                console.error('Error saving edited summary:', error);
+                                                        }
+                                                        }}
+                                                    />
                         )}
                         </div>
                     </Modal>
@@ -1974,6 +2170,128 @@ const GoalsComponent = () => {
                         />
                     )}
                 </Modal>
+                    {/* Confirm delete goal modal (shared for table/mobile actions) */}
+                    <ConfirmModal
+                        isOpen={isDeleteConfirmOpen}
+                        title="Delete goal?"
+                        message={deleteTargetId ? `Are you sure you want to permanently delete this goal? This action cannot be undone.` : 'Are you sure you want to delete this goal?'}
+                        onCancel={() => { setIsDeleteConfirmOpen(false); setDeleteTargetId(null); }}
+                        onConfirm={async () => {
+                            try {
+                                if (!deleteTargetId) return;
+                                await handleDeleteGoal(deleteTargetId);
+                            } finally {
+                                setIsDeleteConfirmOpen(false);
+                                setDeleteTargetId(null);
+                            }
+                        }}
+                        confirmLabel="Delete"
+                        cancelLabel="Cancel"
+                    />
+                    {/* Accomplishments modal used by mobile stacked rows */}
+                    <AccomplishmentsModal
+                        goalTitle={(selectedGoal as any)?.title || ''}
+                        isOpen={isAccomplishmentModalOpen}
+                        onClose={() => closeAccomplishments()}
+                        accomplishments={accomplishments}
+                        onCreate={async ({ title, description, impact }) => {
+                            const gid = (selectedGoal as any)?.id;
+                            if (!gid) return;
+                            await createAccomplishment(gid, { title, description, impact });
+                        }}
+                        onDelete={async (id) => {
+                            await deleteAccomplishment(id, (selectedGoal as any)?.id);
+                        }}
+                        onEdit={(item) => {
+                            setSelectedAccomplishment(item);
+                            setIsEditAccomplishmentModalOpen(true);
+                        }}
+                        loading={isAccomplishmentLoading}
+                    />
+
+                    {/* Notes modal used by mobile stacked rows */}
+                    {isNotesModalOpen && (
+                        <div id="editNotes" className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50">
+                            <div className={`${modalClasses} w-full max-w-2xl`}> 
+                                <div className='flex flex-row w-full justify-between items-start'>
+                                    <h3 className="text-lg font-medium text-gray-90 mb-4">Notes for <br />"{(selectedGoal as any)?.title}"</h3>
+                                            <div className="mb-4 flex justify-end">
+                                        <button className="btn-ghost" onClick={() => closeNotes()}>
+                                            <CloseButton className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+                                    <div className="mt-4">
+                                        <TextField
+                                            value={newNoteContent}
+                                            onChange={(e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setNewNoteContent(e.target.value)}
+                                            className="mt-4 block w-full"
+                                            label="Add a new note"
+                                            multiline
+                                            rows={3}
+                                            size="small"
+                                        />
+                                        <div className="mt-2 flex justify-end gap-2">
+                                            <button className="btn-primary" onClick={() => createNote((selectedGoal as any)?.id)} disabled={isNotesLoading}><PlusIcon className="w-4 h-4 inline mr-1" />Add note</button>
+                                            {isNotesLoading && <div className="ml-2 text-sm text-gray-500">Saving...</div>}
+                                        </div>
+                                    </div>
+                                    {isNotesLoading && notes.length === 0 ? (
+                                        <div className="text-sm text-gray-50">Loading notes...</div>
+                                    ) : null}
+                                    { notes.length != 0 && (
+                                        <div>
+                                            <h4 className="text-md font-semibold mb-2">Existing notes</h4>
+                                            <ul className="space-y-3">
+                                                {notes.map((note) => (
+                                                    <li key={note.id} className="p-3 border rounded bg-gray-10 dark:bg-gray-80 dark:border-gray-70">
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <div className="text-xs text-gray-40">{new Date(note.created_at).toLocaleString()}</div>
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                <button className="btn-ghost" onClick={() => { setEditingNoteId(note.id); setEditingNoteContent(note.content); }} title="Edit note"><Edit className="w-4 h-4" /></button>
+                                                                <button className="btn-ghost" onClick={() => setNoteDeleteTarget(note.id)} title="Delete note" disabled={isNotesLoading}><Trash className="w-4 h-4" /></button>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-sm text-gray-70 dark:text-gray-20" dangerouslySetInnerHTML={{ __html: note.content }} />
+                                                        {editingNoteId === note.id && (
+                                                            <div className="mt-2">
+                                                                <TextField
+                                                                    value={editingNoteContent}
+                                                                    onChange={(e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setEditingNoteContent(e.target.value)}
+                                                                    multiline
+                                                                    rows={3}
+                                                                    size="small"
+                                                                    className="mt-1 block w-full"
+                                                                />
+                                                                <div className="mt-2 flex justify-end gap-2">
+                                                                    <button className="btn-ghost" onClick={() => { setEditingNoteId(null); setEditingNoteContent(''); }}>Cancel</button>
+                                                                    <button className="btn-primary" onClick={() => updateNote(editingNoteId as string, editingNoteContent)}><SaveIcon className="w-4 h-4 inline mr-1" />Save</button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+                                <ConfirmModal
+                                    isOpen={!!noteDeleteTarget}
+                                    title="Delete note?"
+                                    message={`Are you sure you want to delete this note? This action cannot be undone.`}
+                                    onCancel={() => setNoteDeleteTarget(null)}
+                                    onConfirm={async () => {
+                                        if (!noteDeleteTarget) return;
+                                        await deleteNote(noteDeleteTarget);
+                                        setNoteDeleteTarget(null);
+                                    }}
+                                    confirmLabel="Delete"
+                                    cancelLabel="Cancel"
+                                />
+                            </div>
+                        </div>
+                    )}
             </div>
         </div>
     </div>
