@@ -1302,7 +1302,9 @@ const GoalsComponent = () => {
                         className=""
                     >
                         <Tooltip title="View grid" placement="top" arrow><ToggleButton value="cards" aria-label="Cards view"><LayoutGrid /></ToggleButton></Tooltip>
+                        { !isSmall && (
                         <Tooltip title="View table" placement="top" arrow><ToggleButton value="table" aria-label="Table view"><Table2Icon /></ToggleButton></Tooltip>
+                        )}
                         <Tooltip title="View kanban board" placement="top" arrow><ToggleButton value="kanban" aria-label="Kanban view"><Kanban /></ToggleButton></Tooltip>
                     </ToggleButtonGroup>
                     {/* Scope Selector */}
@@ -1736,130 +1738,6 @@ const GoalsComponent = () => {
                 {viewMode === 'table' && (
                     isSmall ? (
                         setViewMode('cards'), <div></div>
-                        // <div className="w-full space-y-3">
-                        //     {sortedAndFilteredGoals.map((goal) => (
-                        //         <Paper key={goal.id} elevation={0} className="p-3">
-                        //             <div className="flex items-start justify-between">
-                        //                 <div className="flex-1">
-                        //                     <div className='h-full items-center'><div className="text-gray-700 dark:text-gray-200" dangerouslySetInnerHTML={renderHTML(goal.week_start || '')} /></div>
-                        //                     <div className="flex items-center justify-between">
-                        //                         {/* <button className="text-left w-full text-sm font-medium text-gray-90 dark:text-gray-10" onClick={() => toggleSort('title')}> */}
-                        //                             <h3 dangerouslySetInnerHTML={renderHTML(goal.title)} />
-                        //                         {/* </button> */}
-                        //                         <div className="ml-2">
-                        //                             <IconButton
-                        //                                 className="btn-ghost"
-                        //                                 size="small"
-                        //                                 aria-controls={rowActionsAnchorEl && rowActionsTargetId === goal.id ? 'row-actions-menu' : undefined}
-                        //                                 aria-haspopup="true"
-                        //                                 aria-expanded={rowActionsAnchorEl && rowActionsTargetId === goal.id ? 'true' : undefined}
-                        //                                 onClick={(e) => {
-                        //                                     const el = e.currentTarget as HTMLElement;
-                        //                                     if (rowActionsTargetId === goal.id && rowActionsAnchorEl) {
-                        //                                         setRowActionsAnchorEl(null);
-                        //                                         setRowActionsTargetId(null);
-                        //                                     } else {
-                        //                                         setRowActionsAnchorEl(el);
-                        //                                         setRowActionsTargetId(goal.id);
-                        //                                     }
-                        //                                 }}
-                        //                             >
-                        //                                 <ChevronRight className={`w-4 h-4 ${rowActionsTargetId === goal.id && rowActionsAnchorEl ? 'transform rotate-90' : ''}`} />
-                        //                             </IconButton>
-                        //                             <Menu
-                        //                                 id="row-actions-menu"
-                        //                                 anchorEl={rowActionsAnchorEl}
-                        //                                 open={Boolean(rowActionsAnchorEl) && rowActionsTargetId === goal.id}
-                        //                                 onClose={() => { setRowActionsAnchorEl(null); setRowActionsTargetId(null); }}
-                        //                                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                        //                                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                        //                                 PaperProps={{ sx: { bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100' } }}
-                        //                             >
-                        //                                 <MenuItem
-                        //                                     onClick={() => {
-                        //                                         setSelectedGoal(goal);
-                        //                                         setIsEditorOpen(true);
-                        //                                         setRowActionsAnchorEl(null);
-                        //                                         setRowActionsTargetId(null);
-                        //                                     }}
-                        //                                 >
-                        //                                     <Edit className="w-4 h-4 mr-2" />
-                        //                                     Edit
-                        //                                 </MenuItem>
-                        //                                 <MenuItem
-                        //                                     onClick={() => {
-                        //                                         setRowActionsAnchorEl(null);
-                        //                                         setRowActionsTargetId(null);
-                        //                                         setDeleteTargetId(goal.id);
-                        //                                         setIsDeleteConfirmOpen(true);
-                        //                                     }}
-                        //                                 >
-                        //                                     <Trash className="w-4 h-4 mr-2" />
-                        //                                     Delete
-                        //                                 </MenuItem>
-                        //                             </Menu>
-                        //                         </div>
-                        //                     </div>
-                        //                     <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                        //                         <div dangerouslySetInnerHTML={renderHTML(goal.description || '')} />
-                        //                     </div>
-                        //                     <div className="mt-2 grid grid-cols-3 h-[32px] gap-2 text-sm items-center">
-                        //                         <div className='h-full items-center'><span className='card-category text-nowrap' dangerouslySetInnerHTML={renderHTML(goal.category)} /></div>
-                        //                         <div className='h-full items-center'><InlineStatus goal={goal} onUpdated={() => refreshGoals().then(() => {})} /></div>
-                                                
-                        //                         <div className='h-full items-center'>
-                        //                             <Tooltip title="Accomplishments" placement="top" arrow>
-                        //                                 <span>
-                        //                                 <IconButton aria-label="Accomplishments" onClick={() => { setSelectedGoal(goal); openAccomplishments(goal); }} size="small" className="btn-ghost">
-                        //                                     {accomplishments.length > 0 && (
-                        //                                     <div className={objectCounter}>{accomplishments.length}</div>
-                        //                                     )}
-                        //                                     <Award className="w-5 h-5 inline" name="Add accomplishment" />
-                        //                                 </IconButton>
-                        //                                 </span>
-                        //                             </Tooltip>
-                                        
-                        //                             <Tooltip title="Notes" placement="top" arrow>
-                        //                                 <span>
-                        //                                 <IconButton aria-label="Notes" onClick={() => { setSelectedGoal(goal); openNotes(goal); }} id="openNotes" size="small" className="btn-ghost">
-                        //                                     {(typeof notesCount === 'number' && notesCount != 0) && (
-                        //                                     <div className={objectCounter}>{notes.length > 0 ? notes.length : (notesCount ?? 0)}</div>
-                        //                                     )}
-                        //                                     <NotesIcon className="w-5 h-5" />
-                        //                                 </IconButton>
-                        //                                 </span>
-                        //                             </Tooltip>
-                        //                             <Tooltip title="Delete Goal" placement="top" arrow>
-                        //                                 <span>
-                        //                                 <IconButton aria-label="Delete Goal" onClick={() => { setDeleteTargetId(goal.id); setIsDeleteConfirmOpen(true); }} size="small" className="btn-ghost">
-                        //                                     <Trash className="w-5 h-5" />
-                        //                                 </IconButton>
-                        //                                 </span>
-                        //                             </Tooltip>
-
-                        //                             <Tooltip title="Edit Goal" placement="top" arrow>
-                        //                                 <span>
-                        //                                 <IconButton
-                        //                                     className="btn-ghost"
-                        //                                     size="small"                                            
-                        //                                     onClick={() => {
-                        //                                         setSelectedGoal(goal);
-                        //                                         setIsEditorOpen(true);
-                        //                                         setRowActionsAnchorEl(null);
-                        //                                         setRowActionsTargetId(null);
-                        //                                     }}
-                        //                                 >
-                        //                                     <Edit className="w-4 h-4 mr-2" />
-                        //                                 </IconButton>
-                        //                                 </span>
-                        //                             </Tooltip>
-                        //                         </div>
-                        //                     </div>
-                        //                 </div>
-                        //             </div>
-                        //         </Paper>
-                        //     ))}
-                        // </div>
                     ) : (
                         <Paper elevation={0} className="w-full">
                             <Table>
