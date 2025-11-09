@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { TextField } from '@mui/material';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import RichTextEditor from './RichTextEditor';
 
 interface SummaryEditorProps {
     id: string;
@@ -36,7 +37,7 @@ const SummaryEditor: React.FC<SummaryEditorProps> = ({
     };
 
     return (
-        <form onSubmit={handleSave} id="summaryForm" className={modalClasses}>
+        <form onSubmit={handleSave} id="summaryForm" className={`${modalClasses} gap-4`}>
             {/* Input for editing the title */}
             <TextField
                 type="text"
@@ -47,8 +48,8 @@ const SummaryEditor: React.FC<SummaryEditorProps> = ({
                 placeholder="Enter summary title"
                 fullWidth
             />
-            {/* ReactQuill editor for editing the content */}
-            <ReactQuill
+            <RichTextEditor
+                id='Edit goal'
                 value={content}
                 onChange={setContent} // Update content state
             />

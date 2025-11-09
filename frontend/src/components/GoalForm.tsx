@@ -494,8 +494,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         {currentStep === 2 && (
           <div className='relative'>
             {isGenerating && (
-              <div className="absolute h-full w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center z-100">
-                <div className="loader"><LoadingSpinner /></div>
+              <div className="w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center my-4">
+                <div className="loader"><LoadingSpinner variant='mui' /></div>
                 <span className="ml-2">Generating plan...</span>
               </div>
             )}

@@ -711,30 +711,52 @@ export const generateSummary = async (
 ): Promise<string> => {
   const summaryId = id || uuidv4();
 
-  const response = await fetch(`${baseUrl}${backend}/generateSummary`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        summary_id: summaryId,
-        scope,
-        summaryTitle: title,
-        user_id: userId,
-        week_start: weekStart,
-        goalsWithAccomplishments,
-        responseLength, // Include responseLength in the request body if provided
-      }),
+  const requestBody: Record<string, unknown> = {
+    summary_id: summaryId,
+    scope,
+    summaryTitle: title,
+    user_id: userId,
+    week_start: weekStart,
+    goalsWithAccomplishments,
+    responseLength, // Include responseLength in the request body if provided
+  };
+
+  // Add a short correlation id so server logs can be matched to client logs
+  const requestId = uuidv4();
+  requestBody.requestId = requestId;
+
+  // Defensive debug log — prints the exact payload being sent to the server.
+  try {
+    console.debug('[frontend generateSummary] sending request body:', {
+      requestId,
+      summary_id: requestBody.summary_id,
+      scope: requestBody.scope,
+      summaryTitle_preview: (requestBody.summaryTitle as string | undefined)?.slice?.(0, 200),
+      user_id_present: !!requestBody.user_id,
+      week_start: requestBody.week_start,
+      goals_count: Array.isArray(requestBody.goalsWithAccomplishments) ? (requestBody.goalsWithAccomplishments as any[]).length : 0,
+      responseLength: requestBody.responseLength,
     });
+  } catch (e) {
+    // ignore logging failures
+  }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error generating summary:', errorText);
-      throw new Error('Failed to generate summary');
-    }
+  const response = await fetch(`${baseUrl}${backend}/generateSummary`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody),
+  });
 
-    const data = await response.json();
-    return data.summary;
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Error generating summary:', errorText);
+    throw new Error('Failed to generate summary');
+  }
+
+  const data = await response.json();
+  return data.summary;
 };
 
 // Save a summary to the database
@@ -746,47 +768,46 @@ export const saveSummary = async (
   selectedRange: Date,
   scope: 'week' | 'month' | 'year' // Add scope parameter
 ) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User is not authenticated');
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User is not authenticated');
 
-    const userId = user.id;
-    const weekStart = getWeekStartDate(selectedRange);
+  const userId = user.id;
+  const weekStart = getWeekStartDate(selectedRange);
 
-    // Format the title based on the scope
-    let formattedTitle = summaryTitle;
-    if (scope === 'week') {
-      formattedTitle = `Week of ${new Date(weekStart).toLocaleDateString('en-US', {
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
-      })
-      }`;
-    }
+  // Format the title based on the scope
+  let formattedTitle = summaryTitle;
+  if (scope === 'week') {
+    formattedTitle = `Week of ${new Date(weekStart).toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    })}`;
+  }
 
-    const requestBody = {
-      user_id: userId,
-      title: summaryTitle, // Use the formatted title
-      // title: formattedTitle,
-      week_start: weekStart,
-      content: summaryContent,
-      summary_type: summaryType,
-    };
+  const requestBody = {
+    user_id: userId,
+    // Persist the formatted title so stored summaries match the displayed/logged title
+    title: formattedTitle,
+    week_start: weekStart,
+    content: summaryContent,
+    summary_type: summaryType,
+  };
 
-    const { data, error } = await supabase
-      .from('summaries')
-      .insert(requestBody)
-      .select('summary_id')
-      .single();
+  const { data, error } = await supabase
+    .from('summaries')
+    .insert(requestBody)
+    .select('summary_id')
+    .single();
 
-    if (error) {
-      console.error('Supabase error:', error);
-      notifyError('Failed to save summary');
-      throw new Error('Failed to save summary');
-    }
-    console.log('Summary title:', formattedTitle);
-    setLocalSummaryId(data.summary_id);
-    notifySuccess('Summary saved successfully!');
-    return data;
+  if (error) {
+    console.error('Supabase error:', error);
+    notifyError('Failed to save summary');
+    throw new Error('Failed to save summary');
+  }
+  console.log('Summary title:', formattedTitle);
+  setLocalSummaryId(data.summary_id);
+  notifySuccess('Summary saved successfully!');
+  return data;
 };
 
 // Fetch summaries for a user

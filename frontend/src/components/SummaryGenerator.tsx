@@ -2,16 +2,17 @@
 // This component allows users to generate summaries based on a selected period (weekly, quarterly, yearly).
 
 import React, { useState, useEffect } from 'react';
-import { TextField } from '@mui/material';
+import { IconButton, TextField, Tooltip } from '@mui/material';
 import { saveSummary, deleteSummary, getWeekStartDate, generateSummary } from '@utils/functions';
 import supabase from '@lib/supabase';
 import SummaryEditor from '@components/SummaryEditor';
+import LoadingSpinner from '@components/LoadingSpinner';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import SummaryCard from '@components/SummaryCard';
 import { modalClasses, overlayClasses } from '@styles/classes';
-import ReactQuill from 'react-quill'; // Fix import for ReactQuill
-import { RefreshCcw } from 'lucide-react';
+import RichTextEditor from './RichTextEditor';
+import { RefreshCcw, SparklesIcon } from 'lucide-react';
 
 interface SummaryGeneratorProps {
   summaryId: string;
@@ -72,6 +73,8 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [additionalContext, setAdditionalContext] = useState('');
   const [responseLength, setResponseLength] = useState(500); // Default response length
+  const [isGenerating, setIsGenerating] = useState(false); // State to track loading
+  const [error, setError] = useState<string | null>(null); // State to track errors
 
   const openGenerateModal = () => {
     setIsGenerateModalOpen(true);
@@ -82,6 +85,8 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
   };
 
   const handleGenerate = async () => {
+    setIsGenerating(true); // Show loading animation
+    setError(null); // Reset error state
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User is not authenticated');
@@ -97,6 +102,7 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
           description: accomplishment,
           impact: 'Medium',
         })),
+        
       }));
 
       const weekStart = getWeekStartDate(selectedRange);
@@ -124,9 +130,15 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
     } catch (error) {
       console.error('Error generating summary:', error);
     }
+    /// Finally block to reset loading state
+    finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleGenerateWithParams = async () => {
+    setIsGenerating(true); // Show loading animation
+    setError(null); // Reset error state
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User is not authenticated');
@@ -174,7 +186,7 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
         scope,
       );
       setSummaryType('AI');
-      closeGenerateModal();
+      // closeGenerateModal();
       console.log('Response Length:', responseLength);
       console.log('Additional Context:', additionalContext);
       console.log('Initial Summary Title:', initialSummaryTitle);
@@ -182,6 +194,11 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
       // console.log('Generated Title:', generatedSummaryTitle);
     } catch (error) {
       console.error('Error generating summary:', error);
+      setError((error instanceof Error ? error.message : 'An unexpected error occurred'));
+    }
+    /// Finally block to reset loading state
+    finally {
+      setIsGenerating(false);
     }
   };
 
@@ -238,21 +255,47 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
         ariaHideApp={ARIA_HIDE_APP}
       >
         <div className={`${modalClasses}`}>
-          {isGenerateModalOpen && (
-            <>
+            {isGenerating && (
+              <div className="w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center my-4">
+                <div className="loader"><LoadingSpinner variant='mui' /></div>
+                <span className="ml-2">Generating summary...</span>
+              </div>
+            )}
+            
+            {!isGenerating && !summary && (
+
+            <div className="space-y-4">
               <h2 className="text-xl font-bold mb-4">Customize Summary Generation</h2>
-              <label className="block mb-2 font-medium">Additional Context:</label>
-              <ReactQuill value={additionalContext} onChange={setAdditionalContext} className="mb-4" />
-
-              <label className="block mb-2 font-medium">Response Length:</label>
-              <TextField
-                type="number"
-                value={responseLength}
-                onChange={(e) => setResponseLength(Number(e.target.value))}
-                className="block w-full mb-4"
-                fullWidth
-              />
-
+              {/* <label className="block mb-2 font-medium">Additional Context:</label> */}
+              {/* <ReactQuill value={additionalContext} onChange={setAdditionalContext} className="mb-4" /> */}
+              <div>            
+                <RichTextEditor 
+                    id="additional-context"
+                    label="Additional context" 
+                    value={additionalContext} 
+                    onChange={setAdditionalContext}
+                    placeholder="Add any additional context to the summary generation"
+                  />
+              </div>
+              <div>
+                <TextField
+                  id="response-length"
+                  type="number"
+                  label="Response length"
+                  value={responseLength}
+                  onChange={(e) => setResponseLength(Number(e.target.value))}
+                  placeholder="Modify the length of the generated summary"
+                  fullWidth
+                />
+              </div>
+              {error && (
+                <div className="h-full w-full gap-2 bg-gray-10 dark:bg-gray-90 justify-center items-center">
+                  <h2 className='text-lg font-bold'>Error!</h2> 
+                  <p className='text-red-500 h-1/2 overflow-auto p-4 mt-4 mb-4 items-start'>{error}</p>
+                </div>
+              )}
+              
+            <div>
               <div className="flex justify-end space-x-4">
                 <button onClick={closeGenerateModal} className="btn-secondary">
                   Cancel
@@ -261,22 +304,10 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
                   Generate
                 </button>
               </div>
-            </>
-          )}
+            </div>
         </div>
-      </Modal>
-      {!summary && (
-        <>
-        <div className="flex flex-col mb-4">
-                    <h2 className="text-xl font-semibold text-gray-900">Summary</h2>
-                    <p className="text-gray-60 dark:text-gray-30">Generate and edit your {scope}ly summary.</p>
-                </div>
-        <button onClick={openGenerateModal} className="btn-primary">
-          Generate Summary
-        </button>
-        </>
-      )}
-      {summary && (
+        )}
+        {summary && (
         <div className="flex flex-col gap-4">
           <SummaryCard
             id={summaryId}
@@ -291,50 +322,29 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
             handleEdit={() => setIsEditorOpen(true)}
           />
 
-          {/* <div key={summaryId} className={`flex flex-col text-left w-full space-y-4 mt-4 relative`}>
-        <div className={`flex flex-row w-full items-center justify-between gap-4 align-top`}>  
-          <h4 className="w-full text-lg font-bold text-gray-90" dangerouslySetInnerHTML={{ __html: generatedSummaryTitle }}></h4>
-          <div className="flex flex-row justify-between">
-            <span dangerouslySetInnerHTML={{ __html: summaryType }} className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-10 text-brand-100 mt-2">
-            </span>
+         
+        {/* {isGenerating && (
+          <div className="w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center my-4">
+            <div className="loader"><LoadingSpinner variant='mui' /></div>
+            <span className="ml-2">Regenerating summary...</span>
           </div>
-        </div>
-        
-            <div 
-              className='flex flex-col text-left'>
-              <span dangerouslySetInnerHTML={{ __html: summary}}></span>
-            </div> */}
-
-
-        
-        {/* <footer className="mt-4 flex justify-end w-full space-x-2">
-           <button
-            onClick={() => handleCopy(content)}
-            className="btn-ghost"
-            >
-            <Copy />
-          </button>
-          <button
-            onClick={() => handleEdit(true)} // Open the editor modal
-            className="btn-ghost" 
-          >
-            <Edit />
-          </button>
-          <button
-            onClick={() => handleDelete(id)}
-            className="btn-ghost"
-            >
-            <Trash />
-          </button>
-        </footer> 
-      </div>*/}
-        
+        )} */}
+        <div className="flex gap-4 justify-end">    
+        {!isGenerating && (
+          
           <button onClick={handleGenerate} className="btn-primary w-auto self-end">
             <RefreshCcw className='mr-4 w-5 h-5' /> Regenerate Summary
           </button>
+
+        )}
+        <button onClick={closeGenerateModal} className="btn-secondary self-end" title="Close summary generation modal" aria-label="Close summary generation modal">
+          Close
+        </button>
+        </div>
         </div>
       )}
-
+        </div>
+      </Modal>
       <Modal
         key={'summary-editor-modal'}
         isOpen={isEditorOpen}
@@ -354,6 +364,13 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
           />
         )}
       </Modal>
+
+      <Tooltip title="Generate Summary" placement="top" arrow>
+        <button onClick={openGenerateModal} className="btn-primary gap-2 flex ml-auto sm:mt-0 md:pr-2 sm:pr-2 xs:pr-0">
+          <SparklesIcon className="w-5 h-5" /> 
+        </button>
+      </Tooltip>
+
     </div>
   );
 };

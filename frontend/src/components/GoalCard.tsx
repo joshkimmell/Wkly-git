@@ -22,6 +22,7 @@ interface GoalCardProps {
   handleDelete: (goalId: string) => void;
   handleEdit: (goalId: string) => void;
   filter: string; // Accept filter as a prop
+  showAllGoals?: boolean; // Whether parent view is showing all goals
 }
 
 // const GoalCard: React.FC<GoalCardProps> = ({ goal }) => {
@@ -29,8 +30,9 @@ const GoalCard: React.FC<GoalCardProps> = ({
   goal, 
   handleDelete, 
   handleEdit,
-  filter // Accept filter as a prop
- }) => {
+  filter, // Accept filter as a prop
+  showAllGoals = false,
+}) => {
   // // const handleDeleteGoal = (goalId: string) => {
   //   // Implement the delete logic here
     // console.log(`Deleting goal with ID: ${goal.id}`);
@@ -398,6 +400,11 @@ const GoalCard: React.FC<GoalCardProps> = ({
 
   return (
     <div key={goal.id} className={`${cardClasses} shadow-xl`}>
+        {showAllGoals && (
+          <div className="text-xs">
+            {goal.week_start}
+          </div>
+        )}
       <div className="goal-header flex flex-row w-full justify-between items-center">
         <div className="flex items-center gap-2">
           {localStatus && (

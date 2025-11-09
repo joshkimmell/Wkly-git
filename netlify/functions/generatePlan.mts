@@ -94,7 +94,8 @@ export const handler: Handler = async (event) => {
           { role: 'user', content: prompt },
         ],
         max_tokens: 500,
-        temperature: 0.7,
+        // Set temperature to 1 since some models only support the default value
+        temperature: 1,
       });
     } catch (openaiErr) {
       // Log the full error server-side for debugging (do not return raw error to client)

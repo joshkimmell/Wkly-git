@@ -24,7 +24,8 @@ const limiter = new Bottleneck({
 
 const openAIConfig = {
   model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
-  temperature: 0.7,
+  // Some models only accept the default temperature (1). Use 1 to avoid unsupported value errors.
+  temperature: 1,
   maxTokens: 1500,
   frequencyPenalty: 0,
   presencePenalty: 0,
@@ -47,21 +48,33 @@ const generateSummary = async (prompt: string) => {
 
     let response: any;
     try {
-      response = await openai.chat.completions.create({
-        model: openAIConfig.model,
-        messages: [
-          { role: 'system', content: prompt },
-          { role: 'user', content: prompt },
-        ],
-        max_tokens: openAIConfig.maxTokens,
-        temperature: openAIConfig.temperature,
-        frequency_penalty: openAIConfig.frequencyPenalty,
-        presence_penalty: openAIConfig.presencePenalty,
-        top_p: openAIConfig.topP,
-        n: openAIConfig.n,
-        stream: openAIConfig.stream,
-        stop: openAIConfig.stop,
-      });
+        // Log request parameters (non-secret) to aid in debugging intermittent failures
+        try {
+          console.debug('[generateSummary] OpenAI request params:', {
+            model: openAIConfig.model,
+            temperature: openAIConfig.temperature,
+            max_completion_tokens: openAIConfig.maxTokens,
+            top_p: openAIConfig.topP,
+            n: openAIConfig.n,
+          });
+        } catch (e) { /* ignore */ }
+
+        response = await openai.chat.completions.create({
+          model: openAIConfig.model,
+          messages: [
+            { role: 'system', content: prompt },
+            { role: 'user', content: prompt },
+          ],
+          // Use `max_completion_tokens` for models that do not accept `max_tokens`.
+          max_completion_tokens: openAIConfig.maxTokens,
+          temperature: openAIConfig.temperature,
+          frequency_penalty: openAIConfig.frequencyPenalty,
+          presence_penalty: openAIConfig.presencePenalty,
+          top_p: openAIConfig.topP,
+          n: openAIConfig.n,
+          stream: openAIConfig.stream,
+          stop: openAIConfig.stop,
+        });
     } catch (openaiErr) {
       console.error('OpenAI API error (server-side):', openaiErr);
       // Do not expose OpenAI error details to the client (may contain sensitive info)
@@ -88,7 +101,22 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const { summary_id, user_id, week_start, goalsWithAccomplishments, summaryTitle, scope } = JSON.parse(event.body || '{}');
+    const parsedBody = JSON.parse(event.body || '{}');
+    const { summary_id, user_id, week_start, goalsWithAccomplishments, summaryTitle, scope } = parsedBody;
+
+    // Defensive server-side logging to help debug mismatches between client and server.
+    try {
+      console.debug('[generateSummary] incoming payload preview:', {
+        summary_id,
+        user_id_present: !!user_id,
+        week_start,
+        summaryTitle_preview: typeof summaryTitle === 'string' ? summaryTitle.slice(0, 200) : null,
+        goals_count: Array.isArray(goalsWithAccomplishments) ? goalsWithAccomplishments.length : 0,
+        scope,
+      });
+    } catch (e) {
+      // ignore logging errors
+    }
     
     // Validate required fields
     if (!summary_id || !user_id || !week_start || !goalsWithAccomplishments || !summaryTitle || !scope) {
