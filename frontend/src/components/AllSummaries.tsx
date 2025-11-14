@@ -315,7 +315,7 @@ const AllSummaries = () => {
         isOpen={isModalOpen}
         onRequestClose={() => closeModal()}
         className="fixed inset-0 flex items-center justify-center z-50"
-        overlayClassName="fixed inset-0 bg-gray-500 bg-opacity-75"
+        overlayClassName={`${overlayClasses}`}
         ariaHideApp={ARIA_HIDE_APP}
       >
         {isModalOpen && (

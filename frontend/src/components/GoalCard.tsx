@@ -8,7 +8,7 @@ import { FileText as NotesIcon, Plus as PlusIcon, Save as SaveIcon } from 'lucid
 import { Chip, Menu, MenuItem, TextField, Tooltip, IconButton } from '@mui/material';
 import type { ChangeEvent } from 'react';
 import { STATUSES, STATUS_COLORS, type Status } from '../constants/statuses';
-import { cardClasses, modalClasses, objectCounter } from '@styles/classes'; // Adjust the import path as necessary
+import { cardClasses, modalClasses, objectCounter, overlayClasses } from '@styles/classes'; // Adjust the import path as necessary
 import useGoalExtras from '@hooks/useGoalExtras';
 import { notifyError, notifySuccess } from './ToastyNotification';
 // import { Link } from 'react-router-dom';
@@ -22,6 +22,7 @@ interface GoalCardProps {
   handleDelete: (goalId: string) => void;
   handleEdit: (goalId: string) => void;
   filter: string; // Accept filter as a prop
+  showAllGoals?: boolean; // Whether parent view is showing all goals
 }
 
 // const GoalCard: React.FC<GoalCardProps> = ({ goal }) => {
@@ -29,8 +30,9 @@ const GoalCard: React.FC<GoalCardProps> = ({
   goal, 
   handleDelete, 
   handleEdit,
-  filter // Accept filter as a prop
- }) => {
+  filter, // Accept filter as a prop
+  showAllGoals = false,
+}) => {
   // // const handleDeleteGoal = (goalId: string) => {
   //   // Implement the delete logic here
     // console.log(`Deleting goal with ID: ${goal.id}`);
@@ -398,6 +400,11 @@ const GoalCard: React.FC<GoalCardProps> = ({
 
   return (
     <div key={goal.id} className={`${cardClasses} shadow-xl`}>
+        {showAllGoals && (
+          <div className="text-xs">
+            {goal.week_start}
+          </div>
+        )}
       <div className="goal-header flex flex-row w-full justify-between items-center">
         <div className="flex items-center gap-2">
           {localStatus && (
@@ -553,7 +560,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
     />
     {/* Notes Modal */}
     {isNotesModalOpen && (
-      <div id="editNotes" className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50">
+      <div id="editNotes" className={`${overlayClasses} flex items-center justify-center`}>
         <div className={`${modalClasses} w-full max-w-2xl`}> 
           <div className='flex flex-row w-full justify-between items-start'>
               <h3 className="text-lg font-medium text-gray-90 mb-4">Notes for <br />"{goal.title}"</h3>
@@ -669,7 +676,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
 
     {/* Edit Accomplishment Modal */}
     {isEditAccomplishmentModalOpen && selectedAccomplishment && (
-      <div className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50">
+      <div className={`${overlayClasses} flex items-center justify-center`}>
         <div className={`${modalClasses}`}>
           <h3 className="text-lg font-medium text-gray-90 mb-4">Edit Accomplishment</h3>
           <AccomplishmentEditor

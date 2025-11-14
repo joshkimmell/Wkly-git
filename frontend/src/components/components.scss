@@ -19,7 +19,7 @@
 svg {
 
     & g .fill-brand {
-        color: variables.$brand-60;
+        color: var(--brand-60, variables.$brand-60);
     }
     & g .fill-white {
         color: white;
@@ -38,36 +38,37 @@ svg {
     // }
     
     &-brand {
-        background: linear-gradient(180deg, variables.$brand-90 0%, variables.$brand-70 100%);
+        // Use runtime CSS variables from appColors with SCSS fallbacks
+        background: linear-gradient(180deg, var(--brand-90, variables.$brand-90) 0%, var(--brand-70, variables.$brand-70) 100%);
         display: flex;
         justify-content: space-between;
         align-items: center;
         align-self: stretch;
-        padding: 64px 8px 0px 24px;
+        padding: 2.5rem 0.5rem 0 1rem;
         gap: 8px;
         // background: gradient(180deg, #780088 0%, #36003D 100%);
         box-shadow: 0px 2px 4.9px 0px rgba(0, 0, 0, 0.60);
         
         &--logo {
             display: flex;
-            width: 22rem;
-            height: 6.8rem;
+            // width: auto;
+            // height: auto;
             flex-direction: column;
             align-items: flex-start;
             gap: 8px;
             
-            @media screen and (max-width: 768px) {
-                width: 16rem;
-                height: 5rem;
-            }
-            @media screen and (max-width: 480px) {
-                width: 12rem;
-                height: 4rem;
-            }
-            @media screen and (max-width: 320px) {
-                width: 10rem;
-                height: 3.5rem;
-            }
+            // @media screen and (max-width: 768px) {
+            //     width: 16rem;
+            //     height: 5rem;
+            // }
+            // @media screen and (max-width: 480px) {
+            //     width: 12rem;
+            //     height: 4rem;
+            // }
+            // @media screen and (max-width: 320px) {
+            //     width: 10rem;
+            //     height: 3.5rem;
+            // }
             & img {
                 width: 100%;
                 height: 100%;
@@ -75,6 +76,9 @@ svg {
                 object-position: top;
             }
 
+            & .fill-brand {
+                color: var(--brand-30, variables.$brand-30);   
+            }
 
         }
         
@@ -86,7 +90,7 @@ svg {
                 background-image: url('../../src/images/button-menu.svg') no-repeat;
                 background-size: 56px 56px;
                 // background-position: center;
-                width: 56px;
+                width: 32px;
                 height: 100%;
                 flex-direction: column;
                 justify-content: center;
@@ -94,14 +98,6 @@ svg {
                 gap: 4px;
                 aspect-ratio: 1/1;
                 transition: all 300ms;
-
-                &:hover {
-                    background: transparent;
-                    background-image: url('../images/button-menu-hover.svg') no-repeat;
-                    background-size: 56px 56px;
-                    // background-position: center;
-                }
-
             }
         
         }
@@ -133,7 +129,7 @@ svg {
             flex-direction: column;
             align-items: flex-end;
             gap: 8px;
-            border-bottom: 1px solid variables.$gray-70;
+            border-bottom: 1px solid var(--color-gray-70, variables.$gray-70);
             
             &--list {
                 display: flex;
@@ -232,7 +228,7 @@ svg {
 }
 
 .toggle-checkbox:not(:checked) + .toggle-label {
-    background-color: variables.$gray-70; /* Red when toggled off */
+    background-color: var(--color-gray-70, variables.$gray-70); /* Red when toggled off */
 }
 
 .toggle-checkbox {

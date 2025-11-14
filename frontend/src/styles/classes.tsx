@@ -1,7 +1,10 @@
 export const cardClasses = `bg-gray-0 dark:bg-gray-80 shadow-sm rounded-lg p-4 flex flex-col h-full w-full`;
 export const summaryClasses = `bg-transparent w-full sm:max-h-[100vh]`;
-export const modalClasses = `bg-gray-10 dark:bg-gray-90 shadow-lg rounded-lg shadow-lg p-6 w-full md:w-1/2 lg:w-1/3 sm:h-auto sm:max-h-[100vh] overflow-y-auto`;
-export const overlayClasses = `fixed inset-0 bg-gray-50 dark:bg-gray-100 bg-opacity-65 dark:bg-opacity-65`;
+export const modalClasses = `bg-gray-10 dark:bg-gray-90 shadow-lg rounded-lg shadow-lg p-6 w-full md:w-2/3 lg:w-3/4 max-h-[80vh] overflow-y-auto`;
+// Use Tailwind's color/opacity slash syntax for reliable overlay opacity
+// Give the overlay a high z-index so it isn't covered by MUI AppBar or other fixed elements
+// Use a dedicated CSS class for overlay visuals (wkly-overlay) and keep layout classes here
+export const overlayClasses = `fixed inset-0 wkly-overlay`;
 export const classTabItem = `
     tabs-container--list--item 
     inline-flex 

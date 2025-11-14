@@ -147,6 +147,41 @@
   }
 }
 
+/* Overlay for ReactModal - explicit rules to avoid Tailwind config edge cases */
+.wkly-overlay {
+  background-color: rgba(245, 245, 245, 0.75); /* gray-50 at 65% */
+  --wkly-overlay-bg: rgba(245, 245, 245, 0.75);
+  /* Backdrop blur for supported browsers (and WebKit prefixed for Safari) */
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  /* In browsers that don't support backdrop-filter, the semi-transparent background still provides a dimming effect. */
+  z-index: 1300;
+  position: fixed;
+  inset: 0;
+  pointer-events: auto;
+}
+
+/* Dark mode override: darker translucent background when the app root has the `dark` class */
+.dark .wkly-overlay {
+  background-color: rgba(10, 10, 10, 0.85); /* gray-900 at 75% for stronger overlay in dark mode */
+  --wkly-overlay-bg: rgba(10, 10, 10, 0.85);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+
+}
+
+/* Respect users who prefer reduced transparency/motion: remove backdrop-filter for them */
+@media (prefers-reduced-transparency: reduce), (prefers-reduced-motion: reduce) {
+  .wkly-overlay {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  .dark .wkly-overlay {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
 
 @layer utilities {
 

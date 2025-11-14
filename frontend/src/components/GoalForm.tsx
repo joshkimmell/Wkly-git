@@ -7,6 +7,7 @@ import LoadingSpinner from '@components/LoadingSpinner';
 import { SearchIcon, RefreshCw } from 'lucide-react';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP } from '@lib/modal';
+import { modalClasses, overlayClasses } from '@styles/classes';
 import RichTextEditor from '@components/RichTextEditor';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
 import { TextField, MenuItem, Checkbox, FormControlLabel, Switch } from '@mui/material';
@@ -494,8 +495,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         {currentStep === 2 && (
           <div className='relative'>
             {isGenerating && (
-              <div className="absolute h-full w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center z-100">
-                <div className="loader"><LoadingSpinner /></div>
+              <div className="w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center my-4">
+                <div className="loader"><LoadingSpinner variant='mui' /></div>
                 <span className="ml-2">Generating plan...</span>
               </div>
             )}
@@ -591,7 +592,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                   isOpen={isCategoryModalOpen}
                   onRequestClose={() => setIsCategoryModalOpen(false)}
                   className="fixed inset-0 flex items-center justify-center z-50"
-                  overlayClassName="fixed inset-0 bg-black bg-opacity-10"
+                  overlayClassName={`${overlayClasses}`}
                   ariaHideApp={ARIA_HIDE_APP}
                   style={{
                     content: {
@@ -812,13 +813,13 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
               </button>
 
               {/* Render category Modal with stable isOpen prop */}
-              <Modal
-                id='category-list'
-                isOpen={isCategoryModalOpen}
-                onRequestClose={() => setIsCategoryModalOpen(false)}
-                className="fixed inset-0 flex items-center justify-center z-50"
-                overlayClassName="fixed inset-0 bg-black bg-opacity-10"
-                ariaHideApp={ARIA_HIDE_APP}
+        <Modal
+          id='category-list'
+          isOpen={isCategoryModalOpen}
+          onRequestClose={() => setIsCategoryModalOpen(false)}
+          className="fixed inset-0 flex items-center justify-center z-50"
+          overlayClassName={`${overlayClasses}`}
+          ariaHideApp={ARIA_HIDE_APP}
                 style={{
                   content: {
                     width: 'calc(100% - 8px)',

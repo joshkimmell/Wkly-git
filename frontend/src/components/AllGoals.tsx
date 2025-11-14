@@ -32,6 +32,7 @@ import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type { Dayjs } from 'dayjs';
 import type { ChangeEvent } from 'react';
+import LoadingSpinner from './LoadingSpinner';
 type Goal = GoalUtilsGoal & {
   created_at?: string;
 };
@@ -224,6 +225,7 @@ const GoalsComponent = () => {
 
     const theme = useTheme();
     const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
+    const isMedium = useMediaQuery(theme.breakpoints.between('sm', 'md'));
     // view mode: 'cards' (default), 'table', or 'kanban'
     const [viewMode, setViewMode] = useState<'cards' | 'table' | 'kanban'>(() => {
         try {
@@ -236,7 +238,7 @@ const GoalsComponent = () => {
     });
 
     // Whether Kanban should show all goals (true) or only current scope (false).
-    const [showAllInKanban, setShowAllInKanban] = useState<boolean>(() => {
+    const [showAllGoals, setshowAllGoals] = useState<boolean>(() => {
         try {
             const v = localStorage.getItem('kanban_show_all');
             return v === null ? true : v === 'true';
@@ -245,20 +247,20 @@ const GoalsComponent = () => {
 
     useEffect(() => {
         try {
-            console.debug('[AllGoals] showAllInKanban persisted ->', showAllInKanban);
-            localStorage.setItem('kanban_show_all', showAllInKanban ? 'true' : 'false');
+            console.debug('[AllGoals] showAllGoals persisted ->', showAllGoals);
+            localStorage.setItem('kanban_show_all', showAllGoals ? 'true' : 'false');
         } catch {}
-    }, [showAllInKanban]);
+    }, [showAllGoals]);
 
     // When user turns OFF 'Show all' ensure we drop the unscoped cache so the
     // UI and effects only operate on scoped `indexedGoals`. This avoids any
     // accidental usage of stale `fullGoals` when the toggle is disabled.
     useEffect(() => {
-        if (!showAllInKanban) {
-            console.debug('[AllGoals] showAllInKanban disabled — clearing fullGoals cache');
+        if (!showAllGoals) {
+            console.debug('[AllGoals] showAllGoals disabled — clearing fullGoals cache');
             setFullGoals(null);
         }
-    }, [showAllInKanban]);
+    }, [showAllGoals]);
 
     const handleChangeView = (_: React.MouseEvent<HTMLElement>, value: 'cards' | 'table' | 'kanban' | null) => {
         if (!value) return;
@@ -303,11 +305,11 @@ const GoalsComponent = () => {
     useEffect(() => {
     // Choose whether to use the unscoped fullGoals collection depending on the
     // global 'Show all' toggle. This now applies to all views.
-    const useFull = showAllInKanban && !!fullGoals && fullGoals.length > 0;
-    console.debug('[AllGoals] kanbanColumns effect running. useFull=', useFull, { viewMode, showAllInKanban, fullGoalsCount: fullGoals ? fullGoals.length : 0, indexedPages: Object.keys(indexedGoals).length, isScopeLoading });
+    const useFull = showAllGoals && !!fullGoals && fullGoals.length > 0;
+    console.debug('[AllGoals] kanbanColumns effect running. useFull=', useFull, { viewMode, showAllGoals, fullGoalsCount: fullGoals ? fullGoals.length : 0, indexedPages: Object.keys(indexedGoals).length, isScopeLoading });
     // If we're loading a new scope, and the user hasn't requested "All", clear columns
     // to avoid rendering stale IDs from the previous scope.
-    if (isScopeLoading && viewMode === 'kanban' && !showAllInKanban) {
+    if (isScopeLoading && viewMode === 'kanban' && !showAllGoals) {
     setKanbanColumns((_prev) => {
             const statuses = ['Not started', 'In progress', 'Blocked', 'On hold', 'Done'];
             const empty: Record<string, string[]> = {} as Record<string, string[]>;
@@ -316,7 +318,7 @@ const GoalsComponent = () => {
         });
         return;
     }
-    const sourceGoals = showAllInKanban ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || []);
+    const sourceGoals = showAllGoals ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || []);
         const statuses = ['Not started', 'In progress', 'Blocked', 'On hold', 'Done'];
         const cols: Record<string, string[]> = {} as Record<string, string[]>;
         for (const s of statuses) cols[s] = [];
@@ -326,7 +328,7 @@ const GoalsComponent = () => {
             cols[st].push(g.id);
         }
         setKanbanColumns(cols);
-    }, [indexedGoals, viewMode, showAllInKanban, fullGoals, currentPage, filter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection]);
+    }, [indexedGoals, viewMode, showAllGoals, fullGoals, currentPage, filter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection]);
 
     // Keep kanban columns updated when fullGoals or filters change
     useEffect(() => {
@@ -348,7 +350,7 @@ const GoalsComponent = () => {
     useEffect(() => {
         let mounted = true;
         const load = async () => {
-            if (viewMode !== 'kanban' || !showAllInKanban) return;
+            if (viewMode !== 'kanban' || !showAllGoals) return;
             try {
                 const all = await fetchAllGoals();
                 if (mounted) setFullGoals(all);
@@ -358,7 +360,7 @@ const GoalsComponent = () => {
         };
         load();
         return () => { mounted = false; };
-    }, [viewMode, showAllInKanban]);
+    }, [viewMode, showAllGoals]);
 
     // HTML5 Drag & Drop Kanban handlers (visual feedback + reorder)
     const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
@@ -774,12 +776,12 @@ const GoalsComponent = () => {
     useEffect(() => {
         let mounted = true;
         const reload = async () => {
-            if (viewMode !== 'kanban' || !showAllInKanban) {
-                console.debug('[AllGoals] reload skipped, viewMode or toggle not set', { viewMode, showAllInKanban });
+            if (viewMode !== 'kanban' || !showAllGoals) {
+                console.debug('[AllGoals] reload skipped, viewMode or toggle not set', { viewMode, showAllGoals });
                 return;
             }
             try {
-                console.debug('[AllGoals] reload: fetching fullGoals (showAllInKanban=true)');
+                console.debug('[AllGoals] reload: fetching fullGoals (showAllGoals=true)');
                 const all = await fetchAllGoals();
                 if (mounted) setFullGoals(all);
             } catch (err) {
@@ -795,7 +797,7 @@ const GoalsComponent = () => {
         }, 60_000); // refresh every 60 seconds
 
         return () => { mounted = false; clearInterval(handle); };
-    }, [viewMode, showAllInKanban, lastUpdated, lastAddedIds]);
+    }, [viewMode, showAllGoals, lastUpdated, lastAddedIds]);
 
     // When the global goals cache is updated (via context), ensure this component refreshes
     useEffect(() => {
@@ -985,7 +987,7 @@ const GoalsComponent = () => {
         try {
             if (!isScopeLoading) return;
             // If we're not in scoped kanban mode, there's nothing to wait for
-            if (viewMode !== 'kanban' || showAllInKanban) {
+            if (viewMode !== 'kanban' || showAllGoals) {
                 setIsScopeLoading(false);
                 return;
             }
@@ -998,7 +1000,7 @@ const GoalsComponent = () => {
             // best-effort only
             try { setIsScopeLoading(false); } catch {}
         }
-    }, [currentPage, pages, viewMode, showAllInKanban, isScopeLoading]);
+    }, [currentPage, pages, viewMode, showAllGoals, isScopeLoading]);
 
     // console.log('Indexed Goals:', indexedGoals);
     // console.log('Filtered Goals:', filteredGoals);
@@ -1070,7 +1072,7 @@ const GoalsComponent = () => {
     // consistently across all views.
     const allIndexedFlattened = Object.values(indexedGoals).flat();
     const sortedAndFilteredGoals = useMemo(() => {
-        const source = showAllInKanban ? (fullGoals || allIndexedFlattened) : (indexedGoals[currentPage] || []);
+        const source = showAllGoals ? (fullGoals || allIndexedFlattened) : (indexedGoals[currentPage] || []);
         return source.filter(goalMatchesFilters).sort((a, b) => {
             const dir = sortDirection === 'asc' ? 1 : -1;
             if (sortBy === 'date') {
@@ -1089,7 +1091,7 @@ const GoalsComponent = () => {
             if (sa > sb) return 1 * dir;
             return 0;
         });
-    }, [showAllInKanban, fullGoals, indexedGoals, currentPage, filter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection]);
+    }, [showAllGoals, fullGoals, indexedGoals, currentPage, filter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection]);
     
 
     // Proactively fetch counts for visible goals (limit and sequential to avoid spamming)
@@ -1159,7 +1161,7 @@ const GoalsComponent = () => {
     const visibleGoalIds = useMemo(() => {
         let list: Goal[];
         if (viewMode === 'kanban') {
-            if (showAllInKanban) {
+            if (showAllGoals) {
                 list = sortedAndFilteredFullGoals;
             } else {
                 // When not showing all in kanban, respect the current page/scope
@@ -1170,7 +1172,7 @@ const GoalsComponent = () => {
             list = sortedAndFilteredGoals;
         }
         return new Set(list.map((g) => g.id));
-    }, [viewMode, showAllInKanban, sortedAndFilteredFullGoals, sortedAndFilteredAllGoals, sortedAndFilteredGoals]);
+    }, [viewMode, showAllGoals, sortedAndFilteredFullGoals, sortedAndFilteredAllGoals, sortedAndFilteredGoals]);
 
     // Add a function to highlight filtered words
 //   const applyHighlight = (text: string, filter: string) => {
@@ -1194,17 +1196,26 @@ const GoalsComponent = () => {
         
         <div className="flex justify-between items-start sm:items-center w-full mb-4">
             <div className='flex flex-col'>
+                
                 {/* Kanban toggle: show all vs scope-only (wrapped in MUI formset for accessibility) */}
                 <FormControl component="fieldset" variant="standard" className="ml-2">
                     <FormLabel component="legend" className="sr-only">Goal view options</FormLabel>
                     <FormGroup row>
                         <FormControlLabel
-                            control={<Switch checked={showAllInKanban} onChange={(_, v) => { console.debug('[AllGoals] Kanban switch toggled ->', v); setShowAllInKanban(v); }} size="small" />}
-                            label={'Show all'}
+                            control={
+                                <Switch
+                                    checked={showAllGoals}
+                                    onChange={(_, v) => { console.debug('[AllGoals] Kanban switch toggled ->', v); setshowAllGoals(v); }}
+                                    size="small"
+                                    color='primary'
+                                />
+                            }
+                            label={'All goals'}
                             className="ml-0 text-sm"
+                            
                         />
 
-                        {!showAllInKanban && (
+                        {!showAllGoals && (
                             <div className='flex space-x-2'>
                                 {['week', 'month', 'year'].map((s) => (
                                     <button
@@ -1275,7 +1286,7 @@ const GoalsComponent = () => {
                     </FormGroup>
                 </FormControl>
                 {/* Pagination */}
-                {!showAllInKanban && (
+                {!showAllGoals && (
                 <Pagination
                     pages={pages}
                     currentPage={currentPage}
@@ -1289,7 +1300,7 @@ const GoalsComponent = () => {
             </div>
         </div>
         <div className='flex flex-col 2xl:flex-row 2xl:space-x-8 items-start justify-start w-full mb-4'>
-            <div id="allGoals" className="flex flex-col gap-4 2xl:w-2/3 w-full">
+            <div id="allGoals" className="flex flex-col gap-4 w-full">
                 <div className="flex flex-row items-center gap-4 space-x-4">
                  {/* View mode toggle */}
 
@@ -1385,7 +1396,7 @@ const GoalsComponent = () => {
                                         ))}
                                     </Select>
                             </FormControl>
-                            {scope === 'year' && (
+                            {(showAllGoals || scope === 'year') && (
                                 <div className="flex flex-col space-y-2 mb-2">
                                 <LocalizationProvider dateAdapter={AdapterDayjs}>
                                     <div>
@@ -1695,6 +1706,7 @@ const GoalsComponent = () => {
                             <Check className="w-4 h-4" /><ArrowDown className="w-4 h-4 mr-8" /> Status Descending 
                         </MenuItem>
                     </Menu>
+                    
                     </>
                 )}                  
 
@@ -1710,7 +1722,15 @@ const GoalsComponent = () => {
                             {/* <span className="block flex text-nowrap">Add Goal</span> */}
                         </button>
                     </Tooltip>
-                    
+                    <div id="summary_btn">
+                        <SummaryGenerator 
+                        summaryId={selectedSummary?.id || ''} 
+                        summaryTitle={selectedSummary?.title || `Summary for ${scope}: ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}                                                                                                                                                                                selectedRange={new Date()}
+                        filteredGoals={showAllGoals ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || [])} // Pass the goals for the current page or full list
+                        scope={scope}
+                        />
+                    </div>
+
                 </div> 
 
                 {/* Goals List - render by viewMode */}
@@ -1720,9 +1740,10 @@ const GoalsComponent = () => {
                         <GoalCard
                             key={goal.id}
                             goal={goal}
+                            showAllGoals={showAllGoals}
                             handleDelete={(goalId) => handleDeleteGoal(goalId)}
                             handleEdit={(goalId) => {
-                                const goalSourceForEdit = showAllInKanban ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || []);
+                                const goalSourceForEdit = showAllGoals ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || []);
                                 const goalToEdit = goalSourceForEdit.find((g) => g.id === goalId);
                                 if (goalToEdit) {
                                     setSelectedGoal(goalToEdit);
@@ -1745,7 +1766,7 @@ const GoalsComponent = () => {
                                     <TableRow>
                                         <TableCell onClick={() => toggleSort('title')} style={{ cursor: 'pointer' }}>
                                             <span className="flex items-center">
-                                                Title
+                                                Goal
                                                 {sortBy === 'title' && (sortDirection === 'asc' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />)}
                                             </span>
                                         </TableCell>
@@ -1905,11 +1926,11 @@ const GoalsComponent = () => {
                     )
                 )}
                             {viewMode === 'kanban' && (
-                                <div className="flex flex-col mt-2 lg:flex-row gap-4 w-full">
+                                <div className="flex flex-col mt-2 md:flex-row gap-4 w-full overflow-auto">
                                     {isScopeLoading ? (
                                         <div className="w-full flex items-center justify-center p-8">
                                             <div className="flex items-center space-x-3">
-                                                <CircularProgress size={20} />
+                                                <LoadingSpinner />
                                                 <span className="text-sm text-gray-600 dark:text-gray-300">Loading scope…</span>
                                             </div>
                                         </div>
@@ -1923,25 +1944,41 @@ const GoalsComponent = () => {
                                         return (
                                             <div
                                                 key={status}
-                                                className={`${!isCollapsed && ("flex-1" )} border border-gray-30 dark:border-gray-70 bg-gray-0 dark:bg-gray-100 dark:bg-opacity-30 p-3 rounded-md`}
+                                                className={`
+                                                    ${!isCollapsed ? (
+                                                        "flex-1 border border-gray-30 dark:border-gray-70 bg-gray-0 dark:bg-gray-100 dark:bg-opacity-30 p-3 rounded-md" 
+                                                    ) : (
+                                                        "flex-0 border border-gray-30 dark:border-gray-70 bg-gray-0 dark:bg-gray-100 dark:bg-opacity-30 p-3 rounded-md"
+                                                    )} 
+                                                `}
                                                 onDragOver={(e) => handleDragOver(e, status)}
                                                 onDrop={(e) => handleDrop(e, status)}
                                             >
-                                                <div className={`flex items-center justify-between ${!isCollapsed && ('mb-3 w-full ')} `}>
+                                                <div className={`flex items-center justify-between w-full ${!isCollapsed && ('mb-3')} `}>
+                                                    
+                                                    {/* Status label with color dot */}
                                                     {!isCollapsed && (
-                                                        <div className="flex items-center space-x-2">
+                                                        <div className="flex items-center space-x-2">  
                                                             <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 6, background: STATUS_COLORS[status], marginRight: 8 }} />
-                                                            <div className="text-nowrap" style={{color: STATUS_COLORS[status]}}>{status}</div>
+                                                            <div className="text-nowrap" style={{color: STATUS_COLORS[status]}}>
+                                                                {status}
+                                                                <span className="ml-2 text-sm text-gray-30 dark:text-gray-70">({allIds.length})</span>
+                                                            </div>
                                                         </div>
                                                     )}
-                                                    <div className="flex items-center space-x-2">
-                                                        {hiddenCount > 0 && (
-                                                            <span className="text-sm text-gray-500 dark:text-gray-300">{hiddenCount} hidden</span>
-                                                        )}
-                                                        {isCollapsed ? (
-                                                            // Compact tile shown when column is collapsed. Clicking it expands the column.
-                                                            <div className="flex items-center">
+                                                    {hiddenCount > 0 && (
+                                                        <span className="text-sm text-gray-500 dark:text-gray-300">{hiddenCount} hidden</span>
+                                                    )}
+                                                    {(isCollapsed) ? (
+                                                        <>
+                                                        {(isSmall) && (
+                                                        <div className="flex items-center space-x-2">
                                                             <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 6, background: STATUS_COLORS[status], marginRight: 8 }} />
+                                                            <div className="text-nowrap" style={{color: STATUS_COLORS[status]}}>{status}
+                                                            </div>
+                                                        </div>
+                                                        )}
+                                                        
                                                             <Tooltip title={`Show "${status}" column`} placement="top" arrow>
                                                             <IconButton
                                                                 aria-label={`Show ${status} column`}
@@ -1958,26 +1995,25 @@ const GoalsComponent = () => {
                                                                             horizontal: 'right',
                                                                         }}
                                                                     >
-                                                                        <Eye className="w-4 h-4" />
+                                                                        <Eye className="w-4 h-4 text-gray-70 dark:text-gray-20" />
                                                                     </Badge>
                                                                 </div>
                                                             </IconButton>
                                                             </Tooltip>
-                                                            </div>
-                                                        ) : (
+                                                        </>
+                                                    ) : (
                                                             
-                                                            <Tooltip title={`Hide column`} placement="top" arrow>
-                                                                <IconButton
-                                                                    aria-label={`Hide ${status} column`}
-                                                                    onClick={() => setCollapsedColumns((prev) => ({ ...prev, [status]: !prev[status] }))}
-                                                                    className="btn-ghost p-1"
-                                                                    >
-                                                                    <EyeOff className="w-4 h-4" />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                        
-                                                        )}
-                                                    </div>
+                                                        <Tooltip title={`Hide column`} placement="top" arrow>
+                                                            <IconButton
+                                                                aria-label={`Hide ${status} column`}
+                                                                onClick={() => setCollapsedColumns((prev) => ({ ...prev, [status]: !prev[status] }))}
+                                                                className="btn-ghost p-1"
+                                                                >
+                                                                <EyeOff className="w-4 h-4 text-gray-50" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    
+                                                    )}
                                                 </div>
 
                                                 {!isCollapsed && (
@@ -1985,9 +2021,9 @@ const GoalsComponent = () => {
                                                         {visibleIds.map((id, _idx) => {
                                                             // When showing all in kanban, prefer the `fullGoals` cache
                                                             // which contains unscoped results from the server. When
-                                                            // showAllInKanban is false, fall back to the scoped
+                                                            // showAllGoals is false, fall back to the scoped
                                                             // `indexedGoals` map.
-                                                            const goalListForLookup = showAllInKanban ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || []);
+                                                            const goalListForLookup = showAllGoals ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || []);
                                                             const goal = (goalListForLookup || []).find((g) => g.id === id) as Goal | undefined;
                                                             if (!goal) return null;
                                                             return (
@@ -1997,7 +2033,7 @@ const GoalsComponent = () => {
                                                                 goal={goal}
                                                                 handleDelete={(id) => handleDeleteGoal(id)}
                                                                 handleEdit={(id) => {
-                                                                    const goalSourceForEdit = showAllInKanban ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || []);
+                                                                    const goalSourceForEdit = showAllGoals ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || []);
                                                                     const goalToEdit = goalSourceForEdit.find((g) => g.id === id);
                                                                     if (goalToEdit) {
                                                                         setSelectedGoal(goalToEdit);
@@ -2030,19 +2066,7 @@ const GoalsComponent = () => {
                     </div>
                 )}
             </div>
-            <div id="summary" className="p-4 mt-8 2xl:mt-4 gap-4 flex flex-col w-full 2xl:w-1/3 h-full justify-start items-start border-b border-gray-30 dark:border-gray-70 bg-gray-0 bg-opacity-70 dark:bg-gray-100 dark:bg-opacity-30 rounded-md">                                                                                         {/* Summary Generator and Editor */}
-                {/* <div className="">
-                    <h2 className="text-xl font-semibold text-gray-900">Summary</h2>
-                    <p className="text-gray-60 dark:text-gray-30">Generate and edit your {scope}ly summary.</p>
-                </div> */}
-                <div id="summary_btn">
-                        <SummaryGenerator 
-                        summaryId={selectedSummary?.id || ''} 
-                        summaryTitle={selectedSummary?.title || `Summary for ${scope}: ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}                                                                                                                                                                                selectedRange={new Date()}
-                        filteredGoals={showAllInKanban ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || [])} // Pass the goals for the current page or full list
-                        scope={scope}
-                    />
-
+            <div id="summary">
                     <Modal
                         key={selectedSummary?.id || 'summary-editor'}
                         isOpen={!!selectedSummary && isEditorOpen}
@@ -2211,7 +2235,7 @@ const GoalsComponent = () => {
 
                     {/* Notes modal used by mobile stacked rows */}
                     {isNotesModalOpen && (
-                        <div id="editNotes" className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50">
+                        <div id="editNotes" className={`${overlayClasses} flex items-center justify-center`}>
                             <div className={`${modalClasses} w-full max-w-2xl`}> 
                                 <div className='flex flex-row w-full justify-between items-start'>
                                     <h3 className="text-lg font-medium text-gray-90 mb-4">Notes for <br />"{(selectedGoal as any)?.title}"</h3>
@@ -2294,7 +2318,7 @@ const GoalsComponent = () => {
                     )}
             </div>
         </div>
-    </div>
+    // </div>
   );
 };
 

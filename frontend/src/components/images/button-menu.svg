@@ -2,10 +2,10 @@
     <defs>
         <style type="text/css">
             rect { fill: white; }
-            /* rect .fill-brand { fill: currentColor; } */
+            rect .fill-brand { fill: currentColor; }
         </style>
     </defs>
-    <rect y="1" width="30" height="4" rx="2" />
-    <rect y="13" width="30" height="4" rx="2" />
+    <rect class="fill-brand" y="1" width="30" height="4" rx="2" />
+    <rect class="fill-brand" y="13" width="30" height="4" rx="2" />
     <rect y="25" width="15" height="4" rx="2" />
 </svg>
