@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { IconButton, Tooltip, TextField } from '@mui/material';
 import { Bold, Italic, List, Hash, Quote } from 'lucide-react';
-import '@styles/richtext.css';
+import '@styles/richtext.scss';
 
 type Props = {
   id: string;
@@ -346,9 +346,7 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
     <>
       {/* <div className="richtext-container" lang="en-US" dir="ltr"> */}
         <div className={`richtext-container w-full ${label ? 'has-label' : ''} ${(focused ? 'richtext-focused' : '') || (hasContent ? 'richtext-filled' : '')}`}>
-          {label && (
-            <label className={`richtext-label ${focused || hasContent ? 'floating richtext-filled' : ''}`} onClick={() => contentRef.current?.focus()}>{label}</label>
-          )}
+          
           <TextField
             id={id}
             multiline
@@ -356,6 +354,7 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
             value={html}
             placeholder={placeholder}
             /* label shown above as a custom floating label */
+            label={label}
             inputRef={(el: any) => { contentRef.current = el; }}
             InputProps={{
               inputComponent: ContentEditableInput as any,

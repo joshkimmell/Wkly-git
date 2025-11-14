@@ -1196,14 +1196,23 @@ const GoalsComponent = () => {
         
         <div className="flex justify-between items-start sm:items-center w-full mb-4">
             <div className='flex flex-col'>
+                
                 {/* Kanban toggle: show all vs scope-only (wrapped in MUI formset for accessibility) */}
                 <FormControl component="fieldset" variant="standard" className="ml-2">
                     <FormLabel component="legend" className="sr-only">Goal view options</FormLabel>
                     <FormGroup row>
                         <FormControlLabel
-                            control={<Switch checked={showAllGoals} onChange={(_, v) => { console.debug('[AllGoals] Kanban switch toggled ->', v); setshowAllGoals(v); }} size="small" />}
+                            control={
+                                <Switch
+                                    checked={showAllGoals}
+                                    onChange={(_, v) => { console.debug('[AllGoals] Kanban switch toggled ->', v); setshowAllGoals(v); }}
+                                    size="small"
+                                    color='primary'
+                                />
+                            }
                             label={'All goals'}
                             className="ml-0 text-sm"
+                            
                         />
 
                         {!showAllGoals && (
@@ -1757,7 +1766,7 @@ const GoalsComponent = () => {
                                     <TableRow>
                                         <TableCell onClick={() => toggleSort('title')} style={{ cursor: 'pointer' }}>
                                             <span className="flex items-center">
-                                                Title
+                                                Goal
                                                 {sortBy === 'title' && (sortDirection === 'asc' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />)}
                                             </span>
                                         </TableCell>
@@ -2226,7 +2235,7 @@ const GoalsComponent = () => {
 
                     {/* Notes modal used by mobile stacked rows */}
                     {isNotesModalOpen && (
-                        <div id="editNotes" className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50">
+                        <div id="editNotes" className={`${overlayClasses} flex items-center justify-center`}>
                             <div className={`${modalClasses} w-full max-w-2xl`}> 
                                 <div className='flex flex-row w-full justify-between items-start'>
                                     <h3 className="text-lg font-medium text-gray-90 mb-4">Notes for <br />"{(selectedGoal as any)?.title}"</h3>

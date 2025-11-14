@@ -8,7 +8,7 @@ import { FileText as NotesIcon, Plus as PlusIcon, Save as SaveIcon } from 'lucid
 import { Chip, Menu, MenuItem, TextField, Tooltip, IconButton } from '@mui/material';
 import type { ChangeEvent } from 'react';
 import { STATUSES, STATUS_COLORS, type Status } from '../constants/statuses';
-import { cardClasses, modalClasses, objectCounter } from '@styles/classes'; // Adjust the import path as necessary
+import { cardClasses, modalClasses, objectCounter, overlayClasses } from '@styles/classes'; // Adjust the import path as necessary
 import useGoalExtras from '@hooks/useGoalExtras';
 import { notifyError, notifySuccess } from './ToastyNotification';
 // import { Link } from 'react-router-dom';
@@ -560,7 +560,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
     />
     {/* Notes Modal */}
     {isNotesModalOpen && (
-      <div id="editNotes" className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50">
+      <div id="editNotes" className={`${overlayClasses} flex items-center justify-center`}>
         <div className={`${modalClasses} w-full max-w-2xl`}> 
           <div className='flex flex-row w-full justify-between items-start'>
               <h3 className="text-lg font-medium text-gray-90 mb-4">Notes for <br />"{goal.title}"</h3>
@@ -676,7 +676,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
 
     {/* Edit Accomplishment Modal */}
     {isEditAccomplishmentModalOpen && selectedAccomplishment && (
-      <div className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50">
+      <div className={`${overlayClasses} flex items-center justify-center`}>
         <div className={`${modalClasses}`}>
           <h3 className="text-lg font-medium text-gray-90 mb-4">Edit Accomplishment</h3>
           <AccomplishmentEditor

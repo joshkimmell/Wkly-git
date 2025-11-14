@@ -1,4 +1,4 @@
-import { modalClasses } from '@styles/classes';
+import { modalClasses, overlayClasses } from '@styles/classes';
 import React, { useState, useEffect } from 'react';
 import { TextField, MenuItem } from '@mui/material';
 // import ReactQuill from 'react-quill';
@@ -255,7 +255,7 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
                 shouldFocusAfterRender={false}
                 shouldReturnFocusAfterClose={false}
                 className="fixed inset-0 flex items-center justify-center z-[1050]"
-                overlayClassName="fixed inset-0 bg-black bg-opacity-30"
+                overlayClassName={`${overlayClasses}`}
                 style={{
                   content: {
                     width: 'calc(100% - 8px)',

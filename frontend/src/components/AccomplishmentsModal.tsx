@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Edit, Trash, Plus as PlusIcon, X as CloseButton } from 'lucide-react';
-import { modalClasses } from '@styles/classes';
+import { modalClasses, overlayClasses } from '@styles/classes';
 import { TextField, Tooltip, IconButton } from '@mui/material';
 import ConfirmModal from './ConfirmModal';
 import { Accomplishment } from '@utils/goalUtils';
@@ -34,7 +34,7 @@ export default function AccomplishmentsModal({ goalTitle, isOpen, onClose, accom
   if (!isOpen) return null;
 
   return (
-    <div id="editAccomplishments" className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50">
+    <div id="editAccomplishments" className={`${overlayClasses} flex items-center justify-center`}>
       <div className={`${modalClasses} w-full max-w-2xl`}>
         <div className='flex flex-row w-full justify-between'>
                 <h3 className="text-lg font-medium text-gray-90 mb-4">Accomplishments for "{goalTitle}"</h3>

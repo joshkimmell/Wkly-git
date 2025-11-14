@@ -82,6 +82,8 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
 
   const closeGenerateModal = () => {
     setIsGenerateModalOpen(false);
+    // clear the RichTextEditor input when the form/modal is canceled
+    setAdditionalContext('');
   };
 
   const handleGenerate = async () => {

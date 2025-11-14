@@ -16,12 +16,16 @@ import { Home, Text } from 'lucide-react';
 import LoadingSpinner from '@components/LoadingSpinner';
 import ProfileManagement from '@components/ProfileManagement';
 import AppMuiThemeProvider from './mui/muiTheme';
-// import MuiCompareDemo from '@components/MuiCompareDemo';
+import appColors from '@styles/appColors';
+import MuiCompareDemo from '@components/MuiCompareDemo';
 
 
 
 const App: React.FC = () => {
   const { session, isLoading } = useAuth();
+  // Allow E2E runs to bypass auth by passing ?test=1 or setting localStorage.WKLY_E2E_TEST = '1'
+  const testing = typeof window !== 'undefined' && (window.location.search.includes('test=1') || typeof localStorage !== 'undefined' && localStorage.getItem('WKLY_E2E_TEST') === '1');
+  const effectiveSession = testing ? {} : session;
   const navigate = useNavigate();
   const [theme, setTheme] = useState<'theme-dark' | 'theme-light'>(() => {
     // Prefer an explicit user preference saved in localStorage, then fall
@@ -79,25 +83,40 @@ const App: React.FC = () => {
 
   const current = theme;
 
+  // Apply user preferred palette (if any) on mount and when profile changes
+  const { profile } = useAuth();
+  useEffect(() => {
+    try {
+      if (profile?.primary_color) {
+        appColors.applyPaletteToRoot(profile.primary_color);
+      } else {
+        const stored = appColors.getStoredPalette();
+        if (stored) appColors.applyPaletteToRoot(stored);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [profile]);
+
 
   
   
   // All hooks are called above, now conditionally render UI:
    // Redirect to "/" after login if currently on "/auth"
   useEffect(() => {
-    if (session && window.location.pathname === '/auth') {
+    if (effectiveSession && window.location.pathname === '/auth') {
       navigate('/');
     }
-  }, [session, navigate]);
+  }, [effectiveSession, navigate]);
   
   // Goals are fetched by the GoalsProvider on mount; no need to fetch here.
   
-  if (isLoading) return 
+  if (isLoading && !testing) return 
     <div className="fixed top-0 mt-0 h-[100vh] w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center">
       <div className="loader"><LoadingSpinner /></div>
       {/* <span className="ml-2">Generating plan...</span> */}
     </div>
-  if (!session) {
+  if (!effectiveSession) {
     return (
       <Routes>
         <Route path="/auth" element={<Auth />} />
@@ -159,7 +178,7 @@ const App: React.FC = () => {
             <Routes>
               {/* <Route path="/" element={<WeeklyGoals />} /> */}
               <Route path="/" element={<AllGoals />} />
-              {/* <Route path="/mui-demo" element={<MuiCompareDemo />} /> */}
+              <Route path="/mui-demo" element={<MuiCompareDemo />} />
               {/* <Route path="/accomplishments" element={<AllAccomplishments />} /> */}
               <Route path="/summaries" element={<AllSummaries />} />
               <Route path="/auth" element={<Navigate to="/" replace />} />
