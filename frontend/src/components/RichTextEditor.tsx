@@ -12,6 +12,17 @@ type Props = {
   label?: string;
 };
 
+// ensure content has a top-level paragraph wrapper when appropriate
+const normalizeHtml = (raw: string) => {
+  const trimmed = (raw || '').trim();
+  if (!trimmed) return '<p><br/></p>';
+  // if already starts with a block element, return as-is
+  if (/^\s*<([a-z0-9]+)[\s>]/i.test(trimmed)) return trimmed;
+  // wrap plain text/newlines in a paragraph
+  const escaped = trimmed.replace(/\n/g, '<br/>');
+  return `<p>${escaped}</p>`;
+};
+
 // custom input component that TextField will render instead of <input>
 const ContentEditableInput = React.forwardRef<HTMLDivElement, any>(function ContentEditableInput(
   { inputRef, value, onChange, className, placeholder, ...props }: any,
@@ -37,8 +48,9 @@ const ContentEditableInput = React.forwardRef<HTMLDivElement, any>(function Cont
     // if focused, skip DOM overwrite to preserve caret/selection
     if (document.activeElement === el) return;
     const incoming = value || '';
-    if (el.innerHTML !== incoming) {
-      el.innerHTML = incoming;
+    const normalized = normalizeHtml(incoming);
+    if (el.innerHTML !== normalized) {
+      el.innerHTML = normalized;
     }
   }, [value]);
 
@@ -63,6 +75,8 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
   // local html state for the contentEditable editor
   const [html, setHtml] = useState<string>(value || '');
   const contentRef = useRef<HTMLDivElement | null>(null);
+
+  // ensure content has a top-level paragraph wrapper when appropriate
 
 
   // Floating label state
@@ -143,7 +157,10 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
     const handleInput = () => {
       const text = el.innerText || '';
       setHasContent(Boolean(text.trim()));
-      const newHtml = el.innerHTML || '';
+      // normalize and emit
+      const newHtmlRaw = el.innerHTML || '';
+      const newHtml = normalizeHtml(newHtmlRaw);
+      if (el.innerHTML !== newHtml) el.innerHTML = newHtml;
       setHtml(newHtml);
       onChange(newHtml);
     };
