@@ -1190,7 +1190,8 @@ const GoalsComponent = () => {
   
     <div className={`space-y-6`}>
         <div className="flex justify-between items-center w-full">
-            <h1 className="text-2xl font-bold text-gray-90 block sm:hidden">{scope.charAt(0).toUpperCase() + scope.slice(1)}ly goals</h1>
+            {/* <h1 className="text-2xl font-bold text-gray-90 block sm:hidden">{scope.charAt(0).toUpperCase() + scope.slice(1)}ly goals</h1> */}
+            <h1 className="mt-4 block sm:hidden">Goals</h1>
         </div>
 
         

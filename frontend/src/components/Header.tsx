@@ -161,36 +161,36 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
             
             <div className="header-brand">
                 {!drawerVisible && (
-                <div className="header-brand--logo-container relative pr-6 flex items-end ">
-                    <button
-                        onClick={toggleThemeInternal}
-                        className="btn-ghost ml-4 p-2 rounded absolute top-0 right-0"
-                        aria-label="Toggle theme"
-                    >
-                        {props.theme === 'theme-dark' ? (
-                            <Sun className="w-5 h-5 stroke-gray-10 hover:stroke-gray-30 focus:outline-none" />
-                        ) : (
-                            <Moon className="w-5 h-5 stroke-gray-10 hover:stroke-gray-30 focus:outline-none" />
-                        )}
-                    </button>
-                    <Link
-                        to="/"
-                        className="header-brand--logo relative overflow-hidden w-auto flex items-end justify-center h-full"
-                        style={{ minHeight: '3rem' }} // optional: ensures height
-                    >
+                    <div className="header-brand--logo-container relative pr-6 flex items-end ">
+                        <button
+                            onClick={toggleThemeInternal}
+                            className="btn-ghost ml-4 p-2 rounded absolute top-0 right-0"
+                            aria-label="Toggle theme"
+                        >
+                            {props.theme === 'theme-dark' ? (
+                                <Sun className="w-5 h-5 stroke-gray-10 hover:stroke-gray-30 focus:outline-none" />
+                            ) : (
+                                <Moon className="w-5 h-5 stroke-gray-10 hover:stroke-gray-30 focus:outline-none" />
+                            )}
+                        </button>
+                        <Link
+                            to="/"
+                            className="header-brand--logo relative overflow-hidden w-auto flex items-end justify-center h-full"
+                            style={{ minHeight: '3rem' }} // optional: ensures height
+                        >
 
-                        {/* <span className="mask-clip-border absolute bottom-0 left-1/2 -translate-x-1/2 h-8 sm:h-12 w-auto"> */}
-                        <span className="mask-clip-border top-0 left-0 h-24 w-full md:w-auto">
-                        <Logo
-                            aria-label="Wkly logo"
-                            style={{ color: 'var(--brand-30)' }}
-                            className="w-full h-auto md:w-auto"
-                        />
-                        </span>
-                        
+                            {/* <span className="mask-clip-border absolute bottom-0 left-1/2 -translate-x-1/2 h-8 sm:h-12 w-auto"> */}
+                            <span className="mask-clip-border top-0 left-0 h-24 w-full md:w-auto">
+                            <Logo
+                                aria-label="Wkly logo"
+                                style={{ color: 'var(--brand-30)' }}
+                                className="w-full h-auto md:w-auto"
+                            />
+                            </span>
+                            
 
-                    </Link>
-                </div>
+                        </Link>
+                    </div>
                 )}
                 {isAuthenticated && (
                     <>

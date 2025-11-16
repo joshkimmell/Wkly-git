@@ -37,6 +37,10 @@ svg {
     //     font-weight: bold;
     // }
     
+    &-brand--bg {
+        background: linear-gradient(180deg, var(--brand-90, variables.$brand-90) 0%, var(--brand-70, variables.$brand-70) 100%);
+    }
+
     &-brand {
         // Use runtime CSS variables from appColors with SCSS fallbacks
         background: linear-gradient(180deg, var(--brand-90, variables.$brand-90) 0%, var(--brand-70, variables.$brand-70) 100%);

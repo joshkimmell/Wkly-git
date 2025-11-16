@@ -136,16 +136,12 @@ const toggleThemeInternal = (): void => {
     };
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <div className="flex"> 
+    {/* sx={{ display: 'flex' }}> */}
       <CssBaseline />
-      <AppBar className='header-brand--logo-container' position="fixed" open={open}>
+      <AppBar className='header-brand--logo-container' position="fixed" open={open} sx={{ background: 'linear-gradient(180deg, var(--brand-90, variables.$brand-90) 0%, var(--brand-70, variables.$brand-70) 100%)' }}>
         <Toolbar className='justify-between gap-4'>
-          {/* <Typography variant="h6" noWrap sx={{ flexGrow: 1 }} component="div">
-            Persistent drawer
-            </Typography> */}
-            {/* <div className="header-brand--logo-container relative pr-6 flex items-end "> */}
             <div>
-                
                 <Link
                     to="/"
                     className="header-brand--logo overflow-hidden flex-0 w-auto block items-end justify-start h-[3.5rem]"
@@ -269,6 +265,6 @@ const toggleThemeInternal = (): void => {
           ))}
         </List>
       </Drawer>
-    </Box>
+    </div>
   );
 }
