@@ -7,7 +7,8 @@ describe('RichTextEditor toggling', () => {
   it('inserts placeholder on collapsed bold and unwraps when toggled', async () => {
   const onChange = vi.fn();
     render(<RichTextEditor id="tester" value="" onChange={onChange} label="Description" />);
-    const editable = screen.getByRole('textbox') as HTMLElement;
+  const editors = screen.getAllByRole('textbox') as HTMLElement[];
+  const editable = editors.find(e => e.isContentEditable) || editors[0];
     // focus and type some text
     await act(async () => { editable.focus(); });
     await userEvent.type(editable, 'hello');

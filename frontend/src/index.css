@@ -137,7 +137,7 @@
     @apply border-gray-30 dark:border-gray-70 text-gray-80 hover:text-gray-100 dark:text-gray-20 dark:hover:text-gray-10 bg-gray-10 hover:bg-gray-20 dark:bg-gray-80 dark:hover:bg-gray-100 focus-visible:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-70;
   }
   .btn-ghost {
-    @apply text-gray-90 dark:text-gray-30 hover:text-gray-100 hover:dark:text-gray-10 bg-transparent hover:bg-gray-10 dark:hover:bg-gray-90 border-none;
+    @apply text-gray-90 dark:text-gray-30 hover:text-gray-100 dark:hover:text-gray-10 bg-transparent hover:bg-gray-10 dark:hover:bg-gray-90 border-none;
   }
   .btn-ghost:disabled {
     @apply opacity-50 hover:bg-transparent cursor-not-allowed;

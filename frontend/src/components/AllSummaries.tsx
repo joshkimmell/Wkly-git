@@ -278,6 +278,7 @@ const AllSummaries = () => {
       <Modal
         isOpen={isEditorOpen && !!selectedSummary}
         onRequestClose={() => setSelectedSummary(null)}
+        shouldCloseOnOverlayClick={true}
         className={`fixed inset-0 flex items-center justify-center z-50`}
         overlayClassName={`${overlayClasses}`}
         ariaHideApp={ARIA_HIDE_APP}
@@ -314,6 +315,7 @@ const AllSummaries = () => {
       <Modal
         isOpen={isModalOpen}
         onRequestClose={() => closeModal()}
+        shouldCloseOnOverlayClick={true}
         className="fixed inset-0 flex items-center justify-center z-50"
         overlayClassName={`${overlayClasses}`}
         ariaHideApp={ARIA_HIDE_APP}

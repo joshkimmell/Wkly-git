@@ -65,7 +65,15 @@ export default function ConfirmModal({ isOpen, title, message, onConfirm, onCanc
   const effectiveLoading = loading || internalLoading;
 
   return (
-    <div className={`${overlayClasses} flex items-center justify-center`} role="dialog" aria-modal="true">
+    <div
+      className={`${overlayClasses} flex items-center justify-center`}
+      role="dialog"
+      aria-modal="true"
+      onMouseDown={(e) => {
+        // close when clicking the backdrop (only when clicking the overlay itself)
+        if (e.target === e.currentTarget) onCancel();
+      }}
+    >
       <div ref={dialogRef} className={`${modalClasses} w-full max-w-md`} aria-labelledby="confirm-title" aria-describedby="confirm-desc">
         {title && <h3 id="confirm-title" className="text-lg font-medium text-brand-70 dark:text-brand-30 mb-4">{title}</h3>}
         {message && <p id="confirm-desc" className="text-sm text-gray-70 dark:text-gray-30 mb-4">{message}</p>}
