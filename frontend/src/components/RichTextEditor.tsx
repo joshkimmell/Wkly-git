@@ -12,6 +12,17 @@ type Props = {
   label?: string;
 };
 
+// ensure content has a top-level paragraph wrapper when appropriate
+const normalizeHtml = (raw: string) => {
+  const trimmed = (raw || '').trim();
+  if (!trimmed) return '<p><br/></p>';
+  // if already starts with a block element, return as-is
+  if (/^\s*<([a-z0-9]+)[\s>]/i.test(trimmed)) return trimmed;
+  // wrap plain text/newlines in a paragraph
+  const escaped = trimmed.replace(/\n/g, '<br/>');
+  return `<p>${escaped}</p>`;
+};
+
 // custom input component that TextField will render instead of <input>
 const ContentEditableInput = React.forwardRef<HTMLDivElement, any>(function ContentEditableInput(
   { inputRef, value, onChange, className, placeholder, ...props }: any,
@@ -37,8 +48,9 @@ const ContentEditableInput = React.forwardRef<HTMLDivElement, any>(function Cont
     // if focused, skip DOM overwrite to preserve caret/selection
     if (document.activeElement === el) return;
     const incoming = value || '';
-    if (el.innerHTML !== incoming) {
-      el.innerHTML = incoming;
+    const normalized = normalizeHtml(incoming);
+    if (el.innerHTML !== normalized) {
+      el.innerHTML = normalized;
     }
   }, [value]);
 
@@ -64,12 +76,18 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
   const [html, setHtml] = useState<string>(value || '');
   const contentRef = useRef<HTMLDivElement | null>(null);
 
+  // ensure content has a top-level paragraph wrapper when appropriate
+
 
   // Floating label state
   const [focused, setFocused] = useState(false);
   const [hasContent, setHasContent] = useState<boolean>(Boolean(value && String(value).trim()));
   const [activeBold, setActiveBold] = useState(false);
   const [activeItalic, setActiveItalic] = useState(false);
+  const [activeHeading, setActiveHeading] = useState(false);
+  const [activeQuote, setActiveQuote] = useState(false);
+  const [activeUnordered, setActiveUnordered] = useState(false);
+  const [activeOrdered, setActiveOrdered] = useState(false);
 
   // keep local html in sync with external value prop
   useEffect(() => {
@@ -139,7 +157,10 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
     const handleInput = () => {
       const text = el.innerText || '';
       setHasContent(Boolean(text.trim()));
-      const newHtml = el.innerHTML || '';
+      // normalize and emit
+      const newHtmlRaw = el.innerHTML || '';
+      const newHtml = normalizeHtml(newHtmlRaw);
+      if (el.innerHTML !== newHtml) el.innerHTML = newHtml;
       setHtml(newHtml);
       onChange(newHtml);
     };
@@ -171,7 +192,7 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
           const i = !!(document as any).queryCommandState('italic');
           setActiveBold(b);
           setActiveItalic(i);
-          return;
+          // queryCommandState has no generic for block types; fallthrough to DOM check below
         }
         // fallback: check selection ancestor nodes
         const sel = window.getSelection();
@@ -183,17 +204,29 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
         let node: Node | null = sel.anchorNode;
         let foundBold = false;
         let foundItalic = false;
+  let foundHeading = false;
+  let foundQuote = false;
+  let foundUnordered = false;
+  let foundOrdered = false;
         while (node) {
           if (node.nodeType === 1) {
             const el = node as HTMLElement;
             const tag = el.tagName.toLowerCase();
             if (tag === 'strong' || tag === 'b') foundBold = true;
             if (tag === 'em' || tag === 'i') foundItalic = true;
+            if (tag === 'h2') foundHeading = true;
+            if (tag === 'blockquote') foundQuote = true;
+            if (tag === 'ul') foundUnordered = true;
+            if (tag === 'ol') foundOrdered = true;
           }
           node = node.parentNode;
         }
-        setActiveBold(foundBold);
-        setActiveItalic(foundItalic);
+  setActiveBold(foundBold);
+  setActiveItalic(foundItalic);
+  setActiveHeading(foundHeading);
+  setActiveQuote(foundQuote);
+        setActiveUnordered(foundUnordered);
+        setActiveOrdered(foundOrdered);
       } catch (err) {
         setActiveBold(false);
         setActiveItalic(false);
@@ -253,7 +286,52 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
         const parts = cmd.split(':');
         const tag = parts[1];
         try {
-          document.execCommand('formatBlock', false, tag);
+          // helper: check if an element or any ancestor has a given tag name
+          const ancestorHasTag = (start: Node | null, t: string) => {
+            let n: Node | null = start;
+            const target = t.toLowerCase();
+            while (n) {
+              if (n.nodeType === 1) {
+                const el = n as HTMLElement;
+                if (el.tagName.toLowerCase() === target) return true;
+              }
+              n = n.parentNode;
+            }
+            return false;
+          };
+
+          // toggle behavior: if any ancestor block is the same tag, switch back to paragraph
+          const sel = window.getSelection();
+          if (sel && sel.rangeCount > 0) {
+            let node: Node | null = sel.getRangeAt(0).startContainer;
+            while (node && node.nodeType !== 1) node = node.parentNode as Node;
+            const blockEl = node as HTMLElement | null;
+            // if the block or any ancestor has the target tag, toggle it off
+            if (ancestorHasTag(blockEl, tag)) {
+              try {
+                document.execCommand('formatBlock', false, '<p>');
+              } catch (err) {
+                // fallback: replace the nearest ancestor matching tag with a <p>
+                let n: Node | null = blockEl;
+                while (n && n.nodeType !== 1) n = n?.parentNode as Node;
+                while (n) {
+                  if (n.nodeType === 1 && (n as HTMLElement).tagName.toLowerCase() === tag.toLowerCase()) {
+                    const newEl = document.createElement('p');
+                    newEl.innerHTML = (n as HTMLElement).innerHTML;
+                    (n as HTMLElement).parentNode?.replaceChild(newEl, n as HTMLElement);
+                    break;
+                  }
+                  n = n.parentNode;
+                }
+              }
+              contentRef.current?.focus();
+              onChange(contentRef.current?.innerHTML || '');
+              return;
+            }
+          }
+
+          // otherwise set the requested block type (use angle-bracket form for broader browser support)
+          document.execCommand('formatBlock', false, `<${tag}>`);
         } catch (e) {
           // fallback: wrap block
           const sel = window.getSelection();
@@ -413,6 +491,8 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
               <span>
               <IconButton
                 aria-label="Heading"
+                aria-pressed={activeHeading}
+                color={activeHeading ? 'primary' : 'default'}
                 size="small"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => { applyCommand('formatBlock:h2'); }}
@@ -425,6 +505,8 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
               <span>
               <IconButton
                 aria-label="Bullet list"
+                aria-pressed={activeUnordered}
+                color={activeUnordered ? 'primary' : 'default'}
                 size="small"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => { applyCommand('insertUnorderedList'); }}
@@ -437,6 +519,8 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
               <span>
               <IconButton
                 aria-label="Ordered list"
+                aria-pressed={activeOrdered}
+                color={activeOrdered ? 'primary' : 'default'}
                 size="small"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => { applyCommand('insertOrderedList'); }}
@@ -449,6 +533,8 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
               <span>
               <IconButton
                 aria-label="Blockquote"
+                aria-pressed={activeQuote}
+                color={activeQuote ? 'primary' : 'default'}
                 size="small"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => { applyCommand('formatBlock:blockquote'); }}

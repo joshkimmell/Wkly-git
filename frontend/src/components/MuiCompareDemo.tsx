@@ -23,15 +23,17 @@ const MuiCompareDemo: React.FC = () => {
                 label="Description" 
                 // minRows={12}
                 />
-            <div className="flex items-center gap-4">
-              <Tooltip title="Generate with AI?">
-                <Switch defaultChecked />
+            <div className="flex flex-wrap items-center gap-4">
+              <Tooltip title="Dis a switch, bitch!">
+                <Switch defaultChecked className='toggle' />
               </Tooltip>
               <Button variant="text">Primary</Button>
+              <Button variant='contained'>Dis</Button>
+              <Button variant='outlined'>Dat</Button>
               <Tooltip title="Search">
-                <IconButton aria-label="search"><Search /></IconButton>
+                <IconButton aria-label="search" color='primary' className=''><Search /></IconButton>
               </Tooltip>
-              <Fab color="secondary" aria-label="add">
+              <Fab color="primary" aria-label="add">
                 <ArrowDownToDotIcon />
               </Fab>
               <Link href="#" underline="hover">Learn more</Link>

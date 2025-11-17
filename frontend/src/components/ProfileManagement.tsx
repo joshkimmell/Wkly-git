@@ -422,23 +422,18 @@ const ProfileManagement: React.FC<ProfileManagementProps> = ({ onClose }) => {
                         </AppBar>
                       </div>
 
-                      <Stack direction='row' spacing={2} alignItems='center' className='mb-3'>
-                        <Fab size='small' color='primary' aria-label='demo-fab'><strong>+</strong></Fab>
+                      <div className='flex gap-8 flex-col md:flex-row items-center mb-8'>
+                        <Fab size='small' color='primary' aria-label='demo-fab' className=''><strong>+</strong></Fab>
                         <FormControlLabel control={<Switch checked={demoSwitch} onChange={(e) => setDemoSwitch(e.target.checked)} />} label='Switch' />
                         <FormControlLabel control={<Checkbox checked={demoCheckbox} onChange={(e) => setDemoCheckbox(e.target.checked)} />} label='Checkbox' />
-                        <FormControl size='small' sx={{ minWidth: 140 }}>
-                          <InputLabel id='demo-select-label'>Select</InputLabel>
-                          <Select labelId='demo-select-label' value={demoSelect} label='Select' onChange={(e) => setDemoSelect(e.target.value as string)}>
-                            <MenuItem value='optionA'>Option A</MenuItem>
-                            <MenuItem value='optionB'>Option B</MenuItem>
-                          </Select>
-                        </FormControl>
-                      </Stack>
+                      </div>
 
-                      <div className='flex gap-2 items-center mb-3'>
+                      <div className='flex flex-col gap-2 items-center mb-3 '>
                         <TextField label='Demo text' size='small' value={demoText} onChange={(e) => setDemoText(e.target.value)} />
-                        <Button variant='contained' size='small' onClick={() => setDemoSubmitted({ badgeCount, demoSwitch, demoCheckbox, demoSelect, demoText })}>Submit Demo</Button>
-                        <Button variant='outlined' size='small' onClick={() => { setBadgeCount(0); setDemoSwitch(false); setDemoCheckbox(false); setDemoSelect('optionA'); setDemoText(''); setDemoSubmitted(null); }}>Reset Demo</Button>
+                        <div className='flex gap-2 items-center'>
+                          <Button className='text-nowrap' variant='contained' size='small' onClick={() => setDemoSubmitted({ badgeCount, demoSwitch, demoCheckbox, demoSelect, demoText })}>Submit Demo</Button>
+                          <Button className='text-nowrap' variant='outlined' size='small' onClick={() => { setBadgeCount(0); setDemoSwitch(false); setDemoCheckbox(false); setDemoSelect('optionA'); setDemoText(''); setDemoSubmitted(null); }}>Reset Demo</Button>
+                        </div>
                       </div>
 
                       {demoSubmitted && (

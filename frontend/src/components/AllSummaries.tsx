@@ -223,7 +223,7 @@ const AllSummaries = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-90 block sm:hidden whitespace-nowrap">All Summaries</h1>
+        <h1 className="mt-4 block sm:hidden">Summaries</h1>
         <div className="space-x-4 py-4 w-full justify-end flex">
           <button
             onClick={() => openModal()}
@@ -278,6 +278,7 @@ const AllSummaries = () => {
       <Modal
         isOpen={isEditorOpen && !!selectedSummary}
         onRequestClose={() => setSelectedSummary(null)}
+        shouldCloseOnOverlayClick={true}
         className={`fixed inset-0 flex items-center justify-center z-50`}
         overlayClassName={`${overlayClasses}`}
         ariaHideApp={ARIA_HIDE_APP}
@@ -314,6 +315,7 @@ const AllSummaries = () => {
       <Modal
         isOpen={isModalOpen}
         onRequestClose={() => closeModal()}
+        shouldCloseOnOverlayClick={true}
         className="fixed inset-0 flex items-center justify-center z-50"
         overlayClassName={`${overlayClasses}`}
         ariaHideApp={ARIA_HIDE_APP}

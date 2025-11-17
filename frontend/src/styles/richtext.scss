@@ -26,7 +26,7 @@
   min-height: 3rem;
   padding: var(--container-padding, 0.75rem);
   // background-color: rgba(189, 189, 189, 0.12);
-  color: var(--primary-text, #111827);
+  color: var(--primary-text, #111827) !important;
   font-size: 0.95rem;
   line-height: 1.4;
   outline: 0;
@@ -113,10 +113,14 @@
 // }
 
 /* content formatting */
-.richtext-contenteditable p { margin: 0 0 1rem 0; }
-.richtext-contenteditable h1, .richtext-contenteditable h2, .richtext-contenteditable h3 { margin: 0 0 0.5rem 0; }
-.richtext-contenteditable ul, .richtext-contenteditable ol { padding-left: 1.25rem; margin: 0 0 0.5rem 0; }
-.richtext-contenteditable blockquote { margin: 0 0 0.5rem 0; padding-left: 1rem; border-left: 3px solid var(--text-secondary); color: var(--text-secondary); }
+.richtext-contenteditable p { margin: 0 0 1rem 0; color: var(--primary-text); }
+.richtext-contenteditable > h1, .richtext-contenteditable > h2, .richtext-contenteditable > h3 { margin: 0 0 0.5rem 0; color: currentColor; }
+.richtext-contenteditable > ul, .richtext-contenteditable > ol { padding-left: 1.25rem; margin: 0 0 0.5rem 0; }
+.richtext-contenteditable > blockquote { 
+  margin: 0 0 0.5rem 0; padding-left: 1rem; border-left: 3px solid; border-color: var(--brand-30); color: var(--text-secondary); font-weight: 200; 
+}
+.richtext-contenteditable ul { margin: 0 0 0.5rem 0; padding-left: 1rem; list-style-type: disc; }
+.richtext-contenteditable ol { margin: 0 0 0.5rem 0; padding-left: 1rem; list-style-type: decimal; }
 
 @media (max-width: 420px) {
   .richtext-toolbar { right: 0.25rem; bottom: 0.25rem; padding: 4px; }

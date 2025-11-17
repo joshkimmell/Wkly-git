@@ -2,8 +2,9 @@ import React, { useMemo, useEffect, useState } from 'react';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import appColors, { PALETTES, PALETTE_UPDATED_EVENT } from '@styles/appColors';
 import '../styles/variables.scss';
-import { text } from 'body-parser';
-import { link } from 'fs';
+// import { text } from 'body-parser';
+// import { link } from 'fs';
+// import { filter } from 'lodash';
 
 declare module '@mui/material/styles' {
   interface Palette {
@@ -57,67 +58,67 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
   // the CSS vars are for dark, resulting in inverted colors).
 
   // Helper: determine whether a CSS color string is dark by computing
-  // relative luminance. Support hex (#rgb/#rrggbb) and rgb(a).
-  const parseColorToRgb = (c: string): [number, number, number] | null => {
-    if (!c) return null;
-    const s = c.trim();
-    // rgb/rgba
-    const rgbMatch = s.match(/rgba?\(([^)]+)\)/i);
-    if (rgbMatch) {
-      const parts = rgbMatch[1].split(',').map(p => parseFloat(p));
-      if (parts.length >= 3 && parts.every(p => !Number.isNaN(p))) {
-        return [parts[0], parts[1], parts[2]];
-      }
-    }
-    // hex (#rrggbb or #rgb)
-    const hexMatch = s.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
-    if (hexMatch) {
-      const hex = hexMatch[1];
-      if (hex.length === 3) {
-        const r = parseInt(hex[0] + hex[0], 16);
-        const g = parseInt(hex[1] + hex[1], 16);
-        const b = parseInt(hex[2] + hex[2], 16);
-        return [r, g, b];
-      }
-      const r = parseInt(hex.substr(0, 2), 16);
-      const g = parseInt(hex.substr(2, 2), 16);
-      const b = parseInt(hex.substr(4, 2), 16);
-      return [r, g, b];
-    }
-    return null;
-  };
+  // relative luminance. Support  (#rgb/#rrggbb) and rgb(a).
+  // const parseColorToRgb = (c: string): [number, number, number] | null => {
+  //   if (!c) return null;
+  //   const s = c.trim();
+  //   // rgb/rgba
+  //   const rgbMatch = s.match(/rgba?\(([^)]+)\)/i);
+  //   if (rgbMatch) {
+  //     const parts = rgbMatch[1].split(',').map(p => parseFloat(p));
+  //     if (parts.length >= 3 && parts.every(p => !Number.isNaN(p))) {
+  //       return [parts[0], parts[1], parts[2]];
+  //     }
+  //   }
+  //   //  (#rrggbb or #rgb)
+  //   const Match = s.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  //   if (Match) {
+  //     const  = Match[1];
+  //     if (.length === 3) {
+  //       const r = parseInt([0] + [0], 16);
+  //       const g = parseInt([1] + [1], 16);
+  //       const b = parseInt([2] + [2], 16);
+  //       return [r, g, b];
+  //     }
+  //     const r = parseInt(.substr(0, 2), 16);
+  //     const g = parseInt(.substr(2, 2), 16);
+  //     const b = parseInt(.substr(4, 2), 16);
+  //     return [r, g, b];
+  //   }
+  //   return null;
+  // };
 
-  const isColorDark = (color: string) => {
-    const rgb = parseColorToRgb(color);
-    if (!rgb) return false; // default to light
-    // relative luminance (approx) — convert sRGB to linear then compute
-    const toLinear = (v: number) => {
-      const s = v / 255;
-      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-    };
-    const [r, g, b] = rgb;
-    const L = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
-    return L < 0.5;
-  };
+  // const isColorDark = (color: string) => {
+  //   const rgb = parseColorToRgb(color);
+  //   if (!rgb) return false; // default to light
+  //   // relative luminance (approx) — convert sRGB to linear then compute
+  //   const toLinear = (v: number) => {
+  //     const s = v / 255;
+  //     return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  //   };
+  //   const [r, g, b] = rgb;
+  //   const L = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+  //   return L < 0.5;
+  // };
 
-  // Convert an [r,g,b] tuple to #rrggbb
-  const rgbToHex = (rgb: [number, number, number]) => {
-    const toHex = (v: number) => {
-      const i = Math.round(v);
-      const s = i.toString(16);
-      return s.length === 1 ? '0' + s : s;
-    };
-    return `#${toHex(rgb[0])}${toHex(rgb[1])}${toHex(rgb[2])}`;
-  };
+  // // Convert an [r,g,b] tuple to #rrggbb
+  // const rgbTo = (rgb: [number, number, number]) => {
+  //   const to = (v: number) => {
+  //     const i = Math.round(v);
+  //     const s = i.toString(16);
+  //     return s.length === 1 ? '0' + s : s;
+  //   };
+  //   return `#${to(rgb[0])}${to(rgb[1])}${to(rgb[2])}`;
+  // };
 
-  // Normalize a CSS color string (rgb(...) or #hex) into a #rrggbb string.
-  // Returns null if the color couldn't be parsed.
-  const normalizeColorToHex = (c: string | undefined | null) => {
-    if (!c) return null;
-    const rgb = parseColorToRgb(c);
-    if (!rgb) return null;
-    return rgbToHex(rgb);
-  };
+  // // Normalize a CSS color string (rgb(...) or #) into a #rrggbb string.
+  // // Returns null if the color couldn't be parsed.
+  // const normalizeColorTo = (c: string | undefined | null) => {
+  //   if (!c) return null;
+  //   const rgb = parseColorToRgb(c);
+  //   if (!rgb) return null;
+  //   return rgbTo(rgb);
+  // };
 
   // Prefer reading CSS vars from `document.body` only when the intended
   // mode is dark (the app applies `.dark` to the body). For light mode
@@ -155,7 +156,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
   // (logging moved below after fallbacks are computed)
 
   // keep a background-derived hint available (and ensure the helper is used)
-  const isDarkFromBg = isColorDark(backgroundRaw);
+  // const isDarkFromBg = isColorDark(backgroundRaw);
 
   // If the primary color couldn't be read (empty), try to enforce a palette
   // choice: prefer a stored palette (user's choice) and fall back to purple.
@@ -167,7 +168,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
     // ignore any errors applying palette
   }
 
-  // explicit sensible hex fallbacks so MUI always has correct colors
+  // explicit sensible  fallbacks so MUI always has correct colors
   const background = backgroundRaw;
   const paper = readCssVar(['--background-color', '--color-background-color'], isDark ? '#282828' : '#ededed', preferBody);
   const textPrimary = textPrimaryRaw || (isDark ? '#E6E6E6' : '#111827');
@@ -193,7 +194,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
       textPrimary: readCssVar(['--primary-text', '--color-text-primary'], '#111827', preferBody),
       textSecondary: readCssVar(['--secondary-text', '--color-text-secondary'], '#4D4D4D', preferBody),
       divider: readCssVar(['--primary-border', '--color-border-primary'], brand30, preferBody),
-      // inputHex: readCssVar(['--brand-60', '--primary-brand-60'], PALETTES.purple[60], preferBody),  
+      // input: readCssVar(['--brand-60', '--primary-brand-60'], PALETTES.purple[60], preferBody),  
     },
     dark: {
       primary: readCssVar(['--brand-30', '--primary-brand-30'], PALETTES.purple[30], preferBody),
@@ -202,39 +203,54 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
       textPrimary: readCssVar(['--primary-text', '--color-text-primary'], '#E6E6E6', preferBody),
       textSecondary: readCssVar(['--secondary-text', '--color-text-secondary'], '#B3B3B3', preferBody),
       divider: readCssVar(['--primary-border', '--color-border-primary'], '#e5e7eb', preferBody),
-      // inputHex: readCssVar(['--brand-20', '--primary-brand-20'], PALETTES.purple[20], preferBody),    
+      // input: readCssVar(['--brand-20', '--primary-brand-20'], PALETTES.purple[20], preferBody),    
     },
   } as const;
 
   const chosenMode = isDark ? 'dark' : 'light';
 
+  const secondary = textSecondary;
+  const info = primary;
+  const actionHover = textSecondary;
+  // Use brand accents and green palette for success semantics
+  const success = PALETTES.green ? PALETTES.green[60] : '#22c55e';
+  const primaryBorder = brand20 || divider;
+  // const tertiaryButton = brand30;
+  const primaryIcon = brand70;
+  const inverseIcon = brand100;
+  const appbar = brand90;
+  const badge = primary;
+  const tooltip = brand50;
+  const primaryFab= brand60;
+  const secondaryFab = PALETTES.gray ? PALETTES.gray[60] : '#a1a1aa';
+
   // Prefer the runtime CSS var (profile-selected palette) when available,
   // fall back to a hard-coded mode token if not.
-  // primaryHex now comes directly from the selected palette (already a hex)
-  const primaryHex = normalizeColorToHex(primary) || primary;
-  const backgroundHex = modeTokens[chosenMode].background || normalizeColorToHex(background) || background;
-  const paperHex = modeTokens[chosenMode].paper || normalizeColorToHex(paper) || paper;
-  const textPrimaryHex = modeTokens[chosenMode].textPrimary || normalizeColorToHex(textPrimary) || textPrimary;
-  const textSecondaryHex = modeTokens[chosenMode].textSecondary || normalizeColorToHex(textSecondary) || textSecondary;
-  const textOnColorHex = normalizeColorToHex(textOnColor) || textOnColor;
-  const linkPrimaryHex = normalizeColorToHex(linkPrimary) || linkPrimary;
-  const dividerHex = modeTokens[chosenMode].divider || normalizeColorToHex(divider) || divider;
-  // Additional palette tokens derived from CSS variables when available
-  // Derive additional tokens from the same palette for consistency
-  const secondaryHex = textSecondaryHex;
-  const infoHex = primaryHex;
-  const actionHoverHex = textSecondaryHex;
-  // Use brand accents and green palette for success semantics
-  const successHex = PALETTES.green ? PALETTES.green[60] : '#22c55e';
-  const primaryBorderHex = brand20 || divider;
-  const tertiaryButtonHex = brand30;
-  const primaryIconHex = brand70;
-  const inverseIconHex = brand100;
-  const appbarHex = brand90;
-  const badgeHex = primaryHex;
-  const tooltipHex = brand50;
-  const primaryFabHex = brand60;
-  const secondaryFabHex = PALETTES.gray ? PALETTES.gray[60] : '#a1a1aa';
+  // primary now comes directly from the selected palette (already a )
+  // const primary = normalizeColorTo(primary) || primary;
+  // const background = modeTokens[chosenMode].background || normalizeColorTo(background) || background;
+  // const paper = modeTokens[chosenMode].paper || normalizeColorTo(paper) || paper;
+  // const textPrimary = modeTokens[chosenMode].textPrimary || normalizeColorTo(textPrimary) || textPrimary;
+  // const textSecondary = modeTokens[chosenMode].textSecondary || normalizeColorTo(textSecondary) || textSecondary;
+  // const textOnColor = normalizeColorTo(textOnColor) || textOnColor;
+  // const linkPrimary = normalizeColorTo(linkPrimary) || linkPrimary;
+  // const divider = modeTokens[chosenMode].divider || normalizeColorTo(divider) || divider;
+  // // Additional palette tokens derived from CSS variables when available
+  // // Derive additional tokens from the same palette for consistency
+  // const secondary = textSecondary;
+  // const info = primary;
+  // const actionHover = textSecondary;
+  // // Use brand accents and green palette for success semantics
+  // const success = PALETTES.green ? PALETTES.green[60] : '#22c55e';
+  // const primaryBorder = brand20 || divider;
+  // const tertiaryButton = brand30;
+  // const primaryIcon = brand70;
+  // const inverseIcon = brand100;
+  // const appbar = brand90;
+  // const badge = primary;
+  // const tooltip = brand50;
+  // const primaryFab = brand60;
+  // const secondaryFab = PALETTES.gray ? PALETTES.gray[60] : '#a1a1aa';
 
   // toolbar background: choose translucent surface that contrasts with theme
   const toolbarBg = isDark ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.9)';
@@ -247,30 +263,30 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
     palette: {
       mode: isDark ? 'dark' : 'light',
       primary: {
-        main: primaryHex,
+        main: primary,
       },
       secondary: {
-        main: secondaryHex,
+        main: secondary,
       },
       info: {
-        main: infoHex,
+        main: info,
       },
       success: {
-        main: successHex,
+        main: success,
       },
       background: {
-        default: backgroundHex,
-        paper: paperHex,
+        default: background,
+        paper: paper,
       },
       text: {
-        primary: textPrimaryHex,
-        secondary: textSecondaryHex,
+        primary: textPrimary,
+        secondary: textSecondary,
         disabled: textPlaceholder,
       },
       link: {
-        main: linkPrimaryHex,
+        main: linkPrimary,
       },
-  divider: dividerHex,
+  divider: divider,
     },
     typography: {
       fontFamily,
@@ -282,7 +298,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
           ':root': {
             // mirror a few helpful tokens so MUI internals and components can read them
             '--wkly-btn-primary': primary,
-            '--wkly-btn-primary-hex': primaryHex,
+            // '--wkly-btn-primary-': primary,
             '--wkly-btn-ghost': ghost,
             '--wkly-background': background,
             '--wkly-link-primary': linkPrimary,
@@ -294,18 +310,18 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
             '--wkly-radius': borderRadius,
             '--wkly-shadow': boxShadow,
             // small runtime hint derived from computed background (used to keep helper referenced)
-            '--wkly-is-dark-hint': isDarkFromBg ? '1' : '0',
+            // '--wkly-is-dark-hint': isDarkFromBg ? '1' : '0',
             '--wkly-chip-label-font-size': '0.75em',
             // expose some derived tokens so components can use them
-            '--wkly-btn-secondary': secondaryHex,
-            '--wkly-info': infoHex,
-            '--wkly-success': successHex,
-            '--wkly-action-hover': actionHoverHex || '',
-            '--wkly-appbar': appbarHex || '',
-            '--wkly-badge': badgeHex || '',
-            '--wkly-tooltip': tooltipHex || '',
-            '--wkly-fab': primaryFabHex || '',
-            '--wkly-inverse-icon': inverseIconHex || '',
+            '--wkly-btn-secondary': secondary,
+            '--wkly-info': info,
+            '--wkly-success': success,
+            '--wkly-action-hover': actionHover || '',
+            '--wkly-appbar': appbar || '',
+            '--wkly-badge': badge || '',
+            '--wkly-tooltip': tooltip || '',
+            '--wkly-fab': primaryFab || '',
+            '--wkly-inverse-icon': inverseIcon || '',
             // toolbar background for richtext overlay and similar components
             '--wkly-toolbar-bg': toolbarBg || '',
           } as React.CSSProperties,
@@ -314,43 +330,43 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
       MuiAppBar: {
         styleOverrides: {
           colorPrimary: {
-            backgroundColor: appbarHex || primaryHex,
-            color: textPrimaryHex,
+            backgroundColor: appbar || primary,
+            color: textPrimary,
           },
         },
       },
       MuiBadge: {
         styleOverrides: {
           badge: {
-            backgroundColor: badgeHex || successHex,
-            color: textPrimaryHex,
+            backgroundColor: badge || success,
+            color: textPrimary,
           },
         },
       },
       MuiTooltip: {
         styleOverrides: {
           tooltip: {
-            backgroundColor: tooltipHex || '#333',
-            color: textOnColorHex,
+            backgroundColor: tooltip || '#333',
+            color: textOnColor,
             fontSize: '0.85rem',
           },
           arrow: {
-            color: tooltipHex || '#333',
+            color: tooltip,
           },
         },
       },
       MuiFab: {
         styleOverrides: {
           primary: {
-            backgroundColor: primaryFabHex,
-            color: textOnColorHex,
+            backgroundColor: primaryFab,
+            color: textOnColor,
             '&:hover': {
               filter: 'brightness(0.5)'
             },
           } as any,
           secondary: {
-            backgroundColor: secondaryFabHex,
-            color: textOnColorHex,
+            backgroundColor: secondaryFab,
+            color: textOnColor,
             '&:hover': {
               filter: 'brightness(0.95)'
             },
@@ -368,25 +384,26 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
             // by default buttons shouldn't override the global background color
             backgroundColor: 'transparent',
             boxShadow: 'none',
-            color: textPrimaryHex,
+            color: textPrimary,
           },
           outlined: {
-            borderColor: primaryBorderHex,
+            borderColor: primaryBorder,
             '&:hover': {
-              backgroundColor: actionHoverHex || undefined,
+              filter: 'brightness(0.85)',
+              borderColor: linkPrimary,
             },
           },
           contained: {
-            backgroundColor: primaryHex,
+            backgroundColor: primary,
             // contrast-aware color will be set after theme creation
             '&:hover': {
-              filter: 'brightness(0.95)',
+              filter: 'brightness(0.85)',
             },
           },
           text: {
-            color: tertiaryButtonHex || primaryHex,
+            color: linkPrimary,
             '&:hover': {
-              filter: 'brightness(0.5)',
+              filter: 'brightness(0.85)',
             },
           },
         },
@@ -417,7 +434,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
         styleOverrides: {
           root: {
             backgroundColor: 'var(--brand-30)',
-            border: `2px solid ${primaryIconHex || 'transparent'}`,
+            border: `2px solid ${primaryIcon || 'transparent'}`,
           },
         },
       },
@@ -425,9 +442,11 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
         styleOverrides: {
           root: {
             padding: 6,
-            color: primaryIconHex || inverseIconHex,
+            // color: primaryIcon || inverseIcon,
+            color: primaryIcon,
             '&:hover': {
-              backgroundColor: actionHoverHex || 'rgba(0,0,0,0.04)',
+              filter: 'brightness(0.5)',
+              color: linkPrimary,
             },
           },
         },
@@ -435,7 +454,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
       MuiSvgIcon: {
         styleOverrides: {
           root: {
-            color: primaryIconHex || textPrimary,
+            color: primaryIcon || textPrimary,
           },
         },
       },
@@ -453,7 +472,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
             borderRadius: borderRadius,
             // emulate border-b only style from Tailwind theme
             '&.Mui-focused': {
-              color: primaryHex,
+              color: primary,
             },
           },
           input: {
@@ -465,10 +484,10 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
       MuiLink: {
         styleOverrides: {
           root: {
-            color: linkPrimaryHex,
-            textDecorationColor: linkPrimaryHex,
+            color: linkPrimary,
+            textDecorationColor: linkPrimary,
             '&:hover': {
-              textDecorationColor: linkPrimaryHex,
+              textDecorationColor: linkPrimary,
               filter: 'brightness(0.8)',
             },
           },
@@ -494,14 +513,14 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
             borderRadius: borderRadius,
             backgroundColor: 'transparent',
             '& .MuiOutlinedInput-notchedOutline': {
-              borderColor: primaryBorderHex || divider,
+              borderColor: primaryBorder || divider,
             },
             '&:hover .MuiOutlinedInput-notchedOutline': {
-              borderColor: primaryHex,
+              borderColor: primary,
             },
             '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-              borderColor: primaryHex,
-              boxShadow: actionHoverHex ? `0 0 0 4px ${actionHoverHex}33` : undefined,
+              borderColor: primary,
+              boxShadow: actionHover ? `0 0 0 4px ${actionHover}33` : undefined,
             },
           },
           input: {
@@ -517,8 +536,8 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
           root: {
             color: textSecondary,
             '&.Mui-focused': {
-              color: linkPrimaryHex,
-              textDecorationColor: linkPrimaryHex,
+              color: linkPrimary,
+              textDecorationColor: linkPrimary,
               filter: 'brightness(0.8)',
             },
           },
@@ -538,8 +557,8 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
           root: {
             color: textSecondary,
             '&.Mui-focused': {
-              color: linkPrimaryHex,
-              textDecorationColor: linkPrimaryHex,
+              color: linkPrimary,
+              textDecorationColor: linkPrimary,
               filter: 'brightness(0.8)',
             },
             fontSize: '0.875rem',
@@ -551,8 +570,8 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
       MuiPaper: {
         styleOverrides: {
           root: {
-            backgroundColor: paperHex,
-            color: textPrimaryHex,
+            backgroundColor: paper,
+            color: textPrimary,
           },
         },
       },
@@ -561,26 +580,36 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
           root: {
             // padding: 6,
             color: textPrimary,
-            // backgroundColor: primaryFabHex || primaryHex,
+            // backgroundColor: primaryFab || primary,
           },
           switchBase: {
             // padding: 4,
             color: textSecondary,
+            '&.Mui-checked': {
+              '& + .MuiSwitch-track': {
+                // Target the thumb within the checked state
+                '& .MuiSwitch-thumb': {
+                  backgroundColor: linkPrimary, // Thumb color when checked
+                  // filter: 'brightness(60%)',
+                },
+              },
+            },
           },
           track: {
-            backgroundColor: primaryHex,
+            backgroundColor: primary,
           },
-          thumb: {
-            '&.Mui-checked': {
-              backgroundColor: linkPrimaryHex,
-              filter: 'brightness(30%)',
-            },
-            // backgroundColor: primaryHex,
-
-            // width: 16,
-            // height: 16,
-            // boxShadow: 'none',
-          },  
+          // thumb: {
+          //   // '& .Mui-checked': {
+          //   //   backgroundColor: linkPrimary,
+          //   //   filter: 'brightness(60%)',
+          //   // },
+          //   // checked: {
+          //   //   backgroundColor: linkPrimary,
+          //   // },
+          //   // width: 16,
+          //   // height: 16,
+          //   // boxShadow: 'none',
+          // },  
         },
       },
     },
@@ -588,13 +617,13 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
 
   // Now augment the theme to add a contrast-aware contained button variant.
   try {
-    const contrastText = theme.palette.getContrastText(primaryHex || '#000');
+    const contrastText = theme.palette.getContrastText(primary || '#000');
     theme.components = theme.components || {};
     theme.components.MuiButton = theme.components.MuiButton || {};
     theme.components.MuiButton.styleOverrides = {
       ...(theme.components.MuiButton.styleOverrides || {}),
       contained: {
-        backgroundColor: primaryHex,
+        backgroundColor: primary,
         color: contrastText,
         '&:hover': {
           // slightly reduce brightness on hover for feedback
@@ -609,7 +638,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
     theme.components.MuiButton.styleOverrides = {
       ...(theme.components.MuiButton.styleOverrides || {}),
       contained: {
-        backgroundColor: primaryHex,
+        backgroundColor: primary,
         color: isDark ? '#000000' : '#ffffff',
         '&:hover': {
           filter: 'brightness(0.95)',
@@ -620,13 +649,13 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
 
   // Contrast-aware Fab augmentation (after theme exists)
   try {
-    const fabContrast = theme.palette.getContrastText(primaryFabHex || primaryHex || '#000');
+    const fabContrast = theme.palette.getContrastText(primaryFab || primary || '#000');
     theme.components = theme.components || {};
     theme.components.MuiFab = theme.components.MuiFab || {};
     theme.components.MuiFab.styleOverrides = {
       ...(theme.components.MuiFab.styleOverrides || {}),
       primary: {
-        backgroundColor: primaryFabHex || primaryHex,
+        backgroundColor: primaryFab || primary,
         color: fabContrast,
         '&:hover': {
           filter: 'brightness(0.95)',
@@ -639,7 +668,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
     theme.components.MuiFab.styleOverrides = {
       ...(theme.components.MuiFab.styleOverrides || {}),
       primary: {
-        backgroundColor: primaryFabHex || primaryHex,
+        backgroundColor: primaryFab || primary,
         color: isDark ? '#000000' : '#ffffff',
         '&:hover': { filter: 'brightness(0.95)' },
       },

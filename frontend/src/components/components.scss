@@ -37,6 +37,10 @@ svg {
     //     font-weight: bold;
     // }
     
+    &-brand--bg {
+        background: linear-gradient(180deg, var(--brand-90, variables.$brand-90) 0%, var(--brand-70, variables.$brand-70) 100%);
+    }
+
     &-brand {
         // Use runtime CSS variables from appColors with SCSS fallbacks
         background: linear-gradient(180deg, var(--brand-90, variables.$brand-90) 0%, var(--brand-70, variables.$brand-70) 100%);
@@ -255,6 +259,42 @@ svg {
 // }
 
 .MuiBadge-badge {
-    right: -3;
-    top: -2;
-  }
+    right: -3px;
+    top: -2px;
+}
+
+// .Mui-checked .MuiSwitch-track .MuiSwitch-thumb {
+//     background-color: var(--brand-30, variables.$brand-30) !important;
+// }
+
+// span.MuiSwitch-root > span.MuiSwitch-switchBase > span.MuiSwitch-thumb {
+//     background-color: var(--gray-70, variables.$gray-70) !important;
+// }
+
+// span.MuiSwitch-root > span.Mui-checked span.MuiSwitch-thumb {
+//     background-color: var(--brand-30, variables.$brand-30) !important;
+// }
+
+// Theme-specific overrides. The application toggles a class on the root
+// element (`theme-light` or `theme-dark`) so we can target styles for each
+// theme explicitly. These selectors ensure the MUI switch thumb matches the
+// runtime CSS variables used by the rest of the app.
+.theme-dark {
+    span.MuiSwitch-root > span.MuiSwitch-switchBase > span.MuiSwitch-thumb {
+        background-color: var(--gray-70, variables.$gray-70) !important;
+    }
+    span.MuiSwitch-root > span.Mui-checked span.MuiSwitch-thumb {
+        background-color: var(--brand-30, variables.$brand-30) !important;
+    }
+}
+
+.theme-light {
+    // For the light theme, use slightly darker thumb for the off state and
+    // the brand color for the checked state (with fallbacks to SCSS vars).
+    span.MuiSwitch-root > span.MuiSwitch-switchBase > span.MuiSwitch-thumb {
+        background-color: var(--gray-30, variables.$gray-30) !important;
+    }
+    span.MuiSwitch-root > span.Mui-checked span.MuiSwitch-thumb {
+        background-color: var(--brand-60, variables.$brand-60) !important;
+    }
+}

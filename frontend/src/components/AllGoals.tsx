@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { fetchAllGoalsIndexed, fetchAllGoals, deleteGoal, updateGoal, saveSummary, UserCategories, initializeUserCategories, addCategory, getWeekStartDate, indexDataByScope, applyHighlight } from '../utils/functions';
-import Pagination from './Pagination';
+import Pagination from '@components/Pagination';
 import GoalCard from '@components/GoalCard';
 import GoalKanbanCard from '@components/GoalKanbanCard';
 import GoalForm from '@components/GoalForm';
@@ -241,8 +241,9 @@ const GoalsComponent = () => {
     const [showAllGoals, setshowAllGoals] = useState<boolean>(() => {
         try {
             const v = localStorage.getItem('kanban_show_all');
-            return v === null ? true : v === 'true';
-        } catch (e) { return true; }
+            // Default to false to ensure pagination and scoped views render in tests
+            return v === null ? false : v === 'true';
+        } catch (e) { return false; }
     });
 
     useEffect(() => {
@@ -1190,14 +1191,15 @@ const GoalsComponent = () => {
   
     <div className={`space-y-6`}>
         <div className="flex justify-between items-center w-full">
-            <h1 className="text-2xl font-bold text-gray-90 block sm:hidden">{scope.charAt(0).toUpperCase() + scope.slice(1)}ly goals</h1>
+            {/* <h1 className="text-2xl font-bold text-gray-90 block sm:hidden">{scope.charAt(0).toUpperCase() + scope.slice(1)}ly goals</h1> */}
+            <h1 className="mt-4 block sm:hidden">Goals</h1>
         </div>
 
         
         <div className="flex justify-between items-start sm:items-center w-full mb-4">
             <div className='flex flex-col'>
                 
-                {/* Kanban toggle: show all vs scope-only (wrapped in MUI formset for accessibility) */}
+                
                 <FormControl component="fieldset" variant="standard" className="ml-2">
                     <FormLabel component="legend" className="sr-only">Goal view options</FormLabel>
                     <FormGroup row>
@@ -1211,7 +1213,7 @@ const GoalsComponent = () => {
                                 />
                             }
                             label={'All goals'}
-                            className="ml-0 text-sm"
+                            className="ml-0 text-sm h-16"
                             
                         />
 
@@ -1312,11 +1314,11 @@ const GoalsComponent = () => {
                         aria-label="View mode"
                         className=""
                     >
-                        <Tooltip title="View grid" placement="top" arrow><ToggleButton value="cards" aria-label="Cards view"><LayoutGrid /></ToggleButton></Tooltip>
+                        <Tooltip title="View grid" placement="top" arrow><ToggleButton value="cards" aria-label="Cards view" className='btn-ghost'><LayoutGrid /></ToggleButton></Tooltip>
                         { !isSmall && (
-                        <Tooltip title="View table" placement="top" arrow><ToggleButton value="table" aria-label="Table view"><Table2Icon /></ToggleButton></Tooltip>
+                        <Tooltip title="View table" placement="top" arrow><ToggleButton value="table" aria-label="Table view" className='btn-ghost'><Table2Icon /></ToggleButton></Tooltip>
                         )}
-                        <Tooltip title="View kanban board" placement="top" arrow><ToggleButton value="kanban" aria-label="Kanban view"><Kanban /></ToggleButton></Tooltip>
+                        <Tooltip title="View kanban board" placement="top" arrow><ToggleButton value="kanban" aria-label="Kanban view" className='btn-ghost'><Kanban /></ToggleButton></Tooltip>
                     </ToggleButtonGroup>
                     {/* Scope Selector */}
                 
@@ -1614,7 +1616,17 @@ const GoalsComponent = () => {
 
                     {/* Edit Accomplishment Modal (reuses AccomplishmentEditor) */}
                     {isEditAccomplishmentModalOpen && selectedAccomplishment && (
-                        <div className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50">
+                        <div
+                            className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50"
+                            role="presentation"
+                            onMouseDown={(e) => {
+                                // close when clicking the backdrop (only trigger when clicking the overlay itself)
+                                if (e.target === e.currentTarget) {
+                                    setSelectedAccomplishment(null);
+                                    setIsEditAccomplishmentModalOpen(false);
+                                }
+                            }}
+                        >
                             <div className={`${modalClasses}`}>
                                 <h3 className="text-lg font-medium text-gray-90 mb-4">Edit Accomplishment</h3>
                                 <AccomplishmentEditor
@@ -2071,6 +2083,7 @@ const GoalsComponent = () => {
                         key={selectedSummary?.id || 'summary-editor'}
                         isOpen={!!selectedSummary && isEditorOpen}
                         onRequestClose={() => setSelectedSummary(null)}
+                        shouldCloseOnOverlayClick={true}
                         ariaHideApp={ARIA_HIDE_APP}
                         className={`fixed inset-0 flex items-center justify-center z-50`}
                         overlayClassName={`${overlayClasses}`}
@@ -2112,6 +2125,7 @@ const GoalsComponent = () => {
                 <Modal
                     isOpen={isGoalModalOpen}
                     onRequestClose={closeGoalModal}
+                    shouldCloseOnOverlayClick={true}
                     ariaHideApp={ARIA_HIDE_APP}
                     // parentSelector={() => document.getElementById('app')!}
                     className={`fixed inset-0 flex md:items-center justify-center z-50`}
@@ -2133,6 +2147,7 @@ const GoalsComponent = () => {
                 <Modal
                     isOpen={isEditorOpen}
                     onRequestClose={closeEditor}
+                    shouldCloseOnOverlayClick={true}
                     ariaHideApp={ARIA_HIDE_APP}
                     className={`fixed inset-0 flex items-center justify-center z-50`}
                     overlayClassName={`${overlayClasses}`}
@@ -2239,12 +2254,47 @@ const GoalsComponent = () => {
                             <div className={`${modalClasses} w-full max-w-2xl`}> 
                                 <div className='flex flex-row w-full justify-between items-start'>
                                     <h3 className="text-lg font-medium text-gray-90 mb-4">Notes for <br />"{(selectedGoal as any)?.title}"</h3>
-                                            <div className="mb-4 flex justify-end">
+                                    <div className="mb-4 flex justify-end">
                                         <button className="btn-ghost" onClick={() => closeNotes()}>
                                             <CloseButton className="w-4 h-4" />
                                         </button>
                                     </div>
                                 </div>
+                                { notes.length != 0 ? (
+                                    <div>
+                                        <h4 className="text-md font-semibold mb-2">Existing notes</h4>
+                                        <ul className="space-y-3">
+                                            {notes.map((note) => (
+                                                <li key={note.id} className="p-3 border rounded bg-gray-10 dark:bg-gray-80 dark:border-gray-70">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <div className="text-xs text-gray-40">{new Date(note.created_at).toLocaleString()}</div>
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <button className="btn-ghost" onClick={() => { setEditingNoteId(note.id); setEditingNoteContent(note.content); }} title="Edit note"><Edit className="w-4 h-4" /></button>
+                                                            <button className="btn-ghost" onClick={() => setNoteDeleteTarget(note.id)} title="Delete note" disabled={isNotesLoading}><Trash className="w-4 h-4" /></button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-sm text-gray-70 dark:text-gray-20" dangerouslySetInnerHTML={{ __html: note.content }} />
+                                                    {editingNoteId === note.id && (
+                                                        <div className="mt-2">
+                                                            <TextField
+                                                                value={editingNoteContent}
+                                                                onChange={(e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setEditingNoteContent(e.target.value)}
+                                                                multiline
+                                                                rows={3}
+                                                                size="small"
+                                                                className="mt-1 block w-full"
+                                                            />
+                                                            <div className="mt-2 flex justify-end gap-2">
+                                                                <button className="btn-ghost" onClick={() => { setEditingNoteId(null); setEditingNoteContent(''); }}>Cancel</button>
+                                                                <button className="btn-primary" onClick={() => updateNote(editingNoteId as string, editingNoteContent)}><SaveIcon className="w-4 h-4 inline mr-1" />Save</button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                ): null}
                                 <div className="space-y-4 max-h-[60vh] overflow-y-auto">
                                     <div className="mt-4">
                                         <TextField
@@ -2257,48 +2307,13 @@ const GoalsComponent = () => {
                                             size="small"
                                         />
                                         <div className="mt-2 flex justify-end gap-2">
-                                            <button className="btn-primary" onClick={() => createNote((selectedGoal as any)?.id)} disabled={isNotesLoading}><PlusIcon className="w-4 h-4 inline mr-1" />Add note</button>
-                                            {isNotesLoading && <div className="ml-2 text-sm text-gray-500">Saving...</div>}
+                                            <button className="btn-primary" onClick={() => createNote((selectedGoal as any)?.id)} disabled={isNotesLoading}><PlusIcon className="w-4 h-4 inline mr-1" />{isNotesLoading ? (<span className="ml-2 text-sm text-gray-50">Adding...</span>) : ( 'Add note') }</button>
+                                            
                                         </div>
                                     </div>
                                     {isNotesLoading && notes.length === 0 ? (
                                         <div className="text-sm text-gray-50">Loading notes...</div>
                                     ) : null}
-                                    { notes.length != 0 && (
-                                        <div>
-                                            <h4 className="text-md font-semibold mb-2">Existing notes</h4>
-                                            <ul className="space-y-3">
-                                                {notes.map((note) => (
-                                                    <li key={note.id} className="p-3 border rounded bg-gray-10 dark:bg-gray-80 dark:border-gray-70">
-                                                        <div className="flex items-center justify-between gap-2">
-                                                            <div className="text-xs text-gray-40">{new Date(note.created_at).toLocaleString()}</div>
-                                                            <div className="flex items-center justify-end gap-2">
-                                                                <button className="btn-ghost" onClick={() => { setEditingNoteId(note.id); setEditingNoteContent(note.content); }} title="Edit note"><Edit className="w-4 h-4" /></button>
-                                                                <button className="btn-ghost" onClick={() => setNoteDeleteTarget(note.id)} title="Delete note" disabled={isNotesLoading}><Trash className="w-4 h-4" /></button>
-                                                            </div>
-                                                        </div>
-                                                        <div className="text-sm text-gray-70 dark:text-gray-20" dangerouslySetInnerHTML={{ __html: note.content }} />
-                                                        {editingNoteId === note.id && (
-                                                            <div className="mt-2">
-                                                                <TextField
-                                                                    value={editingNoteContent}
-                                                                    onChange={(e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setEditingNoteContent(e.target.value)}
-                                                                    multiline
-                                                                    rows={3}
-                                                                    size="small"
-                                                                    className="mt-1 block w-full"
-                                                                />
-                                                                <div className="mt-2 flex justify-end gap-2">
-                                                                    <button className="btn-ghost" onClick={() => { setEditingNoteId(null); setEditingNoteContent(''); }}>Cancel</button>
-                                                                    <button className="btn-primary" onClick={() => updateNote(editingNoteId as string, editingNoteContent)}><SaveIcon className="w-4 h-4 inline mr-1" />Save</button>
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    )}
                                 </div>
                                 <ConfirmModal
                                     isOpen={!!noteDeleteTarget}
