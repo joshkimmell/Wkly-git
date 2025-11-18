@@ -176,7 +176,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
   const textPlaceholder = readCssVar(['--placeholder-text', '--color-text-placeholder'], isDark ? '#7A7A7A' : '#A0A0A0', preferBody);
   const linkPrimary = readCssVar(['--link-text', '--color-link-text'], isDark ? brand30 : brand60, preferBody);
   const textOnColor = readCssVar(['--on-color-text', '--color-on-color-text'],  '#FFFFFF', preferBody);
-  const divider = readCssVar(['--primary-border', '--color-border-primary'], isDark ? '#e5e7eb' : '#3f3f46' , preferBody);
+  const divider = readCssVar(['--primary-border', '--color-border-primary'], isDark ? brand70 : brand30 , preferBody);
   // const input = readCssVar(['--brand-60', '--color-brand-60'], isDark ? '#FFFFFF' : '#383838', preferBody);
   // link token not used; reading from palette instead
   const fontFamily = readCssVar(['--font-family'], "'Open Sans', 'Helvetica Neue', Helvetica, sans-serif", preferBody);
@@ -516,7 +516,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
               borderColor: primaryBorder || divider,
             },
             '&:hover .MuiOutlinedInput-notchedOutline': {
-              borderColor: primary,
+              borderColor: linkPrimary,
             },
             '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
               borderColor: primary,

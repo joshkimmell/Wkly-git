@@ -1679,6 +1679,7 @@ const GoalsComponent = () => {
                         anchorEl={sortAnchorEl}
                         open={Boolean(sortAnchorEl)}
                         onClose={() => setSortAnchorEl(null)}
+                        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                         MenuListProps={{ 'aria-labelledby': 'sort-button' }}
                     >
                         <MenuItem
