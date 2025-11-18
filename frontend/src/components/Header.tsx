@@ -24,6 +24,7 @@ import Logo from '@components/Logo';
 // RegExp (test against pathname).
 let _hiddenMenuPatterns: Array<string | RegExp> = ['/profile'];
 addHiddenMenuPath('/mui-demo');
+addHiddenMenuPath('/notifications');
 
 export function setHiddenMenuPaths(patterns: Array<string | RegExp>) {
     _hiddenMenuPatterns = patterns.slice();
@@ -238,7 +239,8 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                                             className='p-4'
                                         >
                                             <label className="px-4 pb-4" htmlFor="profile-menu">{session?.user?.email}</label>
-                                            <MenuItem onClick={() => setIsProfileOpen(true)}>Edit Profile</MenuItem>
+                                            <MenuItem onClick={() => setIsProfileOpen(true)}>Preferences</MenuItem>
+                                            {/* <MenuItem onClick={() => { handleMenuClose(); window.location.href = '/notifications'; }}>Notifications</MenuItem> */}
                                             {/* <MenuItem onClick={() => console.log('Preferences')}>Preferences</MenuItem> */}
                                             <MenuItem onClick={handleLogout}>Log Out</MenuItem>
                                         </Menu>

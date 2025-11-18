@@ -15,6 +15,7 @@ import AllSummaries from '@components/AllSummaries';
 import { Home, Text } from 'lucide-react';
 import LoadingSpinner from '@components/LoadingSpinner';
 import ProfileManagement from '@components/ProfileManagement';
+import NotificationsSettings from '@components/NotificationsSettings';
 import AppMuiThemeProvider from './mui/muiTheme';
 import appColors from '@styles/appColors';
 import MuiCompareDemo from '@components/MuiCompareDemo';
@@ -181,6 +182,7 @@ const App: React.FC = () => {
               <Route path="/mui-demo" element={<MuiCompareDemo />} />
               {/* <Route path="/accomplishments" element={<AllAccomplishments />} /> */}
               <Route path="/summaries" element={<AllSummaries />} />
+              <Route path="/notifications" element={<NotificationsSettings />} />
               <Route path="/auth" element={<Navigate to="/" replace />} />
               <Route path="/profile" element={<ProfileManagement />} />
             </Routes>

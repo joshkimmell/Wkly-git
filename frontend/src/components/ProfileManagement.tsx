@@ -3,9 +3,7 @@ import {
   TextField,
   Box,
   Button,
-  Chip,
   Typography,
-  Avatar as MuiAvatar,
   Tooltip,
   AppBar,
   Toolbar,
@@ -15,256 +13,194 @@ import {
   Switch,
   Checkbox,
   FormControlLabel,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Stack,
   FormLabel,
+  List,
+  ListItemButton,
+  ListItemText,
+  Chip,
 } from '@mui/material';
 import Avatar from '@components/Avatar';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
 import supabase from '@lib/supabase';
 import useAuth from '@hooks/useAuth';
-// import {isMenuHidden} from './Header';
 import appColors, { PaletteKey } from '@styles/appColors';
+import NotificationsSettings from './NotificationsSettings';
 
 interface ProfileManagementProps {
   onClose?: () => void;
 }
 
-const ProfileManagement: React.FC<ProfileManagementProps> = ({ onClose }) => {
+// Preferences is the new name for ProfileManagement. The file path remains
+// the same for backwards compatibility; exporting a renamed component keeps
+// imports simple while updating the UI to a multi-panel Preferences UX.
+const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
   const { profile } = useAuth();
+  // Profile form state
   const [username, setUsername] = useState(profile?.username || '');
   const [email, setEmail] = useState(profile?.email || '');
   const [loading, setLoading] = useState(false);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null); // State to hold the selected avatar file
-  const [previewSrc, setPreviewSrc] = useState<string | undefined>(undefined); // State for preview image
-  const [selectedPalette, setSelectedPalette] = useState<PaletteKey>('purple');
-  const [savingColor, setSavingColor] = useState(false);
-  const swatchesRef = React.useRef<HTMLDivElement | null>(null);
-  // Interactive demo state for previewing components
-  const [badgeCount, setBadgeCount] = useState(3);
-  const [demoSwitch, setDemoSwitch] = useState(false);
-  const [demoCheckbox, setDemoCheckbox] = useState(false);
-  const [demoSelect, setDemoSelect] = useState<string>('optionA');
-  const [demoText, setDemoText] = useState<string>('Sample text');
-  const [demoSubmitted, setDemoSubmitted] = useState<Record<string, any> | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [previewSrc, setPreviewSrc] = useState<string | undefined>(undefined);
 
+  // Appearance state
+  // selectedPalette and savingColor are intentionally managed only when saved
+  const [previewPalette, setPreviewPalette] = useState<PaletteKey>('purple');
+  const [selectedPalette, setSelectedPalette] = useState<PaletteKey>('purple');
+  const swatchesRef = React.useRef<HTMLDivElement | null>(null);
+  const notificationsSaveRef = React.useRef<(() => Promise<void>) | null>(null);
+
+  // Simple UI state: which panel is active
+  const [active, setActive] = useState<'profile' | 'appearance' | 'notifications'>('profile');
+
+  const [savingAll, setSavingAll] = useState(false);
   useEffect(() => {
     if (profile) {
-        setUsername(profile.username || '');
-        setEmail(profile.email || '');
-        // Initialize previewSrc: prefer the stored avatar_url; otherwise leave undefined so Avatar shows the plain initial
-        if (profile.avatar_url) {
-          setPreviewSrc(profile.avatar_url);
-        } else {
-          setPreviewSrc(undefined);
+      setUsername(profile.username || '');
+      setEmail(profile.email || '');
+      setPreviewSrc(profile.avatar_url || undefined);
+      try {
+        const pref: PaletteKey | undefined = profile.primary_color;
+        if (pref) setSelectedPalette(pref);
+        else {
+          const stored = appColors.getStoredPalette();
+          if (stored) setSelectedPalette(stored as PaletteKey);
         }
-        // init palette from profile.primary_color or localStorage
-        try {
-          const pref: PaletteKey | undefined = profile.primary_color;
-          if (pref) setSelectedPalette(pref);
-          else {
-            const stored = appColors.getStoredPalette();
-            if (stored) setSelectedPalette(stored as PaletteKey);
-          }
-        } catch (e) {
-          // ignore
-        }
+        // initialize preview to the selected/saved palette
+        setPreviewPalette(pref || (appColors.getStoredPalette() as PaletteKey) || 'purple');
+      } catch (e) {
+        // ignore
+      }
     }
   }, [profile]);
 
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setAvatarFile(file); // Queue up the selected file for upload
-
-      // Generate a preview URL for the selected file
+      setAvatarFile(file);
       const reader = new FileReader();
-      reader.onload = () => {
-        setPreviewSrc(reader.result as string); // Set the preview image source
-      };
+      reader.onload = () => setPreviewSrc(reader.result as string);
       reader.readAsDataURL(file);
     }
   };
 
-  const handleUpdateProfile = async (event: React.FormEvent) => {
-    event.preventDefault(); // Prevent page reload
+  // Profile update: username, avatar, and also persist selected palette so
+  // the Profile -> Save button remains holistic for basic preferences.
+  const handleUpdateProfile = async (event?: React.FormEvent) => {
+    if (event) event.preventDefault();
     setLoading(true);
     try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user?.id) throw new Error('User not authenticated');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id) throw new Error('User not authenticated');
 
-        // Check if username is provided
-        if (!username) {
-            notifyError('Username is required.');
-            setLoading(false);
-            return;
-        }
-
-        let avatarFilePath = null;
-        let avatarPublicUrl = null;
-
-        // If a new avatar file is selected, upload it
-        if (avatarFile) {
-          const allowedTypes = ['image/png', 'image/jpeg', 'image/svg+xml'];
-          if (!allowedTypes.includes(avatarFile.type)) {
-              notifyError('Only PNG, JPG, and SVG files are allowed.');
-              setLoading(false);
-              return;
-          }
-
-          if (avatarFile.size === 0) {
-              notifyError('The file is empty. Please upload a valid image.');
-              setLoading(false);
-              return;
-          }
-
-          // Use timestamped filename to avoid caching and ensure uniqueness
-          const timestamp = Date.now();
-          const avatarFileName = `${session.user.id}-${timestamp}.png`;
-          avatarFilePath = `avatars/${avatarFileName}`;
-
-          console.log('Uploading avatar with filename:', avatarFilePath);
-
-          // Ensure the bucket name is correct and handle upload errors
-          const uploadResult = await supabase.storage
-              .from('Avatars')
-              .upload(avatarFilePath, avatarFile, {
-                  upsert: true,
-                  contentType: avatarFile.type, // Ensure correct MIME type
-              });
-
-          console.log('Supabase upload result:', uploadResult);
-
-          const { error: uploadError } = uploadResult;
-
-          if (uploadError) {
-              notifyError('Failed to upload avatar. Please check the bucket name and permissions.');
-              console.error('Upload error:', uploadError);
-              setLoading(false);
-              return;
-          }
-
-          // Generate the public URL for the uploaded file
-          const { data: publicUrlData } = supabase.storage
-              .from('Avatars')
-              .getPublicUrl(avatarFilePath);
-
-          if (publicUrlData?.publicUrl) {
-              // Append a unique query parameter to prevent caching
-              avatarPublicUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`;
-          }
-        }
-
-        // Update profile
-          const { error } = await supabase.from('profiles').update({
-              username,
-              avatar_url: avatarPublicUrl || profile?.avatar_url, // Store the public URL in avatar_url
-              primary_color: selectedPalette,
-          }).eq('id', session?.user?.id);
-
-        if (error) throw error;
-
-        // Refetch the profile to get the updated avatar_url
-        try {
-          const { data: refreshedProfile, error: fetchError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-          if (!fetchError && refreshedProfile?.avatar_url) {
-            setPreviewSrc(refreshedProfile.avatar_url);
-          } else if (fetchError) {
-            console.warn('Failed to refetch profile after update:', fetchError);
-          }
-
-          // Notify other Avatar instances that the avatar changed. Use the refreshed URL if available, otherwise fall back to avatarPublicUrl.
-          const finalUrl = refreshedProfile?.avatar_url || avatarPublicUrl;
-          if (finalUrl) {
-            try {
-              window.dispatchEvent(new CustomEvent('avatar:updated', { detail: { avatarUrl: finalUrl } }));
-            } catch (e) {
-              console.warn('Failed to dispatch avatar:updated event', e);
-            }
-          }
-        } catch (refetchErr) {
-          console.warn('Unexpected error refetching profile:', refetchErr);
-        }
-
-        notifySuccess('Profile updated successfully!');
-        console.log('Profile updated:', { username, avatarFilePath, avatarPublicUrl });
-
-        // Close the profile modal if the parent provided an onClose handler
-        if (onClose) {
-          try {
-            onClose();
-          } catch (e) {
-            console.warn('onClose handler threw an error', e);
-          }
-        }
-    } catch (error) {
-        notifyError('Failed to update profile.');
-        console.error('Error updating profile:', error);
-    } finally {
+      if (!username) {
+        notifyError('Username is required.');
         setLoading(false);
+        return;
+      }
+
+      let avatarFilePath: string | null = null;
+      let avatarPublicUrl: string | null = null;
+
+      if (avatarFile) {
+        const allowedTypes = ['image/png', 'image/jpeg', 'image/svg+xml'];
+        if (!allowedTypes.includes(avatarFile.type)) {
+          notifyError('Only PNG, JPG, and SVG files are allowed.');
+          setLoading(false);
+          return;
+        }
+        if (avatarFile.size === 0) {
+          notifyError('The file is empty.');
+          setLoading(false);
+          return;
+        }
+
+        const timestamp = Date.now();
+        const avatarFileName = `${session.user.id}-${timestamp}.png`;
+        avatarFilePath = `avatars/${avatarFileName}`;
+
+        const uploadResult = await supabase.storage.from('Avatars').upload(avatarFilePath, avatarFile, {
+          upsert: true,
+          contentType: avatarFile.type,
+        });
+
+        const { error: uploadError } = uploadResult;
+        if (uploadError) {
+          notifyError('Failed to upload avatar.');
+          console.error('Upload error:', uploadError);
+          setLoading(false);
+          return;
+        }
+
+        const { data: publicUrlData } = supabase.storage.from('Avatars').getPublicUrl(avatarFilePath);
+        if (publicUrlData?.publicUrl) avatarPublicUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`;
+      }
+
+      const { error } = await supabase.from('profiles').update({
+        username,
+        email,
+        avatar_url: avatarPublicUrl || profile?.avatar_url,
+      }).eq('id', session.user.id);
+
+      if (error) throw error;
+
+      // notifySuccess('Profile updated successfully!');
+
+      // Optionally close the modal
+      if (onClose) onClose();
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      notifyError('Failed to update profile.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleApplyPreview = () => {
-    try {
-      appColors.applyPaletteToRoot(selectedPalette);
-    } catch (e) {
-      console.warn('Failed to apply palette preview', e);
-    }
-  };
-
-  // When a palette is selected, update state and immediately apply the palette
-  // for preview (don't rely on setState to have committed yet).
+  // Appearance helpers (palette selection + save/reset)
   const handleSelectPalette = (key: PaletteKey) => {
+    // selecting a palette updates only the preview palette. The selection
+    // becomes global only when the user saves.
     try {
-      setSelectedPalette(key);
-      appColors.applyPaletteToRoot(key);
+      setPreviewPalette(key);
     } catch (e) {
-      console.warn('Failed to apply selected palette', e);
+      console.warn('Failed to set preview palette', e);
+    }
+  };
+
+  const handleSavePaletteOnly = async (palette?: PaletteKey) => {
+    const toSave = palette || selectedPalette;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id) throw new Error('User not authenticated');
+      const { error } = await supabase.from('profiles').update({ primary_color: toSave }).eq('id', session.user.id);
+      if (error) throw error;
+      // apply globally only when saved
+      appColors.applyPaletteToRoot(toSave);
+      // keep selectedPalette in sync
+      setSelectedPalette(toSave);
+      // notifySuccess('Primary color saved');
+    } catch (e) {
+      console.error(e);
+      notifyError('Failed to save primary color');
     }
   };
 
   const handleResetColors = async () => {
-    setSavingColor(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user?.id) throw new Error('User not authenticated');
-      // reset in DB to null
       const { error } = await supabase.from('profiles').update({ primary_color: null }).eq('id', session.user.id);
       if (error) throw error;
       appColors.resetPaletteToDefault();
       setSelectedPalette('purple');
-      notifySuccess('Colors reset to default');
+      setPreviewPalette('purple');
+      // notifySuccess('Colors reset to default');
     } catch (e) {
       console.error(e);
       notifyError('Failed to reset colors');
-    } finally { setSavingColor(false); }
+    }
   };
 
-  const handleSavePaletteOnly = async () => {
-    setSavingColor(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user?.id) throw new Error('User not authenticated');
-      const { error } = await supabase.from('profiles').update({ primary_color: selectedPalette }).eq('id', session.user.id);
-      if (error) throw error;
-      appColors.applyPaletteToRoot(selectedPalette);
-      notifySuccess('Primary color saved');
-    } catch (e) {
-      console.error(e);
-      notifyError('Failed to save primary color');
-    } finally { setSavingColor(false); }
-  };
-
-  // Accessibility: keyboard navigation for swatches (left/right/up/down)
+  // Keyboard navigation for swatches
   const handleSwatchKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, idx: number) => {
     const keys = ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'];
     if (!keys.includes(e.key)) return;
@@ -279,194 +215,160 @@ const ProfileManagement: React.FC<ProfileManagementProps> = ({ onClose }) => {
     btn?.click();
   };
 
-  // Simple contrast check between two hex colors. Returns approx contrast ratio.
-  const hexToRgb = (hex: string) => {
-    const h = hex.replace('#','');
-    if (h.length === 3) {
-      return [parseInt(h[0]+h[0],16), parseInt(h[1]+h[1],16), parseInt(h[2]+h[2],16)];
-    }
-    return [parseInt(h.substr(0,2),16), parseInt(h.substr(2,2),16), parseInt(h.substr(4,2),16)];
-  };
-  const luminance = (rgb: [number,number,number]) => {
-    const srgb = rgb.map(v => {
-      const s = v/255;
-      return s <= 0.03928 ? s/12.92 : Math.pow((s+0.055)/1.055,2.4);
-    });
-    return 0.2126*srgb[0] + 0.7152*srgb[1] + 0.0722*srgb[2];
-  };
-  const contrastRatio = (hex1:string, hex2:string) => {
-    try {
-      const a = luminance(hexToRgb(hex1) as [number,number,number]);
-      const b = luminance(hexToRgb(hex2) as [number,number,number]);
-      const L1 = Math.max(a,b);
-      const L2 = Math.min(a,b);
-      return (L1+0.05)/(L2+0.05);
-    } catch (e) { return 1; }
-  };
-
   return (
-    <div className="profile-management">
-        <form onSubmit={handleUpdateProfile} className='mt-8 space-y-6 w-[80%] items-center mx-auto'>
-            <div className=' flex flex-col items-center gap-4 mb-4'>
-                <Avatar
-                    isEdit={true}
-                    onChange={handleAvatarChange} // Pass the handler to the Avatar component
-                    src={previewSrc} // Pass the preview image source
-                    uploading={loading} // Show uploading indicator when loading
-                    size="lg"
-                />
+    <div className="profile-management p-0 flex flex-col sm:flex-row gap-6">
+      {/* Left: vertical menu */}
+      <aside className="w-full sm:w-64">
+        <nav aria-label="Preferences">
+          <List className='flex flex-row sm:flex-col'>
+            <ListItemButton selected={active === 'profile'} onClick={() => setActive('profile')}>
+              <ListItemText primary="Profile" secondary="Username, avatar, email" />
+            </ListItemButton>
+            <ListItemButton selected={active === 'appearance'} onClick={() => setActive('appearance')}>
+              <ListItemText primary="Appearance" secondary="Theme & primary color" />
+            </ListItemButton>
+            <ListItemButton selected={active === 'notifications'} onClick={() => setActive('notifications')}>
+              <ListItemText primary="Notifications" secondary="Slack & Email reminders" />
+            </ListItemButton>
+          </List>
+        </nav>
+      </aside>
 
-                <TextField
-                label="Username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                fullWidth
-                margin="normal"
+      {/* Right: panel */}
+      <main className="flex-1">
+        {active === 'profile' && (
+          <form onSubmit={handleUpdateProfile} className="space-y-6">
+            <div className="flex flex-col items-center gap-4 mb-4">
+              <Avatar isEdit onChange={handleAvatarChange} src={previewSrc} uploading={loading} size="lg" />
+              <TextField label="Username" value={username} onChange={(e) => setUsername(e.target.value)} fullWidth />
+              <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth />
+            </div>
+          </form>
+        )}
+
+        {active === 'appearance' && (
+          <section>
+            <Typography variant="h6" className="mb-8">Choose a theme</Typography>
+            <div ref={swatchesRef} role="listbox" aria-label="Primary color" className="flex gap-3 items-center mt-4 mb-4">
+              {(['gray','red','orange','teal','green','blue','indigo','purple'] as PaletteKey[]).map((k, idx) => (
+                <button
+                  key={k}
+                  data-swatch
+                  id={`swatch-${k}`}
+                  type="button"
+                  onKeyDown={(e) => handleSwatchKeyDown(e, idx)}
+                  className={`w-10 h-10 rounded-full border-2 focus:outline-none ${previewPalette===k? 'ring-4 ring-offset-2 ring-brand-30':''}`}
+                  style={{ background: `linear-gradient(180deg, ${appColors.PALETTES[k][30]} 0%, ${appColors.PALETTES[k][60]} 100%)` }}
+                  aria-label={`Choose ${k} primary color`}
+                  aria-checked={previewPalette===k}
+                  role="option"
+                  onClick={() => handleSelectPalette(k)}
                 />
-                <TextField
-                label="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                fullWidth
-                margin="normal"
-                />
-                
-                <div className='w-full mt-4'>
-                  <FormLabel component='label' className='mb-2 font-semibold text-xs'>Primary color</FormLabel>
-                  <div
-                    ref={swatchesRef}
-                    role='listbox'
-                    aria-label='Primary color'
-                    aria-activedescendant={`swatch-${selectedPalette}`}
-                    className='flex gap-3 items-center'
-                  >
-                        {(['gray','red','orange','teal','green','blue','indigo','purple'] as PaletteKey[]).map((k, idx) => (
-                      <button
-                        key={k}
-                        data-swatch
-                        id={`swatch-${k}`}
-                        type='button'
-                        onKeyDown={(e) => handleSwatchKeyDown(e, idx)}
-                        className={`w-10 h-10 rounded-full border-2 focus:outline-none focus:ring-2 ${selectedPalette===k? 'ring-4 ring-offset-2 ring-brand-30':''}`}
-                            style={{ background: `linear-gradient(180deg, ${appColors.PALETTES[k][30]} 0%, ${appColors.PALETTES[k][60]} 100%)` }}
-                        aria-label={`Choose ${k} primary color`}
-                        aria-checked={selectedPalette===k}
-                        role='option'
-                            onClick={() => handleSelectPalette(k)}
+              ))}
+            </div>
+            <Box className="mt-8 pt-4">
+              <Typography variant="subtitle1" className="mb-2">Theme preview</Typography>
+                <div className="mt-2 p-4 rounded border" style={{ borderColor: appColors.PALETTES[previewPalette][40], transition: 'border-color 220ms ease' }}>
+                <AppBar
+                  position="static"
+                  elevation={0}
+                  sx={{
+                    borderRadius: 1,
+                    backgroundColor: appColors.PALETTES[previewPalette][60],
+                    color: '#fff',
+                  }}
+                >
+                  <Toolbar variant="dense" sx={{ minHeight: 44 }}>
+                    <Typography sx={{ flex: 1, color: '#fff', transition: 'color 220ms ease' }}><strong>Wkly</strong></Typography>
+                    <IconButton aria-label="notifications" sx={{ color: '#fff' }}>
+                      <Badge
+                        badgeContent={3}
+                        sx={{ '& .MuiBadge-badge': { backgroundColor: appColors.PALETTES[previewPalette][70], transition: 'background-color 220ms ease' } }}
+                      >
+                        <span style={{ width: 18, height: 18, display: 'inline-block', background: appColors.PALETTES[previewPalette][30], borderRadius: 4, transition: 'background 220ms ease' }} />
+                      </Badge>
+                    </IconButton>
+                    <Tooltip title="Profile tooltip demo" 
+                      sx={{ '& .MuiTooltip-popperArrow': { backgroundColor: appColors.PALETTES[previewPalette][60]}}} arrow>
+                      <IconButton sx={{ color: '#fff' }}><span style={{ width: 18, height: 18, display: 'inline-block', background: appColors.PALETTES[previewPalette][30], transition: 'background 220ms ease' }} /></IconButton>
+                    </Tooltip>
+                  </Toolbar>
+                </AppBar>
+                <div className="flex gap-4 items-center mt-4">
+                  <Fab
+                    size='small'
+                    aria-label='demo-fab'
+                    sx={{ backgroundColor: appColors.PALETTES[previewPalette][60], color: '#fff', transition: 'background-color 220ms ease' }}
+                  ><strong>+</strong></Fab>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={true}
+                        onChange={() => {}}
+                        sx={{
+                          '& .MuiSwitch-switchBase.Mui-checked': { color: appColors.PALETTES[previewPalette][30] },
+                          '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: appColors.PALETTES[previewPalette][30] },
+                          transition: 'all 220ms ease'
+                        }}
                       />
-                    ))}
-                  </div>
-                    <div className='mt-8 flex gap-2 items-start'>
-                      {/* <Button variant='outlined' onClick={() => { handleApplyPreview(); }} size='small'>Preview</Button> */}
-                      <Button variant='contained' color='primary' onClick={handleSavePaletteOnly} size='small' disabled={savingColor}>{savingColor? 'Saving...' : 'Save color'}</Button>
-                      <Button variant='text' onClick={handleResetColors} size='small' disabled={savingColor}>{savingColor? 'Resetting...' : 'Reset to default'}</Button>
-                    </div>
-
-                  <Box className='border-t-1 mt-8 pt-4 flex flex-col gap-3'>
-                    {/* <div className='flex items-center gap-3'>
-                      <Chip label='MUI preview' color='primary' />
-                      <Tooltip title='Primary MUI contained button (uses var(--brand-60))'>
-                        <Button variant='contained' sx={{ bgcolor: `var(--brand-60)`, color: 'var(--button-text)', '&:hover': { filter: 'brightness(0.95)' } }}>Primary</Button>
-                      </Tooltip>
-                    </div>
-
-                    <div className='flex items-center gap-3'>
-                      <Tooltip title='Avatar border/initial uses brand value'>
-                        <MuiAvatar sx={{ bgcolor: 'var(--brand-30)', border: '2px solid var(--brand-20)' }}>U</MuiAvatar>
-                      </Tooltip>
-                      <div>
-                        <FormLabel>App header preview</FormLabel>
-                        <div className='mt-1 p-2 rounded flex items-center justify-between' style={{ background: 'var(--brand-70)', color: 'var(--button-text)' }}>
-                          <strong>Wkly</strong>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ fontSize: '0.85rem' }}> Header </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div> */}
-
-                    {/* <div className='flex items-center gap-3'>
-                      <Typography variant='body2'>Contrast (brand-60 vs text):</Typography>
-                      <div className='font-mono'>{(() => {
-                        const brand60 = getComputedStyle(document.documentElement).getPropertyValue('--brand-60')?.trim() || '#570082';
-                        const text = getComputedStyle(document.documentElement).getPropertyValue('--button-text')?.trim() || '#111827';
-                        const ratio = Math.round(contrastRatio(brand60, text)*100)/100;
-                        return `${ratio}:1`;
-                      })()}</div>
-                      <div className='ml-2 text-sm'>
-                        {(() => {
-                          const brand60 = getComputedStyle(document.documentElement).getPropertyValue('--brand-60')?.trim() || '#570082';
-                          const text = getComputedStyle(document.documentElement).getPropertyValue('--button-text')?.trim() || '#111827';
-                          const ratio = contrastRatio(brand60, text);
-                          if (ratio >= 4.5) return <span className='text-green-600'>Good</span>;
-                          if (ratio >= 3) return <span className='text-yellow-600'>Acceptable</span>;
-                          return <span className='text-red-600'>Low</span>;
-                        })()}
-                      </div>
-                    </div> */}
-
-                    {/* Interactive demo area */}
-                    <div className='mt-4 w-full p-4 rounded border border-primary'>
-                      <Typography variant='subtitle1' className='mb-2'>Interactive component demo</Typography>
-                      <div className='mb-2'>
-                        <AppBar position='static' color='primary' elevation={0} sx={{ borderRadius: 1 }}>
-                          <Toolbar variant='dense' sx={{ minHeight: 44 }}>
-                            <Typography sx={{ flex: 1 }}><strong>Wkly</strong></Typography>
-                            <IconButton aria-label='notifications' color='inherit'>
-                              <Badge badgeContent={badgeCount} color='secondary'>
-                                <span style={{ width: 18, height: 18, display: 'inline-block' }} />
-                              </Badge>
-                            </IconButton>
-                            <Tooltip title='Profile tooltip demo'><IconButton color='inherit'><span style={{ width: 18, height: 18, display: 'inline-block' }} /></IconButton></Tooltip>
-                          </Toolbar>
-                        </AppBar>
-                      </div>
-
-                      <div className='flex gap-8 flex-col md:flex-row items-center mb-8'>
-                        <Fab size='small' color='primary' aria-label='demo-fab' className=''><strong>+</strong></Fab>
-                        <FormControlLabel control={<Switch checked={demoSwitch} onChange={(e) => setDemoSwitch(e.target.checked)} />} label='Switch' />
-                        <FormControlLabel control={<Checkbox checked={demoCheckbox} onChange={(e) => setDemoCheckbox(e.target.checked)} />} label='Checkbox' />
-                      </div>
-
-                      <div className='flex flex-col gap-2 items-center mb-3 '>
-                        <TextField label='Demo text' size='small' value={demoText} onChange={(e) => setDemoText(e.target.value)} />
-                        <div className='flex gap-2 items-center'>
-                          <Button className='text-nowrap' variant='contained' size='small' onClick={() => setDemoSubmitted({ badgeCount, demoSwitch, demoCheckbox, demoSelect, demoText })}>Submit Demo</Button>
-                          <Button className='text-nowrap' variant='outlined' size='small' onClick={() => { setBadgeCount(0); setDemoSwitch(false); setDemoCheckbox(false); setDemoSelect('optionA'); setDemoText(''); setDemoSubmitted(null); }}>Reset Demo</Button>
-                        </div>
-                      </div>
-
-                      {demoSubmitted && (
-                        <div className='mt-2 p-2 rounded'>
-                          <Typography variant='body2'>Demo submitted:</Typography>
-                          <pre className='font-mono text-xs p-1'>{JSON.stringify(demoSubmitted, null, 2)}</pre>
-                        </div>
-                      )}
-                    </div>
-                  </Box>
+                    }
+                    label='Switch'
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={true}
+                        onChange={() => {}}
+                        sx={{
+                          color: appColors.PALETTES[previewPalette][60],
+                          '&.Mui-checked .MuiSvgIcon-root': { color: appColors.PALETTES[previewPalette][40] },
+                          transition: 'color 220ms ease'
+                        }}
+                      />
+                    }
+                    label='Checkbox'
+                  />
                 </div>
-            </div>
-            <div className='flex gap-4'>
-                <button
-                //   variant="contained"
-                className="btn-secondary mt-4"
-                type="button"
-                onClick={() => onClose && onClose()}
-                >
-                Cancel
-                </button>
-                <button
-                //   variant="contained"
-                className="btn-primary mt-4"
-                type="submit"
-                disabled={loading}
-                >
-                {loading ? 'Updating...' : 'Update Profile'}
-                </button>
-            </div>
-        </form>
+              </div>
+            </Box>
+          </section>
+        )}
+
+        
+        {active === 'notifications' && (
+          <section>
+            <NotificationsSettings registerSave={(fn) => { notificationsSaveRef.current = fn; }} />
+          </section>
+        )}
+        {/* Footer: single Save All / Cancel */}
+        <footer className="flex bg-transparent w-full justify-end p-3 rounded shadow space-x-2">
+          <Button variant="outlined" onClick={() => onClose && onClose()}>Cancel</Button>
+          <Button variant="contained" color="primary" disabled={savingAll} onClick={async () => {
+            setSavingAll(true);
+            try {
+              // Save profile (username/email/avatar)
+              await handleUpdateProfile();
+              // Save appearance (persist preview palette)
+              await handleSavePaletteOnly(previewPalette);
+              // Save notifications if the child registered a save
+              if (notificationsSaveRef.current) {
+                await notificationsSaveRef.current();
+              }
+              notifySuccess('Preferences saved');
+              // Close after successful save
+              if (onClose) onClose();
+            } catch (e) {
+              console.error('Failed to save preferences:', e);
+              notifyError('Failed to save preferences');
+            } finally {
+              setSavingAll(false);
+            }
+          }}>{savingAll ? 'Saving...' : 'Save all'}</Button>
+        </footer>
+      </main>
+      
     </div>
   );
 };
 
-export default ProfileManagement;
+export default Preferences;
