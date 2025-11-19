@@ -18,11 +18,11 @@ import { mapPageForScope, loadPageByScope, savePageByScope } from '@utils/pagina
 import 'react-datepicker/dist/react-datepicker.css';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
-import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, Eye, Edit, Trash, EyeOff, ChevronRight, Award, FileText as NotesIcon, Save as SaveIcon } from 'lucide-react';
+import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, Eye, Edit, Trash, EyeOff, ChevronRight, Award, FileText as NotesIcon, Save as SaveIcon, CheckIcon, CheckSquare, CheckSquare2, SquareSlash } from 'lucide-react';
 import { useGoalsContext } from '@context/GoalsContext';
 import useGoalExtras from '@hooks/useGoalExtras';
 // notify helpers imported where needed below
-import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, FormGroup, FormLabel, InputLabel, Select, MenuItem, Tooltip, Menu, Chip, Badge, Checkbox, ListItemText, ToggleButtonGroup, ToggleButton, Table, TableHead, TableBody, TableRow, TableCell, Paper, Typography, Switch, FormControlLabel, CircularProgress, useMediaQuery } from '@mui/material';
+import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, FormGroup, FormLabel, InputLabel, Select, MenuItem, Tooltip, Menu, Chip, Badge, Checkbox, ListItemText, ToggleButtonGroup, ToggleButton, Table, TableContainer, TableHead, TableBody, TableRow, TableCell, Paper, Typography, Switch, FormControlLabel, CircularProgress, useMediaQuery } from '@mui/material';
 // dnd-kit was attempted but failed to install; use HTML5 drag/drop fallback
 import { useTheme } from '@mui/material/styles';
 import supabase from '@lib/supabase';
@@ -33,6 +33,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type { Dayjs } from 'dayjs';
 import type { ChangeEvent } from 'react';
 import LoadingSpinner from './LoadingSpinner';
+import { Tab } from '@headlessui/react';
 type Goal = GoalUtilsGoal & {
   created_at?: string;
 };
@@ -173,7 +174,6 @@ const GoalsComponent = () => {
     saveEditedAccomplishment,
     openAccomplishments,
     closeAccomplishments,
-
     notes,
     notesCountMap,
     isNotesLoading,
@@ -206,6 +206,132 @@ const GoalsComponent = () => {
     const [filterStartDate, setFilterStartDate] = useState<Dayjs | null>(null);
     const [filterEndDate, setFilterEndDate] = useState<Dayjs | null>(null);
     const [summaryAnchorEl, setSummaryAnchorEl] = useState<HTMLElement | null>(null);
+    // Bulk action UI state
+    const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false);
+    const [bulkActionLoading, setBulkActionLoading] = useState(false);
+    const [bulkStatusAnchorEl, setBulkStatusAnchorEl] = useState<HTMLElement | null>(null);
+    const [bulkCategoryAnchorEl, setBulkCategoryAnchorEl] = useState<HTMLElement | null>(null);
+    // Fallback anchor positions (used when the clicked element isn't attached to the document)
+    const [bulkStatusAnchorPos, setBulkStatusAnchorPos] = useState<{ top: number; left: number } | null>(null);
+    const [bulkCategoryAnchorPos, setBulkCategoryAnchorPos] = useState<{ top: number; left: number } | null>(null);
+    // Always remember the last click position so we can fallback to it if the
+    // anchorEl is removed from the DOM (e.g. when switching views quickly).
+    const [bulkStatusLastClickPos, setBulkStatusLastClickPos] = useState<{ top: number; left: number } | null>(null);
+    const [bulkCategoryLastClickPos, setBulkCategoryLastClickPos] = useState<{ top: number; left: number } | null>(null);
+    // Refs for the buttons that open the bulk menus. We restore focus to these
+    // when the menu closes to avoid aria-hidden being applied while a focused
+    // element remains inside the menu (which triggers accessibility warnings).
+    const bulkStatusTriggerRef = useRef<HTMLButtonElement | null>(null);
+    const bulkCategoryTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+    const handleCloseBulkStatus = () => {
+        try { bulkStatusTriggerRef.current?.focus(); } catch (e) { /* ignore */ }
+        setBulkStatusAnchorEl(null);
+        setBulkStatusAnchorPos(null);
+    };
+
+    const handleCloseBulkCategory = () => {
+        try { bulkCategoryTriggerRef.current?.focus(); } catch (e) { /* ignore */ }
+        setBulkCategoryAnchorEl(null);
+        setBulkCategoryAnchorPos(null);
+    };
+
+    // If an anchorEl becomes detached while the menu is open (happens when switching views),
+    // fallback to the last click position so the menu remains visible instead of throwing MUI warnings.
+    useEffect(() => {
+        if (bulkStatusAnchorEl && !document.body.contains(bulkStatusAnchorEl)) {
+            if (bulkStatusLastClickPos) {
+                setBulkStatusAnchorPos(bulkStatusLastClickPos);
+                setBulkStatusAnchorEl(null);
+            }
+        }
+    }, [bulkStatusAnchorEl, bulkStatusLastClickPos]);
+
+    useEffect(() => {
+        if (bulkCategoryAnchorEl && !document.body.contains(bulkCategoryAnchorEl)) {
+            if (bulkCategoryLastClickPos) {
+                setBulkCategoryAnchorPos(bulkCategoryLastClickPos);
+                setBulkCategoryAnchorEl(null);
+            }
+        }
+    }, [bulkCategoryAnchorEl, bulkCategoryLastClickPos]);
+
+    // Bulk action helpers
+    const applyBulkStatus = async (status: string) => {
+        setBulkActionLoading(true);
+        try {
+            const ids = Array.from(selectedIds).filter((id) => !id?.toString()?.startsWith?.('temp-'));
+            if (ids.length === 0) {
+                notifySuccess('No persisted goals selected');
+            } else {
+                // Run updates in parallel for speed; collect results so we can refresh after all complete
+                const promises = ids.map((id) => updateGoal(id, { status: status as any }).then(() => ({ id, ok: true })).catch((err) => ({ id, ok: false, err })));
+                const results = await Promise.all(promises);
+                const successCount = results.filter((r) => r && (r as any).ok).length;
+                const failCount = results.length - successCount;
+                if (successCount > 0) notifySuccess(`Updated status for ${successCount} goals`);
+                if (failCount > 0) notifyError(`Failed to update ${failCount} goals`);
+            }
+        } catch (err) {
+            console.error('Bulk status update failed', err);
+            notifyError('Failed to update some goals');
+        } finally {
+            setBulkActionLoading(false);
+            setBulkStatusAnchorEl(null);
+            clearSelection();
+            // Ensure both the global cache and this component's indexed state are refreshed
+            // Awaiting here makes the refresh consistent; keep it quick by letting the
+            // context refresh run first (it may be cached) and then refetch the indexed goals.
+            (async () => {
+                try {
+                    if (typeof ctxRefresh === 'function') await ctxRefresh();
+                } catch (e) {
+                    console.warn('[AllGoals] ctxRefresh after bulk status failed (ignored):', e);
+                }
+                try {
+                    await refreshGoals();
+                } catch (e) {
+                    console.warn('[AllGoals] refreshGoals after bulk status failed (ignored):', e);
+                }
+            })();
+        }
+    };
+
+    const applyBulkCategory = async (category: string) => {
+        setBulkActionLoading(true);
+        try {
+            const ids = Array.from(selectedIds).filter((id) => !id?.toString()?.startsWith?.('temp-'));
+            if (ids.length === 0) {
+                notifySuccess('No persisted goals selected');
+            } else {
+                const promises = ids.map((id) => updateGoal(id, { category } as any).then(() => ({ id, ok: true })).catch((err) => ({ id, ok: false, err })));
+                const results = await Promise.all(promises);
+                const successCount = results.filter((r) => r && (r as any).ok).length;
+                const failCount = results.length - successCount;
+                if (successCount > 0) notifySuccess(`Updated category for ${successCount} goals`);
+                if (failCount > 0) notifyError(`Failed to update ${failCount} goals`);
+            }
+        } catch (err) {
+            console.error('Bulk category update failed', err);
+            notifyError('Failed to update some goals');
+        } finally {
+            setBulkActionLoading(false);
+            setBulkCategoryAnchorEl(null);
+            clearSelection();
+            (async () => {
+                try {
+                    if (typeof ctxRefresh === 'function') await ctxRefresh();
+                } catch (e) {
+                    console.warn('[AllGoals] ctxRefresh after bulk category failed (ignored):', e);
+                }
+                try {
+                    await refreshGoals();
+                } catch (e) {
+                    console.warn('[AllGoals] refreshGoals after bulk category failed (ignored):', e);
+                }
+            })();
+        }
+    };
 
 
 
@@ -1187,6 +1313,24 @@ const GoalsComponent = () => {
     // Use shared HTML-producing highlight helper and render via dangerouslySetInnerHTML
     const renderHTML = (text?: string | null) => ({ __html: applyHighlight(text ?? '', filter) });
 
+    // Selection state for bulk actions
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const selectedCount = selectedIds.size;
+    const visibleIdsArray = useMemo(() => Array.from(visibleGoalIds), [visibleGoalIds]);
+    const toggleSelect = (id: string) => {
+        setSelectedIds((prev) => {
+            const copy = new Set(prev);
+            if (copy.has(id)) copy.delete(id);
+            else copy.add(id);
+            return copy;
+        });
+    };
+    const clearSelection = () => setSelectedIds(new Set());
+    const selectAllVisible = () => setSelectedIds(new Set(visibleIdsArray));
+    const deselectAll = () => setSelectedIds(new Set());
+
+    
+
   return (
   
     <div className={`space-y-6`}>
@@ -1325,127 +1469,127 @@ const GoalsComponent = () => {
                 </div>
                     
                 {/* Filter and Sort Controls */}
-                <div className="mt-4 h-10 flex items-center space-x-2">
+                <div className="relative mt-4 h-10 flex items-center space-x-2">
                     
                     {/* Filter button + MUI TextField replacement for filter input */}
                     <>
-                    <Tooltip title="Open filters" placement="top" arrow>
-                    <span>
-                    <Badge badgeContent={selectedFiltersCount} color="primary" invisible={selectedFiltersCount === 0}>
-                        <IconButton
-                            className="btn-ghost mr-2"
-                            size="small"
-                            aria-label={`Open filters${selectedFiltersCount > 0 ? ` (${selectedFiltersCount} active)` : ''}`}
-                            onClick={(e) => setFilterAnchorEl(e.currentTarget)}
+                        <Tooltip title="Open filters" placement="top" arrow>
+                        <span>
+                        <Badge badgeContent={selectedFiltersCount} color="primary" invisible={selectedFiltersCount === 0}>
+                            <IconButton
+                                className="btn-ghost mr-2"
+                                size="small"
+                                aria-label={`Open filters${selectedFiltersCount > 0 ? ` (${selectedFiltersCount} active)` : ''}`}
+                                onClick={(e) => setFilterAnchorEl(e.currentTarget)}
+                            >
+                                <FilterIcon className="w-4 h-4" />
+                            </IconButton>
+                        </Badge>
+                        </span>
+                        </Tooltip>
+                        <Popover
+                            open={Boolean(filterAnchorEl)}
+                            anchorEl={filterAnchorEl}
+                            onClose={() => setFilterAnchorEl(null)}
+                            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                         >
-                            <FilterIcon className="w-4 h-4" />
-                        </IconButton>
-                    </Badge>
-                    </span>
-                    </Tooltip>
-                    <Popover
-                        open={Boolean(filterAnchorEl)}
-                        anchorEl={filterAnchorEl}
-                        onClose={() => setFilterAnchorEl(null)}
-                        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-                    >
-                        <Box sx={{ p: 2, width: 280, bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100' }}>
-                            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                                <InputLabel id="filter-status-label">Status</InputLabel>
-                                    <Select
-                                        labelId="filter-status-label"
-                                        multiple
-                                        value={filterStatus}
-                                        label="Status"
-                                        onChange={(e) => {
-                                            const val = (e.target as HTMLInputElement).value;
-                                            setFilterStatus(typeof val === 'string' ? val.split(',') : (val as string[]));
-                                        }}
-                                        renderValue={(selected) => (selected as string[]).join(', ')}
-                                    >
-                                        <MenuItem value="">
-                                            <ListItemText primary="Any" />
-                                        </MenuItem>
-                                        {statusOptions.map((s) => (
-                                            <MenuItem key={s} value={s}>
-                                                <Checkbox size="small" checked={(filterStatus || []).indexOf(s) > -1} />
-                                                <ListItemText primary={s} />
+                            <Box sx={{ p: 2, width: 280, bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100' }}>
+                                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                                    <InputLabel id="filter-status-label">Status</InputLabel>
+                                        <Select
+                                            labelId="filter-status-label"
+                                            multiple
+                                            value={filterStatus}
+                                            label="Status"
+                                            onChange={(e) => {
+                                                const val = (e.target as HTMLInputElement).value;
+                                                setFilterStatus(typeof val === 'string' ? val.split(',') : (val as string[]));
+                                            }}
+                                            renderValue={(selected) => (selected as string[]).join(', ')}
+                                        >
+                                            <MenuItem value="">
+                                                <ListItemText primary="Any" />
                                             </MenuItem>
-                                        ))}
-                                    </Select>
-                            </FormControl>
-                            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                                <InputLabel id="filter-category-label">Category</InputLabel>
-                                    <Select
-                                        labelId="filter-category-label"
-                                        multiple
-                                        value={filterCategory}
-                                        label="Category"
-                                        onChange={(e) => {
-                                            const val = (e.target as HTMLInputElement).value;
-                                            setFilterCategory(typeof val === 'string' ? val.split(',') : (val as string[]));
-                                        }}
-                                        renderValue={(selected) => (selected as string[]).join(', ')}
-                                    >
-                                        <MenuItem value="">
-                                            <ListItemText primary="Any" />
-                                        </MenuItem>
-                                        {categoryOptions.map((c) => (
-                                            <MenuItem key={c} value={c}>
-                                                <Checkbox size="small" checked={(filterCategory || []).indexOf(c) > -1} />
-                                                <ListItemText primary={c} />
+                                            {statusOptions.map((s) => (
+                                                <MenuItem key={s} value={s}>
+                                                    <Checkbox size="small" checked={(filterStatus || []).indexOf(s) > -1} />
+                                                    <ListItemText primary={s} />
+                                                </MenuItem>
+                                            ))}
+                                        </Select>
+                                </FormControl>
+                                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                                    <InputLabel id="filter-category-label">Category</InputLabel>
+                                        <Select
+                                            labelId="filter-category-label"
+                                            multiple
+                                            value={filterCategory}
+                                            label="Category"
+                                            onChange={(e) => {
+                                                const val = (e.target as HTMLInputElement).value;
+                                                setFilterCategory(typeof val === 'string' ? val.split(',') : (val as string[]));
+                                            }}
+                                            renderValue={(selected) => (selected as string[]).join(', ')}
+                                        >
+                                            <MenuItem value="">
+                                                <ListItemText primary="Any" />
                                             </MenuItem>
-                                        ))}
-                                    </Select>
-                            </FormControl>
-                            {(showAllGoals || scope === 'year') && (
-                                <div className="flex flex-col space-y-2 mb-2">
-                                <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                    <div>
-                                        <label className="block text-sm text-gray-60 mb-1">Start</label>
-                                        <DatePicker
-                                            value={filterStartDate}
-                                            onChange={(v: Dayjs | null) => setFilterStartDate(v)}
-                                            slotProps={{ textField: { size: 'small' } }}
-                                            maxDate={filterEndDate || undefined}
-                                        />
+                                            {categoryOptions.map((c) => (
+                                                <MenuItem key={c} value={c}>
+                                                    <Checkbox size="small" checked={(filterCategory || []).indexOf(c) > -1} />
+                                                    <ListItemText primary={c} />
+                                                </MenuItem>
+                                            ))}
+                                        </Select>
+                                </FormControl>
+                                {(showAllGoals || scope === 'year') && (
+                                    <div className="flex flex-col space-y-2 mb-2">
+                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                        <div>
+                                            <label className="block text-sm text-gray-60 mb-1">Start</label>
+                                            <DatePicker
+                                                value={filterStartDate}
+                                                onChange={(v: Dayjs | null) => setFilterStartDate(v)}
+                                                slotProps={{ textField: { size: 'small' } }}
+                                                maxDate={filterEndDate || undefined}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm text-gray-60 mb-1">End</label>
+                                            <DatePicker
+                                                value={filterEndDate}
+                                                onChange={(v: Dayjs | null) => setFilterEndDate(v)}
+                                                slotProps={{ textField: { size: 'small' } }}
+                                                minDate={filterStartDate || undefined}
+                                            />
+                                        </div>
+                                    </LocalizationProvider>
                                     </div>
-                                    <div>
-                                        <label className="block text-sm text-gray-60 mb-1">End</label>
-                                        <DatePicker
-                                            value={filterEndDate}
-                                            onChange={(v: Dayjs | null) => setFilterEndDate(v)}
-                                            slotProps={{ textField: { size: 'small' } }}
-                                            minDate={filterStartDate || undefined}
-                                        />
-                                    </div>
-                                </LocalizationProvider>
+                                )}
+                        
+                                <div className="flex justify-end space-x-2">
+                                    <button
+                                        type="button"
+                                        className="btn-ghost"
+                                        onClick={() => {
+                                            setFilterStatus([]);
+                                            setFilterCategory([]);
+                                            setFilterStartDate(null);
+                                            setFilterEndDate(null);
+                                        }}
+                                    >
+                                        Clear
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn-primary"
+                                        onClick={() => setFilterAnchorEl(null)}
+                                    >
+                                        Done
+                                    </button>
                                 </div>
-                            )}
-                    
-                            <div className="flex justify-end space-x-2">
-                                <button
-                                    type="button"
-                                    className="btn-ghost"
-                                    onClick={() => {
-                                        setFilterStatus([]);
-                                        setFilterCategory([]);
-                                        setFilterStartDate(null);
-                                        setFilterEndDate(null);
-                                    }}
-                                >
-                                    Clear
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn-primary"
-                                    onClick={() => setFilterAnchorEl(null)}
-                                >
-                                    Done
-                                </button>
-                            </div>
-                        </Box>
-                    </Popover>
+                            </Box>
+                        </Popover>
                     </>
                    
                     {/* Selected filter tags (status, category, date range) */}
@@ -1566,250 +1710,689 @@ const GoalsComponent = () => {
                             </>
                         )}
                     </div>
-
-                    <TextField
-                        id="goal-filter"
-                        size="small"
-                        value={filter}
-                        inputRef={(el) => { filterInputRef.current = el; }}
-                        onFocus={() => {
-                            if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current);
-                            setFilterFocused(true);
-                        }}
-                        onBlur={() => {
-                            // delay clearing so clicks on the clear button register
-                            blurTimeoutRef.current = window.setTimeout(() => {
-                                setFilterFocused(false);
-                                blurTimeoutRef.current = null;
-                            }, 150);
-                        }}
-                        onChange={(e: ChangeEvent<HTMLInputElement>) => handleFilterChange(e.target.value)}
-                        placeholder="Filter by title, category, or impact"
-                        
-                        fullWidth
-                        InputProps={{
-                                startAdornment: (
-                                        <InputAdornment position="start">
-                                                <SearchIcon className='w-4 h-4' />
-                                        </InputAdornment>
-                                ),
-                                endAdornment: showClear ? (
-                                    <InputAdornment position="end">
-                                        <IconButton
-                                            size="small"
-                                            aria-label="Clear filter"
-                                            onMouseDown={(e) => e.preventDefault()} // prevent input blur
-                                            onClick={() => {
-                                                handleFilterChange('');
-                                                // return focus to input
-                                                filterInputRef.current?.focus();
+                    {/* Floating compact bulk toolbar - appears at bottom-right on all views when items are selected */}
+                    <div className="selectAll">
+                        {viewMode !== 'table' && (
+                            <>
+                        <div className={`floating-bulk${selectedCount > 0 ? '-toolbar flex-row align-start justify-start items-start sm:flex-row' : ''}`} role="toolbar" aria-label="Bulk actions">
+                            <Tooltip title={selectedCount === visibleIdsArray.length ? 'Deselect all' : 'Select all'} placement="top" arrow>
+                                <Badge badgeContent={selectedCount} color="primary">
+                                    <span className="sr-only">{selectedCount} selected</span>
+                                    <button
+                                        className={`btn-ghost fb-btn ${selectedCount > 0 ? 'dark:[&>.lucide]:stroke-brand-30 [&>.lucide]:stroke-brand-70' : ''}`}
+                                        onClick={() => { if (selectedCount === visibleIdsArray.length) deselectAll(); else selectAllVisible(); }}
+                                        aria-label={selectedCount === visibleIdsArray.length ? 'Deselect all' : 'Select all'}
+                                    >
+                                        {selectedCount === visibleIdsArray.length ? <SquareSlash /> : <CheckSquare2 />}
+                                    </button>
+                                </Badge>
+                            </Tooltip>
+                            {selectedCount > 0 && (
+                                
+                                    <div className="flex flex-col items-start justify-start sm:flex-row ">
+                                        <button className="btn-ghost fb-btn" onClick={() => setIsBulkDeleteConfirmOpen(true)} disabled={bulkActionLoading} title="Delete selected" aria-label="Delete selected">Delete</button>
+                                        <button
+                                            className="btn-ghost fb-btn"
+                                            onClick={(e) => {
+                                                const el = e.currentTarget as HTMLElement;
+                                                // if element is not attached to document, record click coords as fallback
+                                                const pos = { top: e.clientY, left: e.clientX };
+                                                setBulkStatusLastClickPos(pos);
+                                                if (!document.body.contains(el)) {
+                                                    setBulkStatusAnchorPos(pos);
+                                                    setBulkStatusAnchorEl(null);
+                                                } else {
+                                                    setBulkStatusAnchorEl(el);
+                                                    setBulkStatusAnchorPos(null);
+                                                }
                                             }}
-                                            onFocus={() => { if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current); setClearButtonFocused(true); }}
-                                            onBlur={() => { blurTimeoutRef.current = window.setTimeout(() => setClearButtonFocused(false), 150); }}
+                                            disabled={bulkActionLoading}
+                                            title="Set status"
+                                            aria-label="Set status"
+                                            ref={bulkStatusTriggerRef}
                                         >
-                                            <CloseButton className="w-4 h-4" />
-                                        </IconButton>
-                                    </InputAdornment>
-                                ) : null,
-                        }}
-                    />
-
-                    {/* Edit Accomplishment Modal (reuses AccomplishmentEditor) */}
-                    {isEditAccomplishmentModalOpen && selectedAccomplishment && (
-                        <div
-                            className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50"
-                            role="presentation"
-                            onMouseDown={(e) => {
-                                // close when clicking the backdrop (only trigger when clicking the overlay itself)
-                                if (e.target === e.currentTarget) {
-                                    setSelectedAccomplishment(null);
-                                    setIsEditAccomplishmentModalOpen(false);
-                                }
-                            }}
-                        >
-                            <div className={`${modalClasses}`}>
-                                <h3 className="text-lg font-medium text-gray-90 mb-4">Edit Accomplishment</h3>
-                                <AccomplishmentEditor
-                                    accomplishment={selectedAccomplishment}
-                                    onSave={async (updatedDescription?: string, updatedTitle?: string, updatedImpact?: string) => {
-                                        if (!selectedAccomplishment) return;
-                                        await saveEditedAccomplishment(selectedAccomplishment.id, { title: updatedTitle, description: updatedDescription, impact: updatedImpact }, (selectedGoal as any)?.id);
-                                    }}
-                                    onRequestClose={() => { setSelectedAccomplishment(null); setIsEditAccomplishmentModalOpen(false); }}
-                                />
-                            </div>
-                        </div>
-                    )}
-                {viewMode !== 'kanban' && (
-                    <>
-                    <Tooltip title={`Sort: ${sortBy.charAt(0).toUpperCase() + sortBy.slice(1)} (${sortDirection === 'asc' ? 'ascending' : 'descending'})`} placement="top" arrow>
-                        <span className="flex items-center space-x-2">
-                            <IconButton
-                                onClick={(e) => setSortAnchorEl(e.currentTarget)}
-                                className="btn-ghost px-3 py-2"
-                                aria-label={`Sort: ${sortBy} ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
-                                aria-controls={sortAnchorEl ? 'sort-menu' : undefined}
-                                aria-haspopup="true"
-                                aria-expanded={sortAnchorEl ? 'true' : undefined}
+                                            Status
+                                        </button>
+                                        <button
+                                            className="btn-ghost fb-btn"
+                                            onClick={(e) => {
+                                                const el = e.currentTarget as HTMLElement;
+                                                const pos = { top: e.clientY, left: e.clientX };
+                                                setBulkCategoryLastClickPos(pos);
+                                                if (!document.body.contains(el)) {
+                                                    setBulkCategoryAnchorPos(pos);
+                                                    setBulkCategoryAnchorEl(null);
+                                                } else {
+                                                    setBulkCategoryAnchorEl(el);
+                                                    setBulkCategoryAnchorPos(null);
+                                                }
+                                            }}
+                                            disabled={bulkActionLoading}
+                                            title="Set category"
+                                            aria-label="Set category"
+                                            ref={bulkCategoryTriggerRef}
+                                        >
+                                            Category (Josh)
+                                        </button>
+                                    </div>
+                                
+                            )}
+                        {/* Bulk status menu */}
+                           <span>
+                            <Menu
+                                id="bulk-status-menu"
+                                anchorEl={bulkStatusAnchorEl}
+                                open={Boolean(bulkStatusAnchorEl) || Boolean(bulkStatusAnchorPos)}
+                                onClose={handleCloseBulkStatus}
+                                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                                anchorReference={bulkStatusAnchorPos ? 'anchorPosition' : 'anchorEl'}
+                                anchorPosition={bulkStatusAnchorPos ? { top: Math.round(bulkStatusAnchorPos.top), left: Math.round(bulkStatusAnchorPos.left) } : undefined}
+                                PaperProps={{ sx: { bgcolor: theme.palette.mode === 'dark' ? 'grey.90' : 'grey.10', p: 1 } }}
                             >
-                                {/* Visible sort label to indicate active sort field and direction */}
-                                <span className="hidden sm:flex items-center space-x-3 text-gray-70 dark:text-gray-30">
-                                    {sortBy === 'date' && ( 
-                                        <span role="img" aria-label="Sort by date" title="Sort by date" className='text-brand-60 dark:text-brand-20'>
-                                        <CalendarIcon className="w-4 h-4" />
-                                    </span>
-                                    )}
-                                    {sortBy === 'status' && ( 
-                                        <span role="img" aria-label="Sort by status" title="Sort by status" className='text-brand-60 dark:text-brand-20'>
-                                        <Check className="w-4 h-4" />
-                                    </span>
-                                    )}
-                                    {sortBy === 'category' && ( 
-                                        <span role="img" aria-label="Sort by category" title="Sort by category" className='text-brand-60 dark:text-brand-20'>
-                                        <TagIcon className="w-4 h-4" />
-                                    </span>
-                                    )}
+                                {statusOptions.map((s) => (
+                                    <MenuItem
+                                        key={s}
+                                        onClick={() => applyBulkStatus(s)}
+                                        // disabled={isUpdatingStatus}
+                                        className='text-xs'
+                                        // selected={s === localStatus}
+
+                                    >
+                                        <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 6, background: STATUS_COLORS[s], marginRight: 8 }} />
+                                        {s}
+                                    </MenuItem>
+                                ))}
+                            </Menu>
                                 </span>
-                                {sortDirection === 'desc' ? <ArrowDown className='w-5 h-5' /> : <ArrowUp className='w-5 h-5' />}
-                            </IconButton>
-                        </span>
-                    </Tooltip>
-                    <Menu
-                        id="sort-menu"
-                        anchorEl={sortAnchorEl}
-                        open={Boolean(sortAnchorEl)}
-                        onClose={() => setSortAnchorEl(null)}
-                        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-                        MenuListProps={{ 'aria-labelledby': 'sort-button' }}
-                    >
-                        <MenuItem
-                            selected={sortBy === 'date' && sortDirection === 'asc'}
-                            onClick={() => { setSortBy('date'); setSortDirection('asc'); setSortAnchorEl(null); }}
-                        >
-                            <CalendarIcon className="w-4 h-4" /><ArrowUp className="w-4 h-4 mr-8" /> Date Ascending 
-                        </MenuItem>
-                        <MenuItem
-                            selected={sortBy === 'date' && sortDirection === 'desc'}
-                            onClick={() => { setSortBy('date'); setSortDirection('desc'); setSortAnchorEl(null); }}
-                        >
-                            <CalendarIcon className="w-4 h-4" /><ArrowDown className="w-4 h-4 mr-8" /> Date Descending 
-                        </MenuItem>
-                        <MenuItem
-                            selected={sortBy === 'category' && sortDirection === 'asc'}
-                            onClick={() => { setSortBy('category'); setSortDirection('asc'); setSortAnchorEl(null); }}
-                        >
-                            <TagIcon className="w-4 h-4" /><ArrowUp className="w-4 h-4 mr-8" /> Category Ascending 
-                        </MenuItem>
-                        <MenuItem
-                            selected={sortBy === 'category' && sortDirection === 'desc'}
-                            onClick={() => { setSortBy('category'); setSortDirection('desc'); setSortAnchorEl(null); }}
-                        >
-                            <TagIcon className="w-4 h-4" /><ArrowDown className="w-4 h-4 mr-8" /> Category Descending 
-                        </MenuItem>
-                        <MenuItem
-                            selected={sortBy === 'status' && sortDirection === 'asc'}
-                            onClick={() => { setSortBy('status'); setSortDirection('asc'); setSortAnchorEl(null); }}
-                        >
-                            <Check className="w-4 h-4" /><ArrowUp className="w-4 h-4 mr-8" /> Status Ascending 
-                        </MenuItem>
-                        <MenuItem
-                            selected={sortBy === 'status' && sortDirection === 'desc'}
-                            onClick={() => { setSortBy('status'); setSortDirection('desc'); setSortAnchorEl(null); }}
-                        >
-                            <Check className="w-4 h-4" /><ArrowDown className="w-4 h-4 mr-8" /> Status Descending 
-                        </MenuItem>
-                    </Menu>
-                    
-                    </>
-                )}                  
-
-                    {/* Add Goal Button */}
-                    <Tooltip title={`Add a new goal`} placement="top" arrow>
-                        <button
-                            onClick={openGoalModal}
-                            className="btn-primary gap-2 flex ml-auto sm:mt-0 md:pr-2 sm:pr-2 xs:pr-0"
-                            // title={`Add a new goal for the current ${scope}`}
-                            aria-label={`Add a new goal for the current ${scope}`}
+                            {/* Bulk category menu */}
+                            <span>
+                            <Menu
+                                id="bulk-category-menu"
+                                anchorEl={bulkCategoryAnchorEl}
+                                open={Boolean(bulkCategoryAnchorEl) || Boolean(bulkCategoryAnchorPos)}
+                                onClose={handleCloseBulkCategory}
+                                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                                anchorReference={bulkCategoryAnchorPos ? 'anchorPosition' : 'anchorEl'}
+                                anchorPosition={bulkCategoryAnchorPos ? { top: Math.round(bulkCategoryAnchorPos.top), left: Math.round(bulkCategoryAnchorPos.left) } : undefined}
+                                PaperProps={{ sx: { bgcolor: theme.palette.mode === 'dark' ? 'grey.90' : 'grey.100', p: 1, maxHeight: '300px', } }}
                             >
-                            <PlusIcon className="w-5 h-5" />
-                            {/* <span className="block flex text-nowrap">Add Goal</span> */}
-                        </button>
-                    </Tooltip>
-                    <div id="summary_btn">
-                        <SummaryGenerator 
-                        summaryId={selectedSummary?.id || ''} 
-                        summaryTitle={selectedSummary?.title || `Summary for ${scope}: ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}                                                                                                                                                                                selectedRange={new Date()}
-                        filteredGoals={showAllGoals ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || [])} // Pass the goals for the current page or full list
-                        scope={scope}
-                        />
-                    </div>
+                                {categoryOptions.map((c) => (
+                                    c === categoryOptions[0] ? (
+                                        <span key={`wrap-${c}`}>
+                                            {/* Render the search input as a non-menu element so typing doesn't trigger
+                                                the menu's type-to-select behavior. We also stop keydown propagation
+                                                from the input and prevent blur when clicking the Add button so the
+                                                onClick reliably fires. */}
+                                            <div key="bulk-category-search" role="presentation">
+                                                <div style={{ width: 260, padding: '4px 0' }}>
+                                                    <TextField
+                                                        id="bulk-category-search"
+                                                        size="small"
+                                                        placeholder="Filter or add category"
+                                                        sx={{ position: 'sticky', top: 0, bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100', zIndex: 1 }}
+                                                        fullWidth
+                                                        onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                                                            const q = (e.target.value || '').toLowerCase();
+                                                            // Filter visible MenuItem entries in this menu by role="menuitem"
+                                                            const items = document.querySelectorAll('#bulk-category-menu [role="menuitem"]');
+                                                            items.forEach((it) => {
+                                                                const txt = (it.textContent || '').toLowerCase();
+                                                                (it as HTMLElement).style.display = q && txt.indexOf(q) === -1 ? 'none' : '';
+                                                            });
+                                                        }}
+                                                        onKeyDown={(e) => {
+                                                            // Stop the Menu/List from handling type-to-select while typing in the input
+                                                            e.stopPropagation();
+                                                        }}
+                                                        InputProps={{
+                                                            endAdornment: (
+                                                                <InputAdornment position="end">
+                                                                    <Tooltip title="Add category" placement="top" arrow>
+                                                                    <IconButton
+                                                                        size="small"
+                                                                        aria-label="Add category"
+                                                                        onMouseDown={(e) => e.preventDefault()}
+                                                                        onClick={async () => {
+                                                                                const el = document.getElementById('bulk-category-search') as HTMLInputElement | null;
+                                                                                const val = el?.value?.trim();
+                                                                                if (!val) return;
+                                                                                try {
+                                                                                    // Try to add the category. On success, apply it to selected goals.
+                                                                                    await addCategory(val);
+                                                                                    await applyBulkCategory(val);
+                                                                                } catch (err: any) {
+                                                                                    // If the category already exists, still apply it.
+                                                                                    const msg = (err && err.message) || '';
+                                                                                    if (msg.toLowerCase().includes('category already exists') || msg.toLowerCase().includes('duplicate')) {
+                                                                                        try {
+                                                                                            await applyBulkCategory(val);
+                                                                                        } catch (innerErr) {
+                                                                                            console.error('Failed to apply existing category', innerErr);
+                                                                                            notifyError('Failed to apply category');
+                                                                                        }
+                                                                                    } else {
+                                                                                        console.error('Failed to add category', err);
+                                                                                        notifyError('Failed to add category');
+                                                                                    }
+                                                                                }
+                                                                            }}
+                                                                        type="button"
+                                                                    >
+                                                                        <PlusIcon className="w-4 h-4" />
+                                                                    </IconButton>
+                                                                    </Tooltip>
+                                                                </InputAdornment>
+                                                            ),
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <MenuItem
+                                                key={c}
+                                                onClick={() => applyBulkCategory(c)}
+                                            >
+                                                {c}
+                                            </MenuItem>
+                                        </span>
+                                    ) : (
+                                        <MenuItem
+                                            key={c}
+                                            onClick={() => applyBulkCategory(c)}
+                                        >
+                                            {c}
+                                        </MenuItem>
+                                    )
+                                ))}
+                            </Menu>
+                        </span>
+                        </div>
+                            </>
+                        )}
+                        {(selectedCount === 0 || viewMode === 'table') && (
+                            <TextField
+                                id="goal-filter"
+                                size="small"
+                                value={filter}
+                                inputRef={(el) => { filterInputRef.current = el; }}
+                                onFocus={() => {
+                                    if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current);
+                                    setFilterFocused(true);
+                                }}
+                                onBlur={() => {
+                                    // delay clearing so clicks on the clear button register
+                                    blurTimeoutRef.current = window.setTimeout(() => {
+                                        setFilterFocused(false);
+                                        blurTimeoutRef.current = null;
+                                    }, 150);
+                                }}
+                                onChange={(e: ChangeEvent<HTMLInputElement>) => handleFilterChange(e.target.value)}
+                                placeholder="Filter by title, category, or impact"
+                                
+                                fullWidth
+                                InputProps={{
+                                        startAdornment: (
+                                                <InputAdornment position="start">
+                                                        <SearchIcon className='w-4 h-4' />
+                                                </InputAdornment>
+                                        ),
+                                        endAdornment: showClear ? (
+                                            <InputAdornment position="end">
+                                                <IconButton
+                                                    size="small"
+                                                    aria-label="Clear filter"
+                                                    onMouseDown={(e) => e.preventDefault()} // prevent input blur
+                                                    onClick={() => {
+                                                        handleFilterChange('');
+                                                        // return focus to input
+                                                        filterInputRef.current?.focus();
+                                                    }}
+                                                    onFocus={() => { if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current); setClearButtonFocused(true); }}
+                                                    onBlur={() => { blurTimeoutRef.current = window.setTimeout(() => setClearButtonFocused(false), 150); }}
+                                                >
+                                                    <CloseButton className="w-4 h-4" />
+                                                </IconButton>
+                                            </InputAdornment>
+                                        ) : null,
+                                }}
+                            />
+                        )}
+                        
+                        {/* Edit Accomplishment Modal (reuses AccomplishmentEditor) */}
+                        {isEditAccomplishmentModalOpen && selectedAccomplishment && (
+                            <div
+                                className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50"
+                                role="presentation"
+                                onMouseDown={(e) => {
+                                    // close when clicking the backdrop (only trigger when clicking the overlay itself)
+                                    if (e.target === e.currentTarget) {
+                                        setSelectedAccomplishment(null);
+                                        setIsEditAccomplishmentModalOpen(false);
+                                    }
+                                }}
+                            >
+                                <div className={`${modalClasses}`}>
+                                    <h3 className="text-lg font-medium text-gray-90 mb-4">Edit Accomplishment</h3>
+                                    <AccomplishmentEditor
+                                        accomplishment={selectedAccomplishment}
+                                        onSave={async (updatedDescription?: string, updatedTitle?: string, updatedImpact?: string) => {
+                                            if (!selectedAccomplishment) return;
+                                            await saveEditedAccomplishment(selectedAccomplishment.id, { title: updatedTitle, description: updatedDescription, impact: updatedImpact }, (selectedGoal as any)?.id);
+                                        }}
+                                        onRequestClose={() => { setSelectedAccomplishment(null); setIsEditAccomplishmentModalOpen(false); }}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                        {viewMode !== 'kanban' && (
+                        <>
+                            <Tooltip title={`Sort: ${sortBy.charAt(0).toUpperCase() + sortBy.slice(1)} (${sortDirection === 'asc' ? 'ascending' : 'descending'})`} placement="top" arrow>
+                                <span className="flex items-center space-x-2">
+                                    <IconButton
+                                        onClick={(e) => setSortAnchorEl(e.currentTarget)}
+                                        className="btn-ghost px-3 py-2"
+                                        aria-label={`Sort: ${sortBy} ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
+                                        aria-controls={sortAnchorEl ? 'sort-menu' : undefined}
+                                        aria-haspopup="true"
+                                        aria-expanded={sortAnchorEl ? 'true' : undefined}
+                                    >
+                                        {/* Visible sort label to indicate active sort field and direction */}
+                                        <span className="hidden sm:flex items-center space-x-3 text-gray-70 dark:text-gray-30">
+                                            {sortBy === 'date' && ( 
+                                                <span role="img" aria-label="Sort by date" title="Sort by date" className='text-brand-60 dark:text-brand-20'>
+                                                <CalendarIcon className="w-4 h-4" />
+                                            </span>
+                                            )}
+                                            {sortBy === 'status' && ( 
+                                                <span role="img" aria-label="Sort by status" title="Sort by status" className='text-brand-60 dark:text-brand-20'>
+                                                <Check className="w-4 h-4" />
+                                            </span>
+                                            )}
+                                            {sortBy === 'category' && ( 
+                                                <span role="img" aria-label="Sort by category" title="Sort by category" className='text-brand-60 dark:text-brand-20'>
+                                                <TagIcon className="w-4 h-4" />
+                                            </span>
+                                            )}
+                                        </span>
+                                        {sortDirection === 'desc' ? <ArrowDown className='w-5 h-5' /> : <ArrowUp className='w-5 h-5' />}
+                                    </IconButton>
+                                </span>
+                            </Tooltip>
+                            <Menu
+                                id="sort-menu"
+                                anchorEl={sortAnchorEl}
+                                open={Boolean(sortAnchorEl)}
+                                onClose={() => setSortAnchorEl(null)}
+                                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                                MenuListProps={{ 'aria-labelledby': 'sort-button' }}
+                            >
+                                <MenuItem
+                                    selected={sortBy === 'date' && sortDirection === 'asc'}
+                                    onClick={() => { setSortBy('date'); setSortDirection('asc'); setSortAnchorEl(null); }}
+                                >
+                                    <CalendarIcon className="w-4 h-4" /><ArrowUp className="w-4 h-4 mr-8" /> Date Ascending 
+                                </MenuItem>
+                                <MenuItem
+                                    selected={sortBy === 'date' && sortDirection === 'desc'}
+                                    onClick={() => { setSortBy('date'); setSortDirection('desc'); setSortAnchorEl(null); }}
+                                >
+                                    <CalendarIcon className="w-4 h-4" /><ArrowDown className="w-4 h-4 mr-8" /> Date Descending 
+                                </MenuItem>
+                                <MenuItem
+                                    selected={sortBy === 'category' && sortDirection === 'asc'}
+                                    onClick={() => { setSortBy('category'); setSortDirection('asc'); setSortAnchorEl(null); }}
+                                >
+                                    <TagIcon className="w-4 h-4" /><ArrowUp className="w-4 h-4 mr-8" /> Category Ascending 
+                                </MenuItem>
+                                <MenuItem
+                                    selected={sortBy === 'category' && sortDirection === 'desc'}
+                                    onClick={() => { setSortBy('category'); setSortDirection('desc'); setSortAnchorEl(null); }}
+                                >
+                                    <TagIcon className="w-4 h-4" /><ArrowDown className="w-4 h-4 mr-8" /> Category Descending 
+                                </MenuItem>
+                                <MenuItem
+                                
+                                    selected={sortBy === 'status' && sortDirection === 'asc'}
+                                    onClick={() => { setSortBy('status'); setSortDirection('asc'); setSortAnchorEl(null); }}
+                                >
+                                    <Check className="w-4 h-4" /><ArrowUp className="w-4 h-4 mr-8" /> Status Ascending 
+                                </MenuItem>
+                                <MenuItem
+                                    selected={sortBy === 'status' && sortDirection === 'desc'}
+                                    onClick={() => { setSortBy('status'); setSortDirection('desc'); setSortAnchorEl(null); }}
+                                >
+                                    <Check className="w-4 h-4" /><ArrowDown className="w-4 h-4 mr-8" /> Status Descending 
+                                </MenuItem>
+                            </Menu>
+                            
+                        </>
+                    )}                  
 
-                </div> 
+                        {/* Add Goal Button */}
+                        <Tooltip title={`Add a new goal`} placement="top" arrow>
+                            <button
+                                onClick={openGoalModal}
+                                className="btn-primary gap-2 flex ml-auto sm:mt-0 md:pr-2 sm:pr-2 xs:pr-0"
+                                // title={`Add a new goal for the current ${scope}`}
+                                aria-label={`Add a new goal for the current ${scope}`}
+                                >
+                                <PlusIcon className="w-5 h-5" />
+                                {/* <span className="block flex text-nowrap">Add Goal</span> */}
+                            </button>
+                        </Tooltip>
+                        <div id="summary_btn">
+                            <SummaryGenerator 
+                            summaryId={selectedSummary?.id || ''} 
+                            summaryTitle={selectedSummary?.title || `Summary for ${scope}: ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}                                                                                                                                                                                selectedRange={new Date()}
+                            filteredGoals={showAllGoals ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || [])} // Pass the goals for the current page or full list
+                            scope={scope}
+                            />
+                        </div>
+                    
+                </div>
+            </div> 
+
+                
 
                 {/* Goals List - render by viewMode */}
                 {viewMode === 'cards' && (
-                    <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 3xl:grid-cols-5 gap-4 w-full'>
-                        {sortedAndFilteredGoals.map((goal) => (
-                        <GoalCard
-                            key={goal.id}
-                            goal={goal}
-                            showAllGoals={showAllGoals}
-                            handleDelete={(goalId) => handleDeleteGoal(goalId)}
-                            handleEdit={(goalId) => {
-                                const goalSourceForEdit = showAllGoals ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || []);
-                                const goalToEdit = goalSourceForEdit.find((g) => g.id === goalId);
-                                if (goalToEdit) {
-                                    setSelectedGoal(goalToEdit);
-                                    setIsEditorOpen(true);
-                                }
-                            }}
-                            filter={filter}
-                        />
-                        ))}
-                    </div>
+                        <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 3xl:grid-cols-5 gap-4 w-full'>
+                            {sortedAndFilteredGoals.map((goal) => (
+                            <GoalCard
+                                key={goal.id}
+                                goal={goal}
+                                showAllGoals={showAllGoals}
+                                handleDelete={(goalId) => handleDeleteGoal(goalId)}
+                                handleEdit={(goalId) => {
+                                    const goalSourceForEdit = showAllGoals ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || []);
+                                    const goalToEdit = goalSourceForEdit.find((g) => g.id === goalId);
+                                    if (goalToEdit) {
+                                        setSelectedGoal(goalToEdit);
+                                        setIsEditorOpen(true);
+                                    }
+                                }}
+                                filter={filter}
+                                selectable={true}
+                                isSelected={selectedIds.has(goal.id)}
+                                onToggleSelect={toggleSelect}
+                            />
+                            ))}
+                        </div>
                 )}
 
                 {viewMode === 'table' && (
                     isSmall ? (
                         setViewMode('cards'), <div></div>
                     ) : (
-                        <Paper elevation={0} className="w-full">
-                            <Table>
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell onClick={() => toggleSort('title')} style={{ cursor: 'pointer' }}>
-                                            <span className="flex items-center">
-                                                Goal
-                                                {sortBy === 'title' && (sortDirection === 'asc' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />)}
+                        // <Paper elevation={6} className="w-full shadow-none">
+                        <TableContainer component={Paper} elevation={0}>
+                            <Table aria-label="Goals Table">
+                                <TableHead className='border-none'>
+                                    <TableRow className='bg-gray-10 dark:bg-gray-90 border-none'>
+                                        <TableCell colSpan={selectedCount > 0 ?  5 : 1} className="px-4 py-2"   >
+                                            <div className="flex items-center space-x-4">
+                                            <div className={`floating-bulk${selectedCount > 0 ? '-toolbar flex-row align-start justify-start items-start sm:flex-row' : ''}`} role="toolbar" aria-label="Bulk actions">
+                                                <Tooltip title={selectedCount === visibleIdsArray.length ? 'Deselect all' : 'Select all'} placement="top" arrow>
+                                                        <Badge badgeContent={selectedCount} color="primary">
+                                                        <span className="sr-only">{selectedCount} selected</span>
+                                                        <button
+                                                            className={`btn-ghost fb-btn ${selectedCount > 0 ? 'dark:[&>.lucide]:stroke-brand-30 [&>.lucide]:stroke-brand-70' : ''}`}
+                                                            onClick={() => { if (selectedCount === visibleIdsArray.length) deselectAll(); else selectAllVisible(); }}
+                                                            aria-label={selectedCount === visibleIdsArray.length ? 'Deselect all' : 'Select all'}
+                                                        >
+                                                            {selectedCount === visibleIdsArray.length ? <SquareSlash /> : <CheckSquare2 />}
+                                                        </button>
+                                                    </Badge>
+                                                </Tooltip>
+                                                
+                                                {selectedCount > 0 && (
+                                                    <div className="flex flex-col items-start justify-start sm:flex-row ">
+                                                        <button className="btn-ghost fb-btn" onClick={() => setIsBulkDeleteConfirmOpen(true)} disabled={bulkActionLoading} title="Delete selected" aria-label="Delete selected">Delete</button>
+                                                        <button
+                                                            className="btn-ghost fb-btn"
+                                                            onClick={(e) => {
+                                                                const el = e.currentTarget as HTMLElement;
+                                                                if (!document.body.contains(el)) {
+                                                                    setBulkStatusAnchorPos({ top: e.clientY, left: e.clientX });
+                                                                    setBulkStatusAnchorEl(null);
+                                                                } else {
+                                                                    setBulkStatusAnchorEl(el);
+                                                                    setBulkStatusAnchorPos(null);
+                                                                }
+                                                            }}
+                                                            disabled={bulkActionLoading}
+                                                            title="Set status"
+                                                            aria-label="Set status"
+                                                            ref={bulkStatusTriggerRef}
+                                                        >
+                                                            Status
+                                                        </button>
+                                                        <button
+                                                            className="btn-ghost fb-btn"
+                                                            onClick={(e) => {
+                                                                const el = e.currentTarget as HTMLElement;
+                                                                if (!document.body.contains(el)) {
+                                                                    setBulkCategoryAnchorPos({ top: e.clientY, left: e.clientX });
+                                                                    setBulkCategoryAnchorEl(null);
+                                                                } else {
+                                                                    setBulkCategoryAnchorEl(el);
+                                                                    setBulkCategoryAnchorPos(null);
+                                                                }
+                                                            }}
+                                                            disabled={bulkActionLoading}
+                                                            title="Set category"
+                                                            aria-label="Set category"
+                                                            ref={bulkCategoryTriggerRef}
+                                                        >
+                                                            Category
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {selectedCount === 0 && (
+                                                <span className='flex items-center' onClick={() => toggleSort('title')} style={{ cursor: 'pointer' }}>
+                                                    Goal
+                                                    {sortBy === 'title' && (sortDirection === 'asc' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />)}
+                                                </span>
+                                            )}
+                                            </div>
+                                            {/* Bulk status menu */}
+                                            <span>
+                                                <Menu
+                                                    id="bulk-status-menu"
+                                                    anchorEl={bulkStatusAnchorEl}
+                                                    open={Boolean(bulkStatusAnchorEl) || Boolean(bulkStatusAnchorPos)}
+                                                    onClose={handleCloseBulkStatus}
+                                                    anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                                                    anchorReference={bulkStatusAnchorPos ? 'anchorPosition' : 'anchorEl'}
+                                                    anchorPosition={bulkStatusAnchorPos ? { top: Math.round(bulkStatusAnchorPos.top), left: Math.round(bulkStatusAnchorPos.left) } : undefined}
+                                                    PaperProps={{ sx: { bgcolor: theme.palette.mode === 'dark' ? 'grey.90' : 'grey.10', p: 1 } }}
+                                                >
+                                                    {statusOptions.map((s) => (
+                                                        <MenuItem
+                                                            key={s}
+                                                            onClick={() => applyBulkStatus(s)}
+                                                            // disabled={isUpdatingStatus}
+                                                            className='text-xs'
+                                                            // selected={s === localStatus}
+
+                                                        >
+                                                            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 6, background: STATUS_COLORS[s], marginRight: 8 }} />
+                                                            {s}
+                                                        </MenuItem>
+                                                    ))}
+                                                </Menu>
+                                                    </span>
+                                                {/* Bulk category menu */}
+                                                <span>
+                                                <Menu
+                                                    id="bulk-category-menu"
+                                                    anchorEl={bulkCategoryAnchorEl}
+                                                    open={Boolean(bulkCategoryAnchorEl) || Boolean(bulkCategoryAnchorPos)}
+                                                    onClose={handleCloseBulkCategory}
+                                                    anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                                                    anchorReference={bulkCategoryAnchorPos ? 'anchorPosition' : 'anchorEl'}
+                                                    anchorPosition={bulkCategoryAnchorPos ? { top: Math.round(bulkCategoryAnchorPos.top), left: Math.round(bulkCategoryAnchorPos.left) } : undefined}
+                                                    PaperProps={{ sx: { bgcolor: theme.palette.mode === 'dark' ? 'grey.90' : 'grey.100', p: 1, height: '500px', } }}
+                                                >
+                                                    {categoryOptions.map((c) => (
+                                                        c === categoryOptions[0] ? (
+                                                            <span key={`wrap-${c}`}>
+                                                                {/* Render the search input as a non-menu element so typing doesn't trigger
+                                                                    the menu's type-to-select behavior. We also stop keydown propagation
+                                                                    from the input and prevent blur when clicking the Add button so the
+                                                                    onClick reliably fires. */}
+                                                                <div key="bulk-category-search" role="presentation">
+                                                                    <div style={{ width: 260, padding: '4px 0' }}>
+                                                                        <TextField
+                                                                            id="bulk-category-search"
+                                                                            size="small"
+                                                                            placeholder="Filter or add category"
+                                                                            sx={{ position: 'sticky', top: 0, bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100', zIndex: 1 }}
+                                                                            fullWidth
+                                                                            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                                                                                const q = (e.target.value || '').toLowerCase();
+                                                                                // Filter visible MenuItem entries in this menu by role="menuitem"
+                                                                                const items = document.querySelectorAll('#bulk-category-menu [role="menuitem"]');
+                                                                                items.forEach((it) => {
+                                                                                    const txt = (it.textContent || '').toLowerCase();
+                                                                                    (it as HTMLElement).style.display = q && txt.indexOf(q) === -1 ? 'none' : '';
+                                                                                });
+                                                                            }}
+                                                                            onKeyDown={(e) => {
+                                                                                // Stop the Menu/List from handling type-to-select while typing in the input
+                                                                                e.stopPropagation();
+                                                                            }}
+                                                                            InputProps={{
+                                                                                endAdornment: (
+                                                                                    <InputAdornment position="end">
+                                                                                        <Tooltip title="Add category" placement="top" arrow>
+                                                                                        <IconButton
+                                                                                            size="small"
+                                                                                            aria-label="Add category"
+                                                                                            onMouseDown={(e) => e.preventDefault()}
+                                                                                            onClick={async () => {
+                                                                                                    const el = document.getElementById('bulk-category-search') as HTMLInputElement | null;
+                                                                                                    const val = el?.value?.trim();
+                                                                                                    if (!val) return;
+                                                                                                    try {
+                                                                                                        // Try to add the category. On success, apply it to selected goals.
+                                                                                                        await addCategory(val);
+                                                                                                        await applyBulkCategory(val);
+                                                                                                    } catch (err: any) {
+                                                                                                        // If the category already exists, still apply it.
+                                                                                                        const msg = (err && err.message) || '';
+                                                                                                        if (msg.toLowerCase().includes('category already exists') || msg.toLowerCase().includes('duplicate')) {
+                                                                                                            try {
+                                                                                                                await applyBulkCategory(val);
+                                                                                                            } catch (innerErr) {
+                                                                                                                console.error('Failed to apply existing category', innerErr);
+                                                                                                                notifyError('Failed to apply category');
+                                                                                                            }
+                                                                                                        } else {
+                                                                                                            console.error('Failed to add category', err);
+                                                                                                            notifyError('Failed to add category');
+                                                                                                        }
+                                                                                                    }
+                                                                                                }}
+                                                                                            type="button"
+                                                                                        >
+                                                                                            <PlusIcon className="w-4 h-4" />
+                                                                                        </IconButton>
+                                                                                        </Tooltip>
+                                                                                    </InputAdornment>
+                                                                                ),
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                <MenuItem
+                                                                    key={c}
+                                                                    onClick={() => applyBulkCategory(c)}
+                                                                >
+                                                                    {c}
+                                                                </MenuItem>
+                                                            </span>
+                                                        ) : (
+                                                            <MenuItem
+                                                                key={c}
+                                                                onClick={() => applyBulkCategory(c)}
+                                                            >
+                                                                {c}
+                                                            </MenuItem>
+                                                        )
+                                                    ))}
+                                                </Menu>
+                                                
                                             </span>
                                         </TableCell>
-                                        <TableCell onClick={() => toggleSort('category')} style={{ cursor: 'pointer' }}>
-                                            <span className="flex items-center">
-                                                Category
-                                                {sortBy === 'category' && (sortDirection === 'asc' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />)}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell onClick={() => toggleSort('status')} style={{ cursor: 'pointer' }}>
-                                            <span className="flex items-center">
-                                                Status
-                                                {sortBy === 'status' && (sortDirection === 'asc' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />)}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell onClick={() => toggleSort('date')} style={{ cursor: 'pointer' }}>
-                                            <span className="flex items-center">
-                                                Week
-                                                {sortBy === 'date' && (sortDirection === 'asc' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />)}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell>Actions</TableCell>
+                                        {selectedCount === 0 && (
+                                            <>
+                                            {/* <TableCell onClick={() => toggleSort('title')} style={{ cursor: 'pointer' }}>
+                                                <span className="flex items-center">
+                                                    Goal
+                                                    {sortBy === 'title' && (sortDirection === 'asc' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />)}
+                                                </span>
+                                            </TableCell> */}
+                                            <TableCell onClick={() => toggleSort('category')} style={{ cursor: 'pointer' }}>
+                                                <span className="flex items-center">
+                                                    Category
+                                                    {sortBy === 'category' && (sortDirection === 'asc' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />)}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell onClick={() => toggleSort('status')} style={{ cursor: 'pointer' }}>
+                                                <span className="flex items-center">
+                                                    Status
+                                                    {sortBy === 'status' && (sortDirection === 'asc' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />)}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell onClick={() => toggleSort('date')} style={{ cursor: 'pointer' }}>
+                                                <span className="flex items-center">
+                                                    Week
+                                                    {sortBy === 'date' && (sortDirection === 'asc' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />)}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell>Actions</TableCell>
+                                            </>
+                                        )}
                                     </TableRow>
                                 </TableHead>
-                                <TableBody>
+                                <TableBody component={Paper} elevation={6}>
+                                    {/* <TableRow sx={{ maxHeight: '1px', display: 'block' }} className='h-[1px] p-0 m-0 block overflow-hidden'>
+                                        <TableCell className='w-full' />
+                                        <TableCell className='w-auto' />
+                                        <TableCell className='w-auto' />
+                                        <TableCell className='w-auto' />
+                                        <TableCell className='w-auto' />
+                                    </TableRow> */}
                                     {sortedAndFilteredGoals.map((goal) => (
-                                        <TableRow key={goal.id}>
+                                        <TableRow 
+                                            key={goal.id}
+                                            hover
+                                            // onClick={() => toggleSelect(goal.id)}
+                                            onClick={(e) => {
+                                                // If the click originated from an interactive element (button, input, link, select, textarea,
+                                                // or any element with role="button"), don't treat it as a card-select click. This prevents
+                                                // clicks on internal controls (icons, buttons, menus) from toggling selection.
+                                                const target = e.target as HTMLElement | null;
+                                                if (target && typeof target.closest === 'function') {
+                                                const interactive = target.closest('button, a, input, select, textarea, [role="button"]');
+                                                if (interactive) return;
+                                                }
+                                                toggleSelect(goal.id);
+                                            }}
+                                            role="checkbox"
+                                            aria-checked={selectedIds.has(goal.id)}
+                                            tabIndex={-1}
+                                            selected={selectedIds.has(goal.id)}
+                                            // inputProps={{ 'aria-label': `Select goal ${goal.title}` }}
+                                            sx={{ cursor: 'pointer' }}
+                                        >
+                                            {/* <TableCell>
+                                                <Checkbox size="small" checked={selectedIds.has(goal.id)} inputProps={{ 'aria-label': `Select goal ${goal.title}` }} />
+                                            </TableCell> */}
                                             <TableCell>
                                                 <Typography variant="body1"><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></Typography>
-                                                <Typography variant="body2" className="text-gray-500">
+                                                <Typography variant="body2" className="text-gray-50">
                                                     <span dangerouslySetInnerHTML={renderHTML(((goal.description || '').substring(0, 100) + ((goal.description || '').length > 200 ? '...' : '')))} />
                                                 </Typography>
                                             </TableCell>
@@ -1935,9 +2518,36 @@ const GoalsComponent = () => {
                                     ))}
                                 </TableBody>
                             </Table>
-                        </Paper>
+                        </TableContainer>
                     )
                 )}
+                <ConfirmModal
+                    isOpen={isBulkDeleteConfirmOpen}
+                    title={`Delete ${selectedCount} goals?`}
+                    message={`Are you sure you want to permanently delete ${selectedCount} selected goals? This action cannot be undone.`}
+                    onCancel={() => setIsBulkDeleteConfirmOpen(false)}
+                    onConfirm={async () => {
+                        setBulkActionLoading(true);
+                        try {
+                            const ids = Array.from(selectedIds);
+                            for (const id of ids) {
+                                await deleteGoal(id);
+                            }
+                            notifySuccess('Selected goals deleted');
+                        } catch (err) {
+                            console.error('Bulk delete failed', err);
+                            notifyError('Failed to delete some goals');
+                        } finally {
+                            setBulkActionLoading(false);
+                            setIsBulkDeleteConfirmOpen(false);
+                            clearSelection();
+                            await refreshGoals();
+                        }
+                    }}
+                    confirmLabel="Delete"
+                    cancelLabel="Cancel"
+                    loading={bulkActionLoading}
+                />
                             {viewMode === 'kanban' && (
                                 <div className="flex flex-col mt-2 md:flex-row gap-4 w-full overflow-auto">
                                     {isScopeLoading ? (
@@ -2055,6 +2665,9 @@ const GoalsComponent = () => {
                                                                 }}
                                                                 filter={filter}
                                                                 draggable
+                                                                selectable={true}
+                                                                isSelected={selectedIds.has(goal.id)}
+                                                                onToggleSelect={toggleSelect}
                                                                 onDragStart={(e) => handleDragStart(e, id)}
                                                             />
                                                                 

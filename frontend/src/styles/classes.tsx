@@ -1,4 +1,4 @@
-export const cardClasses = `bg-gray-0 dark:bg-gray-80 shadow-sm rounded-lg p-4 flex flex-col h-full w-full`;
+export const cardClasses = `shadow-sm rounded-lg p-4 flex flex-col h-full w-full`;
 export const summaryClasses = `bg-transparent w-full sm:max-h-[100vh]`;
 export const modalClasses = `bg-gray-10 dark:bg-gray-90 shadow-lg rounded-lg shadow-lg p-6 w-full md:w-2/3 lg:w-3/4 max-h-[80vh] overflow-y-auto`;
 // Use Tailwind's color/opacity slash syntax for reliable overlay opacity

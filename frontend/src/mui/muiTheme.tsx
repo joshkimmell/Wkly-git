@@ -141,10 +141,11 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
   const brand40 = runtimePalette[40];
   const brand30 = runtimePalette[30];
   const brand20 = runtimePalette[20];
+  const brand10 = runtimePalette[10];
   // Primary/ghost derived from palette
-  let primary = brand60;
-  const ghost = brand60;
-  const backgroundRaw = readCssVar(['--background-color', '--color-background-color', '--background-color'], '#ededed', preferBody);
+  let primary = brand50;
+  const ghost = brand50;
+  const backgroundRaw = readCssVar(['--background-color', '--color-background-color', '--background-color'], '', preferBody);
   const textPrimaryRaw = readCssVar(['--primary-text', '--color-text-primary', '--primary-text-color'], '', preferBody);
 
   // Use the explicit `mode` prop as the authoritative signal. The app's
@@ -170,11 +171,12 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
 
   // explicit sensible  fallbacks so MUI always has correct colors
   const background = backgroundRaw;
-  const paper = readCssVar(['--background-color', '--color-background-color'], isDark ? '#282828' : '#ededed', preferBody);
+  const paper = readCssVar(['--background-color', '--color-background-color'], isDark ? 'var(--gray-90)' : 'var(--gray-20)', preferBody);
   const textPrimary = textPrimaryRaw || (isDark ? '#E6E6E6' : '#111827');
   const textSecondary = readCssVar(['--secondary-text', '--color-text-secondary'], isDark ? '#B3B3B3' : '#4D4D4D', preferBody);
   const textPlaceholder = readCssVar(['--placeholder-text', '--color-text-placeholder'], isDark ? '#7A7A7A' : '#A0A0A0', preferBody);
   const linkPrimary = readCssVar(['--link-text', '--color-link-text'], isDark ? brand30 : brand60, preferBody);
+  const iconPrimary = readCssVar(['--link-text', '--color-link-text'], isDark ? brand30 : brand60, preferBody);
   const textOnColor = readCssVar(['--on-color-text', '--color-on-color-text'],  '#FFFFFF', preferBody);
   const divider = readCssVar(['--primary-border', '--color-border-primary'], isDark ? brand70 : brand30 , preferBody);
   // const input = readCssVar(['--brand-60', '--color-brand-60'], isDark ? '#FFFFFF' : '#383838', preferBody);
@@ -189,8 +191,9 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
   const modeTokens = {
     light: {
       primary: readCssVar(['--brand-60', '--primary-brand-60'], PALETTES.purple[60], preferBody),
-      background: readCssVar(['--gray-10', '--background-color', '--color-background-color'], '#ededed', preferBody),
-      paper: readCssVar(['--gray-0', '--background-paper'], '#F4F4F4', preferBody),
+      iconPrimary: readCssVar(['--brand-70', '--primary-brand-70'], PALETTES.purple[70], preferBody),
+      background: readCssVar(['--gray-10', '--background-color', '--color-background-color'], PALETTES.gray[10], preferBody),
+      paper: readCssVar(['--gray-0', '--background-paper'], PALETTES.gray[20], preferBody),
       textPrimary: readCssVar(['--primary-text', '--color-text-primary'], '#111827', preferBody),
       textSecondary: readCssVar(['--secondary-text', '--color-text-secondary'], '#4D4D4D', preferBody),
       divider: readCssVar(['--primary-border', '--color-border-primary'], brand30, preferBody),
@@ -198,8 +201,9 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
     },
     dark: {
       primary: readCssVar(['--brand-30', '--primary-brand-30'], PALETTES.purple[30], preferBody),
-      background: readCssVar(['--gray-100', '--background-color'], '#181818', preferBody),
-      paper: readCssVar(['--gray-90', '--background-paper'], '#282828', preferBody),
+      iconPrimary: readCssVar(['--brand-30', '--primary-brand-30'], PALETTES.purple[30], preferBody),
+      background: readCssVar(['--gray-100', '--background-color'], PALETTES.gray[30], preferBody),
+      paper: readCssVar(['--gray-90', '--background-paper'], PALETTES.gray[90], preferBody),
       textPrimary: readCssVar(['--primary-text', '--color-text-primary'], '#E6E6E6', preferBody),
       textSecondary: readCssVar(['--secondary-text', '--color-text-secondary'], '#B3B3B3', preferBody),
       divider: readCssVar(['--primary-border', '--color-border-primary'], '#e5e7eb', preferBody),
@@ -216,7 +220,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
   const success = PALETTES.green ? PALETTES.green[60] : '#22c55e';
   const primaryBorder = brand20 || divider;
   // const tertiaryButton = brand30;
-  const primaryIcon = brand70;
+  const primaryIcon = iconPrimary;
   const inverseIcon = brand100;
   const appbar = brand90;
   const badge = primary;
@@ -340,6 +344,21 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
           badge: {
             backgroundColor: badge || success,
             color: textPrimary,
+          },
+        },
+      },
+      MuiCheckbox: {
+        styleOverrides: {
+          root: {
+            // icon: {
+              color: primary,
+              '&.Mui-checked': {
+                color: linkPrimary,
+              },
+              '&:hover': {
+                backgroundColor: actionHover ? `${actionHover}22` : undefined,
+              },
+            // },
           },
         },
       },
@@ -597,19 +616,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
           },
           track: {
             backgroundColor: primary,
-          },
-          // thumb: {
-          //   // '& .Mui-checked': {
-          //   //   backgroundColor: linkPrimary,
-          //   //   filter: 'brightness(60%)',
-          //   // },
-          //   // checked: {
-          //   //   backgroundColor: linkPrimary,
-          //   // },
-          //   // width: 16,
-          //   // height: 16,
-          //   // boxShadow: 'none',
-          // },  
+          },  
         },
       },
     },
