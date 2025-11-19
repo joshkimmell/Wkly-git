@@ -44,6 +44,12 @@ describe('addCategory duplicate handling', () => {
         return originalFetch ? originalFetch(input) : { ok: true, status: 200, json: async () => ({}), text: async () => '{}' };
     });
 
+    // Ensure UserCategories has at least one entry so the menu renders the search input
+    const { UserCategories } = await import('@utils/functions');
+    if ((UserCategories || []).length === 0) {
+      (UserCategories as any).push({ id: 'cat-test', name: 'Default' });
+    }
+
     renderWithProviders(<AllGoals />);
 
   // Select the goal by clicking its card title so the floating toolbar appears
@@ -51,12 +57,13 @@ describe('addCategory duplicate handling', () => {
   const titleEl = titleEls.find((el) => el.className && (el.className as string).includes('card-title')) || titleEls[0];
   fireEvent.click(titleEl);
 
-  // Open the bulk category menu using the aria-label on the toolbar button
-  const setCategoryBtn = await screen.findByLabelText(/Set category/i);
+  // Open the bulk category menu using the test id on the floating toolbar button
+  const setCategoryBtn = await screen.findByTestId('bulk-set-category-btn');
   fireEvent.click(setCategoryBtn, { clientX: 100, clientY: 100 });
 
-    // Find the search input by placeholder text now that the menu is open
-    const input = await screen.findByPlaceholderText(/Filter or add category/i);
+    // Find the search input by id now that the menu is open (MUI mounts menus in a portal)
+    const input = (await waitFor(() => document.getElementById('bulk-category-search'))) as HTMLInputElement | null;
+    if (!input) throw new Error('Bulk category search input not found');
     // type a category name
     fireEvent.change(input, { target: { value: 'Existing Category' } });
 

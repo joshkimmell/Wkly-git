@@ -126,8 +126,10 @@ export default function useGoalExtras() {
       const { error } = await supabase.from('accomplishments').delete().eq('id', id);
       if (error) throw error;
       if (goalId) {
-        await fetchAccomplishments(goalId);
-        // decrement count (update state and cache only if changed)
+        // Use centralized refresh helper to keep behavior consistent
+        await refreshAccomplishmentsAndCount(goalId);
+        // decrement count (update cache/state only if changed) -- helpers already attempt to set accurate count,
+        // but keep this conservative decrement to preserve optimistic UX in case the server removes immediately
         setAccomplishmentCountMap((s) => {
           const prev = s[goalId] ?? 0;
           const next = Math.max(0, prev - 1);
@@ -159,8 +161,9 @@ export default function useGoalExtras() {
         user_id: user.id,
       }).select();
       if (error) throw error;
-      await fetchAccomplishments(goalId);
-      // bump count (update state and cache only if changed)
+      // Refresh list and counts via centralized helper
+      await refreshAccomplishmentsAndCount(goalId);
+      // bump count optimistically
       setAccomplishmentCountMap((s) => {
         const next = (s[goalId] ?? 0) + 1;
         accomplishmentsCountCacheRef.current[goalId] = { count: next, expiresAt: Date.now() + ACCOMPLISHMENT_COUNT_TTL_MS };
@@ -245,6 +248,21 @@ export default function useGoalExtras() {
     }
   }, [fetchNotes, fetchNotesCount]);
 
+  // Helper: refresh notes list and count for a goal (centralized to avoid duplication)
+  const refreshNotesAndCount = useCallback(async (goalId?: string) => {
+    if (!goalId) return;
+    try {
+      await fetchNotes(goalId);
+    } catch (e) {
+      // ignore individual failure; still attempt count
+    }
+    try {
+      await fetchNotesCount(goalId);
+    } catch (e) {
+      // ignore
+    }
+  }, [fetchNotes, fetchNotesCount]);
+
   const closeNotes = useCallback(() => {
     setIsNotesModalOpen(false);
     setNotes([]);
@@ -265,11 +283,8 @@ export default function useGoalExtras() {
       if (!userId) throw new Error('Not authenticated');
       const res = await fetch('/api/createNote', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userId}` }, body: JSON.stringify({ goal_id: goalId, content: tempNote.content }) });
       if (!res.ok) throw new Error(await res.text());
-      await fetchNotes(goalId);
-      await fetchNotesCount(goalId);
-      // ensure the map is updated
-      const fetched = await fetchNotesCount(goalId);
-      if (goalId && typeof fetched === 'number') setNotesCountMap((s) => ({ ...s, [goalId]: fetched }));
+      // Use centralized helper to refresh notes and count
+      await refreshNotesAndCount(goalId);
     } catch (err) {
       console.error('useGoalExtras.createNote error', err);
       setNotes((s) => s.filter((n) => n.id !== tempId));
@@ -284,11 +299,7 @@ export default function useGoalExtras() {
       if (!userId) throw new Error('Not authenticated');
       const res = await fetch('/api/updateNote', { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userId}` }, body: JSON.stringify({ id: noteId, content }) });
       if (!res.ok) throw new Error(await res.text());
-      if (goalId) await fetchNotes(goalId);
-      if (goalId) {
-        const c = await fetchNotesCount(goalId);
-        if (typeof c === 'number') setNotesCountMap((s) => ({ ...s, [goalId]: c }));
-      }
+      if (goalId) await refreshNotesAndCount(goalId);
     } catch (err) {
       console.error('useGoalExtras.updateNote error', err);
     }
@@ -301,17 +312,47 @@ export default function useGoalExtras() {
       if (!userId) throw new Error('Not authenticated');
       const res = await fetch(`/api/deleteNote?note_id=${noteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${userId}` } });
       if (!res.ok) throw new Error(await res.text());
-      if (goalId) await fetchNotes(goalId);
-      if (goalId) {
-        const c = await fetchNotesCount(goalId);
-        if (typeof c === 'number') setNotesCountMap((s) => ({ ...s, [goalId]: c }));
-      }
+      if (goalId) await refreshNotesAndCount(goalId);
     } catch (err) {
       console.error('useGoalExtras.deleteNote error', err);
     } finally {
       setIsNotesLoading(false);
     }
   }, [getCachedUserId, fetchNotes, fetchNotesCount]);
+
+  const bumpNotesCount = useCallback((goalId?: string) => {
+    if (!goalId) return;
+    setNotesCountMap((s) => {
+      const next = (s[goalId] ?? 0) + 1;
+      notesCountCacheRef.current[goalId] = { count: next, expiresAt: Date.now() + NOTES_COUNT_TTL_MS };
+      return s[goalId] === next ? s : { ...s, [goalId]: next };
+    });
+  }, []);
+
+  const decrementNotesCount = useCallback((goalId?: string) => {
+    if (!goalId) return;
+    setNotesCountMap((s) => {
+      const prev = s[goalId] ?? 0;
+      const next = Math.max(0, prev - 1);
+      notesCountCacheRef.current[goalId] = { count: next, expiresAt: Date.now() + NOTES_COUNT_TTL_MS };
+      return s[goalId] === next ? s : { ...s, [goalId]: next };
+    });
+  }, []);
+
+  // Helper: refresh accomplishments list and count for a goal
+  const refreshAccomplishmentsAndCount = useCallback(async (goalId?: string) => {
+    if (!goalId) return;
+    try {
+      await fetchAccomplishments(goalId);
+    } catch (e) {
+      // ignore
+    }
+    try {
+      await fetchAccomplishmentsCount(goalId);
+    } catch (e) {
+      // ignore
+    }
+  }, [fetchAccomplishments, fetchAccomplishmentsCount]);
 
   return {
     accomplishments,
@@ -347,5 +388,9 @@ export default function useGoalExtras() {
     updateNote,
     deleteNote,
     fetchNotesCount,
+    refreshNotesAndCount,
+    refreshAccomplishmentsAndCount,
+    bumpNotesCount,
+    decrementNotesCount,
   };
 }

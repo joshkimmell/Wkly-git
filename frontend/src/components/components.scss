@@ -263,17 +263,7 @@ svg {
     top: -2px;
 }
 
-// .Mui-checked .MuiSwitch-track .MuiSwitch-thumb {
-//     background-color: var(--brand-30, variables.$brand-30) !important;
-// }
-
-// span.MuiSwitch-root > span.MuiSwitch-switchBase > span.MuiSwitch-thumb {
-//     background-color: var(--gray-70, variables.$gray-70) !important;
-// }
-
-// span.MuiSwitch-root > span.Mui-checked span.MuiSwitch-thumb {
-//     background-color: var(--brand-30, variables.$brand-30) !important;
-// }
+ 
 
 // Theme-specific overrides. The application toggles a class on the root
 // element (`theme-light` or `theme-dark`) so we can target styles for each
@@ -306,6 +296,9 @@ svg {
         }
 
     }
+    .MuiDrawer-paper {
+        border-left: 1px solid var(--gray-70) !important;
+    }
 }
 
 .theme-light {
@@ -336,6 +329,9 @@ svg {
             background-color: var(--brand-20, variables.$brand-20) !important;
         }
 
+    }
+    .MuiDrawer-paper {
+        border-left: 1px solid var(--gray-30) !important;
     }
 }
 

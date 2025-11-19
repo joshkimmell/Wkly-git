@@ -101,7 +101,7 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
     }
   };
   // Shared counts and helpers
-  const { notesCountMap, accomplishmentCountMap, fetchNotesCount, fetchAccomplishmentsCount } = useGoalExtras();
+  const { notesCountMap, accomplishmentCountMap, fetchNotesCount, fetchAccomplishmentsCount, refreshNotesAndCount, refreshAccomplishmentsAndCount } = useGoalExtras();
 
   // Proactively prime counts for Kanban cards without waiting for user interaction.
   // Only fetch when we don't already have a cached value to avoid duplicate requests.
@@ -110,11 +110,11 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
     if (typeof goal.id === 'string' && goal.id.startsWith('temp-')) return; // skip temp ids
     // if no notes count, try to fetch it (hook will guard auth/retries)
     if (notesCountMap[goal.id] === undefined) {
-      (async () => { try { await fetchNotesCount?.(goal.id); } catch (e) { /* ignore */ } })();
+      (async () => { try { await refreshNotesAndCount(goal.id); } catch (e) { /* ignore */ } })();
     }
     // if no accomplishments count, try to fetch it
     if (accomplishmentCountMap[goal.id] === undefined) {
-      (async () => { try { await fetchAccomplishmentsCount?.(goal.id); } catch (e) { /* ignore */ } })();
+      (async () => { try { await refreshAccomplishmentsAndCount(goal.id); } catch (e) { /* ignore */ } })();
     }
   }, [goal?.id, notesCountMap, accomplishmentCountMap, fetchNotesCount, fetchAccomplishmentsCount]);
 
@@ -305,7 +305,9 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
         return;
       }
 
-      notifySuccess('Accomplishment deleted successfully.');
+  notifySuccess('Accomplishment deleted successfully.');
+  // ensure shared accomplishments count is refreshed for this goal
+  try { await fetchAccomplishmentsCount?.(goal.id); } catch (e) { /* ignore */ }
     } catch (err) {
       console.error('Unexpected error deleting accomplishment:', err);
       setAccomplishments(prior);
@@ -565,6 +567,8 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
           if (error) throw error;
           // refresh from server to replace temp with real rows
           await fetchAccomplishments();
+          // update shared accomplishments count for this goal so badges update
+          try { await fetchAccomplishmentsCount?.(goal.id); } catch (e) { /* ignore */ }
         } catch (err) {
           console.error('Error creating accomplishment:', err);
           // rollback
