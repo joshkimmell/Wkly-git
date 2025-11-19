@@ -18,8 +18,40 @@ import { cleanup } from '@testing-library/react';
 if (!(globalThis as any).fetch) {
 	(globalThis as any).fetch = vi.fn(async (input: RequestInfo | URL) => {
 		const url = typeof input === 'string' ? input : String(input);
-		// Return empty list for Supabase-like REST endpoints
-		if (url.includes('/rest/v1/') || url.includes('/supabase.co/rest/v1')) {
+
+		// Local API endpoints used by frontend helper functions
+		if (url.startsWith('http://localhost:3000/api/getAllGoals')) {
+			return {
+				ok: true,
+				status: 200,
+				json: async () => ({ goals: [] }),
+				text: async () => JSON.stringify({ goals: [] }),
+			} as unknown as Response;
+		}
+
+		// Supabase REST endpoints used by hooks (categories, accomplishments)
+		if (url.includes('supabase.co/rest/v1')) {
+			// categories -> return array of categories
+			if (url.includes('/categories')) {
+				return {
+					ok: true,
+					status: 200,
+					json: async () => ([]),
+					text: async () => JSON.stringify([]),
+				} as unknown as Response;
+			}
+
+			// accomplishments -> return empty list or counts
+			if (url.includes('/accomplishments')) {
+				return {
+					ok: true,
+					status: 200,
+					json: async () => ([]),
+					text: async () => JSON.stringify([]),
+				} as unknown as Response;
+			}
+
+			// default supabase response
 			return {
 				ok: true,
 				status: 200,
@@ -28,7 +60,7 @@ if (!(globalThis as any).fetch) {
 			} as unknown as Response;
 		}
 
-		// Default: return empty object
+		// Fallback default: return empty object
 		return {
 			ok: true,
 			status: 200,
@@ -38,20 +70,27 @@ if (!(globalThis as any).fetch) {
 	});
 }
 
-// Suppress noisy act(...) warnings and fetch AbortError messages in test output.
-// These warnings are useful during development but clutter CI/test logs; individual
-// tests should still assert correctness rather than rely on suppressed warnings.
+// Suppress only a narrow set of noisy test-time errors:
+// - React "not wrapped in act(...)" messages (still noisy in some environments)
+// - happy-dom fetch/AsyncTaskManager aborts that surface as "The operation was aborted"
+//   originating from the happy-dom internals during environment teardown.
 const originalConsoleError = console.error.bind(console);
 console.error = (...args: any[]) => {
 	try {
-		const first = args[0];
-		if (typeof first === 'string') {
-			if (first.includes('not wrapped in act(') || first.includes('The operation was aborted')) {
-				return; // swallow
-			}
+		const joined = args.map((a) => (typeof a === 'string' ? a : String(a))).join(' ');
+
+		// Keep the act(...) warning handling but only when it's that exact phrase.
+		if (joined.includes('not wrapped in act(')) {
+			return;
+		}
+
+		// Swallow only abort errors that clearly come from happy-dom's fetch/AsyncTaskManager.
+		// Look for the abort phrase plus an attribution to happy-dom internals.
+		if (joined.includes('The operation was aborted') && (joined.includes('happy-dom') || joined.includes('AsyncTaskManager') || joined.includes('Fetch.onAsyncTaskManagerAbort'))) {
+			return;
 		}
 	} catch (e) {
-		// ignore
+		// ignore and fall through to original console.error
 	}
 	return originalConsoleError(...args);
 };

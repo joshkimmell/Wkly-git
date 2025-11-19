@@ -5,7 +5,7 @@ import { styled, useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
 import MuiAppBar, { AppBarProps as MuiAppBarProps } from '@mui/material/AppBar';
-import { Menu, MenuItem } from '@mui/material';
+import { Menu, MenuItem, Tooltip } from '@mui/material';
 import Toolbar from '@mui/material/Toolbar';
 import CssBaseline from '@mui/material/CssBaseline';
 import List from '@mui/material/List';
@@ -13,7 +13,7 @@ import Typography from '@mui/material/Typography';
 import ProfileManagement from './ProfileManagement';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
-import { ChevronLeft, ChevronRight, Home, MenuIcon, Moon, Sun, Text } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Cross, Home, MenuIcon, Moon, Sun, Text, X } from 'lucide-react';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -191,19 +191,19 @@ const toggleThemeInternal = (): void => {
                         </Menu>
                     
                    
-                  <Modal
-                                        isOpen={isProfileOpen}
-                                        id='Profile'
-                                        ariaHideApp={ARIA_HIDE_APP}
-                                        className={`fixed inset-0 flex items-center justify-center z-50`}
-                                        overlayClassName={`${overlayClasses}`}
-                                    >
-                    {isProfileOpen && (
-                                            <div className={`${modalClasses}`}>
-                                                <ProfileManagement onClose={() => setIsProfileOpen(false)} />
-                                            </div>
-                                        )}
-                                    </Modal>
+                        <Modal
+                          isOpen={isProfileOpen}
+                          id='Profile'
+                          ariaHideApp={ARIA_HIDE_APP}
+                          className={`fixed inset-0 flex items-center justify-center z-50`}
+                          overlayClassName={`${overlayClasses}`}
+                          >
+                          {isProfileOpen && (
+                              <div className={`${modalClasses}`}>
+                                  <ProfileManagement onClose={() => setIsProfileOpen(false)} />
+                              </div>
+                          )}
+                        </Modal>
                         
 
                         <IconButton
@@ -211,6 +211,7 @@ const toggleThemeInternal = (): void => {
                             aria-label="open drawer"
                             edge="end"
                             onClick={handleDrawerOpen}
+                            className="btn-ghost ml-4 p-2 rounded"
                             sx={[open && { display: 'none' }]}
                         >
                             <MenuIcon />
@@ -230,15 +231,22 @@ const toggleThemeInternal = (): void => {
           '& .MuiDrawer-paper': {
             width: drawerWidth,
           },
+          backgroundColor: 'transparent',
+          border: 'none',
         }}
         variant="persistent"
         anchor="right"
         open={open}
       >
-        <DrawerHeader>
-          <IconButton onClick={handleDrawerClose}>
-            {theme.direction === 'rtl' ? <ChevronLeft /> : <ChevronRight />}
-          </IconButton>
+        <DrawerHeader sx={{ background: 'linear-gradient(180deg, var(--brand-90, variables.$brand-90) 0%, var(--brand-70, variables.$brand-70) 100%)', border: 'none' }}>
+          <Tooltip title="Close menu" arrow>
+            <IconButton onClick={handleDrawerClose} className="btn-ghost ml-4 p-2 ">
+               {/* {props.theme === 'theme-dark' && ( */}
+                    <X className="w-5 h-5 stroke-gray-10 hover:stroke-gray-30 focus:outline-none" />
+                {/* )} */}
+
+            </IconButton>
+          </Tooltip>
         </DrawerHeader>
         <Divider />
         <List>

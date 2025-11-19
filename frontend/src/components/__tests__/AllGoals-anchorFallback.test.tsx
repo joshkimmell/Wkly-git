@@ -10,8 +10,8 @@ describe('AllGoals anchor fallback', () => {
   });
 
   it('keeps menu visible when trigger is detached (anchorPosition fallback)', async () => {
-    // Use table view to make selection deterministic (checkbox present in DOM)
-    localStorage.setItem('goals_view_mode', 'table');
+  // Use cards view so the floating bulk toolbar is rendered
+  localStorage.setItem('goals_view_mode', 'cards');
     // Ensure there's at least one category so the menu renders the search input
     UserCategories.length = 0;
     UserCategories.push({ id: 'cat-1', name: 'Default' });
@@ -33,12 +33,15 @@ describe('AllGoals anchor fallback', () => {
 
       renderWithProviders(<AllGoals />);
 
-  // Select the rendered goal via the table checkbox so the floating toolbar appears
-  const selectCheckbox = await screen.findByLabelText(/Select goal\s+Goal/i);
-  fireEvent.click(selectCheckbox);
+  // Select the goal by clicking the table row (role="checkbox") so the bulk toolbar appears
+  // Click the floating 'Select all' button to create a selection (this button is always rendered in cards view).
+  // There may be multiple elements with the same aria-label (badge wrapper + button), so pick the actual button element.
+  const selectAllEls = await screen.findAllByLabelText(/Select all/i);
+  const selectAllBtn = selectAllEls.find((el) => el.tagName.toLowerCase() === 'button') || selectAllEls[0];
+  fireEvent.click(selectAllBtn, { clientX: 10, clientY: 10 });
 
-  // Open the Set category menu using aria-label
-  const setCategoryBtn = await screen.findByLabelText(/Set category/i);
+  // Wait for the floating toolbar's Set category button to appear
+      const setCategoryBtn = await waitFor(() => screen.getByTestId('bulk-set-category-btn'), { timeout: 3000 });
   fireEvent.click(setCategoryBtn, { clientX: 100, clientY: 100 });
 
   // Wait for the menu input element (MUI mounts menus in a portal; the input has a stable id)

@@ -22,7 +22,7 @@ import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon,
 import { useGoalsContext } from '@context/GoalsContext';
 import useGoalExtras from '@hooks/useGoalExtras';
 // notify helpers imported where needed below
-import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, FormGroup, FormLabel, InputLabel, Select, MenuItem, Tooltip, Menu, Chip, Badge, Checkbox, ListItemText, ToggleButtonGroup, ToggleButton, Table, TableContainer, TableHead, TableBody, TableRow, TableCell, Paper, Typography, Switch, FormControlLabel, CircularProgress, useMediaQuery } from '@mui/material';
+import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, FormGroup, FormLabel, InputLabel, Select, MenuItem, Tooltip, Menu, Chip, Badge, Checkbox, ListItemText, ToggleButtonGroup, ToggleButton, Table, TableContainer, TableHead, TableBody, TableRow, TableCell, Paper, Typography, Switch, FormControlLabel, CircularProgress, useMediaQuery, Button } from '@mui/material';
 // dnd-kit was attempted but failed to install; use HTML5 drag/drop fallback
 import { useTheme } from '@mui/material/styles';
 import supabase from '@lib/supabase';
@@ -838,7 +838,7 @@ const GoalsComponent = () => {
             console.warn('closeEditor called but editor is already closed.');
             return; // Prevent redundant calls
         }
-        // console.log('closeEditor called');
+    
         setIsEditorOpen(false);
     }
 
@@ -873,7 +873,7 @@ const GoalsComponent = () => {
     //    const goalToAdd = goal || newGoal; // Use the passed goal or fallback to newGoal state
 //
     //    // Log the goal being validated
-    //    console.log('Validating goal:', goalToAdd);
+    
 //
     //    // Validation: Ensure all required fields are populated
     //    if (!goalToAdd.title || !goalToAdd.description || !goalToAdd.category || !goalToAdd.week_start || !goalToAdd.user_id) {
@@ -885,10 +885,10 @@ const GoalsComponent = () => {
     //    if (goalToAdd.week_start) {
     //      goalToAdd.week_start = goalToAdd.week_start.split('T')[0]; // Ensure no timestamp
     //    }
-    //    console.log('Validated week_start in AllGoals:', goalToAdd.week_start);
+    
 //
     //    try {
-    //        console.log('Adding goal:', goalToAdd);
+    
     //        await addGoal(goalToAdd); // Add the new goal
     //        await refreshGoals(); // Refresh the goals list
     //    } catch (error) {
@@ -1129,9 +1129,7 @@ const GoalsComponent = () => {
         }
     }, [currentPage, pages, viewMode, showAllGoals, isScopeLoading]);
 
-    // console.log('Indexed Goals:', indexedGoals);
-    // console.log('Filtered Goals:', filteredGoals);
-    // console.log('Formatted date:', formattedDate);
+    
 
   // Filtering predicate to be shared across views
     const goalMatchesFilters = (goal: Goal) => {
@@ -1476,12 +1474,25 @@ const GoalsComponent = () => {
                         <Tooltip title="Open filters" placement="top" arrow>
                         <span>
                         <Badge badgeContent={selectedFiltersCount} color="primary" invisible={selectedFiltersCount === 0}>
+                                        {/* <Button
+                                            aria-label={
+                                                selectedIds.size > 0 ? `Set category (${selectedIds.size})` : 'Set category'
+                                            }
+                                            onClick={(e) => {
+                                                setBulkCategoryAnchorEl(e.currentTarget);
+                                                setBulkCategoryAnchorPos(undefined);
+                                                setBulkCategoryLastClickPos({ x: e.clientX, y: e.clientY });
+                                            }}
+                                            {...(process.env.NODE_ENV === 'test' ? { 'data-testid': 'bulk-set-category-btn' } : {})}
+                                        >
+                                            <TagIcon />
+                                        </Button> */}
                             <IconButton
                                 className="btn-ghost mr-2"
                                 size="small"
                                 aria-label={`Open filters${selectedFiltersCount > 0 ? ` (${selectedFiltersCount} active)` : ''}`}
                                 onClick={(e) => setFilterAnchorEl(e.currentTarget)}
-                            >
+                                >
                                 <FilterIcon className="w-4 h-4" />
                             </IconButton>
                         </Badge>
@@ -1772,7 +1783,7 @@ const GoalsComponent = () => {
                                             aria-label="Set category"
                                             ref={bulkCategoryTriggerRef}
                                         >
-                                            Category (Josh)
+                                            Category
                                         </button>
                                     </div>
                                 
@@ -2123,8 +2134,7 @@ const GoalsComponent = () => {
                     isSmall ? (
                         setViewMode('cards'), <div></div>
                     ) : (
-                        // <Paper elevation={6} className="w-full shadow-none">
-                        <TableContainer component={Paper} elevation={0}>
+                        <Paper elevation={6}>
                             <Table aria-label="Goals Table">
                                 <TableHead className='border-none'>
                                     <TableRow className='bg-gray-10 dark:bg-gray-90 border-none'>
@@ -2356,7 +2366,7 @@ const GoalsComponent = () => {
                                         )}
                                     </TableRow>
                                 </TableHead>
-                                <TableBody component={Paper} elevation={6}>
+                                <TableBody>
                                     {/* <TableRow sx={{ maxHeight: '1px', display: 'block' }} className='h-[1px] p-0 m-0 block overflow-hidden'>
                                         <TableCell className='w-full' />
                                         <TableCell className='w-auto' />
@@ -2518,7 +2528,7 @@ const GoalsComponent = () => {
                                     ))}
                                 </TableBody>
                             </Table>
-                        </TableContainer>
+                        </Paper>
                     )
                 )}
                 <ConfirmModal
@@ -2687,8 +2697,19 @@ const GoalsComponent = () => {
                                 </div>
                             )}
                 {sortedAndFilteredGoals.length === 0 && (
-                    <div className="text-center text-gray-500 mt-4">
-                        No goals found for this {scope}. Try adding one!
+                    <div className="text-center text-gray-50 mt-4 justify-center flex flex-col items-center">
+                        No goals found. Try adding one!
+                        {/* <Tooltip title={`Add a new goal`} placement="top" arrow> */}
+                            <button
+                                onClick={openGoalModal}
+                                className="btn-primary gap-2 flex ml-auto"
+                                // title={`Add a new goal for the current ${scope}`}
+                                aria-label={`Add a new goal for the current ${scope}`}
+                                >
+                                <PlusIcon className="w-5 h-5" />
+                                <span className="block flex text-nowrap">Add a Goal</span>
+                            </button>
+                        {/* </Tooltip> */}
                     </div>
                 )}
             </div>
