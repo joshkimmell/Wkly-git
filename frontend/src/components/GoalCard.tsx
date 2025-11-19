@@ -5,7 +5,7 @@ import supabase from '@lib/supabase'; // Ensure this is the correct path to your
 import { Goal, Accomplishment } from '@utils/goalUtils'; // Adjust the import path as necessary
 import { Trash, Edit, Award, X as CloseButton } from 'lucide-react';
 import { FileText as NotesIcon, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
-import { Chip, Menu, MenuItem, TextField, Tooltip, IconButton } from '@mui/material';
+import { Chip, Menu, MenuItem, TextField, Tooltip, IconButton, Checkbox } from '@mui/material';
 import type { ChangeEvent } from 'react';
 import { STATUSES, STATUS_COLORS, type Status } from '../constants/statuses';
 import { cardClasses, modalClasses, objectCounter, overlayClasses } from '@styles/classes'; // Adjust the import path as necessary
@@ -23,6 +23,9 @@ interface GoalCardProps {
   handleEdit: (goalId: string) => void;
   filter: string; // Accept filter as a prop
   showAllGoals?: boolean; // Whether parent view is showing all goals
+  selectable?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
 // const GoalCard: React.FC<GoalCardProps> = ({ goal }) => {
@@ -32,6 +35,9 @@ const GoalCard: React.FC<GoalCardProps> = ({
   handleEdit,
   filter, // Accept filter as a prop
   showAllGoals = false,
+  selectable = false,
+  isSelected = false,
+  onToggleSelect,
 }) => {
   // // const handleDeleteGoal = (goalId: string) => {
   //   // Implement the delete logic here
@@ -399,7 +405,34 @@ const GoalCard: React.FC<GoalCardProps> = ({
   // accomplishment creation now handled via AccomplishmentsModal onCreate (optimistic updates)
 
   return (
-    <div key={goal.id} className={`${cardClasses} shadow-xl`}>
+    <>
+
+      <div
+        key={goal.id}
+        className={`${cardClasses} ${isSelected ? 'border-2 border-brand-50 bg-gray-20 dark:bg-brand-90' : 'border-2 border-transparent bg-gray-0 dark:bg-gray-80 ' } shadow-xl`}
+        onClick={(e) => {
+          // If the click originated from an interactive element (button, input, link, select, textarea,
+          // or any element with role="button"), don't treat it as a card-select click. This prevents
+          // clicks on internal controls (icons, buttons, menus) from toggling selection.
+          const target = e.target as HTMLElement | null;
+          if (target && typeof target.closest === 'function') {
+            const interactive = target.closest('button, a, input, select, textarea, [role="button"]');
+            if (interactive) return;
+          }
+          onToggleSelect?.(goal.id);
+        }}
+      >
+          {/* {selectable && (
+            <div className="w-full flex justify-end">
+            <Checkbox
+              size="small"
+              checked={!!isSelected}
+              onChange={() => onToggleSelect?.(goal.id)}
+              inputProps={{ 'aria-label': `Select goal ${goal.title}` }}
+            />
+            </div>
+          )} */}
+      
         {showAllGoals && (
           <div className="text-xs">
             {goal.week_start}
@@ -411,7 +444,11 @@ const GoalCard: React.FC<GoalCardProps> = ({
             <div>
               <Chip
                 label={localStatus}
-                onClick={(e) => setStatusAnchorEl(e.currentTarget)}
+                onClick={(e) => {
+                  // Prevent the chip click from bubbling up and toggling card selection
+                  e.stopPropagation();
+                  setStatusAnchorEl(e.currentTarget);
+                }}
                 variant='outlined'
                 sx={
                   localStatus === 'Not started'
@@ -479,7 +516,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
           <div className='flex flex-row w-full justify-end items-end gap-2'>
             <Tooltip title="Accomplishments" placement="top" arrow>
               <span>
-                <IconButton aria-label="Accomplishments" onClick={() => openModal()} size="small" className="btn-ghost">
+                <IconButton aria-label="Accomplishments" onClick={(e) => { e.stopPropagation(); openModal(); }} size="small" className="btn-ghost">
                   {(accomplishmentCountMap[goal.id] ?? accomplishments.length) > 0 && (
                     <div className={objectCounter}>{accomplishmentCountMap[goal.id] ?? accomplishments.length}</div>
                   )}
@@ -490,7 +527,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
 
             <Tooltip title="Notes" placement="top" arrow>
               <span>
-                <IconButton aria-label="Notes" onClick={openNotesModal} id="openNotes" size="small" className="btn-ghost">
+                <IconButton aria-label="Notes" onClick={(e) => { e.stopPropagation(); openNotesModal(); }} id="openNotes" size="small" className="btn-ghost">
                   {((notesCountMap[goal.id] ?? (notes.length > 0 ? notes.length : 0)) > 0) && (
                     <div className={objectCounter}>{notesCountMap[goal.id] ?? (notes.length > 0 ? notes.length : 0)}</div>
                   )}
@@ -501,7 +538,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
 
             <Tooltip title="Delete Goal" placement="top" arrow>
               <span>
-                <IconButton aria-label="Delete Goal" onClick={() => setIsDeleteConfirmOpen(true)} size="small" className="btn-ghost">
+                <IconButton aria-label="Delete Goal" onClick={(e) => { e.stopPropagation(); setIsDeleteConfirmOpen(true); }} size="small" className="btn-ghost">
                   <Trash className="w-5 h-5" />
                 </IconButton>
               </span>
@@ -509,7 +546,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
 
             <Tooltip title="Edit Goal" placement="top" arrow>
               <span>
-                <IconButton aria-label="Edit Goal" onClick={() => handleEdit(goal.id)} size="small" className="btn-ghost">
+                <IconButton aria-label="Edit Goal" onClick={(e) => { e.stopPropagation(); handleEdit(goal.id); }} size="small" className="btn-ghost">
                   <Edit className="w-5 h-5" />
                 </IconButton>
               </span>
@@ -688,8 +725,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
       </div>
     )}
   </div>
-
-  // </div>
+</>
   );
 };
       

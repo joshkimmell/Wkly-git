@@ -286,6 +286,26 @@ svg {
     span.MuiSwitch-root > span.Mui-checked span.MuiSwitch-thumb {
         background-color: var(--brand-30, variables.$brand-30) !important;
     }
+    .MuiTable-root, .MuiTableHead-root {
+        background-color: transparent;
+        border: none;
+        box-shadow: none !important;
+    }
+    .MuiTableCell-root {
+        // background-color: var(--gray-80, variables.$gray-80);
+        border-bottom: 1px solid var(--gray-70, variables.$gray-70);
+        box-shadow: none !important;
+
+    }
+    .MuiTableRow-root.Mui-selected {
+        border-left-color: var(--brand-30, variables.$brand-30) !important;
+        border-left-width: 2px;
+
+        & .MuiTableCell-root {
+            background-color: var(--brand-90, variables.$brand-90) !important;
+        }
+
+    }
 }
 
 .theme-light {
@@ -297,4 +317,120 @@ svg {
     span.MuiSwitch-root > span.Mui-checked span.MuiSwitch-thumb {
         background-color: var(--brand-60, variables.$brand-60) !important;
     }
+    .MuiTable-root, .MuiTableHead-root {
+        background-color: transparent;
+        border: none;
+        box-shadow: none !important;
+    }
+    .MuiTableCell-root {
+        // background-color: var(--gray-20, variables.$gray-20);
+        border-bottom: 1px solid var(--gray-30, variables.$gray-30);
+        box-shadow: none !important;
+
+    }
+    .MuiTableRow-root.Mui-selected {
+        border-left-color: var(--brand-70, variables.$brand-70) !important;
+        border-left-width: 2px;
+
+        & .MuiTableCell-root {
+            background-color: var(--brand-20, variables.$brand-20) !important;
+        }
+
+    }
+}
+
+/* Floating compact bulk toolbar used across AllGoals views */
+// .selectAll {
+//     position: relative;
+// }
+.selectAll {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: auto;
+    width: 100%;
+    gap: 8px;
+    // cursor: pointer;
+}
+.floating-bulk {
+    background-color: transparent;
+    display: flex;
+    // padding: 1rem;
+    // border-radius: 10px;
+    // box-shadow: 0 0 24px 0 var(--brand-20, variables.$brand-20);
+    // backdrop-filter: blur(24px);
+    // background:var(--gray-0, variables.$gray-0);
+    color: var(--text-primary, variables.$gray-90);
+
+    &-toolbar {
+        // position: absolute;
+        // top: 0px;
+        // left: -2px;
+        // z-index: 9999;
+        // display: flex;
+        // width: 84vw;
+        display: flex;
+        width: 100%;
+        align-items: center;
+        gap: 8px;
+        // padding: 2px 8px 4px;
+        border-radius: 10px;
+        border: 1px solid var(--gray-70, variables.$gray-70);
+        // box-shadow: 0 0 24px 0 var(--brand-20, variables.$brand-20);
+        // backdrop-filter: blur(24px);
+        background:var(--gray-0, variables.$gray-0);
+        color: var(--text-primary, variables.$gray-90);
+        /* animation on mount for smooth appearance */
+        opacity: 0;
+        transform-origin: left center;
+        transform: scaleX(0.2);
+        will-change: opacity, transform;
+        animation: fb-grow-in 180ms cubic-bezier(.2,.9,.2,1) forwards;
+        transition: box-shadow 120ms ease, transform 180ms cubic-bezier(.2,.9,.2,1), opacity 180ms cubic-bezier(.2,.9,.2,1);
+    }
+}
+
+.theme-dark .floating-bulk-toolbar {
+    background: var(--gray-100, variables.$gray-100);
+    color: var(--text-secondary, variables.$gray-30);
+    border: 1px solid transparent;
+}
+
+.floating-bulk-toolbar .floating-left {
+    font-weight: 600;
+}
+
+.floating-bulk-toolbar .fb-btn {
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+
+/* Hover / focus affordances for the compact buttons */
+.floating-bulk-toolbar .fb-btn:hover,
+.floating-bulk-toolbar .fb-btn:focus {
+    transform:  scale(1);
+    box-shadow: 0 6px 18px rgba(12,12,14,0.08);
+}
+
+/* Subtle pop-in keyframes used when the toolbar is mounted */
+@keyframes fb-grow-in {
+    from {
+        opacity: 0;
+        transform: scaleX(0.5);
+    }
+    to {
+        opacity: 1;
+        transform: scaleX(1);
+    }
+}
+
+@media (max-width: 640px) {
+    .floating-bulk-toolbar {
+        right: 12px;
+        bottom: 12px;
+        padding: 6px 8px;
+        gap: 6px;
+    }
+    .floating-bulk-toolbar .fb-btn { padding: 6px 8px; font-size: 0.8rem; }
 }
