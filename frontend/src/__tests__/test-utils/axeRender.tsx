@@ -2,6 +2,7 @@ import React from 'react';
 import { render } from '@testing-library/react';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import supabase from '@lib/supabase';
+import { GoalsProvider } from '@context/GoalsContext';
 
 // Provide a fake session/user for components that call supabase.auth.getUser
 export const mockSupabaseAuthGetUser = (overrides?: Partial<{ id: string }>) => {
@@ -19,8 +20,12 @@ export const mockSupabaseAuthGetUser = (overrides?: Partial<{ id: string }>) => 
 };
 
 export const renderWithProviders = (ui: React.ReactElement) => {
-  // ensure SessionContextProvider is present in case components rely on it
-  return render(<SessionContextProvider supabaseClient={supabase}>{ui}</SessionContextProvider>);
+  // ensure SessionContextProvider and GoalsProvider are present in case components rely on them
+  return render(
+    <SessionContextProvider supabaseClient={supabase}>
+      <GoalsProvider>{ui}</GoalsProvider>
+    </SessionContextProvider>
+  );
 };
 
 export const renderWithAxe = (ui: React.ReactElement) => {

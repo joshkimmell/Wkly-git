@@ -257,7 +257,7 @@ export const addCategory = async (newCategory: string): Promise<void> => {
     if (userError || !user) {
       console.error('Error fetching user ID:', userError?.message || 'User not authenticated');
       notifyError('User not authenticated. Please log in.');
-      return;
+      throw new Error('User not authenticated');
     }
 
     const userId = user.id;
@@ -277,21 +277,40 @@ export const addCategory = async (newCategory: string): Promise<void> => {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error adding category via Netlify function:', errorText);
+      // Try to parse a structured JSON error from the function first
+      let parsed: any = null;
+      try {
+        parsed = await response.json();
+      } catch (e) {
+        // ignore JSON parse errors
+      }
+
+      if (parsed && parsed.error === 'duplicate_category') {
+        notifyError(parsed.message || 'Category already exists.');
+        throw new Error('Category already exists');
+      }
+
+      // Fallback: try to read text body
+      const errorText = parsed?.message || (await response.text().catch(() => ''));
+      console.error('Error adding category via Netlify function:', errorText || parsed || response.statusText);
       notifyError('Failed to add category.');
-      return;
+      throw new Error(errorText || 'Failed to add category');
     }
 
-  await response.json();
-  // console.log('New category added via Netlify function');
+    // On success, parse response and refresh categories
+    try {
+      await response.json();
+    } catch (e) {
+      // Ignore parse failures on an otherwise OK response
+    }
 
     // Refresh the UserCategories list
     await initializeUserCategories();
-    // console.log('Category added and UserCategories refreshed:', UserCategories);
     notifySuccess('Category added successfully.');
   } catch (err) {
     console.error('Unexpected error adding category:', err);
+    // Rethrow so callers can handle the failure (UI expects this)
+    throw err;
   }
 };
 

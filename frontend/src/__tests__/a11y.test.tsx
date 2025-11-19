@@ -99,6 +99,9 @@ vi.mock('@mui/material', () => {
     },
     // List item helpers used in menu/list controls
     ListItemText: (props: any) => React.createElement('div', { 'data-testid': 'mock-list-item-text' }, props.primary || props.children),
+  // simple list helpers used in ProfileManagement
+  List: (props: any) => React.createElement('ul', { ...props }, props.children),
+  ListItemButton: (props: any) => React.createElement('li', { ...props }, props.children),
     // spread other named exports as pass-through where needed
     __esModule: true,
   };

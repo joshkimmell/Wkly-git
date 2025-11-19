@@ -40,9 +40,10 @@ export const handler: Handler = async (event): Promise<HandlerResponse> => {
     );
 
     if (existingCategory) {
+      // Explicitly return a structured duplicate error so the client can handle it
       return {
-        statusCode: 200,
-        body: JSON.stringify({ message: `Category '${name}' already exists with the correct user_id.` }),
+        statusCode: 409,
+        body: JSON.stringify({ error: 'duplicate_category', message: `Category '${name}' already exists for this user.` }),
       };
     }
 
@@ -60,7 +61,7 @@ export const handler: Handler = async (event): Promise<HandlerResponse> => {
       if (updateError) {
         return {
           statusCode: 500,
-          body: JSON.stringify({ error: updateError.message }),
+          body: JSON.stringify({ error: 'server_error', message: updateError.message }),
         };
       }
 
@@ -77,9 +78,18 @@ export const handler: Handler = async (event): Promise<HandlerResponse> => {
     .insert({ name, user_id });
 
   if (error) {
+    // Detect Postgres unique constraint error messages and return a structured 409
+    const msg = (error && error.message) ? String(error.message) : '';
+    if (msg.toLowerCase().includes('duplicate key') || msg.toLowerCase().includes('categories_name_key')) {
+      return {
+        statusCode: 409,
+        body: JSON.stringify({ error: 'duplicate_category', message: `Category '${name}' already exists.` }),
+      };
+    }
+
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
+      body: JSON.stringify({ error: 'server_error', message: msg || 'Unknown error inserting category' }),
     };
   }
 

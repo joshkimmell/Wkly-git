@@ -3,9 +3,9 @@ import { useGoalsContext } from '@context/GoalsContext';
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 // import { handleDeleteGoal } from '@utils/functions';
 import { Goal, Accomplishment } from '@utils/goalUtils'; // Adjust the import path as necessary
-import { Trash, Edit, Award, X as CloseButton, ChevronUp, ChevronDown } from 'lucide-react';
+import { Trash, Edit, Award, X as CloseButton, ChevronUp, ChevronDown, MoveHorizontal } from 'lucide-react';
 import { FileText as NotesIcon, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
-import { TextField, Tooltip, IconButton } from '@mui/material';
+import { TextField, Tooltip, IconButton, Checkbox } from '@mui/material';
 import type { ChangeEvent } from 'react';
 // import { STATUSES, STATUS_COLORS, type Status } from '../constants/statuses';
 import { cardClasses, modalClasses, objectCounter, overlayClasses } from '@styles/classes'; // Adjust the import path as necessary
@@ -35,6 +35,9 @@ interface GoalKanbanCardProps {
   onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
   filter: string;
   draggable?: boolean;
+  selectable?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
 // const GoalCard: React.FC<GoalCardProps> = ({ goal }) => {
@@ -45,6 +48,9 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
   onDragStart,
   filter, // Accept filter as a prop
   draggable = true,
+  selectable = false,
+  isSelected = false,
+  onToggleSelect,
  }) => {
   // // const handleDeleteGoal = (goalId: string) => {
   //   // Implement the delete logic here
@@ -428,14 +434,32 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
       const renderHTML = (text?: string | null) => ({ __html: applyHighlight(text ?? '', filter) });
 
   return (
+
+    
     <div
       key={goal.id}
-      className={`${cardClasses} min-w-40 p-0 bg-gray-10 dark:bg-gray-80 rounded shadow-md hover:shadow-lg border border-transparent hover:border-gray-20 dark:hover:border-gray-70 transition-shadow`}
+      className={`${cardClasses}  min-w-40 p-0 ${!isSelected ? 'bg-gray-10 dark:bg-gray-80 rounded shadow-md hover:shadow-lg border-2 border-transparent hover:border-gray-20 dark:hover:border-gray-70' : 'border-2 border-brand-50 hover:border-brand-50 bg-gray-20 dark:bg-brand-90' } transition-shadow`}
       draggable={draggable}
-  onDragStart={(e) => { if (typeof onDragStart === 'function') onDragStart(e); }}
+      onDragStart={(e) => { if (typeof onDragStart === 'function') onDragStart(e); }}
+      onClick={(e) => {
+        // If the click originated from an interactive element (button, input, link, select, textarea,
+        // or any element with role="button"), don't treat it as a card-select click. This prevents
+        // clicks on internal controls (icons, buttons, menus) from toggling selection.
+        const target = e.target as HTMLElement | null;
+        if (target && typeof target.closest === 'function') {
+          const interactive = target.closest('button, a, input, select, textarea, [role="button"]');
+          if (interactive) return;
+        }
+        onToggleSelect?.(goal.id);
+      }}
     >
       <div className="goal-header flex flex-row w-full justify-end items-center">
-        
+        {selectable && (
+          <div className="mr-2">
+            {/* <Checkbox size="small" checked={!!isSelected} onChange={() => onToggleSelect?.(goal.id)} inputProps={{ 'aria-label': `Select goal ${goal.title}` }} /> */}
+            <MoveHorizontal className="w-5 h-5 text-gray-40 dark:text-gray-60 cursor-move" />
+          </div>
+        )}
         <div className="tabs flex flex-row items-center justify-end w-full">
           <span className="card-category" dangerouslySetInnerHTML={{ __html: applyHighlight(goal.category, filter) || 'No category provided.' }}>
           </span>
