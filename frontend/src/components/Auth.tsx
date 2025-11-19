@@ -3,6 +3,10 @@ import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import supabase from '@lib/supabase'; // Import supabase client
 import Header from '@components/Header';
 import Modal from 'react-modal';
+import { TextField, Button, IconButton, Paper } from '@mui/material';
+import { useTheme as useMuiTheme } from '@mui/material/styles';
+import AppMuiThemeProvider from '../mui/muiTheme';
+// import appColors from '@styles/appColors';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
 import { Eye, EyeOff } from 'lucide-react';
@@ -12,12 +16,15 @@ import ToastNotification, { notifySuccess, notifyError } from '@components/Toast
 const Login = () => {
   // const session = useAuth();
 
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [passwordReEnter, setPasswordReEnter] = useState('');
-    const [username, setUsername] = useState('');
-    const [fullName, setFullName] = useState('');
-    const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [passwordReEnter, setPasswordReEnter] = useState('');
+  const [username, setUsername] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  // Field-level validation state
+  const [loginErrors, setLoginErrors] = useState<{ email?: string; password?: string }>({});
+  const [registerErrors, setRegisterErrors] = useState<{ email?: string; password?: string; passwordReEnter?: string }>({});
     const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
     const [showConfirmNotice, setShowConfirmNotice] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -25,6 +32,14 @@ const Login = () => {
 
     const handleLogin = async (e: React.FormEvent) => {
       e.preventDefault();
+
+      // Basic client-side validation
+  const newLoginErrors: typeof loginErrors = {};
+  if (!email) newLoginErrors.email = 'Email is required';
+  else if (!isValidEmail(email)) newLoginErrors.email = 'Invalid email format';
+  if (!password) newLoginErrors.password = 'Password is required';
+      setLoginErrors(newLoginErrors);
+      if (Object.keys(newLoginErrors).length > 0) return;
 
       const accessToken = await signInUser(email, password);
 
@@ -65,6 +80,7 @@ const Login = () => {
     const createUser = async (email: string, password: string, passwordReEnter: string, username: string, fullName: string) => {
       if (password !== passwordReEnter) {
         setError('Passwords do not match. Please re-enter your password.');
+        setRegisterErrors((prev) => ({ ...prev, passwordReEnter: 'Passwords do not match' }));
         return null;
       }
     
@@ -157,6 +173,15 @@ const Login = () => {
     const handleRegister = async (e: React.FormEvent) => {
       e.preventDefault();
     
+      // Basic client-side validation
+      const newRegErrors: typeof registerErrors = {};
+      if (!email) newRegErrors.email = 'Email is required';
+      if (!password) newRegErrors.password = 'Password is required';
+      if (!passwordReEnter) newRegErrors.passwordReEnter = 'Please re-enter password';
+      if (password && passwordReEnter && password !== passwordReEnter) newRegErrors.passwordReEnter = 'Passwords do not match';
+      setRegisterErrors(newRegErrors);
+      if (Object.keys(newRegErrors).length > 0) return;
+
       const result = await createUser(email, password, passwordReEnter, username, fullName);
     
       if (!result) {
@@ -192,11 +217,24 @@ const Login = () => {
     const [theme, setTheme] = useState<'theme-dark' | 'theme-light'>(
       window.matchMedia('(prefers-color-scheme: dark)').matches ? 'theme-dark' : 'theme-light'
     );
+  const muiTheme = useMuiTheme();
+  const primaryColor = muiTheme?.palette?.primary?.main || 'var(--wkly-btn-primary)';
+  const textOnColor = muiTheme?.palette?.text?.primary || 'var(--wkly-text-on-color)';
+  const fieldBg = muiTheme?.palette?.background?.paper || 'var(--wkly-background)';
+  const dividerColor = muiTheme?.palette?.divider || 'var(--wkly-divider)';
+  const radius = (muiTheme as any)?.shape?.borderRadius ? `${(muiTheme as any).shape.borderRadius}px` : 'var(--wkly-radius)';
 
     const openModal = () => {
     if (!isRegisterModalOpen) {
       setIsRegisterModalOpen(true);
     }
+  };
+
+  // Basic email format validation (simple RFC2822-ish regex)
+  const isValidEmail = (value: string) => {
+    if (!value) return false;
+    const re = /^(?:[a-zA-Z0-9_'^&+\/=`{|}~.-])+@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/;
+    return re.test(value);
   };
 
     const closeModal = () => {
@@ -215,6 +253,7 @@ const Login = () => {
   
     return (
     <SessionContextProvider supabaseClient={supabase}>
+      <AppMuiThemeProvider mode={theme}>
       <div className={`${theme}`}>
         <div className={`min-h-screen bg-gray-10 dark:bg-gray-90 text-gray-90 dark:text-gray-10`}>
           <Header   
@@ -222,63 +261,69 @@ const Login = () => {
             toggleTheme={toggleTheme}
           />
           <main className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 py-8">
-            <h1 className="text-3xl font-bold text-left mb-4">Login</h1>
+            <h1 className="text-3xl text-left mb-4">Login</h1>
             <form onSubmit={handleLogin} className='flex flex-col gap-4 space-y-4 p-4'>
               <div className="w-full">
-                <label htmlFor="login-email">Email:</label>
-                <input
+                <TextField
                   id="login-email"
+                  label="Email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => { setEmail(e.target.value); setLoginErrors((s) => ({ ...s, email: undefined })); }}
+                  onBlur={() => {
+                    if (!email) setLoginErrors((s) => ({ ...s, email: 'Email is required' }));
+                    else if (!isValidEmail(email)) setLoginErrors((s) => ({ ...s, email: 'Invalid email format' }));
+                    else setLoginErrors((s) => ({ ...s, email: undefined }));
+                  }}
                   required
-                  className='w-full bg-gray-10 dark:bg-gray-100'
+                  fullWidth
+                  size="small"
+                  error={!!loginErrors.email}
+                  helperText={loginErrors.email}
+                   // variant="outlined"
+                  sx={{ mb: 1 }}
                 />
               </div>
               <div>
-                <label htmlFor="login-password">Password:</label>
-                <div className="relative">
-                  <input
-                    id="login-password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    className='bg-gray-10 dark:bg-gray-100 w-full pr-12'
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((s) => !s)}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 btn-ghost text-sm"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
+                <TextField
+                  id="login-password"
+                  label="Password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setLoginErrors((s) => ({ ...s, password: undefined })); }}
+                  required
+                  fullWidth
+                  size="small"
+                  error={!!loginErrors.password}
+                  helperText={loginErrors.password}
+                   // variant="outlined"
+                  InputProps={{
+                    endAdornment: (
+                      <IconButton
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        onClick={() => setShowPassword((s) => !s)}
+                        edge="end"
+                        size="small"
+                        className="btn-ghost"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </IconButton>
+                    ),
+                  }}
+                  sx={{ mb: 1, '& .MuiOutlinedInput-root': { backgroundColor: fieldBg, borderRadius: radius }, '& .MuiOutlinedInput-notchedOutline': { borderColor: dividerColor } }}
+                />
               </div>
-              <button
-                type="submit"
-                className="btn-primary text-lg w-auto self-start px-8"
-              >
+              <Button type="submit" variant="contained" className='btn-primary' size="large" >
                 Login
-              </button>
+              </Button>
               <div className='flex flex-row justify-start gap-4 pt-6'>
-                <button
-                  type="button"
-                  onClick={openModal}
-                  className="btn-secondary w-auto self-start"
-                >
+                <Button variant="outlined" onClick={openModal} sx={{ py: 0.8, px: 3, borderRadius: radius }}>
                   Register
-                </button>
-              <button
-                type="button"
-                onClick={() => handlePasswordReset(email)}
-                className="btn-ghost w-auto"
-              >
-                Forgot Password
-              </button>
+                </Button>
+                <Button variant="text" onClick={() => handlePasswordReset(email)} sx={{ py: 0.8 }}>
+                  Forgot Password
+                </Button>
               </div>
-              
             </form>
             {error && <p style={{ color: 'red' }}>{error}</p>}
 
@@ -290,106 +335,126 @@ const Login = () => {
             ariaHideApp={ARIA_HIDE_APP}
           >
                     <div className={`${modalClasses}`}>
-                      <h2 className="text-2xl font-bold text-left mb-4">Register</h2>
+                      <h2 className="text-2xl text-left mb-4">Register</h2>
                       <form onSubmit={handleRegister} className='flex flex-col space-y-4 p-4'>
-                        <div className='relative w-full'>
-                          <label htmlFor="register-email">Email:</label>
-                          <input
-                            id="register-email"
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                            className='bg-gray-10 dark:bg-gray-100 w-full pr-12'
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="register-password">Password:</label>
-                          <div className="relative w-full">
-                            <input
-                              id="register-password"
-                              type={showPassword ? 'text' : 'password'}
-                              value={password}
-                              onChange={(e) => setPassword(e.target.value)}
-                              required
-                              className='bg-gray-10 dark:bg-gray-100 w-full pr-12'
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowPassword((s) => !s)}
-                              aria-label={showPassword ? 'Hide password' : 'Show password'}
-                              className="absolute right-2 top-1/2 transform -translate-y-1/2 btn-ghost text-sm"
-                            >
-                              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </button>
-                          </div>
-                        </div>
-                        <div className='pb-4'>
-                          <label htmlFor="register-reenter">Re-enter Password:</label>
-                          <div className="relative w-full">
-                            <input
-                              id="register-reenter"
-                              type={showPasswordReEnter ? 'text' : 'password'}
-                              value={passwordReEnter}
-                              onChange={(e) => setPasswordReEnter(e.target.value)}
-                              required
-                              className='bg-gray-10 dark:bg-gray-100 w-full pr-12'
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowPasswordReEnter((s) => !s)}
-                              aria-label={showPasswordReEnter ? 'Hide re-entered password' : 'Show re-entered password'}
-                              className="absolute right-2 top-1/2 transform -translate-y-1/2 btn-ghost text-sm"
-                            >
-                              {showPasswordReEnter ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </button>
-                          </div>
-                        </div>
-                        <div className="border-t pt-6 border-gray-20 dark:border-gray-70 mb-4"> 
-                          <label htmlFor="register-username">Username (Optional):</label>
-                          <input
+                        <TextField
+                          id="register-email"
+                          label="Email"
+                          type="email"
+                          value={email}
+                          onChange={(e) => { setEmail(e.target.value); setRegisterErrors((s) => ({ ...s, email: undefined })); }}
+                          onBlur={() => {
+                            if (!email) setRegisterErrors((s) => ({ ...s, email: 'Email is required' }));
+                            else if (!isValidEmail(email)) setRegisterErrors((s) => ({ ...s, email: 'Invalid email format' }));
+                            else setRegisterErrors((s) => ({ ...s, email: undefined }));
+                          }}
+                          required
+                          fullWidth
+                          size="small"
+                          error={!!registerErrors.email}
+                          helperText={registerErrors.email || ''}
+                          //  // variant="outlined"
+                          sx={{ mb: 1, '& .MuiOutlinedInput-root': { backgroundColor: fieldBg, borderRadius: radius }, '& .MuiOutlinedInput-notchedOutline': { borderColor: dividerColor } }}
+                        />
+                        <TextField
+                          id="register-password"
+                          label="Password"
+                          type={showPassword ? 'text' : 'password'}
+                          value={password}
+                          onChange={(e) => { setPassword(e.target.value); setRegisterErrors((s) => ({ ...s, password: undefined })); }}
+                          required
+                          fullWidth
+                          size="small"
+                          error={!!registerErrors.password}
+                          helperText={registerErrors.password}
+                          //  // variant="outlined"
+                          InputProps={{
+                            endAdornment: (
+                              <IconButton
+                                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                onClick={() => setShowPassword((s) => !s)}
+                                edge="end"
+                                size="small"
+                              >
+                                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              </IconButton>
+                            ),
+                          }}
+                          sx={{ mb: 1}}
+                        />
+                        <TextField
+                          id="register-reenter"
+                          label="Re-enter Password"
+                          type={showPasswordReEnter ? 'text' : 'password'}
+                          value={passwordReEnter}
+                          onChange={(e) => { setPasswordReEnter(e.target.value); setRegisterErrors((s) => ({ ...s, passwordReEnter: undefined })); }}
+                          required
+                          fullWidth
+                          size="small"
+                          error={!!registerErrors.passwordReEnter || (!!passwordReEnter && !passwordsMatch)}
+                          helperText={registerErrors.passwordReEnter || ((passwordReEnter && !passwordsMatch) ? 'Passwords do not match.' : '')}
+                          InputProps={{
+                            endAdornment: (
+                              <IconButton
+                                aria-label={showPasswordReEnter ? 'Hide re-entered password' : 'Show re-entered password'}
+                                onClick={() => setShowPasswordReEnter((s) => !s)}
+                                edge="end"
+                                size="small"
+                              >
+                                {showPasswordReEnter ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              </IconButton>
+                            ),
+                          }}
+                          sx={{ mb: 1 }}
+                        />
+                        {error && <p style={{ color: 'red' }}>{error}</p>}
+                        {/* {!passwordsMatch && passwordReEnter && (
+                          <div className='text-sm text-red-500 mb-2'>Passwords do not match.</div>
+                        )} */}
+                        <Paper elevation={1} className="border-b border-gray-20 dark:border-gray-80 p-6 bg-gray-20 dark:bg-gray-100 mb-4">
+
+                          <TextField
                             id="register-username"
+                            label="Username (Optional)"
                             type="text"
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
-                            // required
-                            className='bg-gray-10 dark:bg-gray-100 w-full'
+                            fullWidth
+                            size="small"
+                             // variant="outlined"
+                            sx={{ mb: 1, '& .MuiOutlinedInput-root': { backgroundColor: fieldBg, borderRadius: radius }, '& .MuiOutlinedInput-notchedOutline': { borderColor: dividerColor } }}
                           />
-                        </div>
-                        <div>
-                          <label htmlFor="register-fullname">Full Name (Optional):</label>
-                          <input
+                        
+                          <TextField
                             id="register-fullname"
+                            label="Full Name (Optional)"
                             type="text"
                             value={fullName}
                             onChange={(e) => setFullName(e.target.value)}
-                            // required
-                            className='bg-gray-10 dark:bg-gray-100 w-full'
+                            fullWidth
+                            size="small"
+                            sx={{ mb: 1 }}
                           />
-                        </div>
+                        </Paper>
+                        
                         <div className='flex flex-row justify-end gap-4 pt-6'>
-                          <button
-                            type="button"
-                            onClick={closeModal}
-                            className="btn-secondary w-auto self-start"
-                          >
-                            Cancel  
-                          </button>
+                          <Button type="button"  variant="outlined" onClick={closeModal} sx={{ py: 0.8, px: 3, borderRadius: radius, color: muiTheme.palette.text.primary }}>
+                            Cancel
+                          </Button>
                           <div className='flex flex-col items-end'>
-                            {!passwordsMatch && passwordReEnter && (
-                              <div className='text-sm text-red-500 mb-2'>Passwords do not match.</div>
-                            )}
-                            <button
+                            
+                            <Button
                               type="submit"
-                              className="btn-primary w-auto self-start"
+                              variant="contained"
                               disabled={!email || !password || !passwordReEnter || !passwordsMatch}
+                              sx={{ py: 1.2, px: 3, backgroundColor: primaryColor, color: textOnColor, '&:hover': { opacity: 0.95 } }}
                             >
                               Register
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       </form>
-                      {error && <p style={{ color: 'red' }}>{error}</p>}
+                      
                     </div>
                   </Modal>
           </main>
@@ -406,128 +471,15 @@ const Login = () => {
           <h3 className="text-lg font-medium">Thanks for registering!</h3>
           <p className="mt-2 text-gray-90 dark:text-gray-10">Confirm your email address to continue.</p>
           <div className="mt-4 flex justify-end">
-            <button className="btn-primary" onClick={() => setShowConfirmNotice(false)}>Okay</button>
+            <Button variant="contained" onClick={() => setShowConfirmNotice(false)} sx={{ py: 1, px: 3 }}>Okay</Button>
           </div>
         </div>
       </Modal>
       <ToastNotification theme={theme} />
+      </AppMuiThemeProvider>
     </SessionContextProvider>
     );
-    
-  //  const handleSignIn = async () => {
-  //       await supabase.auth.signInWithOAuth({
-  //         provider: 'google',
-  //         options: {
-  //           redirectTo: 'http://localhost:5173/',
-  //         },
-  //       });
-  //     };
-
-  //    const handleSignOut = async () => {
-  //         await supabase.auth.signOut();
-  //    }
-
-
-  // return (
-  //   <div>
-  //     {session ? (
-  //       <div>
-  //         <p>Logged in as: {session.user?.email}</p>
-  //         <button onClick={handleSignOut}>Sign Out</button>
-  //       </div>
-  //     ) : (
-  //       <div>
-  //         <p>You are not logged in.</p>
-  //         <button onClick={handleSignIn}>Sign In with Google</button>
-  //       </div>
-  //     )}
-  //   </div>
-  // );
+  
 };
 
 export default Login;
-
-
-// export default AuthComponent;
-
-// import React, { useState } from 'react';
-// import supabase from '../../frontend/src/lib/supabase';
-// // import { useAuth  } from '@hooks';
-
-// const Login = () => {
-//   const [email, setEmail] = useState('');
-//   const [password, setPassword] = useState('');
-//   const [error, setError] = useState<string | null>(null);
-
-//   const handleLogin = async (e: React.FormEvent) => {
-//     e.preventDefault();
-
-//     const accessToken = await signInUser(email, password);
-
-//     if (!accessToken) {
-//       setError('Failed to log in. Please check your credentials.');
-//       return;
-//     }
-
-//     console.log('User logged in successfully. Access Token:', accessToken);
-//     setError(null); // Clear any previous errors
-//     // You can now use the access token for authenticated requests
-//   };
-
-//   const signInUser = async (email: string, password: string) => {
-//     try {
-//       const { data: { session }, error } = await supabase.auth.signInWithPassword({
-//         email,
-//         password,
-//       });
-
-//       if (error) {
-//         console.error('Error signing in:', error.message);
-//         setError(error.message);
-//         return null;
-//       }
-
-//       if (!session || !session.access_token) {
-//         console.error('No session or access token found.');
-//         setError('No session or access token found.');
-//         return null;
-//       }
-
-//       return session.access_token;
-//     } catch (err) {
-//       console.error('Unexpected error during sign-in:', err);
-//       setError('Unexpected error occurred.');
-//       return null;
-//     }
-//   };
-
-//   return (
-//     <div>
-//       <h1>Login</h1>
-//       <form onSubmit={handleLogin}>
-//         <div>
-//           <label>Email:</label>
-//           <input
-//             type="email"
-//             value={email}
-//             onChange={(e) => setEmail(e.target.value)}
-//             required
-//           />
-//         </div>
-//         <div>
-//           <label>Password:</label>
-//           <input
-//             type="password"
-//             value={password}
-//             onChange={(e) => setPassword(e.target.value)}
-//             required
-//           />
-//         </div>
-//         <button type="submit">Login</button>
-//       </form>
-//       {error && <p style={{ color: 'red' }}>{error}</p>}
-//     </div>
-//   );
-// };
-
-// export default Login;

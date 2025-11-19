@@ -18,11 +18,11 @@ import { mapPageForScope, loadPageByScope, savePageByScope } from '@utils/pagina
 import 'react-datepicker/dist/react-datepicker.css';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
-import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, Eye, Edit, Trash, EyeOff, ChevronRight, Award, FileText as NotesIcon, Save as SaveIcon, CheckIcon, CheckSquare, CheckSquare2, SquareSlash } from 'lucide-react';
+import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, Eye, Edit, Trash, EyeOff, ChevronRight, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash } from 'lucide-react';
 import { useGoalsContext } from '@context/GoalsContext';
 import useGoalExtras from '@hooks/useGoalExtras';
 // notify helpers imported where needed below
-import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, FormGroup, FormLabel, InputLabel, Select, MenuItem, Tooltip, Menu, Chip, Badge, Checkbox, ListItemText, ToggleButtonGroup, ToggleButton, Table, TableContainer, TableHead, TableBody, TableRow, TableCell, Paper, Typography, Switch, FormControlLabel, CircularProgress, useMediaQuery, Button } from '@mui/material';
+import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, FormGroup, FormLabel, InputLabel, Select, MenuItem, Tooltip, Menu, Chip, Badge, Checkbox, ListItemText, ToggleButtonGroup, ToggleButton, Table, TableHead, TableBody, TableRow, TableCell, Paper, Typography, Switch, FormControlLabel, useMediaQuery } from '@mui/material';
 // dnd-kit was attempted but failed to install; use HTML5 drag/drop fallback
 import { useTheme } from '@mui/material/styles';
 import supabase from '@lib/supabase';
@@ -33,7 +33,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type { Dayjs } from 'dayjs';
 import type { ChangeEvent } from 'react';
 import LoadingSpinner from './LoadingSpinner';
-import { Tab } from '@headlessui/react';
+// import { Tab } from '@headlessui/react';
 type Goal = GoalUtilsGoal & {
   created_at?: string;
 };
@@ -351,7 +351,7 @@ const GoalsComponent = () => {
 
     const theme = useTheme();
     const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
-    const isMedium = useMediaQuery(theme.breakpoints.between('sm', 'md'));
+    // const isMedium = useMediaQuery(theme.breakpoints.between('sm', 'md'));
     // view mode: 'cards' (default), 'table', or 'kanban'
     const [viewMode, setViewMode] = useState<'cards' | 'table' | 'kanban'>(() => {
         try {
