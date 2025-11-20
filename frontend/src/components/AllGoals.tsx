@@ -191,6 +191,7 @@ const GoalsComponent = () => {
         deleteNote,
         fetchNotesCount,
         fetchAccomplishmentsCount,
+        fetchCountsForMany,
     } = goalExtras;
     const [selectedSummary, setSelectedSummary] = useState<{ id: string; content?: string; type?: string; title?: string } | null>(null);
     const [noteDeleteTarget, setNoteDeleteTarget] = useState<string | null>(null);
@@ -602,7 +603,20 @@ const GoalsComponent = () => {
             }, []);
 
             useEffect(() => {
-                const fetchGoalsAndCategories = async () => {
+                    // helper to defer non-urgent work to idle time to avoid blocking the React scheduler
+                    const scheduleIdle = (fn: () => void) => {
+                        try {
+                            if (typeof (window as any).requestIdleCallback === 'function') {
+                                (window as any).requestIdleCallback(fn, { timeout: 300 });
+                            } else {
+                                setTimeout(fn, 0);
+                            }
+                        } catch (e) {
+                            setTimeout(fn, 0);
+                        }
+                    };
+
+                    const fetchGoalsAndCategories = async () => {
                     const id = ++fetchIdRef.current;
                     // If we have a global in-memory goals cache (from GoalsContext), prefer
                     // building an indexed view from it and skip the network entirely. This
@@ -614,30 +628,33 @@ const GoalsComponent = () => {
                             const clientIndexed = indexDataByScope(withScope, scope);
                             const clientPages = Object.keys(clientIndexed).sort((a, b) => (a > b ? -1 : 1));
                             if (Object.keys(clientIndexed).length > 0) {
-                                // using client-indexed goals (no fetch)
-                                setIndexedGoals(clientIndexed as Record<string, Goal[]>);
-                                setPages(clientPages);
+                                    // using client-indexed goals (no fetch)
+                                    // Defer heavy state updates to idle time to keep main thread responsive
+                                    scheduleIdle(async () => {
+                                        setIndexedGoals(clientIndexed as Record<string, Goal[]>);
+                                        setPages(clientPages);
 
-                                const cachedPage = pageByScopeRef.current[scope] || clientPages[0];
-                                if (!initializedRef.current) {
-                                    setCurrentPage(cachedPage);
-                                    currentPageRef.current = cachedPage;
-                                    initializedRef.current = true;
-                                } else {
-                                    const cp = currentPageRef.current || currentPage;
-                                    if (!cp || !clientPages.includes(cp)) {
-                                        setCurrentPage(clientPages[0]);
-                                        currentPageRef.current = clientPages[0];
-                                    }
+                                        const cachedPage = pageByScopeRef.current[scope] || clientPages[0];
+                                        if (!initializedRef.current) {
+                                            setCurrentPage(cachedPage);
+                                            currentPageRef.current = cachedPage;
+                                            initializedRef.current = true;
+                                        } else {
+                                            const cp = currentPageRef.current || currentPage;
+                                            if (!cp || !clientPages.includes(cp)) {
+                                                setCurrentPage(clientPages[0]);
+                                                currentPageRef.current = clientPages[0];
+                                            }
+                                        }
+
+                                        prevScopeRef.current = scope;
+                                        lastSwitchFromRef.current = null;
+                                        try { await initializeUserCategories(); } catch (e) { /* ignore init failures */ }
+                                        // We used cached client goals to populate pages; clear loading state
+                                        setIsScopeLoading(false);
+                                    });
+                                    return;
                                 }
-
-                                prevScopeRef.current = scope;
-                                lastSwitchFromRef.current = null;
-                                await initializeUserCategories();
-                                    // We used cached client goals to populate pages; clear loading state
-                                    setIsScopeLoading(false);
-                                return;
-                            }
                         }
                     } catch {
                         // ignore and fall back to server fetch
@@ -648,28 +665,36 @@ const GoalsComponent = () => {
                         const { indexedGoals, pages } = await fetchAllGoalsIndexed(scope);
                         // If another fetch started after this one, ignore these results
                         if (id !== fetchIdRef.current) return;
-                        setIndexedGoals(indexedGoals);
-                        setPages(pages);
-
-                        // Decide which page to show for this scope
+                        // Compute desiredPage synchronously (cheap) so later logic can reference it,
+                        // but defer heavy state writes (indexedGoals/pages) to idle time.
                         const prevScope = lastSwitchFromRef.current ?? prevScopeRef.current;
-                        // Prefer the authoritative state value first (may have been set during mount),
-                        // then fall back to the ref which is kept in sync.
                         const remembered = pageByScope[scope] || pageByScopeRef.current[scope];
                         let desiredPage: string | undefined = remembered;
-
-                        // If we have a remembered page for this scope (the last selected), prefer it and do not overwrite.
                         const prevSelected = pageByScopeRef.current[prevScope as string];
                         if (!desiredPage) {
-                            // If switching scopes, prefer mapping from the previous scope's selection (if present)
                             if (prevScope !== scope && prevSelected) {
                                 const mapped = mapPageForScope(prevSelected, scope, pages);
                                 if (mapped) desiredPage = mapped;
                             } else {
-                                // If we don't have a remembered page for this scope, try to map from the previous scope's selection
                                 desiredPage = mapPageForScope(prevSelected, scope, pages);
                             }
                         }
+
+                        if (!desiredPage) {
+                            const today = new Date();
+                            if (scope === 'week') desiredPage = getWeekStartDate(today);
+                            else if (scope === 'month') desiredPage = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+                            else desiredPage = `${today.getFullYear()}`;
+                        }
+
+                        // Defer heavy state updates to idle time to keep main thread responsive
+                        scheduleIdle(() => {
+                            setIndexedGoals(indexedGoals);
+                            setPages(pages);
+                            try { prevScopeRef.current = scope; } catch {}
+                            try { lastSwitchFromRef.current = null; } catch {}
+                            try { setIsScopeLoading(false); } catch {}
+                        });
 
                                                 // Development debug: show mapping inputs so we can repro scope-switch flips quickly
                                                 // mapping debug removed for production
@@ -1225,22 +1250,27 @@ const GoalsComponent = () => {
         if (!visibleIdsMemo || visibleIdsMemo.length === 0) return;
         let mounted = true;
         (async () => {
-            for (const id of visibleIdsMemo) {
-                if (!mounted) break;
-                try {
-                    // fetch notes count first, then accomplishments count
-                    await fetchNotesCount(id).catch(() => null);
-                } catch { /* ignore */ }
-                if (!mounted) break;
-                try {
-                    if (fetchAccomplishmentsCount) await fetchAccomplishmentsCount(id).catch(() => null);
-                } catch { /* ignore */ }
-                // small delay to avoid burst (non-blocking)
-                await new Promise((res) => setTimeout(res, 50));
+            try {
+                // Use batch endpoint to fetch counts for visible goals in one call
+                const result = await (fetchCountsForMany ? fetchCountsForMany(visibleIdsMemo) : null);
+                if (!mounted) return;
+                // If batch returned nothing, fall back to per-id as a safety net
+                if (!result) {
+                    for (const id of visibleIdsMemo) {
+                        if (!mounted) break;
+                        try { await fetchNotesCount(id).catch(() => null); } catch { /* ignore */ }
+                        if (!mounted) break;
+                        try { if (fetchAccomplishmentsCount) await fetchAccomplishmentsCount(id).catch(() => null); } catch { /* ignore */ }
+                        await new Promise((res) => setTimeout(res, 25));
+                    }
+                }
+            } catch (err) {
+                // ignore failures; counts will arrive via individual interactions
+                console.warn('[AllGoals] fetchCountsForMany failed (ignored):', err);
             }
         })();
         return () => { mounted = false; };
-    }, [visibleIdsMemo, fetchNotesCount, fetchAccomplishmentsCount]);
+    }, [visibleIdsMemo, fetchCountsForMany, fetchNotesCount, fetchAccomplishmentsCount]);
 
     // Filtered & sorted list across all indexed pages (for Kanban view)
     const sortedAndFilteredAllGoals = Object.values(indexedGoals).flat().filter(goalMatchesFilters).sort((a, b) => {
@@ -1348,7 +1378,8 @@ const GoalsComponent = () => {
                         <FormControlLabel
                             control={
                                 <Switch
-                                    checked={showAllGoals}
+                                id='All goals switch'    
+                                checked={showAllGoals}
                                     onChange={(_, v) => { console.debug('[AllGoals] Kanban switch toggled ->', v); setshowAllGoals(v); }}
                                     size="small"
                                     color='primary'

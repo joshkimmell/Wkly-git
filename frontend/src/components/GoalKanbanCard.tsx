@@ -108,15 +108,17 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
   useEffect(() => {
     if (!goal?.id) return;
     if (typeof goal.id === 'string' && goal.id.startsWith('temp-')) return; // skip temp ids
-    // if no notes count, try to fetch it (hook will guard auth/retries)
+    // only prime counts once for this card on mount (the hook itself handles caching/TTL)
     if (notesCountMap[goal.id] === undefined) {
       (async () => { try { await refreshNotesAndCount(goal.id); } catch (e) { /* ignore */ } })();
     }
-    // if no accomplishments count, try to fetch it
     if (accomplishmentCountMap[goal.id] === undefined) {
       (async () => { try { await refreshAccomplishmentsAndCount(goal.id); } catch (e) { /* ignore */ } })();
     }
-  }, [goal?.id, notesCountMap, accomplishmentCountMap, fetchNotesCount, fetchAccomplishmentsCount]);
+    // Intentionally only depend on goal id and the stable fetch helpers so this
+    // effect doesn't re-run when unrelated goals' counts update (which would
+    // otherwise cause all cards to refetch in response to any badge change).
+  }, [goal?.id, fetchNotesCount, fetchAccomplishmentsCount]);
 
   // const [localStatus, setLocalStatus] = useState<string | undefined>(goal.status);
   // const [statusAnchorEl, setStatusAnchorEl] = useState<null | HTMLElement>(null);

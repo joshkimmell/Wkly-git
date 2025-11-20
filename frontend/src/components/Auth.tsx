@@ -11,6 +11,7 @@ import { ARIA_HIDE_APP } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
 import { Eye, EyeOff } from 'lucide-react';
 import ToastNotification, { notifySuccess, notifyError } from '@components/ToastyNotification'; 
+import { sendPasswordReset } from '@lib/authHelpers';
 // import e from 'cors';
 
 const Login = () => {
@@ -196,23 +197,22 @@ const Login = () => {
 
     const handlePasswordReset = async (email: string) => {
       try {
-        const { error } = await supabase.auth.resetPasswordForEmail(email);
-    
+        const { error } = await sendPasswordReset(email)
+
         if (error) {
-          notifyError(`${error.message}`);
-          console.error('Error sending password reset email:', error.message);
-          setError(error.message);
-          return;
+          notifyError(`${error.message}`)
+          console.error('Error sending password reset email:', error.message)
+          setError(error.message)
+          return
         }
-        
-        notifySuccess('Password reset email has been sent successfully. Please check your inbox.');
-        // console.log('Password reset email sent successfully.');
-        setError(null); // Clear any previous errors
-      } catch (err) {
-        console.error('Unexpected error during password reset:', err);
-        setError('Unexpected error occurred.');
+
+        notifySuccess('Password reset email has been sent successfully. Please check your inbox.')
+        setError(null)
+      } catch (err: any) {
+        console.error('Unexpected error during password reset:', err)
+        setError(err?.message || 'Unexpected error occurred.')
       }
-    };
+    }
 
     const [theme, setTheme] = useState<'theme-dark' | 'theme-light'>(
       window.matchMedia('(prefers-color-scheme: dark)').matches ? 'theme-dark' : 'theme-light'
