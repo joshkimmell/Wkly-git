@@ -23,6 +23,9 @@ export default function useGoalExtras() {
   const userIdAttemptedRef = useRef<boolean>(false);
   const notesCountCacheRef = useRef<Record<string, { count: number; expiresAt: number }>>({});
   const accomplishmentsCountCacheRef = useRef<Record<string, { count: number; expiresAt: number }>>({});
+  const inFlightNotesRef = useRef<Record<string, Promise<number | null>>>({});
+  const inFlightAccomplishmentsRef = useRef<Record<string, Promise<number | null>>>({});
+  const inFlightBatchRef = useRef<Record<string, Promise<{ notes: Record<string, number>; accomplishments: Record<string, number> } | null>>>({});
   const NOTES_COUNT_TTL_MS = 30 * 1000;
   const ACCOMPLISHMENT_COUNT_TTL_MS = 30 * 1000;
 
@@ -45,54 +48,127 @@ export default function useGoalExtras() {
   }, []);
 
   const fetchNotesCount = useCallback(async (goalId?: string) => {
-    try {
-      const idToUse = goalId;
-      if (!idToUse) return null;
-      if (typeof idToUse === 'string' && idToUse.startsWith('temp-')) {
-        // treat temp goals as zero without updating maps
-        return 0;
-      }
-      const cached = notesCountCacheRef.current[idToUse];
-      if (cached && cached.expiresAt > Date.now()) {
-        // only update map if changed
-        setNotesCountMap((s) => (s[idToUse] === cached.count ? s : ({ ...s, [idToUse]: cached.count })));
-        return cached.count;
-      }
-      const userId = await getCachedUserId();
-      if (!userId) return null;
-      const res = await fetch(`/api/getNotes?goal_id=${idToUse}&count_only=1`, { headers: { Authorization: `Bearer ${userId}` } });
-      if (!res.ok) throw new Error(await res.text());
-      const json = await res.json();
-      const count = typeof json?.count === 'number' ? json.count : Number(json) || 0;
-      notesCountCacheRef.current[idToUse] = { count, expiresAt: Date.now() + NOTES_COUNT_TTL_MS };
-      setNotesCountMap((s) => (s[idToUse] === count ? s : ({ ...s, [idToUse]: count })));
-      return count;
-    } catch (err) {
-      console.error('useGoalExtras.fetchNotesCount error', err);
-      return null;
+    const idToUse = goalId;
+    if (!idToUse) return null;
+    if (typeof idToUse === 'string' && idToUse.startsWith('temp-')) {
+      // treat temp goals as zero without updating maps
+      return 0;
     }
+    const cached = notesCountCacheRef.current[idToUse];
+    if (cached && cached.expiresAt > Date.now()) {
+      // only update map if changed
+      setNotesCountMap((s) => (s[idToUse] === cached.count ? s : ({ ...s, [idToUse]: cached.count })));
+      return cached.count;
+    }
+
+    // dedupe in-flight requests
+    const existing = inFlightNotesRef.current[idToUse];
+    if (existing) return await existing;
+
+    const promise = (async () => {
+      try {
+        const userId = await getCachedUserId();
+        if (!userId) return null;
+        const res = await fetch(`/api/getNotes?goal_id=${idToUse}&count_only=1`, { headers: { Authorization: `Bearer ${userId}` } });
+        if (!res.ok) throw new Error(await res.text());
+        const json = await res.json();
+        const count = typeof json?.count === 'number' ? json.count : Number(json) || 0;
+        notesCountCacheRef.current[idToUse] = { count, expiresAt: Date.now() + NOTES_COUNT_TTL_MS };
+        setNotesCountMap((s) => (s[idToUse] === count ? s : ({ ...s, [idToUse]: count })));
+        return count;
+      } catch (err) {
+        console.error('useGoalExtras.fetchNotesCount error', err);
+        return null;
+      } finally {
+        try { delete inFlightNotesRef.current[idToUse]; } catch (e) { /* ignore */ }
+      }
+    })();
+
+    inFlightNotesRef.current[idToUse] = promise;
+    return await promise;
   }, [getCachedUserId]);
 
   const fetchAccomplishmentsCount = useCallback(async (goalId?: string) => {
-    try {
-      const idToUse = goalId;
-      if (!idToUse) return null;
-      const cached = accomplishmentsCountCacheRef.current[idToUse];
-      if (cached && cached.expiresAt > Date.now()) {
-        setAccomplishmentCountMap((s) => (s[idToUse] === cached.count ? s : ({ ...s, [idToUse]: cached.count })));
-        return cached.count;
+    const idToUse = goalId;
+    if (!idToUse) return null;
+    const cached = accomplishmentsCountCacheRef.current[idToUse];
+    if (cached && cached.expiresAt > Date.now()) {
+      setAccomplishmentCountMap((s) => (s[idToUse] === cached.count ? s : ({ ...s, [idToUse]: cached.count })));
+      return cached.count;
+    }
+
+    const existing = inFlightAccomplishmentsRef.current[idToUse];
+    if (existing) return await existing;
+
+    const promise = (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('accomplishments')
+          .select('id,goal_id')
+          .eq('goal_id', idToUse);
+        if (error) throw error;
+        const count = (data && Array.isArray(data) ? data.length : 0) as number;
+        accomplishmentsCountCacheRef.current[idToUse] = { count, expiresAt: Date.now() + ACCOMPLISHMENT_COUNT_TTL_MS };
+        setAccomplishmentCountMap((s) => (s[idToUse] === count ? s : ({ ...s, [idToUse]: count })));
+        return count;
+      } catch (err) {
+        console.error('useGoalExtras.fetchAccomplishmentsCount error', err);
+        return null;
+      } finally {
+        try { delete inFlightAccomplishmentsRef.current[idToUse]; } catch (e) { /* ignore */ }
       }
-      const { data, error } = await supabase
-        .from('accomplishments')
-        .select('id', { count: 'exact', head: false })
-        .eq('goal_id', idToUse);
-      if (error) throw error;
-      const count = (data && Array.isArray(data) ? data.length : 0) as number;
-      accomplishmentsCountCacheRef.current[idToUse] = { count, expiresAt: Date.now() + ACCOMPLISHMENT_COUNT_TTL_MS };
-      setAccomplishmentCountMap((s) => (s[idToUse] === count ? s : ({ ...s, [idToUse]: count })));
-      return count;
+    })();
+
+    inFlightAccomplishmentsRef.current[idToUse] = promise;
+    return await promise;
+  }, []);
+
+  const fetchCountsForMany = useCallback(async (goalIds: string[]) => {
+    if (!Array.isArray(goalIds) || goalIds.length === 0) return null;
+    // normalize key for deduping concurrent identical batch requests
+    const key = [...goalIds].sort().join(',');
+    const existing = inFlightBatchRef.current[key];
+    if (existing) return await existing;
+    try {
+      const promise = (async () => {
+        const res = await fetch('/api/getCounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ goal_ids: goalIds }) });
+        if (!res.ok) throw new Error(await res.text());
+        const json = await res.json();
+
+        const notes: Record<string, number> = json?.notes || {};
+        const accomplishments: Record<string, number> = json?.accomplishments || {};
+
+        const now = Date.now();
+
+        setNotesCountMap((s) => {
+          const next = { ...s };
+          for (const id of goalIds) {
+            const count = typeof notes[id] === 'number' ? notes[id] : (next[id] ?? 0);
+            notesCountCacheRef.current[id] = { count, expiresAt: now + NOTES_COUNT_TTL_MS };
+            next[id] = count;
+          }
+          return next;
+        });
+
+        setAccomplishmentCountMap((s) => {
+          const next = { ...s };
+          for (const id of goalIds) {
+            const count = typeof accomplishments[id] === 'number' ? accomplishments[id] : (next[id] ?? 0);
+            accomplishmentsCountCacheRef.current[id] = { count, expiresAt: now + ACCOMPLISHMENT_COUNT_TTL_MS };
+            next[id] = count;
+          }
+          return next;
+        });
+
+        return { notes, accomplishments };
+      })();
+
+      inFlightBatchRef.current[key] = promise;
+      const json = await promise;
+      delete inFlightBatchRef.current[key];
+      return json;
     } catch (err) {
-      console.error('useGoalExtras.fetchAccomplishmentsCount error', err);
+      console.error('useGoalExtras.fetchCountsForMany error', err);
       return null;
     }
   }, []);
@@ -370,6 +446,7 @@ export default function useGoalExtras() {
     openAccomplishments,
     closeAccomplishments,
     fetchAccomplishmentsCount,
+    fetchCountsForMany,
 
   notes,
   notesCountMap,

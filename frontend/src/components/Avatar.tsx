@@ -4,6 +4,10 @@ import ButtonBase from '@mui/material/ButtonBase';
 import CircularProgress from '@mui/material/CircularProgress';
 import supabase from '@lib/supabase';
 
+// Simple in-memory cache for the profile row during a single SPA session.
+// Avoids refetching the profile for multiple Avatar mounts.
+let profileCache: { id: string; avatar_url?: string; full_name?: string; username?: string } | null = null;
+
 interface UploadAvatarsProps {
   isEdit?: boolean; // Made optional
   onClick?: (event: React.MouseEvent<HTMLLabelElement>) => void; // Updated to HTMLLabelElement
@@ -64,6 +68,24 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user?.id) return;
 
+        // If we've already fetched the profile for this user in this SPA session, reuse it.
+        if (profileCache && profileCache.id === session.user.id) {
+          const profile = profileCache;
+          if (profile?.full_name) setAvatarAlt(profile.full_name);
+          else if (profile?.username) setAvatarAlt(profile.username);
+          else setAvatarAlt('User avatar');
+
+          setStoredAvatarUrl(profile?.avatar_url || undefined);
+          if (!src && profile?.avatar_url) setAvatarSrc(profile.avatar_url);
+
+          if (!profile?.avatar_url) {
+            if (profile?.full_name) setInitial(profile.full_name[0]?.toUpperCase() || 'U');
+            else if (profile?.username) setInitial(profile.username[0]?.toUpperCase() || 'U');
+            else setInitial('U');
+          }
+          return;
+        }
+
         const { data: profile, error } = await supabase
           .from('profiles')
           .select('avatar_url, full_name, username')
@@ -83,6 +105,9 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
         } else {
           setAvatarAlt('User avatar');
         }
+
+        // Cache the profile for subsequent Avatar instances in this SPA session.
+        try { profileCache = { id: session.user.id, ...(profile || {}) }; } catch {}
 
         // Keep storedAvatarUrl so we know whether the profile has a persisted avatar
         setStoredAvatarUrl(profile?.avatar_url || undefined);
@@ -154,6 +179,7 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
       <Avatar
         alt={avatarAlt}
         src={displayedSrc}
+        imgProps={{ loading: 'lazy', decoding: 'async' }}
         sx={{
           opacity: uploading ? 0.45 : 1,
           width: { xs: sizeValues.xs, md: sizeValues.md },

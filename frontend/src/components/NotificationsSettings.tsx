@@ -145,7 +145,7 @@ export default function NotificationsSettings({ registerSave }: Props) {
           label="Enable Email reminders"
         />
         <div className='flex flex-row gap-2 items-end mb-4'>
-            <TextField label="Email recipient" value={settings.emailTo} onChange={(e) => setSettings((s) => ({ ...s, emailTo: e.target.value }))} fullWidth disabled={busy || !settings.enableSlack} />
+            <TextField label="Email recipient" value={settings.emailTo} onChange={(e) => setSettings((s) => ({ ...s, emailTo: e.target.value }))} fullWidth disabled={busy || !settings.enableEmail} />
             <Button className='w-48 h-8  text-nowrap' variant="text" onClick={testEmail} size='small' disabled={busy || !settings.enableEmail}>Test Email</Button>
         </div>
         <FormControl fullWidth>

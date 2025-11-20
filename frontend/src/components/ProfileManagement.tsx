@@ -18,11 +18,14 @@ import {
   ListItemButton,
   ListItemText,
   Chip,
+  Paper,
 } from '@mui/material';
 import Avatar from '@components/Avatar';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
 import supabase from '@lib/supabase';
 import useAuth from '@hooks/useAuth';
+import { sendPasswordReset } from '@lib/authHelpers';
+import { Eye, EyeOff } from 'lucide-react';
 import appColors, { PaletteKey } from '@styles/appColors';
 import NotificationsSettings from './NotificationsSettings';
 
@@ -53,6 +56,14 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
   const [active, setActive] = useState<'profile' | 'appearance' | 'notifications'>('profile');
 
   const [savingAll, setSavingAll] = useState(false);
+  // Local password state for optional in-profile password reset UI
+  const [password, setPassword] = useState('')
+  const [passwordReEnter, setPasswordReEnter] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showPasswordReEnter, setShowPasswordReEnter] = useState(false)
+  const [changePassword, setChangePassword] = useState(false)
+  const [registerErrors, setRegisterErrors] = useState<{ password?: string; passwordReEnter?: string }>({})
+  const [error, setError] = useState<string | null>(null)
   useEffect(() => {
     if (profile) {
       setUsername(profile.username || '');
@@ -72,6 +83,8 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
       }
     }
   }, [profile]);
+
+  const passwordsMatch = !!password && !!passwordReEnter && password === passwordReEnter
 
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -184,21 +197,7 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
     }
   };
 
-  const handleResetColors = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user?.id) throw new Error('User not authenticated');
-      const { error } = await supabase.from('profiles').update({ primary_color: null }).eq('id', session.user.id);
-      if (error) throw error;
-      appColors.resetPaletteToDefault();
-      setSelectedPalette('purple');
-      setPreviewPalette('purple');
-      // notifySuccess('Colors reset to default');
-    } catch (e) {
-      console.error(e);
-      notifyError('Failed to reset colors');
-    }
-  };
+  // removed unused handleResetColors (was causing linter warning)
 
   // Keyboard navigation for swatches
   const handleSwatchKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, idx: number) => {
@@ -242,10 +241,138 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
               <Avatar isEdit onChange={handleAvatarChange} src={previewSrc} uploading={loading} size="lg" />
               <TextField label="Username" value={username} onChange={(e) => setUsername(e.target.value)} fullWidth />
               <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth />
+              <div className="w-full flex justify-start">
+                <FormControlLabel
+                    control={
+                      <Switch
+                        checked={changePassword}
+                        onChange={(e) => setChangePassword(e.target.checked)}
+                        inputProps={{ 'aria-label': 'Change password' }}
+                      />
+                    }
+                    label="Change password"
+                    className='mt-8'
+                  />
+              </div>
+            
+              {changePassword && (
+              
+                <Paper className="w-full p-4">
+                    <TextField
+                      id="register-password"
+                      name="new-password"
+                      autoComplete="new-password"
+                      inputProps={{ autoComplete: 'new-password' }}
+                      label="Password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => { setPassword(e.target.value); setRegisterErrors((s) => ({ ...s, password: undefined })); }}
+
+                      fullWidth
+                      size="small"
+                      error={!!registerErrors.password}
+                      helperText={registerErrors.password}
+                          //  // variant="outlined"
+                          InputProps={{
+                            endAdornment: (
+                              <IconButton
+                                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                onClick={() => setShowPassword((s) => !s)}
+                                edge="end"
+                                size="small"
+                              >
+                                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              </IconButton>
+                            ),
+                          }}
+                          sx={{ mb: 1}}
+                        />
+                        <TextField
+                          id="register-reenter"
+                          name="new-password-confirm"
+                          autoComplete="new-password"
+                          inputProps={{ autoComplete: 'new-password' }}
+                          label="Re-enter Password"
+                          type={showPasswordReEnter ? 'text' : 'password'}
+                          value={passwordReEnter}
+                          onChange={(e) => { setPasswordReEnter(e.target.value); setRegisterErrors((s) => ({ ...s, passwordReEnter: undefined })); }}
+
+                          fullWidth
+                          size="small"
+                          error={!!registerErrors.passwordReEnter || (!!passwordReEnter && !passwordsMatch)}
+                          helperText={registerErrors.passwordReEnter || ((passwordReEnter && !passwordsMatch) ? 'Passwords do not match.' : '')}
+                          InputProps={{
+                            endAdornment: (
+                              <IconButton
+                                aria-label={showPasswordReEnter ? 'Hide re-entered password' : 'Show re-entered password'}
+                                onClick={() => setShowPasswordReEnter((s) => !s)}
+                                edge="end"
+                                size="small"
+                              >
+                                {showPasswordReEnter ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              </IconButton>
+                            ),
+                          }}
+                          sx={{ mb: 1 }}
+                        />
+                        {error && <p style={{ color: 'red' }}>{error}</p>}
+                        <div className="mt-2 flex gap-2">
+                          
+                          <Button
+                            variant="contained"
+                            color="primary"
+                            disabled={!passwordsMatch || !password}
+                            onClick={async () => {
+                              // Change password in-place for authenticated users
+                              setError(null)
+                              if (!passwordsMatch) {
+                                setRegisterErrors((s) => ({ ...s, passwordReEnter: 'Passwords do not match.' }))
+                                return
+                              }
+
+                              try {
+                                setLoading(true)
+                                const { data: { session } } = await supabase.auth.getSession();
+                                if (!session?.user?.id) {
+                                  notifyError('Not authenticated');
+                                  setError('Not authenticated');
+                                  return;
+                                }
+
+                                // Supabase v2: updateUser accepts an object with password
+                                // (falls back harmlessly if running a different SDK)
+                                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                                // @ts-ignore
+                                const { error: updateErr } = await supabase.auth.updateUser({ password });
+
+                                if (updateErr) {
+                                  console.error('Error updating password:', updateErr)
+                                  notifyError('Failed to change password: ' + (updateErr.message || updateErr.toString()))
+                                  setError(updateErr.message || 'Failed to change password')
+                                  return
+                                }
+
+                                notifySuccess('Password changed successfully. Use the new password next time you sign in.')
+                                // Clear local password fields
+                                setPassword('')
+                                setPasswordReEnter('')
+                                setRegisterErrors({})
+                              } catch (err: any) {
+                                console.error('Unexpected error changing password:', err)
+                                notifyError(err?.message || 'Failed to change password')
+                                setError(err?.message || 'Failed to change password')
+                              } finally {
+                                setLoading(false)
+                              }
+                            }}
+                          >Change password</Button>
+                        </div>
+                </Paper>
+              
+              )}
             </div>
           </form>
         )}
-
         {active === 'appearance' && (
           <section>
             <Typography variant="h6" className="mb-8">Choose a theme</Typography>
