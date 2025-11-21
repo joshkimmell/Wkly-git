@@ -471,7 +471,9 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
       </div>
 
       <div className="mb-2 gap-1 flex flex-col justify-between w-full items-start">
-        <div className="text-sm font-semibold pt-2 "><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></div>
+        <div className="text-sm font-semibold pt-2 ">
+          <span dangerouslySetInnerHTML={renderHTML(goal.title)} />
+        </div>
         {goal.description ? (
           <>
             {!isExpanded ? (

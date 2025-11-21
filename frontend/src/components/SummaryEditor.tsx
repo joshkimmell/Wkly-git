@@ -1,8 +1,6 @@
 import { modalClasses } from '@styles/classes';
 import React, { useState } from 'react';
 import { TextField } from '@mui/material';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
 import RichTextEditor from './RichTextEditor';
 
 interface SummaryEditorProps {
@@ -41,7 +39,7 @@ const SummaryEditor: React.FC<SummaryEditorProps> = ({
             {/* Input for editing the title */}
             <TextField
                 type="text"
-                name="title"
+                label="Title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="w-full mb-4"
@@ -50,6 +48,7 @@ const SummaryEditor: React.FC<SummaryEditorProps> = ({
             />
             <RichTextEditor
                 id='Edit goal'
+                label='Content'
                 value={content}
                 onChange={setContent} // Update content state
             />
