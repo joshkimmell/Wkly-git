@@ -433,6 +433,7 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
             placeholder={placeholder}
             /* label shown above as a custom floating label */
             label={label}
+            InputLabelProps={{ shrink: (focused || hasContent) as any }}
             inputRef={(el: any) => { contentRef.current = el; }}
             InputProps={{
               inputComponent: ContentEditableInput as any,

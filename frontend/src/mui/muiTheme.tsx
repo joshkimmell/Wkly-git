@@ -432,7 +432,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
           root: {
             borderRadius: '9999px',
             // match .card-category padding: .125rem .625rem
-            padding: '0.125em 0.625em',
+            padding: '0.125em 0.25em 0.125em 0.625em',
             height: 'auto',
             // keep chip compact like the tag
             minHeight: 'auto',
@@ -445,7 +445,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
             lineHeight: '0.85rem',
             fontWeight: 500,
             paddingLeft: 0,
-            paddingRight: 0,
+            paddingRight: '0.625em',
           },
         },
       },

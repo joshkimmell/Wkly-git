@@ -22,7 +22,7 @@ import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon,
 import { useGoalsContext } from '@context/GoalsContext';
 import useGoalExtras from '@hooks/useGoalExtras';
 // notify helpers imported where needed below
-import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, FormGroup, FormLabel, InputLabel, Select, MenuItem, Tooltip, Menu, Chip, Badge, Checkbox, ListItemText, ToggleButtonGroup, ToggleButton, Table, TableHead, TableBody, TableRow, TableCell, Paper, Typography, Switch, FormControlLabel, useMediaQuery } from '@mui/material';
+import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, FormGroup, FormLabel, InputLabel, Select, MenuItem, Tooltip, Menu, Chip, Badge, Checkbox, ListItemText, ToggleButtonGroup, ToggleButton, Table, TableHead, TableBody, TableRow, TableCell, Paper, Typography, Switch, FormControlLabel, useMediaQuery, Button } from '@mui/material';
 // dnd-kit was attempted but failed to install; use HTML5 drag/drop fallback
 import { useTheme } from '@mui/material/styles';
 import supabase from '@lib/supabase';
@@ -338,8 +338,9 @@ const GoalsComponent = () => {
 
         // filter popover anchor is controlled via `filterAnchorEl` and setFilterAnchorEl
 
-    // derive category options from UserCategories
-    const categoryOptions = (UserCategories || []).map((cat) => (typeof cat === 'string' ? cat : (cat as { name?: string }).name || ''));
+    // derive category options from the currently loaded goals (only categories actually used by goals)
+    const allLoadedGoals = Object.values(indexedGoals).flat();
+    const categoryOptions = Array.from(new Set(allLoadedGoals.map((g) => (g.category || '').toString()).filter(Boolean)));
         // derive statuses from current goals if available
         const statusOptions = Array.from(new Set(Object.values(indexedGoals).flat().map((g) => (g.status || '').toString()).filter(Boolean)));
 
@@ -846,6 +847,7 @@ const GoalsComponent = () => {
             // week_start: getWeekStartDate(),
         }));
         setIsGoalModalOpen(true);
+        console.debug('Opening Goal Modal' );
         }
     };
   
@@ -1367,7 +1369,9 @@ const GoalsComponent = () => {
             <h1 className="mt-4 block sm:hidden">Goals</h1>
         </div>
 
-        
+    {sortedAndFilteredGoals.length > 0 ? (
+            
+        <>
         <div className="flex justify-between items-start sm:items-center w-full mb-4">
             <div className='flex flex-col'>
                 
@@ -1497,7 +1501,7 @@ const GoalsComponent = () => {
                 
                 </div>
                     
-                {/* Filter and Sort Controls */}
+            {/* Filter and Sort Controls */}
                 <div className="relative mt-4 h-10 flex items-center space-x-2">
                     
                     {/* Filter button + MUI TextField replacement for filter input */}
@@ -1524,7 +1528,7 @@ const GoalsComponent = () => {
                                 aria-label={`Open filters${selectedFiltersCount > 0 ? ` (${selectedFiltersCount} active)` : ''}`}
                                 onClick={(e) => setFilterAnchorEl(e.currentTarget)}
                                 >
-                                <FilterIcon className="w-4 h-4" />
+                                <FilterIcon className="w-5 h-5" />
                             </IconButton>
                         </Badge>
                         </span>
@@ -1549,9 +1553,9 @@ const GoalsComponent = () => {
                                             }}
                                             renderValue={(selected) => (selected as string[]).join(', ')}
                                         >
-                                            <MenuItem value="">
+                                            {/* <MenuItem value="">
                                                 <ListItemText primary="Any" />
-                                            </MenuItem>
+                                            </MenuItem> */}
                                             {statusOptions.map((s) => (
                                                 <MenuItem key={s} value={s}>
                                                     <Checkbox size="small" checked={(filterStatus || []).indexOf(s) > -1} />
@@ -1573,9 +1577,9 @@ const GoalsComponent = () => {
                                             }}
                                             renderValue={(selected) => (selected as string[]).join(', ')}
                                         >
-                                            <MenuItem value="">
+                                            {/* <MenuItem value="">
                                                 <ListItemText primary="Any" />
-                                            </MenuItem>
+                                            </MenuItem> */}
                                             {categoryOptions.map((c) => (
                                                 <MenuItem key={c} value={c}>
                                                     <Checkbox size="small" checked={(filterCategory || []).indexOf(c) > -1} />
@@ -1642,7 +1646,7 @@ const GoalsComponent = () => {
                                     label={`${selectedFiltersCount} filters`}
                                     size="small"
                                     onClick={(e) => setSummaryAnchorEl(e.currentTarget)}
-                                    className="gap-2 bg-gray-30 dark:bg-gray-70 text-gray-70 dark:text-gray-30 cursor-pointer"
+                                    className="cursor-pointer"
                                 />
                                 <Menu
                                     anchorEl={summaryAnchorEl}
@@ -1704,7 +1708,7 @@ const GoalsComponent = () => {
                                             size="small"
                                             onDelete={() => setFilterStatus((prev) => (prev || []).filter((v) => v !== s))}
                                             deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
-                                            className="gap-2 bg-gray-30 dark:bg-gray-70 text-gray-70 dark:text-gray-30"
+                                            className="cursor-pointer"
                                         />
                                     ))
                                 )}
@@ -1716,7 +1720,7 @@ const GoalsComponent = () => {
                                             size="small"
                                             onDelete={() => setFilterCategory((prev) => (prev || []).filter((v) => v !== c))}
                                             deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
-                                            className="gap-2 bg-gray-30 dark:bg-gray-70 text-gray-70 dark:text-gray-30"
+                                            className="cursor-pointer"
                                         />
                                     ))
                                 )}
@@ -1726,7 +1730,7 @@ const GoalsComponent = () => {
                                         size="small"
                                         onDelete={() => { setFilterStartDate(null); setFilterEndDate(null); }}
                                         deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
-                                        className="gap-2 bg-gray-30 dark:bg-gray-70 text-gray-70 dark:text-gray-30"
+                                        className="cursor-pointer"
                                     />
                                 )}
                                 {/* Ghost clear-all button */}
@@ -2130,8 +2134,8 @@ const GoalsComponent = () => {
                             />
                         </div>
                     
-                </div>
-            </div> 
+                    </div>
+                </div> 
 
                 
 
@@ -2727,22 +2731,7 @@ const GoalsComponent = () => {
                                     )}
                                 </div>
                             )}
-                {sortedAndFilteredGoals.length === 0 && (
-                    <div className="text-center text-gray-50 mt-4 justify-center flex flex-col items-center">
-                        No goals found. Try adding one!
-                        {/* <Tooltip title={`Add a new goal`} placement="top" arrow> */}
-                            <button
-                                onClick={openGoalModal}
-                                className="btn-primary gap-2 flex ml-auto"
-                                // title={`Add a new goal for the current ${scope}`}
-                                aria-label={`Add a new goal for the current ${scope}`}
-                                >
-                                <PlusIcon className="w-5 h-5" />
-                                <span className="block flex text-nowrap">Add a Goal</span>
-                            </button>
-                        {/* </Tooltip> */}
-                    </div>
-                )}
+                
             </div>
             <div id="summary">
                     <Modal
@@ -2787,28 +2776,8 @@ const GoalsComponent = () => {
 
             <div>
 
-                {/* Add Goal Modal */}
-                <Modal
-                    isOpen={isGoalModalOpen}
-                    onRequestClose={closeGoalModal}
-                    shouldCloseOnOverlayClick={true}
-                    ariaHideApp={ARIA_HIDE_APP}
-                    // parentSelector={() => document.getElementById('app')!}
-                    className={`fixed inset-0 flex md:items-center justify-center z-50`}
-                    overlayClassName={`${overlayClasses}`}
-                >
-                <div className={`${modalClasses}`}>
-                    {isGoalModalOpen && (
-                            <GoalForm
-                            newGoal={newGoal}
-                            setNewGoal={setNewGoal}
-                                        handleClose={closeGoalModal}
-                                        categories={UserCategories.map((cat: unknown) => typeof cat === 'string' ? (cat as string) : ((cat as { name?: string })?.name || ''))}
-                                        refreshGoals={() => refreshGoals().then(() => {})}
-                        />
-                    )}
-                </div>
-                </Modal>
+                
+                    
                 {/* Goal Editor Modal */}
                 <Modal
                     isOpen={isEditorOpen}
@@ -2998,8 +2967,47 @@ const GoalsComponent = () => {
                         </div>
                     )}
             </div>
+            </>
+    ) : (
+    <div className="text-center text-gray-50 mt-4 justify-center flex flex-col gap-8 items-center h-64">
+                No goals found. Try adding one!
+                
+                    <Button
+                        onClick={openGoalModal}
+                        variant='contained'
+                        className="btn-primary gap-2 flex"
+                        // title={`Add a new goal for the current ${scope}`}
+                        aria-label={`Add a new goal`}
+                        >
+                        <PlusIcon className="w-5 h-5" />
+                        <span className="block flex text-nowrap">Add a Goal</span>
+                    </Button>
+                
+            </div>
+        )}
+        {/* Add Goal Modal */}
+                <Modal
+                    isOpen={isGoalModalOpen}
+                    onRequestClose={closeGoalModal}
+                    shouldCloseOnOverlayClick={true}
+                    ariaHideApp={ARIA_HIDE_APP}
+                    // parentSelector={() => document.getElementById('app')!}
+                    className={`fixed inset-0 flex md:items-center justify-center z-50`}
+                    overlayClassName={`${overlayClasses}`}
+                    >
+                <div className={`${modalClasses}`}>
+                    {isGoalModalOpen && (
+                        <GoalForm
+                        newGoal={newGoal}
+                        setNewGoal={setNewGoal}
+                        handleClose={closeGoalModal}
+                                        categories={UserCategories.map((cat: unknown) => typeof cat === 'string' ? (cat as string) : ((cat as { name?: string })?.name || ''))}
+                                        refreshGoals={() => refreshGoals().then(() => {})}
+                        />
+                    )}
+                </div>
+                </Modal>
         </div>
-    // </div>
   );
 };
 
