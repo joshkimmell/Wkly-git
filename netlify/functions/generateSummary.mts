@@ -1,6 +1,7 @@
 import { Handler } from '@netlify/functions';
 import { OpenAI } from 'openai';
 import dotenv from 'dotenv';
+import { requireAuth } from './lib/auth';
 
 // Load local .env for netlify dev
 dotenv.config();
@@ -100,15 +101,17 @@ export const handler: Handler = async (event) => {
     };
   }
 
+  const auth = await requireAuth(event);
+  if (auth.error) return auth.error;
+
   try {
     const parsedBody = JSON.parse(event.body || '{}');
-    const { summary_id, user_id, week_start, goalsWithAccomplishments, summaryTitle, scope } = parsedBody;
+    const { summary_id, week_start, goalsWithAccomplishments, summaryTitle, scope } = parsedBody;
 
     // Defensive server-side logging to help debug mismatches between client and server.
     try {
       console.debug('[generateSummary] incoming payload preview:', {
         summary_id,
-        user_id_present: !!user_id,
         week_start,
         summaryTitle_preview: typeof summaryTitle === 'string' ? summaryTitle.slice(0, 200) : null,
         goals_count: Array.isArray(goalsWithAccomplishments) ? goalsWithAccomplishments.length : 0,
@@ -117,21 +120,20 @@ export const handler: Handler = async (event) => {
     } catch (e) {
       // ignore logging errors
     }
-    
+
     // Validate required fields
-    if (!summary_id || !user_id || !week_start || !goalsWithAccomplishments || !summaryTitle || !scope) {
+    if (!summary_id || !week_start || !goalsWithAccomplishments || !summaryTitle || !scope) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           error: 'Missing required fields.',
           missingFields: {
             summary_id: !summary_id,
             scope: !scope,
             summaryTitle: !summaryTitle,
-            user_id: !user_id,
             week_start: !week_start,
             goalsWithAccomplishments: !goalsWithAccomplishments,
-          }, 
+          },
         }),
       };
     }

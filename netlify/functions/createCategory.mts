@@ -1,9 +1,9 @@
 import { Handler } from '@netlify/functions';
 import supabase from './lib/supabase';
+import { requireAuth } from './lib/auth';
 
 interface CategoryRequestBody {
   name: string;
-  user_id: string;
 }
 
 interface Category {
@@ -17,7 +17,11 @@ interface HandlerResponse {
 }
 
 export const handler: Handler = async (event): Promise<HandlerResponse> => {
-  const { name, user_id }: CategoryRequestBody = JSON.parse(event.body as string);
+  const auth = await requireAuth(event);
+  if (auth.error) return auth.error as HandlerResponse;
+  const user_id = auth.userId;
+
+  const { name }: CategoryRequestBody = JSON.parse(event.body as string);
 
   // Check if the category already exists
   const { data: existingCategories, error: fetchError }: { data: Category[] | null; error: any } = await supabase

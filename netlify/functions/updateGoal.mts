@@ -1,7 +1,12 @@
 import { Handler } from '@netlify/functions';
 import supabase from './lib/supabase';
+import { requireAuth } from './lib/auth';
 
 export const handler: Handler = async (event) => {
+  const auth = await requireAuth(event);
+  if (auth.error) return auth.error;
+  const { userId } = auth;
+
   const body = JSON.parse(event.body || '{}');
   const { id, title, description, category, week_start, status, status_notes, status_set_at } = body;
 
@@ -25,10 +30,12 @@ export const handler: Handler = async (event) => {
       updatePayload.status_notes = status_notes;
     }
 
+    // .eq('user_id', userId) ensures only the owner can update their goal
     const { data, error } = await supabase
       .from('goals')
       .update(updatePayload)
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', userId);
 
     if (error) {
       return {

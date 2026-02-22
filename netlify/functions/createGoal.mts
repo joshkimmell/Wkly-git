@@ -1,23 +1,25 @@
 import { Handler } from '@netlify/functions';
 import supabase from './lib/supabase';
+import { requireAuth } from './lib/auth';
 
 export const handler: Handler = async (event) => {
+  const auth = await requireAuth(event);
+  if (auth.error) return auth.error;
+  const { userId } = auth;
 
   const body = JSON.parse(event.body || '{}');
-  const { title, description, category, week_start, user_id, status, status_notes, status_set_at } = body;
+  const { title, description, category, week_start, status, status_notes, status_set_at } = body;
 
-  if (!title || !description || !category || !week_start || !user_id) {
+  if (!title || !description || !category || !week_start) {
     return {
       statusCode: 400,
       body: JSON.stringify({ error: 'All fields are required.' }),
     };
   }
 
-  console.log('Payload received:', body);
-
   try {
-    // Prepare insert payload and include optional status fields
-    const insertPayload: any = { title, description, category, week_start, user_id };
+    // user_id always comes from the verified JWT, never the request body
+    const insertPayload: any = { title, description, category, week_start, user_id: userId };
     if (status) insertPayload.status = status;
     if (status_notes) insertPayload.status_notes = status_notes;
     // If client provided a status_set_at use it, otherwise if status provided set to now

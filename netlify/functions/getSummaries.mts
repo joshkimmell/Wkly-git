@@ -1,16 +1,11 @@
 import { Handler } from '@netlify/functions';
 import supabase from './lib/supabase';
+import { requireAuth } from './lib/auth';
 
 export const handler: Handler = async (event) => {
-  const userId = event.queryStringParameters?.user_id;
-  const summaryId = event.queryStringParameters?.summary_id;
-
-  if (!userId) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: 'User ID is required.' }),
-    };
-  }
+  const auth = await requireAuth(event);
+  if (auth.error) return auth.error;
+  const { userId } = auth;
 
   try {
     const { data, error } = await supabase

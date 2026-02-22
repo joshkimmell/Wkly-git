@@ -11,7 +11,6 @@ const backend = '/api';
 
 // export const backendUrl = backend + '/api/summaries';
 export const supabaseUrl = ((import.meta as unknown) as { env?: { VITE_SUPABASE_URL?: string } }).env?.VITE_SUPABASE_URL ?? '';
-export const supabaseKey = ((import.meta as unknown) as { env?: { VITE_SUPABASE_SERVICE_ROLE_KEY?: string } }).env?.VITE_SUPABASE_SERVICE_ROLE_KEY ?? '';
 export const openaiApiKey = ((import.meta as unknown) as { env?: { VITE_OPENAI_API_KEY?: string } }).env?.VITE_OPENAI_API_KEY ?? '';
 
 export const handleError = (error: unknown, setError: React.Dispatch<React.SetStateAction<string | null>>) => {
@@ -32,6 +31,12 @@ export const fetchWithAuth = async (url: string, userId: string): Promise<unknow
     throw new Error(text || 'Failed to fetch');
   }
   return await response.json();
+};
+
+export const getSessionToken = async (): Promise<string> => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('User is not authenticated');
+  return session.access_token;
 };
 
 
@@ -59,17 +64,13 @@ export const handleSignOut = async (setError: React.Dispatch<React.SetStateActio
 
 
 export const fetchAllGoals = async (): Promise<Goal[]> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('User is not authenticated');
-  const userId = user.id;
+  const token = await getSessionToken();
 
-  // Use a relative /api path so the dev server can proxy requests to the functions runtime
-  // This avoids cross-origin requests to the functions host (localhost:8888) which can
-  // trigger CORS/preflight failures when custom headers are present.
-  const response = await fetch(`/api/getAllGoals?user_id=${userId}`, {
+  const response = await fetch(`/api/getAllGoals`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
     },
   });
 
@@ -171,20 +172,18 @@ export const fetchAllGoalsIndexed = async (
     page?: string, // optional page param: legacy YYYY-MM for month, YYYY for year, or exact week_start
     start?: string, // optional ISO start date inclusive
     end?: string // optional ISO end date exclusive
-): Promise<{ indexedGoals: Record<string, Goal[]>; pages: string[] }> => 
+): Promise<{ indexedGoals: Record<string, Goal[]>; pages: string[] }> =>
   {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User is not authenticated');
-    const userId = user.id;
+    const token = await getSessionToken();
 
     try {
       // Build URL with optional parameters (page, start, end)
-      const params = new URLSearchParams({ user_id: userId, scope });
+      const params = new URLSearchParams({ scope });
       if (page) params.set('page', page);
       if (start) params.set('start', start);
       if (end) params.set('end', end);
       const url = `/api/getAllGoals?${params.toString()}`;
-      const response = await fetch(url);
+      const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!response.ok) {
         const errorText = await response.text(); // Read the body once for error logging
         console.error('Error fetching all goals:', errorText);
@@ -247,31 +246,18 @@ export const fetchAllGoalsIndexed = async (
 
 export const addCategory = async (newCategory: string): Promise<void> => {
   try {
-    // Normalize the category name (trim and convert to lowercase)
-    // const normalizedCategory = newCategory.trim().toLowerCase();
     const normalizedCategory = newCategory.trim();
 
-    // Get the current user ID
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      console.error('Error fetching user ID:', userError?.message || 'User not authenticated');
-      notifyError('User not authenticated. Please log in.');
-      throw new Error('User not authenticated');
-    }
-
-    const userId = user.id;
-
-    // Debug log for payload
-    const payload = { name: normalizedCategory, user_id: userId };
-    // console.log('Payload being sent to Netlify function:', payload);
+    // Call the Netlify function to create the category (user_id derived from JWT server-side)
+    const token = await getSessionToken();
+    const payload = { name: normalizedCategory };
 
     // Call the Netlify function to create the category
     const response = await fetch(`${baseUrl}${backend}/createCategory`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${userId}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(payload),
     });
@@ -390,25 +376,19 @@ export const initializeUserCategories = async (): Promise<void> => {
 
 // Add a new goal
 export const addGoal = async (newGoal: Partial<Goal>) => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('User is not authenticated');
-  const userId = user.id;
+  const token = await getSessionToken();
 
   // Exclude unnecessary fields like id and created_at safely
   const { id: _maybeId, created_at: _maybeCreatedAt, ...filteredGoal } = newGoal as Partial<Record<string, unknown>>;
   void _maybeId;
   void _maybeCreatedAt;
-  const goalToSend = { ...filteredGoal, user_id: userId } as Record<string, unknown>;
+  const goalToSend = { ...filteredGoal } as Record<string, unknown>;
 
-  // // console.log('addGoal request:', goalToSend);
-  // console.log('addGoal payload:', goalToSend);
-  // console.log('Payload sent to createGoal:', goalToSend);
-
-  const response = await fetch(`${baseUrl}${backend}/createGoal?user_id=${userId}`, {
+  const response = await fetch(`${baseUrl}${backend}/createGoal`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${userId}`,
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(goalToSend),
   });
@@ -466,15 +446,13 @@ export function setGoals(_data: unknown) {
 // Delete a goal
 
 export const deleteGoal = async (goalId: string) => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('User is not authenticated');
-  const userId = user.id;
+  const token = await getSessionToken();
 
-  const response = await fetch(`${baseUrl}${backend}/deleteGoal?goal_id=${goalId}&user_id=${userId}`, {
+  const response = await fetch(`${baseUrl}${backend}/deleteGoal?goal_id=${goalId}`, {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${userId}`,
+      Authorization: `Bearer ${token}`,
     },
   });
 
@@ -503,9 +481,7 @@ export const handleDeleteGoal = async (
 };
 
 export const updateGoal = async (goalId: string, updatedGoal: Partial<Goal> | Record<string, unknown>) => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('User is not authenticated');
-  const userId = user.id;
+  const token = await getSessionToken();
 
   if (!goalId) {
     console.error('Goal ID is missing');
@@ -513,14 +489,12 @@ export const updateGoal = async (goalId: string, updatedGoal: Partial<Goal> | Re
   }
 
   const payload = JSON.stringify({ id: goalId, ...updatedGoal });
-  // console.log('Payload being sent to updateGoal:', payload);
-  // console.log('Goal ID being sent to updateGoal:', goalId);
 
-  const response = await fetch(`${baseUrl}${backend}/updateGoal?goal_id=${goalId}&user_id=${userId}`, {
+  const response = await fetch(`${baseUrl}${backend}/updateGoal?goal_id=${goalId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${userId}`,
+      Authorization: `Bearer ${token}`,
     },
     body: payload,
   });
@@ -543,12 +517,11 @@ export const updateGoal = async (goalId: string, updatedGoal: Partial<Goal> | Re
 
 // Notes API wrappers using serverless endpoints
 export const fetchNotesForGoal = async (goalId: string) => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('User not authenticated');
+  const token = await getSessionToken();
 
   const res = await fetch(`${baseUrl}${backend}/getNotes?goal_id=${encodeURIComponent(goalId)}`, {
     method: 'GET',
-    headers: { Authorization: `Bearer ${user.id}` },
+    headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
     const errText = await res.text();
@@ -558,12 +531,11 @@ export const fetchNotesForGoal = async (goalId: string) => {
 };
 
 export const createGoalNote = async (goalId: string, content: string) => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('User not authenticated');
+  const token = await getSessionToken();
 
   const res = await fetch(`${baseUrl}${backend}/createNote`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.id}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ goal_id: goalId, content }),
   });
   if (!res.ok) {
@@ -574,12 +546,11 @@ export const createGoalNote = async (goalId: string, content: string) => {
 };
 
 export const updateGoalNote = async (noteId: string, content: string) => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('User not authenticated');
+  const token = await getSessionToken();
 
   const res = await fetch(`${baseUrl}${backend}/updateNote`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.id}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ id: noteId, content }),
   });
   if (!res.ok) {
@@ -590,12 +561,11 @@ export const updateGoalNote = async (noteId: string, content: string) => {
 };
 
 export const deleteGoalNote = async (noteId: string) => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('User not authenticated');
+  const token = await getSessionToken();
 
   const res = await fetch(`${baseUrl}${backend}/deleteNote?note_id=${encodeURIComponent(noteId)}`, {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${user.id}` },
+    headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
     const errText = await res.text();
@@ -729,12 +699,12 @@ export const generateSummary = async (
   responseLength?: number // Add optional responseLength parameter
 ): Promise<string> => {
   const summaryId = id || uuidv4();
+  const token = await getSessionToken();
 
   const requestBody: Record<string, unknown> = {
     summary_id: summaryId,
     scope,
     summaryTitle: title,
-    user_id: userId,
     week_start: weekStart,
     goalsWithAccomplishments,
     responseLength, // Include responseLength in the request body if provided
@@ -751,7 +721,6 @@ export const generateSummary = async (
       summary_id: requestBody.summary_id,
       scope: requestBody.scope,
       summaryTitle_preview: (requestBody.summaryTitle as string | undefined)?.slice?.(0, 200),
-      user_id_present: !!requestBody.user_id,
       week_start: requestBody.week_start,
       goals_count: Array.isArray(requestBody.goalsWithAccomplishments) ? (requestBody.goalsWithAccomplishments as any[]).length : 0,
       responseLength: requestBody.responseLength,
@@ -764,6 +733,7 @@ export const generateSummary = async (
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(requestBody),
   });
@@ -832,15 +802,13 @@ export const saveSummary = async (
 // Fetch summaries for a user
 // Fetch all goals
 export const fetchSummaries = async (userId: string, id: string): Promise<Summary[]> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('User is not authenticated');
+  const token = await getSessionToken();
 
-
-  const response = await fetch(`${baseUrl}${backend}/getSummaries?user_id=${userId}&summary_id=${id}`, {
+  const response = await fetch(`${baseUrl}${backend}/getSummaries?summary_id=${id}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${userId}`,
+      Authorization: `Bearer ${token}`,
     },
   });
 
@@ -860,22 +828,15 @@ export const fetchSummaries = async (userId: string, id: string): Promise<Summar
 
 // Add a new summary
 export const createSummary = async (newSummary: Record<string, unknown>) => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('User is not authenticated');
-  const userId = user.id;
+  const token = await getSessionToken();
 
-  // Ensure user_id is included in the body if your backend expects it
-  const summaryToSend = { ...newSummary, user_id: userId };
-
-  // console.log('addSummary request:', summaryToSend);
-
-  const response = await fetch(`${baseUrl}${backend}/createSummary?user_id=${userId}`, {
+  const response = await fetch(`${baseUrl}${backend}/createSummary`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${userId}`,
+      Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify(summaryToSend),
+    body: JSON.stringify(newSummary),
   });
 
   if (!response.ok) {
@@ -932,12 +893,12 @@ export const deleteSummary = async (summary_id: string) => {
 export const fetchAllSummariesIndexed = async (
   scope: 'week' | 'month' | 'year'
 ): Promise<{ indexedSummaries: Record<string, Summary[]>; pages: string[] }> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('User is not authenticated');
-  const userId = user.id;
+  const token = await getSessionToken();
 
   try {
-    const response = await fetch(`/api/getSummaries?user_id=${userId}&scope=${scope}`);
+    const response = await fetch(`/api/getSummaries?scope=${scope}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Error fetching summaries: ${errorText}`);
@@ -964,12 +925,12 @@ export const fetchAllSummariesIndexed = async (
 export const fetchAllAccomplishmentsIndexed = async (
   scope: 'week' | 'month' | 'year'
 ): Promise<{ indexedAccomplishments: Record<string, Accomplishment[]>; pages: string[] }> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('User is not authenticated');
-  const userId = user.id;
+  const token = await getSessionToken();
 
   try {
-    const response = await fetch(`/api/getAllAccomplishments?user_id=${userId}&scope=${scope}`);
+    const response = await fetch(`/api/getAllAccomplishments?scope=${scope}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Error fetching accomplishments: ${errorText}`);

@@ -1,31 +1,22 @@
 import { Handler } from '@netlify/functions';
 import supabase from './lib/supabase';
+import { requireAuth } from './lib/auth';
 
 export const handler: Handler = async (event) => {
-  const user_id = event.queryStringParameters?.user_id;
+  const auth = await requireAuth(event);
+  if (auth.error) return auth.error;
+  const { userId } = auth;
+
   const week_start = event.queryStringParameters?.week_start;
   const scope = event.queryStringParameters?.scope; // 'week' | 'month' | 'year'
   const page = event.queryStringParameters?.page; // legacy: YYYY-MM or YYYY or YYYY-MM-DD
   const start = event.queryStringParameters?.start; // ISO date string inclusive
   const end = event.queryStringParameters?.end; // ISO date string exclusive
 
-  // Validate required parameters
-    if (!user_id) {
-    return {
-      statusCode: 400,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-store',
-      },
-      body: JSON.stringify({ error: 'User ID is required.' }),
-    };
-  }
-
   try {
     // Build the Supabase query - select only needed fields to reduce payload
     const selectFields = 'id,title,description,category,week_start,user_id,created_at,status,status_notes';
-    let query = supabase.from('goals').select(selectFields).eq('user_id', user_id);
+    let query = supabase.from('goals').select(selectFields).eq('user_id', userId);
 
     // If caller passed explicit week_start, keep that behavior
     if (week_start) {
