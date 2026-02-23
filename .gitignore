@@ -25,3 +25,10 @@ pnpm-debug.log*
 .env
 .env.local
 frontend/.env
+package-lock.json
+node_modules/@esbuild/darwin-arm64/README.md
+node_modules/@esbuild/darwin-arm64/package.json
+node_modules/@esbuild/darwin-arm64/bin/esbuild
+node_modules/.package-lock.json
+frontend/package-lock.json
+.vscode/settings.json
