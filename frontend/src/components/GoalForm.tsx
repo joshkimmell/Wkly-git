@@ -80,9 +80,16 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
     setIsGenerating(true); // Show loading animation
     setError(null); // Reset error state
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('User not authenticated');
+      
       const response = await fetch('/api/generatePlan', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ input: naturalLanguageInput }),
       });
 

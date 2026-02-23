@@ -18,11 +18,12 @@ export const handleError = (error: unknown, setError: React.Dispatch<React.SetSt
   setError(error instanceof Error ? error.message : 'An unknown error occurred');
 };
 
-export const fetchWithAuth = async (url: string, userId: string): Promise<unknown> => {
+export const fetchWithAuth = async (url: string): Promise<unknown> => {
+    const token = await getSessionToken();
     const response = await fetch(url, {
         method: 'GET',
         headers: {
-            Authorization: `Bearer ${userId}`,
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
         },
     });
