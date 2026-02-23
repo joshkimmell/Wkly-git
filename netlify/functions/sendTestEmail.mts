@@ -1,4 +1,5 @@
 import { Handler } from '@netlify/functions';
+import { requireAuth } from './lib/auth';
 
 type Body = {
   to: string;
@@ -8,6 +9,9 @@ type Body = {
 
 export const handler: Handler = async (event) => {
   try {
+    const auth = await requireAuth(event);
+    if (auth.error) return auth.error;
+
     if (!event.body) return { statusCode: 400, body: JSON.stringify({ error: 'Missing body' }) };
     const payload: Body = JSON.parse(event.body);
     if (!payload.to) return { statusCode: 400, body: JSON.stringify({ error: 'Missing recipient' }) };

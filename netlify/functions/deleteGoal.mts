@@ -1,29 +1,42 @@
 import { Handler } from '@netlify/functions';
-// import supabase from '../../lib/supabase';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-
+import supabase from './lib/supabase';
+import { requireAuth } from './lib/auth';
 
 export const handler: Handler = async (event) => {
-  // const body = JSON.parse(event.body || '{}');
-  // const { id } = body;
-  // const goalId = event.queryStringParameters?.goal_id;
-  // const userId = event.queryStringParameters?.user_id;
-  const { goal_id, user_id } = event.queryStringParameters || {};
-  if (!goal_id || !user_id) {
+  const auth = await requireAuth(event);
+  if (auth.error) return auth.error;
+  const { userId } = auth;
+
+  const { goal_id } = event.queryStringParameters || {};
+  if (!goal_id) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: 'Missing goal_id or user_id' }),
+      body: JSON.stringify({ error: 'Missing goal_id' }),
     };
   }
 
   try {
-    // First, delete related accomplishments
+    // Verify the goal belongs to the authenticated user before deleting anything
+    const { data: goal, error: fetchErr } = await supabase
+      .from('goals')
+      .select('id')
+      .eq('id', goal_id)
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchErr || !goal) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ error: 'Goal not found' }),
+      };
+    }
+
+    // Delete related accomplishments (ownership already verified above)
     const { error: accError } = await supabase
       .from('accomplishments')
       .delete()
-      .eq('goal_id', goal_id);
+      .eq('goal_id', goal_id)
+      .eq('user_id', userId);
 
     if (accError) {
       console.error('Supabase error:', accError.message);
@@ -33,11 +46,12 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    // Then, delete the goal
+    // Delete the goal
     const { error } = await supabase
       .from('goals')
       .delete()
-      .match({ id: goal_id, user_id });
+      .eq('id', goal_id)
+      .eq('user_id', userId);
 
     if (error) {
       console.error('Supabase error:', error.message);

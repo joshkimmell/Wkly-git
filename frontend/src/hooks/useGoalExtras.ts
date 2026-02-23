@@ -47,6 +47,15 @@ export default function useGoalExtras() {
     }
   }, []);
 
+  const getToken = useCallback(async (): Promise<string | null> => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      return session?.access_token ?? null;
+    } catch (e) {
+      return null;
+    }
+  }, []);
+
   const fetchNotesCount = useCallback(async (goalId?: string) => {
     const idToUse = goalId;
     if (!idToUse) return null;
@@ -69,7 +78,9 @@ export default function useGoalExtras() {
       try {
         const userId = await getCachedUserId();
         if (!userId) return null;
-        const res = await fetch(`/api/getNotes?goal_id=${idToUse}&count_only=1`, { headers: { Authorization: `Bearer ${userId}` } });
+        const token = await getToken();
+        if (!token) return null;
+        const res = await fetch(`/api/getNotes?goal_id=${idToUse}&count_only=1`, { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) throw new Error(await res.text());
         const json = await res.json();
         const count = typeof json?.count === 'number' ? json.count : Number(json) || 0;
@@ -131,7 +142,9 @@ export default function useGoalExtras() {
     if (existing) return await existing;
     try {
       const promise = (async () => {
-        const res = await fetch('/api/getCounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ goal_ids: goalIds }) });
+        const token = await getToken();
+        if (!token) return null;
+        const res = await fetch('/api/getCounts', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ goal_ids: goalIds }) });
         if (!res.ok) throw new Error(await res.text());
         const json = await res.json();
 
@@ -300,7 +313,9 @@ export default function useGoalExtras() {
       setIsNotesLoading(true);
       const userId = await getCachedUserId();
       if (!userId) return;
-      const res = await fetch(`/api/getNotes?goal_id=${idToUse}`, { headers: { Authorization: `Bearer ${userId}` } });
+      const token = await getToken();
+      if (!token) return;
+      const res = await fetch(`/api/getNotes?goal_id=${idToUse}`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error(await res.text());
       const json = await res.json();
       setNotes(Array.isArray(json) ? json : []);
@@ -357,7 +372,9 @@ export default function useGoalExtras() {
     try {
       const userId = await getCachedUserId();
       if (!userId) throw new Error('Not authenticated');
-      const res = await fetch('/api/createNote', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userId}` }, body: JSON.stringify({ goal_id: goalId, content: tempNote.content }) });
+      const token = await getToken();
+      if (!token) throw new Error('Not authenticated');
+      const res = await fetch('/api/createNote', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ goal_id: goalId, content: tempNote.content }) });
       if (!res.ok) throw new Error(await res.text());
       // Use centralized helper to refresh notes and count
       await refreshNotesAndCount(goalId);
@@ -373,7 +390,9 @@ export default function useGoalExtras() {
     try {
       const userId = await getCachedUserId();
       if (!userId) throw new Error('Not authenticated');
-      const res = await fetch('/api/updateNote', { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userId}` }, body: JSON.stringify({ id: noteId, content }) });
+      const token = await getToken();
+      if (!token) throw new Error('Not authenticated');
+      const res = await fetch('/api/updateNote', { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ id: noteId, content }) });
       if (!res.ok) throw new Error(await res.text());
       if (goalId) await refreshNotesAndCount(goalId);
     } catch (err) {
@@ -386,7 +405,9 @@ export default function useGoalExtras() {
       setIsNotesLoading(true);
       const userId = await getCachedUserId();
       if (!userId) throw new Error('Not authenticated');
-      const res = await fetch(`/api/deleteNote?note_id=${noteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${userId}` } });
+      const token = await getToken();
+      if (!token) throw new Error('Not authenticated');
+      const res = await fetch(`/api/deleteNote?note_id=${noteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error(await res.text());
       if (goalId) await refreshNotesAndCount(goalId);
     } catch (err) {

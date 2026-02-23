@@ -1,6 +1,7 @@
 import { Handler } from '@netlify/functions';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
+import { requireAuth } from './lib/auth';
 
 // Load .env from working directory if present (use default behaviour)
 dotenv.config();
@@ -36,6 +37,9 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({ error: 'Method Not Allowed' }),
     };
   }
+
+  const auth = await requireAuth(event);
+  if (auth.error) return auth.error;
 
   try {
     // Log raw incoming body for debugging (helps catch unexpected shapes)

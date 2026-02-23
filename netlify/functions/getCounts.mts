@@ -1,9 +1,14 @@
 import { Handler } from '@netlify/functions';
 import supabase from './lib/supabase';
+import { requireAuth } from './lib/auth';
 
 export const handler: Handler = async (event) => {
   try {
     if (event.httpMethod !== 'POST') return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
+
+    const auth = await requireAuth(event);
+    if (auth.error) return auth.error;
+    const { userId } = auth;
 
     const body = event.body ? JSON.parse(event.body) : {};
     const goalIds: string[] = Array.isArray(body.goal_ids) ? body.goal_ids : [];
@@ -17,12 +22,12 @@ export const handler: Handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: 'Too many goal_ids requested' }) };
     }
 
-    // Fallback to server-side Supabase client queries.
-    // Fetch only `goal_id` for matching rows and count in JS to produce per-goal counts.
+    // Filter by user_id so counts are only returned for goals owned by the authenticated user
     const { data: noteRows, error: noteError } = await supabase
       .from('goal_notes')
       .select('goal_id')
-      .in('goal_id', goalIds);
+      .in('goal_id', goalIds)
+      .eq('user_id', userId);
 
     if (noteError) {
       console.error('getCounts noteError', noteError);
@@ -36,7 +41,8 @@ export const handler: Handler = async (event) => {
     const { data: accRows, error: accError } = await supabase
       .from('accomplishments')
       .select('goal_id')
-      .in('goal_id', goalIds);
+      .in('goal_id', goalIds)
+      .eq('user_id', userId);
 
     if (accError) {
       console.error('getCounts accError', accError);

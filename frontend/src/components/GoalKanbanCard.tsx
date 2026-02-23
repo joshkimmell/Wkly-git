@@ -183,9 +183,10 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
         setNotes([]);
         return;
       }
-      const userId = await getCachedUserId();
-      if (!userId) throw new Error('User not authenticated');
-      const res = await fetch(`/api/getNotes?goal_id=${idToUse}`, { headers: { Authorization: `Bearer ${userId}` } });
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('User not authenticated');
+      const res = await fetch(`/api/getNotes?goal_id=${idToUse}`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error(await res.text());
       const json = await res.json();
       setNotes(json || []);
@@ -220,11 +221,12 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
     setNewNoteContent('');
     setIsNotesLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('User not authenticated');
       const res = await fetch(`/api/createNote`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.id}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ goal_id: goal.id, content: tempNote.content }),
       });
       if (!res.ok) throw new Error(await res.text());
@@ -244,11 +246,12 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
 
   const updateNote = async (noteId: string, content: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('User not authenticated');
       const res = await fetch(`/api/updateNote`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.id}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ id: noteId, content }),
       });
       if (!res.ok) throw new Error(await res.text());
@@ -270,9 +273,10 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
     setNotes((s) => s.filter((n) => n.id !== noteId));
     setIsNotesLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-      const res = await fetch(`/api/deleteNote?note_id=${noteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${user.id}` } });
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('User not authenticated');
+      const res = await fetch(`/api/deleteNote?note_id=${noteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error(await res.text());
       // success; nothing else
       try { 

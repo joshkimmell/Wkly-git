@@ -26,6 +26,11 @@ const handler: Handler = async (event) => {
       return { statusCode: 405, body: 'Method Not Allowed' }
     }
 
+    const apiKey = event.headers?.['x-api-key'] || event.headers?.['X-Api-Key'] || '';
+    if (!process.env.MAILER_API_KEY || apiKey !== process.env.MAILER_API_KEY) {
+      return { statusCode: 401, body: 'Unauthorized' }
+    }
+
     if (!process.env.MAILGUN_API_KEY || !process.env.MAILGUN_DOMAIN || !process.env.FROM_EMAIL) {
       return { statusCode: 500, body: 'Server misconfigured: missing MAILGUN_API_KEY, MAILGUN_DOMAIN or FROM_EMAIL' }
     }

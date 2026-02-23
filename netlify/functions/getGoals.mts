@@ -1,40 +1,28 @@
 import { Handler } from '@netlify/functions';
 import supabase from './lib/supabase';
+import { requireAuth } from './lib/auth';
 
 export const handler: Handler = async (event) => {
-  const user_id = event.queryStringParameters?.user_id;
-  const week_start = event.queryStringParameters?.week_start;
+  const auth = await requireAuth(event);
+  if (auth.error) return auth.error;
+  const { userId } = auth;
 
-  if (!user_id) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: 'User ID is required.' }),
-    };
-  }
+  const week_start = event.queryStringParameters?.week_start;
 
   try {
     const { data, error } = await supabase
       .from('goals')
       .select('*')
-      .eq('user_id', user_id)
+      .eq('user_id', userId)
       .eq('week_start', week_start)
       .order('created_at', { ascending: true });
 
     if (error) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: 'Failed to fetch goals.' }),
-      };
+      return { statusCode: 500, body: JSON.stringify({ error: 'Failed to fetch goals.' }) };
     }
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(data),
-    };
+    return { statusCode: 200, body: JSON.stringify(data) };
   } catch (error) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'An unexpected error occurred.' }),
-    };
+    return { statusCode: 500, body: JSON.stringify({ error: 'An unexpected error occurred.' }) };
   }
 };

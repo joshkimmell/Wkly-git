@@ -1,21 +1,17 @@
 import { Handler } from '@netlify/functions';
 import supabase from './lib/supabase';
+import { requireAuth } from './lib/auth';
 
 export const handler: Handler = async (event) => {
-  const user_id = event.queryStringParameters?.user_id;
-  const week_start = event.queryStringParameters?.week_start;
+  const auth = await requireAuth(event);
+  if (auth.error) return auth.error;
+  const { userId } = auth;
 
-  // Validate required parameters
-  if (!user_id) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: 'User ID is required.' }),
-    };
-  }
+  const week_start = event.queryStringParameters?.week_start;
 
   try {
     // Build the Supabase query
-    let query = supabase.from('accomplishments').select('*').eq('user_id', user_id);
+    let query = supabase.from('accomplishments').select('*').eq('user_id', userId);
     if (week_start) query = query.eq('week_start', week_start);
 
     const { data, error } = await query.order('created_at', { ascending: true });

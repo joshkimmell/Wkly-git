@@ -1,25 +1,17 @@
 import { Handler } from '@netlify/functions';
-import { createClient } from '@supabase/supabase-js';
+import supabase from './lib/supabase';
+import { requireAuth } from './lib/auth';
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== 'DELETE') return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
 
-  try {
-    const authHeader = event.headers?.authorization || event.headers?.Authorization || '';
-    const userId = authHeader.replace(/^Bearer\s*/i, '');
-    if (!userId) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
+  const auth = await requireAuth(event);
+  if (auth.error) return auth.error;
+  const { userId } = auth;
 
+  try {
     const note_id = event.queryStringParameters?.note_id;
     if (!note_id) return { statusCode: 400, body: JSON.stringify({ error: 'Missing note_id' }) };
-
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-    console.log('deleteNote resolving supabase envs', { supabaseUrlPresent: !!supabaseUrl, supabaseKeyPresent: !!supabaseKey });
-    if (!supabaseUrl || !supabaseKey) {
-      console.error('Supabase env not set in deleteNote:', { supabaseUrl, supabaseKey });
-      return { statusCode: 500, body: JSON.stringify({ error: 'Supabase configuration missing in server environment' }) };
-    }
-    const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Verify ownership
     const { data: existing, error: fetchErr } = await supabase.from('goal_notes').select('user_id').eq('id', note_id).single();
