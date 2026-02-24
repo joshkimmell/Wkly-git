@@ -76,3 +76,56 @@ export interface Category {
   name: string;
 };
 
+export interface Task {
+  id: string;
+  goal_id: string;
+  user_id: string;
+  title: string;
+  description?: string;
+  status: 'Not started' | 'In progress' | 'Blocked' | 'On hold' | 'Done';
+  scheduled_date?: string; // ISO date string
+  scheduled_time?: string; // HH:MM format
+  reminder_enabled: boolean;
+  reminder_datetime?: string; // ISO datetime string
+  order_index: number;
+  created_at: string;
+  updated_at?: string;
+  notes?: string; // User notes for the task
+  closing_rationale?: string; // Rationale for marking as Done
+  goal?: { // Optional goal data for filtering
+    id: string;
+    category?: string;
+  };
+};
+
+/**
+ * Calculate goal completion percentage based on its child tasks.
+ * Returns 0-100 representing the percentage of tasks that are done.
+ */
+export function calculateGoalCompletion(tasks: Task[]): number {
+  if (!tasks || tasks.length === 0) {
+    return 0;
+  }
+
+  const doneCount = tasks.filter(task => task.status === 'Done').length;
+  return Math.round((doneCount / tasks.length) * 100);
+}
+
+/**
+ * Get task status breakdown for a goal.
+ */
+export function getTaskStatusBreakdown(tasks: Task[]): Record<string, number> {
+  const breakdown = {
+    'Not started': 0,
+    'In progress': 0,
+    'Blocked': 0,
+    'On hold': 0,
+    'Done': 0,
+  };
+
+  tasks.forEach(task => {
+    breakdown[task.status]++;
+  });
+
+  return breakdown;
+}

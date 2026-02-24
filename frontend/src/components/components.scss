@@ -258,6 +258,10 @@ svg {
 //     font-size: '0.75em' !important;
 // }
 
+.MuiChip-root {
+    column-gap: 1rem;
+}
+
 .MuiBadge-badge {
     right: -3px;
     top: -2px;

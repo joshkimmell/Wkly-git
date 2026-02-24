@@ -171,7 +171,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
 
   // explicit sensible  fallbacks so MUI always has correct colors
   const background = backgroundRaw;
-  const paper = readCssVar(['--background-color', '--color-background-color'], isDark ? 'var(--gray-90)' : 'var(--gray-20)', preferBody);
+  const paper = readCssVar(['--background', '--color-background'], isDark ? 'var(--gray-100)' : 'var(--gray-10)', preferBody);
   const textPrimary = textPrimaryRaw || (isDark ? '#E6E6E6' : '#111827');
   const textSecondary = readCssVar(['--secondary-text', '--color-text-secondary'], isDark ? '#B3B3B3' : '#4D4D4D', preferBody);
   const textPlaceholder = readCssVar(['--placeholder-text', '--color-text-placeholder'], isDark ? '#7A7A7A' : '#A0A0A0', preferBody);
@@ -203,7 +203,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
       primary: readCssVar(['--brand-30', '--primary-brand-30'], PALETTES.purple[30], preferBody),
       iconPrimary: readCssVar(['--brand-30', '--primary-brand-30'], PALETTES.purple[30], preferBody),
       background: readCssVar(['--gray-100', '--background-color'], PALETTES.gray[30], preferBody),
-      paper: readCssVar(['--gray-90', '--background-paper'], PALETTES.gray[90], preferBody),
+      paper: readCssVar(['--gray-100', '--background-paper'], PALETTES.gray[100], preferBody),
       textPrimary: readCssVar(['--primary-text', '--color-text-primary'], '#E6E6E6', preferBody),
       textSecondary: readCssVar(['--secondary-text', '--color-text-secondary'], '#B3B3B3', preferBody),
       divider: readCssVar(['--primary-border', '--color-border-primary'], '#e5e7eb', preferBody),
@@ -695,6 +695,16 @@ const AppMuiThemeProvider: React.FC<Props> = ({ mode, children }) => {
     window.addEventListener(PALETTE_UPDATED_EVENT, onPalette as EventListener);
     return () => window.removeEventListener(PALETTE_UPDATED_EVENT, onPalette as EventListener);
   }, []);
+
+  // Mode changes update the `.dark` class in App via an effect.
+  // Rebuild once more on the next frame so computed CSS vars are read
+  // after that class update has been applied.
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setPaletteVersion(v => v + 1);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [mode]);
 
   // Rebuild theme when either the mode or the paletteVersion changes.
   const theme = useMemo(() => buildTheme(mode), [mode, paletteVersion]);

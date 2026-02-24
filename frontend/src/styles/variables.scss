@@ -42,7 +42,8 @@ $container-margin: 0 auto;
 // COLORS ---
 // Theme tokens
 $theme-dark: (
-    background-color: $gray-100,
+    background-base: $gray-100,
+    background-color: $gray-90,
     background-inverse: $gray-10,
     primary-text: $gray-10,
     secondary-text: $gray-30,
@@ -69,6 +70,7 @@ $theme-dark: (
 );
 
 $theme-light: (
+    background-base: $gray-0,
     background-color: $gray-10,
     background-inverse: $gray-100,
     layer-1: $gray-0,
@@ -99,11 +101,9 @@ $theme-light: (
 
 
 @mixin theme-vars($theme-map) {
-  --background-color: #{map.get($theme-map, background-color)};
+  --background: #{map.get($theme-map, background-base)};
+  --background-color: #{rgba(map.get($theme-map, background-color), 0.70)};
   --background-inverse: #{map.get($theme-map, background-inverse)};
-  // layer-1 should be background-inverse at 20% opacity
-  // $__layer_inv: map.get($theme-map, background-inverse);
-  // --layer-1: #{rgba($__layer_inv, 0.1) + var(--background-color)};
   --primary-text: #{map.get($theme-map, primary-text)};
   --secondary-text: #{map.get($theme-map, secondary-text)};
   --tertiary-text: #{map.get($theme-map, tertiary-text)};

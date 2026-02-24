@@ -132,7 +132,7 @@ const App: React.FC = () => {
     <SessionContextProvider supabaseClient={supabase}>
     <AppMuiThemeProvider mode={theme}>
     <div className={`${current}`}>
-      <div className={`min-h-screen bg-gray-10 dark:bg-gray-90 text-gray-90 dark:text-gray-10`}>
+      <div className={`min-h-screen bg-background text-primary-text ${current}`}>
         <Header   
           theme={theme}
           toggleTheme={toggleTheme}

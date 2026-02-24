@@ -38,6 +38,8 @@ module.exports = {
           90: 'var(--gray-90)',
           100:'var(--gray-100)',
         },
+        background: 'var(--background)',
+        'background-color': 'var(--background-color)',
       },
     },
   },

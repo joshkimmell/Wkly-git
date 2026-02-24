@@ -1,9 +1,12 @@
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { fetchAllGoalsIndexed, fetchAllGoals, deleteGoal, updateGoal, saveSummary, UserCategories, initializeUserCategories, addCategory, getWeekStartDate, indexDataByScope, applyHighlight } from '../utils/functions';
 import Pagination from '@components/Pagination';
 import GoalCard from '@components/GoalCard';
-import GoalKanbanCard from '@components/GoalKanbanCard';
+import GoalCompletionDonut from '@components/GoalCompletionDonut';
 import GoalForm from '@components/GoalForm';
+import TasksList from '@components/TasksList';
+import TaskCard from '@components/TaskCard';
+import AllTasksCalendar from '@components/AllTasksCalendar';
 import Modal from 'react-modal';
 import ConfirmModal from './ConfirmModal';
 import AccomplishmentsModal from './AccomplishmentsModal';
@@ -13,12 +16,12 @@ import SummaryEditor from '@components/SummaryEditor';
 import GoalEditor from '@components/GoalEditor';
 import { modalClasses, overlayClasses } from '@styles/classes';
 import { ARIA_HIDE_APP } from '@lib/modal';
-import { Goal as GoalUtilsGoal } from '@utils/goalUtils';
+import { Goal as GoalUtilsGoal, Task, calculateGoalCompletion } from '@utils/goalUtils';
 import { mapPageForScope, loadPageByScope, savePageByScope } from '@utils/pagination';
 import 'react-datepicker/dist/react-datepicker.css';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
-import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, Eye, Edit, Trash, EyeOff, ChevronRight, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash } from 'lucide-react';
+import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, CalendarDays, Eye, Edit, Trash, EyeOff, ChevronRight, ChevronDown, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash, ListTodo } from 'lucide-react';
 import { useGoalsContext } from '@context/GoalsContext';
 import useGoalExtras from '@hooks/useGoalExtras';
 // notify helpers imported where needed below
@@ -26,7 +29,7 @@ import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, FormG
 // dnd-kit was attempted but failed to install; use HTML5 drag/drop fallback
 import { useTheme } from '@mui/material/styles';
 import supabase from '@lib/supabase';
-import { STATUSES, STATUS_COLORS, type Status } from '../constants/statuses';
+import { STATUS_COLORS } from '../constants/statuses';
 import { notifyError, notifySuccess } from '@components/ToastyNotification';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -38,62 +41,15 @@ type Goal = GoalUtilsGoal & {
   created_at?: string;
 };
 
-// Inline per-goal status component (mirrors GoalCard behavior)
-const InlineStatus: React.FC<{ goal: Goal; onUpdated?: () => void }> = ({ goal, onUpdated }) => {
-    const [localStatus, setLocalStatus] = useState<string | undefined>(goal.status);
-    const [statusAnchorEl, setStatusAnchorEl] = useState<null | HTMLElement>(null);
-    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-    const statusColors = STATUS_COLORS;
-    
+// Inline per-goal status component (shows completion donut)
+const InlineStatus: React.FC<{ tasks?: Task[] }> = ({ tasks = [] }) => {
+    const completion = calculateGoalCompletion(tasks);
     
     return (
-        <div>
-            <Chip
-                label={localStatus}
-                onClick={(e) => setStatusAnchorEl(e.currentTarget)}
-                variant='outlined'
-                sx={
-                    localStatus === 'Not started'
-                        ? { borderColor: statusColors[localStatus || 'Not started'], color: statusColors[localStatus || 'Not started'] }
-                        : { bgcolor: statusColors[localStatus || 'Not started'], color: '#fff' }
-                }
-                className="cursor-pointer text-sm font-medium card-status"
-            />
-            <Menu anchorEl={statusAnchorEl} open={Boolean(statusAnchorEl)} onClose={() => setStatusAnchorEl(null)}>
-                {STATUSES.map((s: Status) => (
-                    <MenuItem
-                        key={s}
-                        disabled={isUpdatingStatus}
-                        className="text-xs"
-                        selected={s === localStatus}
-                        onClick={async () => {
-                            setStatusAnchorEl(null);
-                            if (s === localStatus) return;
-                            const prev = localStatus;
-                            setLocalStatus(s);
-                            setIsUpdatingStatus(true);
-                            try {
-                                const { error } = await supabase
-                                    .from('goals')
-                                    .update({ status: s, status_set_at: new Date().toISOString() })
-                                    .eq('id', goal.id);
-                                if (error) throw error;
-                                notifySuccess('Status updated');
-                                try { if (onUpdated) await onUpdated(); } catch (e) { /* ignore */ }
-                            } catch (err: any) {
-                                console.error('Failed to update status:', err);
-                                setLocalStatus(prev);
-                                notifyError('Failed to update status');
-                            } finally {
-                                setIsUpdatingStatus(false);
-                            }
-                        }}
-                    >
-                        <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 6, background: statusColors[s], marginRight: 8 }} />
-                        {s}
-                    </MenuItem>
-                ))}
-            </Menu>
+        <div className="flex items-center justify-center">
+            {tasks && tasks.length > 0 && (
+                <GoalCompletionDonut percentage={completion} size={40} strokeWidth={4} />
+            )}
         </div>
     );
 };
@@ -195,6 +151,10 @@ const GoalsComponent = () => {
     } = goalExtras;
     const [selectedSummary, setSelectedSummary] = useState<{ id: string; content?: string; type?: string; title?: string } | null>(null);
     const [noteDeleteTarget, setNoteDeleteTarget] = useState<string | null>(null);
+    // Tasks state
+    const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
+    const [tasksCount, setTasksCount] = useState(0);
+    const [tasksGoalId, setTasksGoalId] = useState<string | null>(null);
     // simple caches
     
     const filterInputRef = useRef<HTMLInputElement | null>(null);
@@ -204,6 +164,7 @@ const GoalsComponent = () => {
     const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLElement | null>(null);
     const [filterStatus, setFilterStatus] = useState<string[]>([]);
     const [filterCategory, setFilterCategory] = useState<string[]>([]);
+    const [filterGoal, setFilterGoal] = useState<string[]>([]);
     const [filterStartDate, setFilterStartDate] = useState<Dayjs | null>(null);
     const [filterEndDate, setFilterEndDate] = useState<Dayjs | null>(null);
     const [summaryAnchorEl, setSummaryAnchorEl] = useState<HTMLElement | null>(null);
@@ -348,17 +309,18 @@ const GoalsComponent = () => {
     const selectedFiltersCount =
         (filterStatus?.length || 0) +
         (filterCategory?.length || 0) +
+        (filterGoal?.length || 0) +
         (filterStartDate && filterEndDate ? 1 : 0) +
         (filter && filter.trim().length > 0 ? 1 : 0);
 
     const theme = useTheme();
     const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
     // const isMedium = useMediaQuery(theme.breakpoints.between('sm', 'md'));
-    // view mode: 'cards' (default), 'table', or 'kanban'
-    const [viewMode, setViewMode] = useState<'cards' | 'table' | 'kanban'>(() => {
+    // view mode: 'cards' (default), 'table', 'kanban', or 'tasks-calendar'
+    const [viewMode, setViewMode] = useState<'cards' | 'table' | 'kanban' | 'tasks-calendar'>(() => {
         try {
             const v = localStorage.getItem('goals_view_mode');
-            if (v === 'cards' || v === 'table' || v === 'kanban') return v;
+            if (v === 'cards' || v === 'table' || v === 'kanban' || v === 'tasks-calendar') return v;
         } catch (e) {
             // ignore
         }
@@ -373,6 +335,9 @@ const GoalsComponent = () => {
             return v === null ? false : v === 'true';
         } catch (e) { return false; }
     });
+
+    // Kanban tasks state
+    const [kanbanTasks, setKanbanTasks] = useState<Record<string, Task[]>>({});
 
     useEffect(() => {
         try {
@@ -391,9 +356,13 @@ const GoalsComponent = () => {
         }
     }, [showAllGoals]);
 
-    const handleChangeView = (_: React.MouseEvent<HTMLElement>, value: 'cards' | 'table' | 'kanban' | null) => {
+    const handleChangeView = (_: React.MouseEvent<HTMLElement>, value: 'cards' | 'table' | 'kanban' | 'tasks-calendar' | null) => {
         if (!value) return;
         setViewMode(value);
+        // Clear calendar task IDs when switching away from calendar view
+        if (value !== 'tasks-calendar') {
+            setCalendarTaskIds([]);
+        }
         try { localStorage.setItem('goals_view_mode', value); } catch { /* ignore */ }
     };
 
@@ -429,6 +398,9 @@ const GoalsComponent = () => {
         for (const s of statuses) out[s] = false;
         return out;
     });
+
+    // Track which empty columns the user has manually expanded (session-persisted)
+    const [manuallyExpandedEmptyColumns, setManuallyExpandedEmptyColumns] = useState<Set<string>>(new Set());
 
     // Keep kanbanColumns in sync when indexedGoals change
     useEffect(() => {
@@ -526,6 +498,19 @@ const GoalsComponent = () => {
 
     const handleDrop = async (e: React.DragEvent, status: string) => {
         e.preventDefault();
+        
+        // Check if we're dragging a task
+        const taskId = (() => { 
+            try { return e.dataTransfer?.getData('text/task'); } 
+            catch { return null; } 
+        })();
+        
+        if (taskId || draggingTaskId) {
+            // Handle task drop
+            return handleTaskDrop(e, status);
+        }
+        
+        // Handle goal drop (existing logic)
         const id = (() => { try { return e.dataTransfer?.getData('text/plain') || draggingId; } catch { return draggingId; } })();
         if (!id) { handleDragEnd(); return; }
         const prevColumns = { ...kanbanColumns };
@@ -582,6 +567,99 @@ const GoalsComponent = () => {
             notifyError('Failed to move goal.');
         } finally {
             handleDragEnd();
+        }
+    };
+
+    // Task drag & drop handlers for kanban
+    const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
+
+    const handleTaskDragStart = (e: React.DragEvent, taskId: string) => {
+        setDraggingTaskId(taskId);
+        try { e.dataTransfer?.setData('text/task', taskId); } catch { /* ignore */ }
+        e.dataTransfer!.effectAllowed = 'move';
+    };
+
+    const handleTaskDragEnd = () => {
+        setDraggingTaskId(null);
+        setDragOverColumn(null);
+    };
+
+    const handleTaskDrop = async (e: React.DragEvent, status: string) => {
+        e.preventDefault();
+        const taskId = (() => { 
+            try { return e.dataTransfer?.getData('text/task') || draggingTaskId; } 
+            catch { return draggingTaskId; } 
+        })();
+        
+        if (!taskId) { 
+            handleTaskDragEnd(); 
+            return; 
+        }
+
+        // Find the task in kanbanTasks
+        let task: Task | undefined;
+        let taskGoalId: string | undefined;
+        for (const goalId of Object.keys(kanbanTasks)) {
+            task = kanbanTasks[goalId]?.find((t) => t.id === taskId);
+            if (task) {
+                taskGoalId = goalId;
+                break;
+            }
+        }
+
+        if (!task) {
+            handleTaskDragEnd();
+            return;
+        }
+
+        // If status hasn't changed, just end the drag
+        if (task.status === status) {
+            handleTaskDragEnd();
+            return;
+        }
+
+        // Update task status
+        const prevKanbanTasks = { ...kanbanTasks };
+        try {
+            // Optimistically update local state
+            setKanbanTasks((prev) => {
+                const updated: Record<string, Task[]> = {};
+                for (const gid of Object.keys(prev)) {
+                    updated[gid] = prev[gid].map((t) => 
+                        t.id === taskId ? { ...t, status: status as Task['status'] } : t
+                    );
+                }
+                return updated;
+            });
+
+            // Update on server
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            
+            const response = await fetch('/api/updateTask', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({
+                    id: taskId,
+                    status: status,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update task');
+            }
+
+            notifySuccess(`Task moved to ${status}`);
+        } catch (err) {
+            // Rollback on error
+            setKanbanTasks(prevKanbanTasks);
+            console.error('Failed to move task:', err);
+            notifyError('Failed to move task.');
+        } finally {
+            handleTaskDragEnd();
         }
     };
 
@@ -892,6 +970,153 @@ const GoalsComponent = () => {
         return { indexedGoals: {}, pages: [] };
         }
     }, [scope]);
+
+    // Function to fetch all tasks and group them by goal_id for kanban display
+    const fetchKanbanTasks = useCallback(async () => {
+        if (viewMode !== 'kanban') return;
+        
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) throw new Error('User not authenticated');
+
+            const response = await fetch('/api/getAllTasks', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to fetch tasks: ${response.status}`);
+            }
+            
+            const allTasks: (Task & { goal?: { id: string } })[] = await response.json();
+            
+            // Group tasks by goal_id
+            const tasksByGoal: Record<string, Task[]> = {};
+            allTasks.forEach((task) => {
+                const goalId = task.goal_id;
+                if (!tasksByGoal[goalId]) {
+                    tasksByGoal[goalId] = [];
+                }
+                tasksByGoal[goalId].push(task);
+            });
+            
+            // Sort tasks within each goal by order_index
+            Object.keys(tasksByGoal).forEach((goalId) => {
+                tasksByGoal[goalId].sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+            });
+            
+            setKanbanTasks(tasksByGoal);
+        } catch (error) {
+            console.error('Error fetching kanban tasks:', error);
+        }
+    }, [viewMode]);
+
+    // Fetch tasks when entering kanban mode
+    useEffect(() => {
+        if (viewMode === 'kanban') {
+            fetchKanbanTasks();
+        }
+    }, [viewMode, fetchKanbanTasks]);
+
+    // Task handlers for kanban view
+    const handleTaskStatusChange = async (taskId: string, newStatus: Task['status']) => {
+        // Find the goal_id for this task
+        let goalId: string | undefined;
+        for (const gid of Object.keys(kanbanTasks)) {
+            if (kanbanTasks[gid]?.some(t => t.id === taskId)) {
+                goalId = gid;
+                break;
+            }
+        }
+        
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) throw new Error('User not authenticated');
+
+            const response = await fetch('/api/updateTask', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ id: taskId, status: newStatus }),
+            });
+
+            if (!response.ok) throw new Error('Failed to update task status');
+            notifySuccess('Task status updated');
+            await fetchKanbanTasks(); // Refresh tasks
+        } catch (error) {
+            console.error('Error updating task status:', error);
+            notifyError('Failed to update task status');
+        }
+    };
+
+    const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
+        // Find the goal_id for this task
+        let goalId: string | undefined;
+        for (const gid of Object.keys(kanbanTasks)) {
+            if (kanbanTasks[gid]?.some(t => t.id === taskId)) {
+                goalId = gid;
+                break;
+            }
+        }
+        
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) throw new Error('User not authenticated');
+
+            const response = await fetch('/api/updateTask', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ id: taskId, ...updates }),
+            });
+
+            if (!response.ok) throw new Error('Failed to update task');
+            notifySuccess('Task updated');
+            await fetchKanbanTasks(); // Refresh tasks
+        } catch (error) {
+            console.error('Error updating task:', error);
+            notifyError('Failed to update task');
+        }
+    };
+
+    const handleTaskDelete = async (taskId: string) => {
+        // Find the goal_id for this task
+        let goalId: string | undefined;
+        for (const gid of Object.keys(kanbanTasks)) {
+            if (kanbanTasks[gid]?.some(t => t.id === taskId)) {
+                goalId = gid;
+                break;
+            }
+        }
+        
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) throw new Error('User not authenticated');
+
+            const response = await fetch('/api/deleteTask', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ id: taskId }),
+            });
+
+            if (!response.ok) throw new Error('Failed to delete task');
+            notifySuccess('Task deleted');
+            await fetchKanbanTasks(); // Refresh tasks
+        } catch (error) {
+            console.error('Error deleting task:', error);
+            notifyError('Failed to delete task');
+        }
+    };
   
 // Add a new goal
     //const handleAddGoal = async (event: React.FormEvent, goal?: Goal) => {
@@ -1218,6 +1443,61 @@ const GoalsComponent = () => {
         return true;
     };
 
+    // Task filter function - applies same filters to tasks
+    const taskMatchesFilters = (task: Task, taskGoalId?: string) => {
+        // text filter (search task title, goal title, category)
+        const q = (filter || '').toString().trim();
+        const qLower = q ? q.toLowerCase() : '';
+        const safe = (v: unknown) => (typeof v === 'string' ? v : '') as string;
+        
+        if (qLower) {
+            const titleMatch = safe(task.title).toLowerCase().includes(qLower);
+            // For kanban view, we might need to look up goal info
+            const goalInfo = taskGoalId && kanbanTasks[taskGoalId] ? 
+                (Object.values(indexedGoals).flat().find(g => g.id === taskGoalId)) : 
+                ((task as any).goal);
+            const goalTitleMatch = goalInfo ? safe(goalInfo.title).toLowerCase().includes(qLower) : false;
+            const categoryMatch = goalInfo ? safe(goalInfo.category).toLowerCase().includes(qLower) : false;
+            
+            if (!titleMatch && !goalTitleMatch && !categoryMatch) return false;
+        }
+
+        // status filter (task status)
+        if (filterStatus && filterStatus.length > 0 && !filterStatus.includes((task.status || ''))) return false;
+
+        // category filter (from goal)
+        if (filterCategory && filterCategory.length > 0) {
+            const goalInfo = taskGoalId && kanbanTasks[taskGoalId] ? 
+                (Object.values(indexedGoals).flat().find(g => g.id === taskGoalId)) : 
+                ((task as any).goal);
+            if (!goalInfo || !filterCategory.includes(safe(goalInfo.category))) return false;
+        }
+
+        // goal filter (direct task->goal relationship)
+        if (filterGoal && filterGoal.length > 0) {
+            const actualGoalId = taskGoalId || (task as any).goal?.id || task.goal_id;
+            if (!actualGoalId || !filterGoal.includes(actualGoalId)) return false;
+        }
+
+        // date range filter - use scheduled_date for tasks
+        if (filterStartDate && task.scheduled_date) {
+            try {
+                const taskDate = new Date(task.scheduled_date);
+                const start = filterStartDate.toDate ? filterStartDate.toDate() : filterStartDate as unknown as Date;
+                if (!isNaN(taskDate.getTime()) && start && taskDate < start) return false;
+            } catch { /* ignore parse errors */ }
+        }
+        if (filterEndDate && task.scheduled_date) {
+            try {
+                const taskDate = new Date(task.scheduled_date);
+                const end = filterEndDate.toDate ? filterEndDate.toDate() : filterEndDate as unknown as Date;
+                if (!isNaN(taskDate.getTime()) && end && taskDate > end) return false;
+            } catch { /* ignore parse errors */ }
+        }
+
+        return true;
+    };
+
     // Filtered & sorted list for the current page (cards/table)
     // If the global "Show all" toggle is enabled, present the unscoped fullGoals
     // list instead of the current page's indexed goals so the toggle applies
@@ -1345,19 +1625,224 @@ const GoalsComponent = () => {
 
     // Selection state for bulk actions
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [selectionType, setSelectionType] = useState<'goals' | 'tasks' | null>(null);
+    const [selectAllMenuAnchor, setSelectAllMenuAnchor] = useState<HTMLElement | null>(null);
+    const [calendarTaskIds, setCalendarTaskIds] = useState<string[]>([]);
     const selectedCount = selectedIds.size;
     const visibleIdsArray = useMemo(() => Array.from(visibleGoalIds), [visibleGoalIds]);
-    const toggleSelect = (id: string) => {
+    
+    const toggleSelect = (id: string, type: 'goals' | 'tasks') => {
+        // In cards view, only goals can be selected
+        if (viewMode === 'cards' && type === 'tasks') return;
+        
+        // In other views, prevent mixing goals and tasks
+        if (viewMode !== 'cards' && selectionType && selectionType !== type) {
+            notifyError(`Already selecting ${selectionType}. Clear selection to select ${type}.`);
+            return;
+        }
+        
         setSelectedIds((prev) => {
             const copy = new Set(prev);
-            if (copy.has(id)) copy.delete(id);
-            else copy.add(id);
+            if (copy.has(id)) {
+                copy.delete(id);
+                // If no items left, reset selection type
+                if (copy.size === 0) {
+                    setSelectionType(null);
+                }
+            } else {
+                copy.add(id);
+                // Set selection type on first selection
+                if (selectionType === null) {
+                    setSelectionType(type);
+                }
+            }
             return copy;
         });
     };
-    const clearSelection = () => setSelectedIds(new Set());
-    const selectAllVisible = () => setSelectedIds(new Set(visibleIdsArray));
-    const deselectAll = () => setSelectedIds(new Set());
+    
+    const clearSelection = () => {
+        setSelectedIds(new Set());
+        setSelectionType(null);
+    };
+
+    // Expanded rows state for table view
+    const [expandedRowIds, setExpandedRowIds] = useState<Set<string>>(new Set());
+    const [tableTasksByGoal, setTableTasksByGoal] = useState<Record<string, Task[]>>({});
+    const [addingTaskForGoal, setAddingTaskForGoal] = useState<string | null>(null);
+    const [newTaskData, setNewTaskData] = useState<Partial<Task>>({
+        title: '',
+        description: '',
+        scheduled_date: '',
+        scheduled_time: '',
+    });
+    
+    // Calculate visible task IDs for task selection
+    const visibleTaskIds = useMemo(() => {
+        if (viewMode === 'kanban') {
+            const taskIds: string[] = [];
+            Object.keys(kanbanTasks).forEach((goalId) => {
+                kanbanTasks[goalId]?.forEach((task) => {
+                    if (taskMatchesFilters(task, goalId)) {
+                        taskIds.push(task.id);
+                    }
+                });
+            });
+            return taskIds;
+        } else if (viewMode === 'table') {
+            const taskIds: string[] = [];
+            const visibleGoalIdSet = new Set(visibleIdsArray);
+            Object.entries(tableTasksByGoal).forEach(([goalId, tasks]) => {
+                if (!visibleGoalIdSet.has(goalId)) return;
+                tasks.forEach((task) => {
+                    if (taskMatchesFilters(task, goalId)) {
+                        taskIds.push(task.id);
+                    }
+                });
+            });
+            return taskIds;
+        } else if (viewMode === 'tasks-calendar') {
+            return calendarTaskIds;
+        }
+        return [];
+    }, [viewMode, kanbanTasks, tableTasksByGoal, calendarTaskIds, visibleIdsArray]);
+    
+    const selectAllGoals = () => {
+        setSelectedIds(new Set(visibleIdsArray));
+        setSelectionType('goals');
+        setSelectAllMenuAnchor(null);
+    };
+    
+    const selectAllTasks = () => {
+        setSelectedIds(new Set(visibleTaskIds));
+        setSelectionType('tasks');
+        setSelectAllMenuAnchor(null);
+    };
+    
+    const deselectAll = () => {
+        setSelectedIds(new Set());
+        setSelectionType(null);
+    };
+    
+    const toggleRowExpanded = (id: string) => {
+        setExpandedRowIds((prev) => {
+            const copy = new Set(prev);
+            if (copy.has(id)) {
+                copy.delete(id);
+            } else {
+                copy.add(id);
+                // Fetch tasks for this goal if not already loaded
+                if (!tableTasksByGoal[id]) {
+                    fetchTasksForGoal(id);
+                }
+            }
+            return copy;
+        });
+    };
+
+    const fetchTasksForGoal = useCallback(async (goalId: string) => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) return;
+
+            const response = await fetch('/api/getAllTasks', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            
+            if (!response.ok) throw new Error('Failed to fetch tasks');
+            
+            const allTasks: Task[] = await response.json();
+            const goalTasks = allTasks.filter(task => task.goal_id === goalId);
+            
+            setTableTasksByGoal(prev => ({
+                ...prev,
+                [goalId]: goalTasks
+            }));
+        } catch (error) {
+            console.error('Error fetching tasks for goal:', error);
+        }
+    }, []);
+
+    // Fetch tasks for all visible goals in table view
+    const fetchTasksForAllGoals = useCallback(async (goalIds: string[]) => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) return;
+
+            const response = await fetch('/api/getAllTasks', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            
+            if (!response.ok) throw new Error('Failed to fetch tasks');
+            
+            const allTasks: Task[] = await response.json();
+            
+            // Group tasks by goal_id
+            const tasksByGoal: Record<string, Task[]> = {};
+            goalIds.forEach(gid => {
+                tasksByGoal[gid] = allTasks.filter(task => task.goal_id === gid);
+            });
+            
+            setTableTasksByGoal(tasksByGoal);
+        } catch (error) {
+            console.error('Error fetching tasks for all goals:', error);
+        }
+    }, []);
+
+    // Create task for a specific goal
+    const createTaskForGoal = useCallback(async (goalId: string) => {
+        if (!newTaskData.title?.trim()) {
+            notifyError('Task title is required');
+            return;
+        }
+
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) throw new Error('User not authenticated');
+
+            const response = await fetch('/api/createTask', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    goal_id: goalId,
+                    title: newTaskData.title,
+                    description: newTaskData.description || null,
+                    status: 'Not started',
+                    scheduled_date: newTaskData.scheduled_date || null,
+                    scheduled_time: newTaskData.scheduled_time || null,
+                    order_index: (tableTasksByGoal[goalId]?.length || 0),
+                }),
+            });
+
+            if (!response.ok) throw new Error('Failed to create task');
+
+            notifySuccess('Task created');
+            setNewTaskData({
+                title: '',
+                description: '',
+                scheduled_date: '',
+                scheduled_time: '',
+            });
+            setAddingTaskForGoal(null);
+            await fetchTasksForGoal(goalId);
+        } catch (error) {
+            console.error('Error creating task:', error);
+            notifyError('Failed to create task');
+        }
+    }, [newTaskData, tableTasksByGoal]);
+
+    // Fetch tasks when switching to table view
+    useEffect(() => {
+        if (viewMode === 'table' && sortedAndFilteredGoals.length > 0) {
+            const goalIds = sortedAndFilteredGoals.map(g => g.id);
+            fetchTasksForAllGoals(goalIds);
+        }
+    }, [viewMode, sortedAndFilteredGoals, fetchTasksForAllGoals]);
 
     
 
@@ -1369,10 +1854,10 @@ const GoalsComponent = () => {
             <h1 className="mt-4 block sm:hidden">Goals</h1>
         </div>
 
-    {sortedAndFilteredGoals.length > 0 ? (
+    {(sortedAndFilteredGoals.length > 0 || selectedFiltersCount > 0) ? (
             
         <>
-        <div className="flex justify-between items-start sm:items-center w-full mb-4">
+        {/* <div className="flex justify-between items-start sm:items-center w-full mb-4">
             <div className='flex flex-col'>
                 
                 
@@ -1394,6 +1879,8 @@ const GoalsComponent = () => {
                             
                         />
 
+
+
                         {!showAllGoals && (
                             <div className='flex space-x-2'>
                                 {['week', 'month', 'year'].map((s) => (
@@ -1406,7 +1893,7 @@ const GoalsComponent = () => {
                                                 const next = { ...pageByScopeRef.current, [scope]: persistedForOld };
                                                 setPageByScope(next);
                                                 pageByScopeRef.current = next;
-                                                try { savePageByScope(next); } catch { /* ignore */ }
+                                                try { savePageByScope(next); } catch 
 
                                                 // Compute a tentative page for the new scope so the UI doesn't flip to a default.
                                                 // - week (YYYY-MM-DD) -> month (YYYY-MM)
@@ -1440,7 +1927,7 @@ const GoalsComponent = () => {
                                                 // Record which scope we're switching from so the next fetch can map correctly
                                                 try {
                                                     // debug removed in production
-                                                } catch { /* ignore */ }
+                                                } catch 
 
                                                 console.debug('[AllGoals] scope switch requested', { from: scope, to: s, lastSwitchFromRef: lastSwitchFromRef.current });
                                                 // We're about to switch scope; enter a short 'loading'
@@ -1464,7 +1951,7 @@ const GoalsComponent = () => {
                         )}
                     </FormGroup>
                 </FormControl>
-                {/* Pagination */}
+                
                 {!showAllGoals && (
                 <Pagination
                     pages={pages}
@@ -1477,7 +1964,7 @@ const GoalsComponent = () => {
             </div>
             <div className="flex space-x-2 items-center">
             </div>
-        </div>
+        </div> */}
         <div className='flex flex-col 2xl:flex-row 2xl:space-x-8 items-start justify-start w-full mb-4'>
             <div id="allGoals" className="flex flex-col gap-4 w-full">
                 <div className="flex flex-row items-center gap-4 space-x-4">
@@ -1496,6 +1983,7 @@ const GoalsComponent = () => {
                         <Tooltip title="View table" placement="top" arrow><ToggleButton value="table" aria-label="Table view" className='btn-ghost'><Table2Icon /></ToggleButton></Tooltip>
                         )}
                         <Tooltip title="View kanban board" placement="top" arrow><ToggleButton value="kanban" aria-label="Kanban view" className='btn-ghost'><Kanban /></ToggleButton></Tooltip>
+                        <Tooltip title="View tasks calendar" placement="top" arrow><ToggleButton value="tasks-calendar" aria-label="Tasks calendar view" className='btn-ghost'><CalendarDays /></ToggleButton></Tooltip>
                     </ToggleButtonGroup>
                     {/* Scope Selector */}
                 
@@ -1539,7 +2027,7 @@ const GoalsComponent = () => {
                             onClose={() => setFilterAnchorEl(null)}
                             anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                         >
-                            <Box sx={{ p: 2, width: 280, bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100' }}>
+                            <Box sx={{ p: 2, width: 280, bgcolor: 'var(--color-background)' }}>
                                 <FormControl fullWidth size="small" sx={{ mb: 2 }}>
                                     <InputLabel id="filter-status-label">Status</InputLabel>
                                         <Select
@@ -1588,6 +2076,38 @@ const GoalsComponent = () => {
                                             ))}
                                         </Select>
                                 </FormControl>
+                                {(viewMode === 'kanban' || viewMode === 'tasks-calendar') && (
+                                    <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                                        <InputLabel id="filter-goal-label">Goal</InputLabel>
+                                            <Select
+                                                labelId="filter-goal-label"
+                                                multiple
+                                                value={filterGoal}
+                                                label="Goal"
+                                                onChange={(e) => {
+                                                    const val = (e.target as HTMLInputElement).value;
+                                                    setFilterGoal(typeof val === 'string' ? val.split(',') : (val as string[]));
+                                                }}
+                                                renderValue={(selected) => 
+                                                    (selected as string[]).map(id => {
+                                                        const allGoals = showAllGoals ? (fullGoals || []) : (indexedGoals[currentPage] || []);
+                                                        const goal = allGoals.find(g => g.id === id);
+                                                        return goal?.title || id;
+                                                    }).join(', ')
+                                                }
+                                            >
+                                                {(() => {
+                                                    const allGoals = showAllGoals ? (fullGoals || []) : (indexedGoals[currentPage] || []);
+                                                    return allGoals.map((goal) => (
+                                                        <MenuItem key={goal.id} value={goal.id}>
+                                                            <Checkbox size="small" checked={(filterGoal || []).indexOf(goal.id) > -1} />
+                                                            <ListItemText primary={goal.title} />
+                                                        </MenuItem>
+                                                    ));
+                                                })()}
+                                            </Select>
+                                    </FormControl>
+                                )}
                                 {(showAllGoals || scope === 'year') && (
                                     <div className="flex flex-col space-y-2 mb-2">
                                     <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -1620,6 +2140,7 @@ const GoalsComponent = () => {
                                         onClick={() => {
                                             setFilterStatus([]);
                                             setFilterCategory([]);
+                                            setFilterGoal([]);
                                             setFilterStartDate(null);
                                             setFilterEndDate(null);
                                         }}
@@ -1654,12 +2175,17 @@ const GoalsComponent = () => {
                                     onClose={() => setSummaryAnchorEl(null)}
                                     anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                                     transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                                    PaperProps={{ sx: { bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100', p: 1 } }}
+                                    PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1 } }}
                                 >
                                     {/* build combined list of filters */}
                                     {[
                                         ...((filterStatus || []).map((s) => ({ key: `status:${s}`, type: 'status' as const, label: `Status: ${s}`, value: s }))),
                                         ...((filterCategory || []).map((c) => ({ key: `category:${c}`, type: 'category' as const, label: `Category: ${c}`, value: c }))),
+                                        ...((filterGoal || []).map((id) => {
+                                            const allGoals = showAllGoals ? (fullGoals || []) : (indexedGoals[currentPage] || []);
+                                            const goal = allGoals.find(g => g.id === id);
+                                            return { key: `goal:${id}`, type: 'goal' as const, label: `Goal: ${goal?.title || id}`, value: id };
+                                        })),
                                         ...(filterStartDate && filterEndDate ? [{ key: 'range', type: 'range' as const, label: `Range: ${filterStartDate.format('YYYY-MM-DD')} → ${filterEndDate.format('YYYY-MM-DD')}`, value: `${filterStartDate.format('YYYY-MM-DD')}|${filterEndDate.format('YYYY-MM-DD')}` }] : []),
                                         ...(filter && filter.trim() ? [{ key: 'text', type: 'text' as const, label: `Search: ${filter}`, value: filter }] : []),
                                     ].map((item) => (
@@ -1669,6 +2195,7 @@ const GoalsComponent = () => {
                                                 // deselect individual
                                                 if (item.type === 'status') setFilterStatus((prev) => (prev || []).filter((v) => v !== item.value));
                                                 else if (item.type === 'category') setFilterCategory((prev) => (prev || []).filter((v) => v !== item.value));
+                                                else if (item.type === 'goal') setFilterGoal((prev) => (prev || []).filter((v) => v !== item.value));
                                                 else if (item.type === 'range') { setFilterStartDate(null); setFilterEndDate(null); }
                                                 else if (item.type === 'text') { setFilter(''); }
                                             }}
@@ -1724,6 +2251,22 @@ const GoalsComponent = () => {
                                         />
                                     ))
                                 )}
+                                {filterGoal && filterGoal.length > 0 && (
+                                    filterGoal.map((id) => {
+                                        const allGoals = showAllGoals ? (fullGoals || []) : (indexedGoals[currentPage] || []);
+                                        const goal = allGoals.find(g => g.id === id);
+                                        return (
+                                            <Chip
+                                                key={`goal-${id}`}
+                                                label={`Goal: ${goal?.title || id}`}
+                                                size="small"
+                                                onDelete={() => setFilterGoal((prev) => (prev || []).filter((v) => v !== id))}
+                                                deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
+                                                className="cursor-pointer"
+                                            />
+                                        );
+                                    })
+                                )}
                                 {filterStartDate && filterEndDate && (
                                     <Chip
                                         label={`Range: ${filterStartDate?.format('YYYY-MM-DD')} → ${filterEndDate?.format('YYYY-MM-DD')}`}
@@ -1743,6 +2286,7 @@ const GoalsComponent = () => {
                                         setFilter('');
                                         setFilterStatus([]);
                                         setFilterCategory([]);
+                                        setFilterGoal([]);
                                         setFilterStartDate(null);
                                         setFilterEndDate(null);
                                         filterInputRef.current?.focus();
@@ -1761,15 +2305,23 @@ const GoalsComponent = () => {
                         {viewMode !== 'table' && (
                             <>
                         <div className={`floating-bulk${selectedCount > 0 ? '-toolbar flex-row align-start justify-start items-start sm:flex-row' : ''}`} role="toolbar" aria-label="Bulk actions">
-                            <Tooltip title={selectedCount === visibleIdsArray.length ? 'Deselect all' : 'Select all'} placement="top" arrow>
+                            <Tooltip title={selectedCount > 0 ? `Deselect all ${selectionType || ''}` : (viewMode === 'cards' ? 'Select all goals' : 'Select all tasks')} placement="top" arrow>
                                 <Badge badgeContent={selectedCount} color="primary">
                                     <span className="sr-only">{selectedCount} selected</span>
                                     <button
                                         className={`btn-ghost fb-btn ${selectedCount > 0 ? 'dark:[&>.lucide]:stroke-brand-30 [&>.lucide]:stroke-brand-70' : ''}`}
-                                        onClick={() => { if (selectedCount === visibleIdsArray.length) deselectAll(); else selectAllVisible(); }}
-                                        aria-label={selectedCount === visibleIdsArray.length ? 'Deselect all' : 'Select all'}
+                                        onClick={() => {
+                                            if (selectedCount > 0) {
+                                                deselectAll();
+                                            } else if (viewMode === 'cards') {
+                                                selectAllGoals();
+                                            } else {
+                                                selectAllTasks();
+                                            }
+                                        }}
+                                        aria-label={selectedCount > 0 ? `Deselect all ${selectionType || ''}` : (viewMode === 'cards' ? 'Select all goals' : 'Select all tasks')}
                                     >
-                                        {selectedCount === visibleIdsArray.length ? <SquareSlash /> : <CheckSquare2 />}
+                                        {selectedCount > 0 ? <SquareSlash /> : <CheckSquare2 />}
                                     </button>
                                 </Badge>
                             </Tooltip>
@@ -1833,7 +2385,7 @@ const GoalsComponent = () => {
                                 anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                                 anchorReference={bulkStatusAnchorPos ? 'anchorPosition' : 'anchorEl'}
                                 anchorPosition={bulkStatusAnchorPos ? { top: Math.round(bulkStatusAnchorPos.top), left: Math.round(bulkStatusAnchorPos.left) } : undefined}
-                                PaperProps={{ sx: { bgcolor: theme.palette.mode === 'dark' ? 'grey.90' : 'grey.10', p: 1 } }}
+                                PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1 } }}
                             >
                                 {statusOptions.map((s) => (
                                     <MenuItem
@@ -1860,7 +2412,7 @@ const GoalsComponent = () => {
                                 anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                                 anchorReference={bulkCategoryAnchorPos ? 'anchorPosition' : 'anchorEl'}
                                 anchorPosition={bulkCategoryAnchorPos ? { top: Math.round(bulkCategoryAnchorPos.top), left: Math.round(bulkCategoryAnchorPos.left) } : undefined}
-                                PaperProps={{ sx: { bgcolor: theme.palette.mode === 'dark' ? 'grey.90' : 'grey.100', p: 1, maxHeight: '300px', } }}
+                                PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1, maxHeight: '300px', } }}
                             >
                                 {categoryOptions.map((c) => (
                                     c === categoryOptions[0] ? (
@@ -1875,7 +2427,7 @@ const GoalsComponent = () => {
                                                         id="bulk-category-search"
                                                         size="small"
                                                         placeholder="Filter or add category"
-                                                        sx={{ position: 'sticky', top: 0, bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100', zIndex: 1 }}
+                                                        sx={{ position: 'sticky', top: 0, bgcolor: 'var(--color-background)', zIndex: 1 }}
                                                         fullWidth
                                                         onChange={(e: ChangeEvent<HTMLInputElement>) => {
                                                             const q = (e.target.value || '').toLowerCase();
@@ -1954,9 +2506,8 @@ const GoalsComponent = () => {
                         </div>
                             </>
                         )}
-                        {(selectedCount === 0 || viewMode === 'table') && (
-                            <TextField
-                                id="goal-filter"
+                        <TextField
+                            id="goal-filter"
                                 size="small"
                                 value={filter}
                                 inputRef={(el) => { filterInputRef.current = el; }}
@@ -2001,7 +2552,6 @@ const GoalsComponent = () => {
                                         ) : null,
                                 }}
                             />
-                        )}
                         
                         {/* Edit Accomplishment Modal (reuses AccomplishmentEditor) */}
                         {isEditAccomplishmentModalOpen && selectedAccomplishment && (
@@ -2159,7 +2709,7 @@ const GoalsComponent = () => {
                                 filter={filter}
                                 selectable={true}
                                 isSelected={selectedIds.has(goal.id)}
-                                onToggleSelect={toggleSelect}
+                                onToggleSelect={(id) => toggleSelect(id, 'goals')}
                             />
                             ))}
                         </div>
@@ -2172,25 +2722,53 @@ const GoalsComponent = () => {
                         <Paper elevation={6}>
                             <Table aria-label="Goals Table">
                                 <TableHead className='border-none'>
-                                    <TableRow className='bg-gray-10 dark:bg-gray-90 border-none'>
+                                    <TableRow className='bg-background-color border-none'>
                                         <TableCell colSpan={selectedCount > 0 ?  5 : 1} className="px-4 py-2"   >
                                             <div className="flex items-center space-x-4">
                                             <div className={`floating-bulk${selectedCount > 0 ? '-toolbar flex-row align-start justify-start items-start sm:flex-row' : ''}`} role="toolbar" aria-label="Bulk actions">
-                                                <Tooltip title={selectedCount === visibleIdsArray.length ? 'Deselect all' : 'Select all'} placement="top" arrow>
-                                                        <Badge badgeContent={selectedCount} color="primary">
-                                                        <span className="sr-only">{selectedCount} selected</span>
-                                                        <button
-                                                            className={`btn-ghost fb-btn ${selectedCount > 0 ? 'dark:[&>.lucide]:stroke-brand-30 [&>.lucide]:stroke-brand-70' : ''}`}
-                                                            onClick={() => { if (selectedCount === visibleIdsArray.length) deselectAll(); else selectAllVisible(); }}
-                                                            aria-label={selectedCount === visibleIdsArray.length ? 'Deselect all' : 'Select all'}
-                                                        >
-                                                            {selectedCount === visibleIdsArray.length ? <SquareSlash /> : <CheckSquare2 />}
-                                                        </button>
-                                                    </Badge>
-                                                </Tooltip>
-                                                
-                                                {selectedCount > 0 && (
-                                                    <div className="flex flex-col items-start justify-start sm:flex-row ">
+                                <Tooltip title={selectedCount > 0 ? `Deselect all ${selectionType || ''}` : 'Select all...'} placement="top" arrow>
+                                        <Badge badgeContent={selectedCount} color="primary">
+                                        <span className="sr-only">{selectedCount} selected</span>
+                                        <button
+                                            className={`btn-ghost fb-btn ${selectedCount > 0 ? 'dark:[&>.lucide]:stroke-brand-30 [&>.lucide]:stroke-brand-70' : ''}`}
+                                            onClick={(e) => {
+                                                if (selectedCount > 0) {
+                                                    deselectAll();
+                                                } else {
+                                                    setSelectAllMenuAnchor(e.currentTarget);
+                                                }
+                                            }}
+                                            aria-label={selectedCount > 0 ? `Deselect all ${selectionType || ''}` : 'Select all...'}
+                                        >
+                                            {selectedCount > 0 ? <SquareSlash /> : <CheckSquare2 />}
+                                        </button>
+                                    </Badge>
+                                </Tooltip>
+                                <Menu
+                                    anchorEl={selectAllMenuAnchor}
+                                    open={Boolean(selectAllMenuAnchor)}
+                                    onClose={() => setSelectAllMenuAnchor(null)}
+                                >
+                                    <MenuItem
+                                        onClick={() => {
+                                            selectAllGoals();
+                                            setSelectAllMenuAnchor(null);
+                                        }}
+                                    >
+                                        Select All Goals ({visibleIdsArray.length})
+                                    </MenuItem>
+                                    <MenuItem
+                                        onClick={() => {
+                                            selectAllTasks();
+                                            setSelectAllMenuAnchor(null);
+                                        }}
+                                    >
+                                        Select All Tasks ({visibleTaskIds.length})
+                                    </MenuItem>
+                                </Menu>
+                                
+                                {selectedCount > 0 && (
+                                    <div className="flex flex-col items-start justify-start sm:flex-row ">
                                                         <button className="btn-ghost fb-btn" onClick={() => setIsBulkDeleteConfirmOpen(true)} disabled={bulkActionLoading} title="Delete selected" aria-label="Delete selected">Delete</button>
                                                         <button
                                                             className="btn-ghost fb-btn"
@@ -2250,7 +2828,7 @@ const GoalsComponent = () => {
                                                     anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                                                     anchorReference={bulkStatusAnchorPos ? 'anchorPosition' : 'anchorEl'}
                                                     anchorPosition={bulkStatusAnchorPos ? { top: Math.round(bulkStatusAnchorPos.top), left: Math.round(bulkStatusAnchorPos.left) } : undefined}
-                                                    PaperProps={{ sx: { bgcolor: theme.palette.mode === 'dark' ? 'grey.90' : 'grey.10', p: 1 } }}
+                                                    PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1 } }}
                                                 >
                                                     {statusOptions.map((s) => (
                                                         <MenuItem
@@ -2277,7 +2855,7 @@ const GoalsComponent = () => {
                                                     anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                                                     anchorReference={bulkCategoryAnchorPos ? 'anchorPosition' : 'anchorEl'}
                                                     anchorPosition={bulkCategoryAnchorPos ? { top: Math.round(bulkCategoryAnchorPos.top), left: Math.round(bulkCategoryAnchorPos.left) } : undefined}
-                                                    PaperProps={{ sx: { bgcolor: theme.palette.mode === 'dark' ? 'grey.90' : 'grey.100', p: 1, height: '500px', } }}
+                                                    PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1, height: '500px', } }}
                                                 >
                                                     {categoryOptions.map((c) => (
                                                         c === categoryOptions[0] ? (
@@ -2292,7 +2870,7 @@ const GoalsComponent = () => {
                                                                             id="bulk-category-search"
                                                                             size="small"
                                                                             placeholder="Filter or add category"
-                                                                            sx={{ position: 'sticky', top: 0, bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100', zIndex: 1 }}
+                                                                            sx={{ position: 'sticky', top: 0, bgcolor: 'var(--color-background)', zIndex: 1 }}
                                                                             fullWidth
                                                                             onChange={(e: ChangeEvent<HTMLInputElement>) => {
                                                                                 const q = (e.target.value || '').toLowerCase();
@@ -2402,16 +2980,13 @@ const GoalsComponent = () => {
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                    {/* <TableRow sx={{ maxHeight: '1px', display: 'block' }} className='h-[1px] p-0 m-0 block overflow-hidden'>
-                                        <TableCell className='w-full' />
-                                        <TableCell className='w-auto' />
-                                        <TableCell className='w-auto' />
-                                        <TableCell className='w-auto' />
-                                        <TableCell className='w-auto' />
-                                    </TableRow> */}
-                                    {sortedAndFilteredGoals.map((goal) => (
-                                        <TableRow 
-                                            key={goal.id}
+                                    {sortedAndFilteredGoals.map((goal) => {
+                                        const goalTasks = tableTasksByGoal[goal.id] || [];
+                                        const isExpanded = expandedRowIds.has(goal.id);
+                                        
+                                        return (
+                                        <React.Fragment key={goal.id}>
+                                        <TableRow
                                             hover
                                             // onClick={() => toggleSelect(goal.id)}
                                             onClick={(e) => {
@@ -2423,7 +2998,7 @@ const GoalsComponent = () => {
                                                 const interactive = target.closest('button, a, input, select, textarea, [role="button"]');
                                                 if (interactive) return;
                                                 }
-                                                toggleSelect(goal.id);
+                                                toggleSelect(goal.id, 'goals');
                                             }}
                                             role="checkbox"
                                             aria-checked={selectedIds.has(goal.id)}
@@ -2436,16 +3011,30 @@ const GoalsComponent = () => {
                                                 <Checkbox size="small" checked={selectedIds.has(goal.id)} inputProps={{ 'aria-label': `Select goal ${goal.title}` }} />
                                             </TableCell> */}
                                             <TableCell>
-                                                <Typography variant="body1"><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></Typography>
-                                                <Typography variant="body2" className="text-gray-50">
-                                                    <span dangerouslySetInnerHTML={renderHTML(((goal.description || '').substring(0, 100) + ((goal.description || '').length > 200 ? '...' : '')))} />
-                                                </Typography>
+                                                <div className="flex items-center gap-2">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            toggleRowExpanded(goal.id);
+                                                        }}
+                                                        className="btn-ghost"
+                                                    >
+                                                        {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                                                    </IconButton>
+                                                    <div>
+                                                        <Typography variant="body1"><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></Typography>
+                                                        <Typography variant="body2" className="text-gray-50">
+                                                            <span dangerouslySetInnerHTML={renderHTML(((goal.description || '').substring(0, 100) + ((goal.description || '').length > 200 ? '...' : '')))} />
+                                                        </Typography>
+                                                    </div>
+                                                </div>
                                             </TableCell>
                                             <TableCell>
                                                 <span className='card-category text-nowrap' dangerouslySetInnerHTML={renderHTML(goal.category)} />
                                             </TableCell>
                                             <TableCell>
-                                                <InlineStatus goal={goal} onUpdated={() => refreshGoals().then(() => {})} />
+                                                <InlineStatus tasks={goalTasks} />
                                             </TableCell>
                                             <TableCell><span className='text-xs' dangerouslySetInnerHTML={renderHTML(goal.week_start)} /></TableCell>
                                             <TableCell>
@@ -2493,7 +3082,7 @@ const GoalsComponent = () => {
                                                     onClose={() => { setRowActionsAnchorEl(null); setRowActionsTargetId(null); }}
                                                     anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                                                     transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                                                    PaperProps={{ sx: { bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100' } }}
+                                                    PaperProps={{ sx: { bgcolor: 'var(--color-background)' } }}
                                                 >
                                                     <MenuItem 
                                                         aria-label="Accomplishments" 
@@ -2536,6 +3125,19 @@ const GoalsComponent = () => {
                                                             Notes
                                                     </MenuItem >
                                                     <MenuItem
+                                                        aria-label="Tasks"
+                                                        onClick={() => {
+                                                            setSelectedGoal(goal);
+                                                            setTasksGoalId(goal.id);
+                                                            setIsTasksModalOpen(true);
+                                                            setRowActionsAnchorEl(null);
+                                                            setRowActionsTargetId(null);
+                                                        }}
+                                                    >
+                                                        <ListTodo className="w-4 h-4 mr-2" />
+                                                        Tasks
+                                                    </MenuItem>
+                                                    <MenuItem
                                                         onClick={() => {
                                                             setSelectedGoal(goal);
                                                             setIsEditorOpen(true);
@@ -2560,7 +3162,175 @@ const GoalsComponent = () => {
                                                 </Menu>
                                             </TableCell>
                                         </TableRow>
-                                    ))}
+                                        
+                                        {/* Task rows when expanded */}
+                                        {isExpanded && goalTasks.map((task) => (
+                                            <TableRow key={`task-${task.id}`} className="bg-background-color">
+                                                <TableCell colSpan={5} className="pl-16">
+                                                    <TaskCard 
+                                                        task={task}
+                                                        filter={filter}
+                                                        selectable
+                                                        isSelected={selectedIds.has(task.id)}
+                                                        onToggleSelect={(id) => toggleSelect(id, 'tasks')}
+                                                        onStatusChange={async (taskId, newStatus) => {
+                                                            try {
+                                                                const { data: { session } } = await supabase.auth.getSession();
+                                                                const token = session?.access_token;
+                                                                if (!token) throw new Error('User not authenticated');
+
+                                                                const response = await fetch('/api/updateTask', {
+                                                                    method: 'PUT',
+                                                                    headers: {
+                                                                        'Content-Type': 'application/json',
+                                                                        Authorization: `Bearer ${token}`,
+                                                                    },
+                                                                    body: JSON.stringify({ id: taskId, status: newStatus }),
+                                                                });
+
+                                                                if (!response.ok) throw new Error('Failed to update task status');
+                                                                notifySuccess('Task status updated');
+                                                                await fetchTasksForGoal(goal.id);
+                                                            } catch (error) {
+                                                                console.error('Error updating task status:', error);
+                                                                notifyError('Failed to update task status');
+                                                            }
+                                                        }}
+                                                        onUpdate={async (taskId, updates) => {
+                                                            try {
+                                                                const { data: { session } } = await supabase.auth.getSession();
+                                                                const token = session?.access_token;
+                                                                if (!token) throw new Error('User not authenticated');
+
+                                                                const response = await fetch('/api/updateTask', {
+                                                                    method: 'PUT',
+                                                                    headers: {
+                                                                        'Content-Type': 'application/json',
+                                                                        Authorization: `Bearer ${token}`,
+                                                                    },
+                                                                    body: JSON.stringify({ id: taskId, ...updates }),
+                                                                });
+
+                                                                if (!response.ok) throw new Error('Failed to update task');
+                                                                notifySuccess('Task updated');
+                                                                await fetchTasksForGoal(goal.id);
+                                                            } catch (error) {
+                                                                console.error('Error updating task:', error);
+                                                                notifyError('Failed to update task');
+                                                            }
+                                                        }}
+                                                        onDelete={async (taskId) => {
+                                                            try {
+                                                                const { data: { session } } = await supabase.auth.getSession();
+                                                                const token = session?.access_token;
+                                                                if (!token) throw new Error('User not authenticated');
+
+                                                                const response = await fetch('/api/deleteTask', {
+                                                                    method: 'DELETE',
+                                                                    headers: {
+                                                                        'Content-Type': 'application/json',
+                                                                        Authorization: `Bearer ${token}`,
+                                                                    },
+                                                                    body: JSON.stringify({ id: taskId }),
+                                                                });
+
+                                                                if (!response.ok) throw new Error('Failed to delete task');
+                                                                notifySuccess('Task deleted');
+                                                                await fetchTasksForGoal(goal.id);
+                                                            } catch (error) {
+                                                                console.error('Error deleting task:', error);
+                                                                notifyError('Failed to delete task');
+                                                            }
+                                                        }}
+                                                        allowInlineEdit
+                                                    />
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                        
+                                        {/* Add task row */}
+                                        {isExpanded && (
+                                            <TableRow className="bg-gray-5 dark:bg-gray-95">
+                                                <TableCell colSpan={5} className="pl-16">
+                                                    {addingTaskForGoal === goal.id ? (
+                                                        <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border-2 border-dashed border-primary space-y-2">
+                                                            <TextField
+                                                                value={newTaskData.title || ''}
+                                                                onChange={(e) => setNewTaskData(prev => ({ ...prev, title: e.target.value }))}
+                                                                size="small"
+                                                                fullWidth
+                                                                placeholder="Enter task title"
+                                                                label="Title *"
+                                                                autoFocus
+                                                            />
+                                                            <TextField
+                                                                value={newTaskData.description || ''}
+                                                                onChange={(e) => setNewTaskData(prev => ({ ...prev, description: e.target.value }))}
+                                                                size="small"
+                                                                fullWidth
+                                                                multiline
+                                                                rows={2}
+                                                                placeholder="Add description (optional)"
+                                                                label="Description"
+                                                            />
+                                                            <div className="flex gap-2">
+                                                                <TextField
+                                                                    type="date"
+                                                                    value={newTaskData.scheduled_date || ''}
+                                                                    onChange={(e) => setNewTaskData(prev => ({ ...prev, scheduled_date: e.target.value }))}
+                                                                    size="small"
+                                                                    label="Scheduled Date"
+                                                                    InputLabelProps={{ shrink: true }}
+                                                                    className="flex-1"
+                                                                />
+                                                                <TextField
+                                                                    type="time"
+                                                                    value={newTaskData.scheduled_time || ''}
+                                                                    onChange={(e) => setNewTaskData(prev => ({ ...prev, scheduled_time: e.target.value }))}
+                                                                    size="small"
+                                                                    label="Scheduled Time"
+                                                                    InputLabelProps={{ shrink: true }}
+                                                                    className="flex-1"
+                                                                />
+                                                            </div>
+                                                            <div className="flex gap-2 justify-end">
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        setAddingTaskForGoal(null);
+                                                                        setNewTaskData({
+                                                                            title: '',
+                                                                            description: '',
+                                                                            scheduled_date: '',
+                                                                            scheduled_time: '',
+                                                                        });
+                                                                    }} 
+                                                                    className="btn-secondary btn-sm"
+                                                                >
+                                                                    Cancel
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => createTaskForGoal(goal.id)} 
+                                                                    className="btn-primary btn-sm"
+                                                                >
+                                                                    Add Task
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => setAddingTaskForGoal(goal.id)}
+                                                            className="w-full p-2 text-sm text-primary hover:bg-gray-10 dark:hover:bg-gray-80 rounded border border-dashed border-gray-30 dark:border-gray-600 hover:border-primary transition-colors flex items-center justify-center gap-2"
+                                                        >
+                                                            <PlusIcon className="w-4 h-4" />
+                                                            Add task
+                                                        </button>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                        </React.Fragment>
+                                        );
+                                    })}
                                 </TableBody>
                             </Table>
                         </Paper>
@@ -2568,20 +3338,27 @@ const GoalsComponent = () => {
                 )}
                 <ConfirmModal
                     isOpen={isBulkDeleteConfirmOpen}
-                    title={`Delete ${selectedCount} goals?`}
-                    message={`Are you sure you want to permanently delete ${selectedCount} selected goals? This action cannot be undone.`}
+                    title={`Delete ${selectedCount} ${selectionType === 'tasks' ? 'tasks' : 'goals'}?`}
+                    message={`Are you sure you want to permanently delete ${selectedCount} selected ${selectionType === 'tasks' ? 'tasks' : 'goals'}? This action cannot be undone.`}
                     onCancel={() => setIsBulkDeleteConfirmOpen(false)}
                     onConfirm={async () => {
                         setBulkActionLoading(true);
                         try {
                             const ids = Array.from(selectedIds);
-                            for (const id of ids) {
-                                await deleteGoal(id);
+                            if (selectionType === 'tasks') {
+                                for (const id of ids) {
+                                    await handleTaskDelete(id);
+                                }
+                                notifySuccess('Selected tasks deleted');
+                            } else {
+                                for (const id of ids) {
+                                    await deleteGoal(id);
+                                }
+                                notifySuccess('Selected goals deleted');
                             }
-                            notifySuccess('Selected goals deleted');
                         } catch (err) {
                             console.error('Bulk delete failed', err);
-                            notifyError('Failed to delete some goals');
+                            notifyError(`Failed to delete some ${selectionType === 'tasks' ? 'tasks' : 'goals'}`);
                         } finally {
                             setBulkActionLoading(false);
                             setIsBulkDeleteConfirmOpen(false);
@@ -2599,24 +3376,36 @@ const GoalsComponent = () => {
                                         <div className="w-full flex items-center justify-center p-8">
                                             <div className="flex items-center space-x-3">
                                                 <LoadingSpinner />
-                                                <span className="text-sm text-gray-600 dark:text-gray-300">Loading scope…</span>
+                                                <span className="text-sm text-gray-600 dark:text-gray-30">Loading scope…</span>
                                             </div>
                                         </div>
                                     ) : (
                                     ['Not started', 'In progress', 'Blocked', 'On hold', 'Done'].map((status) => {
-                                        const allIds = kanbanColumns[status] || [];
-                                        const visibleIds = allIds.filter((id) => visibleGoalIds.has(id));
-                                        const hiddenCount = allIds.length - visibleIds.length;
-                                        const isCollapsed = !!collapsedColumns[status];
+                                        // Collect all tasks matching this status AND filters
+                                        const allTasks: Task[] = [];
+                                        Object.keys(kanbanTasks).forEach((goalId) => {
+                                            const goalTasks = kanbanTasks[goalId] || [];
+                                            goalTasks.forEach((task) => {
+                                                if (task.status === status) {
+                                                    // Apply all filters (including text search, category, status, goal, dates)
+                                                    if (taskMatchesFilters(task, goalId)) {
+                                                        allTasks.push(task);
+                                                    }
+                                                }
+                                            });
+                                        });
+                                        
+                                        // Auto-collapse empty columns unless manually expanded by user
+                                        const isCollapsed = (allTasks.length === 0 && !manuallyExpandedEmptyColumns.has(status)) || !!collapsedColumns[status];
 
                                         return (
                                             <div
                                                 key={status}
                                                 className={`
                                                     ${!isCollapsed ? (
-                                                        "flex-1 border border-gray-30 dark:border-gray-70 bg-gray-0 dark:bg-gray-100 dark:bg-opacity-30 p-3 rounded-md" 
+                                                        "flex-1 border border-gray-30 dark:border-gray-70 bg-background-color dark:bg-opacity-30 p-3 rounded-md" 
                                                     ) : (
-                                                        "flex-0 border border-gray-30 dark:border-gray-70 bg-gray-0 dark:bg-gray-100 dark:bg-opacity-30 p-3 rounded-md"
+                                                        "flex-0 border border-gray-30 dark:border-gray-70 bg-background-color dark:bg-opacity-30 p-3 rounded-md"
                                                     )} 
                                                 `}
                                                 onDragOver={(e) => handleDragOver(e, status)}
@@ -2630,12 +3419,9 @@ const GoalsComponent = () => {
                                                             <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 6, background: STATUS_COLORS[status], marginRight: 8 }} />
                                                             <div className="text-nowrap" style={{color: STATUS_COLORS[status]}}>
                                                                 {status}
-                                                                <span className="ml-2 text-sm text-gray-30 dark:text-gray-70">({allIds.length})</span>
+                                                                <span className="ml-2 text-sm text-gray-30 dark:text-gray-70">({allTasks.length})</span>
                                                             </div>
                                                         </div>
-                                                    )}
-                                                    {hiddenCount > 0 && (
-                                                        <span className="text-sm text-gray-500 dark:text-gray-300">{hiddenCount} hidden</span>
                                                     )}
                                                     {(isCollapsed) ? (
                                                         <>
@@ -2650,14 +3436,19 @@ const GoalsComponent = () => {
                                                             <Tooltip title={`Show "${status}" column`} placement="top" arrow>
                                                             <IconButton
                                                                 aria-label={`Show ${status} column`}
-                                                                onClick={() => setCollapsedColumns((prev) => ({ ...prev, [status]: false }))}
+                                                                onClick={() => {
+                                                                    setCollapsedColumns((prev) => ({ ...prev, [status]: false }));
+                                                                    // Track that user manually expanded this empty column
+                                                                    if (allTasks.length === 0) {
+                                                                        setManuallyExpandedEmptyColumns((prev) => new Set(prev).add(status));
+                                                                    }
+                                                                }}
                                                                 className="btn-ghost p-1"
                                                             >
                                                                 <div className="flex items-center">
                                                                     <Badge 
-                                                                        badgeContent={allIds.length} 
+                                                                        badgeContent={allTasks.length} 
                                                                         color="primary"
-                                                                        // variant='dot'
                                                                         anchorOrigin={{
                                                                             vertical: 'top',
                                                                             horizontal: 'right',
@@ -2674,7 +3465,15 @@ const GoalsComponent = () => {
                                                         <Tooltip title={`Hide column`} placement="top" arrow>
                                                             <IconButton
                                                                 aria-label={`Hide ${status} column`}
-                                                                onClick={() => setCollapsedColumns((prev) => ({ ...prev, [status]: !prev[status] }))}
+                                                                onClick={() => {
+                                                                    setCollapsedColumns((prev) => ({ ...prev, [status]: !prev[status] }));
+                                                                    // Remove from manually expanded if user collapses it
+                                                                    setManuallyExpandedEmptyColumns((prev) => {
+                                                                        const newSet = new Set(prev);
+                                                                        newSet.delete(status);
+                                                                        return newSet;
+                                                                    });
+                                                                }}
                                                                 className="btn-ghost p-1"
                                                                 >
                                                                 <EyeOff className="w-4 h-4 text-gray-50" />
@@ -2686,41 +3485,30 @@ const GoalsComponent = () => {
 
                                                 {!isCollapsed && (
                                                     <div className="space-y-3">
-                                                        {visibleIds.map((id, _idx) => {
-                                                            // When showing all in kanban, prefer the `fullGoals` cache
-                                                            // which contains unscoped results from the server. When
-                                                            // showAllGoals is false, fall back to the scoped
-                                                            // `indexedGoals` map.
-                                                            const goalListForLookup = showAllGoals ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || []);
-                                                            const goal = (goalListForLookup || []).find((g) => g.id === id) as Goal | undefined;
-                                                            if (!goal) return null;
-                                                            return (
-                                                            
-                                                            <GoalKanbanCard
-                                                                key={id}
-                                                                goal={goal}
-                                                                handleDelete={(id) => handleDeleteGoal(id)}
-                                                                handleEdit={(id) => {
-                                                                    const goalSourceForEdit = showAllGoals ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || []);
-                                                                    const goalToEdit = goalSourceForEdit.find((g) => g.id === id);
-                                                                    if (goalToEdit) {
-                                                                        setSelectedGoal(goalToEdit);
-                                                                        setIsEditorOpen(true);
-                                                                    }
-                                                                }}
-                                                                filter={filter}
+                                                        {allTasks.map((task) => (
+                                                           <div
+                                                                key={task.id}
                                                                 draggable
-                                                                selectable={true}
-                                                                isSelected={selectedIds.has(goal.id)}
-                                                                onToggleSelect={toggleSelect}
-                                                                onDragStart={(e) => handleDragStart(e, id)}
-                                                            />
-                                                                
-                                                                    
-                                                            );
-                                                        })}
+                                                                onDragStart={(e) => handleTaskDragStart(e, task.id)}
+                                                                onDragEnd={handleTaskDragEnd}
+                                                                className="cursor-move"
+                                                            >
+                                                                <TaskCard
+                                                                    task={task}
+                                                                    filter={filter}
+                                                                    selectable
+                                                                    isSelected={selectedIds.has(task.id)}
+                                                                    onToggleSelect={(id) => toggleSelect(id, 'tasks')}
+                                                                    onStatusChange={handleTaskStatusChange}
+                                                                    onUpdate={handleTaskUpdate}
+                                                                    onDelete={handleTaskDelete}
+                                                                    allowInlineEdit
+                                                                    hideStatusChip
+                                                                />
+                                                            </div>
+                                                        ))}
 
-                                                        {dragOverColumn === status && dragOverIndex === visibleIds.length && (
+                                                        {dragOverColumn === status && dragOverIndex === allTasks.length && (
                                                             <div className="p-4 border border-dashed rounded bg-transparent">&nbsp;</div>
                                                         )}
                                                     </div>
@@ -2731,7 +3519,32 @@ const GoalsComponent = () => {
                                     )}
                                 </div>
                             )}
+
+                            {/* Tasks Calendar View */}
+                            {viewMode === 'tasks-calendar' && (
+                                <div className="w-full h-full">
+                                    <AllTasksCalendar 
+                                        onRefresh={refreshGoals}
+                                        textFilter={filter}
+                                        statusFilter={filterStatus}
+                                        categoryFilter={filterCategory}
+                                        goalFilter={filterGoal}
+                                        startDateFilter={filterStartDate?.toDate() || null}
+                                        endDateFilter={filterEndDate?.toDate() || null}
+                                        selectedIds={selectedIds}
+                                        onToggleSelect={toggleSelect}
+                                        onVisibleTasksChange={setCalendarTaskIds}
+                                    />
+                                </div>
+                            )}
                 
+                            {/* No results message when filters are active */}
+                            {sortedAndFilteredGoals.length === 0 && selectedFiltersCount > 0 && viewMode !== 'tasks-calendar' && (
+                                <div className="text-center text-gray-50 mt-8 mb-8">
+                                    <p className="text-lg mb-2">No goals match your current filters</p>
+                                    <p className="text-sm">Try adjusting your filters or clearing them to see more results</p>
+                                </div>
+                            )}
             </div>
             <div id="summary">
                     <Modal
@@ -2885,7 +3698,14 @@ const GoalsComponent = () => {
 
                     {/* Notes modal used by mobile stacked rows */}
                     {isNotesModalOpen && (
-                        <div id="editNotes" className={`${overlayClasses} flex items-center justify-center`}>
+                        <div 
+                            id="editNotes" 
+                            className={`${overlayClasses} flex items-center justify-center`}
+                            onMouseDown={(e) => {
+                                // close when clicking the backdrop (only when clicking the overlay itself)
+                                if (e.target === e.currentTarget) closeNotes();
+                            }}
+                        >
                             <div className={`${modalClasses} w-full max-w-2xl`}> 
                                 <div className='flex flex-row w-full justify-between items-start'>
                                     <h3 className="text-lg font-medium text-gray-90 mb-4">Notes for <br />"{(selectedGoal as any)?.title}"</h3>
@@ -2900,15 +3720,15 @@ const GoalsComponent = () => {
                                         <h4 className="text-md font-semibold mb-2">Existing notes</h4>
                                         <ul className="space-y-3">
                                             {notes.map((note) => (
-                                                <li key={note.id} className="p-3 border rounded bg-gray-10 dark:bg-gray-80 dark:border-gray-70">
+                                                <li key={note.id} className="p-3 border rounded bg-background border-background-color">
                                                     <div className="flex items-center justify-between gap-2">
-                                                        <div className="text-xs text-gray-40">{new Date(note.created_at).toLocaleString()}</div>
+                                                        <div className="text-xs text-secondary-text">{new Date(note.created_at).toLocaleString()}</div>
                                                         <div className="flex items-center justify-end gap-2">
                                                             <button className="btn-ghost" onClick={() => { setEditingNoteId(note.id); setEditingNoteContent(note.content); }} title="Edit note"><Edit className="w-4 h-4" /></button>
                                                             <button className="btn-ghost" onClick={() => setNoteDeleteTarget(note.id)} title="Delete note" disabled={isNotesLoading}><Trash className="w-4 h-4" /></button>
                                                         </div>
                                                     </div>
-                                                    <div className="text-sm text-gray-70 dark:text-gray-20" dangerouslySetInnerHTML={{ __html: note.content }} />
+                                                    <div className="text-sm text-primary-text" dangerouslySetInnerHTML={{ __html: note.content }} />
                                                     {editingNoteId === note.id && (
                                                         <div className="mt-2">
                                                             <TextField
@@ -2963,6 +3783,36 @@ const GoalsComponent = () => {
                                     confirmLabel="Delete"
                                     cancelLabel="Cancel"
                                 />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Tasks Modal */}
+                    {isTasksModalOpen && tasksGoalId && (
+                        <div 
+                            id="editTasks" 
+                            className={`${overlayClasses} flex items-center justify-center`}
+                            onMouseDown={(e) => {
+                                // close when clicking the backdrop (only when clicking the overlay itself)
+                                if (e.target === e.currentTarget) { setIsTasksModalOpen(false); setTasksGoalId(null); }
+                            }}
+                        >
+                            <div className={`${modalClasses} w-3/4`}>
+                                <div className='flex flex-row w-full justify-between items-start mb-4'>
+                                    <h3 className="text-lg font-medium text-gray-90">
+                                        Tasks for <br />"{(selectedGoal as any)?.title}"
+                                    </h3>
+                                    <button className="btn-ghost" onClick={() => { setIsTasksModalOpen(false); setTasksGoalId(null); }}>
+                                        <CloseButton className="w-4 h-4" />
+                                    </button>
+                                </div>
+                                
+                                <div className="max-h-[70vh] overflow-y-auto">
+                                    <TasksList 
+                                        goalId={tasksGoalId} 
+                                        onTaskCountChange={(count) => setTasksCount(count)}
+                                    />
+                                </div>
                             </div>
                         </div>
                     )}

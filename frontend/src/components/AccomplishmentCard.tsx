@@ -24,8 +24,8 @@ const AccomplishmentCard: React.FC<AccomplishmentCardProps> = ({ id, title, desc
     <div className={`${cardClasses} shadow-xl`} key={id}>
         <div className="goal-content flex flex-col mt-2 flex-grow">
             <h3 dangerouslySetInnerHTML={{ __html: title || 'Untitled Goal'}}></h3>
-            <p className="text-gray-60 dark:text-gray-40 mt-1">{description ? <span dangerouslySetInnerHTML={{ __html: description }} /> : <span className="text-gray-400">No description provided.</span>}</p>
-            <p className="text-sm text-gray-50 dark:text-gray-30">{impact ? <span dangerouslySetInnerHTML={{ __html: `<strong>Impact:</strong> ${impact}` }} /> : <span className="text-gray-400">No impact specified.</span>}</p>
+            <p className="text-gray-60 dark:text-gray-40 mt-1">{description ? <span dangerouslySetInnerHTML={{ __html: description }} /> : <span className="text-gray-40">No description provided.</span>}</p>
+            <p className="text-sm text-gray-50 dark:text-gray-30">{impact ? <span dangerouslySetInnerHTML={{ __html: `<strong>Impact:</strong> ${impact}` }} /> : <span className="text-gray-40">No impact specified.</span>}</p>
             <p className="hidden"><strong>Created At:</strong> {created_at}</p>
         </div>
         <footer className="mt-2 text-sm text-gray-50 dark:text-gray-30 flex flex-row items-center justify-end space-x-2">
@@ -97,8 +97,8 @@ const AccomplishmentCard: React.FC<AccomplishmentCardProps> = ({ id, title, desc
             
 //             {isExpanded && (
 //               <div className="goal-accomplishments mt-4">
-//                 {/* <h4 className="text-sm font-semibold text-gray-900">Accomplishments</h4> */}
-//                 <ul className="list-none list-inside text-gray-700 mt-2 space-y-1">
+//                 {/* <h4 className="text-sm font-semibold text-gray-90">Accomplishments</h4> */}
+//                 <ul className="list-none list-inside text-gray-70 mt-2 space-y-1">
 //                   {accomplishments.map((accomplishment) => (
 //                     <li key={accomplishment.id}>
 //                       <h5 className="text-md font-semibold text-gray-80 dark:text-gray-20">
@@ -141,7 +141,7 @@ const AccomplishmentCard: React.FC<AccomplishmentCardProps> = ({ id, title, desc
           
 //       {/* Modal */}
 //       {isModalOpen && (
-//         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+//         <div className="fixed inset-0 bg-gray-50 bg-opacity-75 flex items-center justify-center z-50">
 //           <div className={`${modalClasses}`}>
 //             <h3 className="text-lg font-medium text-gray-90 mb-4">Add Accomplishment</h3>
 //             <div className="space-y-4">
@@ -153,7 +153,7 @@ const AccomplishmentCard: React.FC<AccomplishmentCardProps> = ({ id, title, desc
 //                   onChange={(e) =>
 //                     setNewAccomplishment({ ...newAccomplishment, title: e.target.value })
 //                   }
-//                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+//                   className="block w-full rounded-md border-gray-30 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 //                 />
 //               </div>
 //               <div>
@@ -164,7 +164,7 @@ const AccomplishmentCard: React.FC<AccomplishmentCardProps> = ({ id, title, desc
 //                   setNewAccomplishment({ ...newAccomplishment, description: e.target.value })
 //                 }
 //                 rows={3}
-//                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+//                 className="block w-full rounded-md border-gray-30 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 //                 />
 //               </div>
 //             <div>
@@ -175,7 +175,7 @@ const AccomplishmentCard: React.FC<AccomplishmentCardProps> = ({ id, title, desc
 //               onChange={(e) =>
 //                 setNewAccomplishment({ ...newAccomplishment, impact: e.target.value })
 //               }
-//               className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+//               className="block w-full rounded-md border-gray-30 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 //               />
 //             </div>
 //           </div>

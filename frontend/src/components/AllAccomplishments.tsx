@@ -257,10 +257,10 @@ const AllAccomplishments = () => {
         <div className={`${modalClasses}`}>
           {isModalOpen && (
             <>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Add Accomplishment</h3>
+              <h3 className="text-lg font-medium text-gray-90 mb-4">Add Accomplishment</h3>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Title</label>
+                  <label className="block text-sm font-medium text-gray-70">Title</label>
                   <TextField
                     value={newAccomplishment.title}
                     onChange={(e) => setNewAccomplishment({ ...newAccomplishment, title: e.target.value })}
@@ -279,7 +279,7 @@ const AllAccomplishments = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Impact</label>
+                  <label className="block text-sm font-medium text-gray-70">Impact</label>
                   <TextField
                     value={newAccomplishment.impact}
                     onChange={(e) => setNewAccomplishment({ ...newAccomplishment, impact: e.target.value })}
@@ -290,7 +290,7 @@ const AllAccomplishments = () => {
               <div className="mt-6 flex justify-end space-x-4">
                 <button
                   onClick={closeModal}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  className="px-4 py-2 text-sm font-medium text-gray-70 bg-gray-100 rounded-md hover:bg-gray-20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
                   Cancel
                 </button>
@@ -364,7 +364,7 @@ const AllAccomplishments = () => {
               />
             ) : (
               <div className="p-4 text-center">
-                <p className="text-gray-500">No accomplishment selected for editing.</p>
+                <p className="text-gray-50">No accomplishment selected for editing.</p>
               </div>
             )
           )}

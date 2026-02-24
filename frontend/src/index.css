@@ -1,12 +1,15 @@
 /* @import "./styles/theme.css"; */
+/* @import "./styles/richtext.scss"; */
+@import "./styles/variables.scss";
 @tailwind base;
 @tailwind components;
 @tailwind theme;
 @tailwind utilities;
 
+
 @layer base {
   body {
-    @apply antialiased text-gray-90 dark:text-gray-10 bg-gray-10 dark:bg-gray-90;
+    @apply antialiased text-gray-90 dark:text-gray-10;
   }
   button {
     @apply appearance-none inline-flex items-center px-2 py-2 border border-gray-30 dark:border-gray-70 text-gray-80 dark:text-gray-20 text-sm font-medium rounded-md shadow-sm text-brand-0 bg-brand-60 hover:bg-brand-80 hover:text-brand-10;
@@ -15,7 +18,11 @@
     }
   }
   a {
-    @apply text-brand-70 hover:text-brand-50 focus:outline-none;
+    color: var(--primary-link);
+    @apply focus:outline-none;
+  }
+  a:hover {
+    color: var(--primary-link-hover);
   }
   label {
     @apply block text-sm font-medium text-gray-70 dark:text-gray-40;
@@ -163,7 +170,7 @@
 
 /* Dark mode override: darker translucent background when the app root has the `dark` class */
 .dark .wkly-overlay {
-  background-color: rgba(10, 10, 10, 0.85); /* gray-900 at 75% for stronger overlay in dark mode */
+  background-color: rgba(10, 10, 10, 0.85); /* gray-90 at 75% for stronger overlay in dark mode */
   --wkly-overlay-bg: rgba(10, 10, 10, 0.85);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);

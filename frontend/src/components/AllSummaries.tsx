@@ -382,7 +382,7 @@ const AllSummaries = () => {
                   onClose={() => setSummaryAnchorEl(null)}
                   anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                   transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                  PaperProps={{ sx: { bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100', p: 1 } }}
+                  PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1 } }}
               >
                   {/* build combined list of filters */}
                   {[
@@ -618,10 +618,10 @@ const AllSummaries = () => {
       >
         {isModalOpen && (
           <form id="summaryForm" onSubmit={handleAddSummary} className={`${modalClasses}`}>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Add Summary</h3>
+            <h3 className="text-lg font-medium text-gray-90 mb-4">Add Summary</h3>
             <div className="space-y-4">
               <div>
-                <label htmlFor="summary-title" className="block text-sm font-medium text-gray-700">Title</label>
+                <label htmlFor="summary-title" className="block text-sm font-medium text-gray-70">Title</label>
                 <TextField
                   id="summary-title"
                   name="title"
@@ -631,7 +631,7 @@ const AllSummaries = () => {
                 />
               </div>
               <div>
-                <label htmlFor="summary-week-start" className="block text-sm font-medium text-gray-700">Select timeframe</label>
+                <label htmlFor="summary-week-start" className="block text-sm font-medium text-gray-70">Select timeframe</label>
                 <TextField
                   id="summary-week-start"
                   name="week_start"
@@ -642,7 +642,7 @@ const AllSummaries = () => {
                 />
               </div>
               <div>
-                <label htmlFor="summary-content" className="block text-sm font-medium text-gray-700">Content</label>
+                <label htmlFor="summary-content" className="block text-sm font-medium text-gray-70">Content</label>
                 <ReactQuill
                   id="summary-content"
                   value={newSummary.content}

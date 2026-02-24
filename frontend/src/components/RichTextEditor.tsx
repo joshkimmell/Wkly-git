@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { IconButton, Tooltip, TextField } from '@mui/material';
-import { Bold, Italic, List, Hash, Quote } from 'lucide-react';
+import { Bold, Italic, List, Hash, Quote, Link as LinkIcon } from 'lucide-react';
 import '@styles/richtext.scss';
 
 type Props = {
@@ -88,6 +88,7 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
   const [activeQuote, setActiveQuote] = useState(false);
   const [activeUnordered, setActiveUnordered] = useState(false);
   const [activeOrdered, setActiveOrdered] = useState(false);
+  const [activeLink, setActiveLink] = useState(false);
 
   // keep local html in sync with external value prop
   useEffect(() => {
@@ -208,6 +209,7 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
   let foundQuote = false;
   let foundUnordered = false;
   let foundOrdered = false;
+  let foundLink = false;
         while (node) {
           if (node.nodeType === 1) {
             const el = node as HTMLElement;
@@ -218,6 +220,7 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
             if (tag === 'blockquote') foundQuote = true;
             if (tag === 'ul') foundUnordered = true;
             if (tag === 'ol') foundOrdered = true;
+            if (tag === 'a') foundLink = true;
           }
           node = node.parentNode;
         }
@@ -227,6 +230,7 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
   setActiveQuote(foundQuote);
         setActiveUnordered(foundUnordered);
         setActiveOrdered(foundOrdered);
+        setActiveLink(foundLink);
       } catch (err) {
         setActiveBold(false);
         setActiveItalic(false);
@@ -243,6 +247,51 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
       document.removeEventListener('selectionchange', updateActive);
     };
   }, [contentRef]);
+
+  // Helper: create or edit link
+  const createLink = () => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    
+    const range = sel.getRangeAt(0);
+    let existingLink: HTMLAnchorElement | null = null;
+    let node: Node | null = range.commonAncestorContainer;
+    
+    // Check if we're inside an existing link
+    while (node) {
+      if (node.nodeType === 1 && (node as HTMLElement).tagName.toLowerCase() === 'a') {
+        existingLink = node as HTMLAnchorElement;
+        break;
+      }
+      node = node.parentNode;
+    }
+    
+    const currentUrl = existingLink ? existingLink.href : '';
+    const url = prompt('Enter URL:', currentUrl);
+    
+    if (url === null) return; // User cancelled
+    
+    if (url === '') {
+      // Remove link
+      if (existingLink) {
+        const parent = existingLink.parentNode;
+        while (existingLink.firstChild) {
+          parent?.insertBefore(existingLink.firstChild, existingLink);
+        }
+        parent?.removeChild(existingLink);
+      }
+    } else {
+      // Add or update link
+      if (existingLink) {
+        existingLink.href = url;
+      } else {
+        document.execCommand('createLink', false, url);
+      }
+    }
+    
+    contentRef.current?.focus();
+    onChange(contentRef.current?.innerHTML || '');
+  };
 
   // Helper: apply command with execCommand primary and fallbacks
   const applyCommand = (cmd: 'bold' | 'italic' | 'formatBlock:h2' | 'formatBlock:blockquote' | 'insertUnorderedList' | 'insertOrderedList') => {
@@ -541,6 +590,20 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
                 onClick={() => { applyCommand('formatBlock:blockquote'); }}
               >
                 <Quote size={16} />
+              </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Link" arrow>
+              <span>
+              <IconButton
+                aria-label="Link"
+                aria-pressed={activeLink}
+                color={activeLink ? 'primary' : 'default'}
+                size="small"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={createLink}
+              >
+                <LinkIcon size={16} />
               </IconButton>
               </span>
             </Tooltip>

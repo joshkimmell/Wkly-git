@@ -625,7 +625,7 @@
 //           value={filter}
 //           onChange={(e) => handleFilterChange(e.target.value)}
 //           placeholder="Filter by title, category, or impact"
-//           className="block w-full h-10 p-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+//           className="block w-full h-10 p-2 rounded-md border-gray-30 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 //         />
 //         <button
 //           onClick={() => setSortDirection(dir => (dir === 'asc' ? 'desc' : 'asc'))}
@@ -655,7 +655,7 @@
 //       </div> */}
 //       {/* Summary Generator and Editor */}
 //       <div className="mt-6">
-//           <h2 className="text-xl font-semibold text-gray-900">Summary</h2>
+//           <h2 className="text-xl font-semibold text-gray-90">Summary</h2>
 //           <p className="text-gray-60 dark:text-gray-30">Generate and edit your weekly summary.</p>
 //       </div>
 //       <div>
@@ -717,49 +717,49 @@
 //           overlayClassName="fixed inset-0 bg-gray-50 dark:bg-gray-100 bg-opacity-65 dark:bg-opacity-65"
 //         >
 //           <div className={`${modalClasses}`}>
-//             <h3 className="text-lg font-medium text-gray-900 mb-4">Add Goal</h3>
+//             <h3 className="text-lg font-medium text-gray-90 mb-4">Add Goal</h3>
 //             <div className="space-y-4">
 //               <div>
-//                 <label className="block text-sm font-medium text-gray-700">Title</label>
+//                 <label className="block text-sm font-medium text-gray-70">Title</label>
 //                 <input
 //                   type="text"
 //                   value={newGoal.title}
 //                   onChange={(e) =>
 //                     setNewGoal({ ...newGoal, title: e.target.value })
 //                   }
-//                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+//                   className="block w-full rounded-md border-gray-30 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 //                 />
 //               </div>
 //               <div>
-//                 <label className="block text-sm font-medium text-gray-700">Description</label>
+//                 <label className="block text-sm font-medium text-gray-70">Description</label>
 //                 <textarea
 //                   value={newGoal.description}
 //                   onChange={(e) =>
 //                     setNewGoal({ ...newGoal, description: e.target.value })
 //                   }
 //                   rows={4}
-//                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+//                   className="block w-full rounded-md border-gray-30 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 //                 />
 //               </div>
 //               <div>
-//                 <label className="block text-sm font-medium text-gray-700">Week Start</label>
+//                 <label className="block text-sm font-medium text-gray-70">Week Start</label>
 //                 <input
 //                   type="date"
 //                   value={newGoal.week_start}
 //                   onChange={(e) =>
 //                     setNewGoal({ ...newGoal, week_start: e.target.value })
 //                   }
-//                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+//                   className="block w-full rounded-md border-gray-30 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 //                 />
 //               </div>
 //               <div>
-//                 <label className="block text-sm font-medium text-gray-700">Category</label>
+//                 <label className="block text-sm font-medium text-gray-70">Category</label>
 //                 <select
 //                   value={newGoal.category}
 //                   onChange={(e) =>
 //                     setNewGoal({ ...newGoal, category: e.target.value })
 //                   }
-//                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+//                   className="block w-full rounded-md border-gray-30 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 //                 >
 //                   <option value="Technical skills">Technical skills</option>
 //                   <option value="Business">Business</option>

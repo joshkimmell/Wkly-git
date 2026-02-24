@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind theme;
 @tailwind utilities;
+@import './variables.scss';
 
 .richtext-editor {
   display: flex;
@@ -121,6 +122,16 @@
 }
 .richtext-contenteditable ul { margin: 0 0 0.5rem 0; padding-left: 1rem; list-style-type: disc; }
 .richtext-contenteditable ol { margin: 0 0 0.5rem 0; padding-left: 1rem; list-style-type: decimal; }
+.richtext-contenteditable a {
+  color: var(--primary-link);
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color 0.15s ease;
+  &:hover {
+    color: var(--primary-link-hover);
+  }
+}
+
 
 @media (max-width: 420px) {
   .richtext-toolbar { right: 0.25rem; bottom: 0.25rem; padding: 4px; }
