@@ -7,12 +7,22 @@ export const handler: Handler = async (event) => {
   if (auth.error) return auth.error;
   const { userId } = auth;
 
-  const taskId = event.queryStringParameters?.id;
+  // Support both query parameter and POST body formats
+  let taskId = event.queryStringParameters?.id;
+  
+  if (!taskId && event.body) {
+    try {
+      const body = JSON.parse(event.body);
+      taskId = body.id;
+    } catch (e) {
+      // ignore parse errors
+    }
+  }
 
   if (!taskId) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: 'Task id query parameter is required.' }),
+      body: JSON.stringify({ error: 'Task id is required (either as query parameter or in request body).' }),
     };
   }
 
