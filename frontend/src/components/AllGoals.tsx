@@ -1526,29 +1526,39 @@ const GoalsComponent = () => {
     }, [showAllGoals, fullGoals, indexedGoals, currentPage, filter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection]);
     
 
-    // Proactively fetch counts for visible goals (limit and sequential to avoid spamming)
-    const visibleIdsMemo = useMemo(() => sortedAndFilteredGoals.slice(0, 10).map((g) => g.id), [sortedAndFilteredGoals]);
+    // Proactively fetch counts for visible goals on page load (batched in chunks)
+    const visibleIdsMemo = useMemo(() => sortedAndFilteredGoals.map((g) => g.id), [sortedAndFilteredGoals]);
     useEffect(() => {
         if (!visibleIdsMemo || visibleIdsMemo.length === 0) return;
         let mounted = true;
         (async () => {
             try {
-                // Use batch endpoint to fetch counts for visible goals in one call
-                const result = await (fetchCountsForMany ? fetchCountsForMany(visibleIdsMemo) : null);
-                if (!mounted) return;
-                // If batch returned nothing, fall back to per-id as a safety net
-                if (!result) {
-                    for (const id of visibleIdsMemo) {
+                // Batch requests in chunks of 100 to avoid exceeding API limits and ensure faster initial load
+                const chunkSize = 100;
+                for (let i = 0; i < visibleIdsMemo.length; i += chunkSize) {
+                    if (!mounted) break;
+                    const chunk = visibleIdsMemo.slice(i, i + chunkSize);
+                    try {
+                        const result = await (fetchCountsForMany ? fetchCountsForMany(chunk) : null);
                         if (!mounted) break;
-                        try { await fetchNotesCount(id).catch(() => null); } catch { /* ignore */ }
-                        if (!mounted) break;
-                        try { if (fetchAccomplishmentsCount) await fetchAccomplishmentsCount(id).catch(() => null); } catch { /* ignore */ }
-                        await new Promise((res) => setTimeout(res, 25));
+                        // If batch failed for this chunk, fall back to individual fetches
+                        if (!result) {
+                            for (const id of chunk) {
+                                if (!mounted) break;
+                                try { await fetchNotesCount(id).catch(() => null); } catch { /* ignore */ }
+                                if (!mounted) break;
+                                try { if (fetchAccomplishmentsCount) await fetchAccomplishmentsCount(id).catch(() => null); } catch { /* ignore */ }
+                                await new Promise((res) => setTimeout(res, 25));
+                            }
+                        }
+                    } catch (err) {
+                        // Log but continue with next chunk
+                        console.warn('[AllGoals] fetchCountsForMany chunk failed (ignored):', err);
                     }
                 }
             } catch (err) {
                 // ignore failures; counts will arrive via individual interactions
-                console.warn('[AllGoals] fetchCountsForMany failed (ignored):', err);
+                console.warn('[AllGoals] fetchCountsForMany batch failed (ignored):', err);
             }
         })();
         return () => { mounted = false; };

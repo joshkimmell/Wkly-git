@@ -53,10 +53,26 @@ export const handler: Handler = async (event) => {
     for (const id of goalIds) accomplishments[id] = 0;
     (accRows || []).forEach((r: any) => { const gid = r?.goal_id; if (!gid) return; accomplishments[gid] = (accomplishments[gid] || 0) + 1; });
 
+    // Fetch task counts for each goal
+    const { data: taskRows, error: taskError } = await supabase
+      .from('tasks')
+      .select('goal_id')
+      .in('goal_id', goalIds)
+      .eq('user_id', userId);
+
+    if (taskError) {
+      console.error('getCounts taskError', taskError);
+      return { statusCode: 500, body: JSON.stringify({ error: 'Failed to fetch task counts' }) };
+    }
+
+    const tasks: Record<string, number> = {};
+    for (const id of goalIds) tasks[id] = 0;
+    (taskRows || []).forEach((r: any) => { const gid = r?.goal_id; if (!gid) return; tasks[gid] = (tasks[gid] || 0) + 1; });
+
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ notes, accomplishments }),
+      body: JSON.stringify({ notes, accomplishments, tasks }),
     };
   } catch (err: any) {
     console.error('Unexpected getCounts error', err);

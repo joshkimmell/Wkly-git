@@ -64,7 +64,6 @@ const GoalCard: React.FC<GoalCardProps> = ({
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
   // Tasks state
   const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
-  const [tasksCount, setTasksCount] = useState(0);
   const [tasks, setTasks] = useState<Task[]>([]);
   // Delete confirmation
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -93,7 +92,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
   };
 
   // Shared counts and helpers
-  const { notesCountMap, accomplishmentCountMap, fetchNotesCount, fetchAccomplishmentsCount, refreshNotesAndCount, refreshAccomplishmentsAndCount, bumpNotesCount, decrementNotesCount } = useGoalExtras();
+  const { notesCountMap, accomplishmentCountMap, tasksCountMap, fetchNotesCount, fetchAccomplishmentsCount, refreshNotesAndCount, refreshAccomplishmentsAndCount, bumpNotesCount, decrementNotesCount } = useGoalExtras();
 
   // counts are provided by useGoalExtras (notesCountMap, accomplishmentCountMap)
 
@@ -421,6 +420,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
   // Derive displayed counts: prefer the larger of the shared cached count and local array length
   const displayedNotesCount = Math.max(notesCountMap[goal.id] ?? 0, notes.length ?? 0);
   const displayedAccomplishmentsCount = Math.max(accomplishmentCountMap[goal.id] ?? 0, accomplishments.length ?? 0);
+  const displayedTasksCount = tasksCountMap[goal.id] ?? tasks.length ?? 0;
 
   // Subscribe to temp-id replacement so this component can proactively fetch
   // accomplishments and notes even if the parent doesn't re-render immediately.
@@ -537,8 +537,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
             <Tooltip title="Tasks" placement="top" arrow>
               <span>
                 <IconButton aria-label="Tasks" onClick={(e) => { e.stopPropagation(); openTasksModal(); }} size="small" className="btn-ghost">
-                  {tasksCount > 0 && (
-                    <div data-testid={`tasks-count-${goal.id}`} className={objectCounter}>{tasksCount}</div>
+                  {displayedTasksCount > 0 && (
+                    <div data-testid={`tasks-count-${goal.id}`} className={objectCounter}>{displayedTasksCount}</div>
                   )}
                   <ListTodo className="w-5 h-5" />
                 </IconButton>
@@ -720,8 +720,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
           
           <div className="max-h-[70vh] overflow-y-auto">
             <TasksList 
-              goalId={goal.id} 
-              onTaskCountChange={(count) => setTasksCount(count)}
+              goalId={goal.id}
             />
           </div>
         </div>

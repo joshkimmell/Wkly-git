@@ -18,16 +18,20 @@ export default function useGoalExtras() {
   const [newNoteContent, setNewNoteContent] = useState('');
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState('');
+  
+  const [tasksCountMap, setTasksCountMap] = useState<Record<string, number>>({});
 
   const userIdRef = useRef<string | null>(null);
   const userIdAttemptedRef = useRef<boolean>(false);
   const notesCountCacheRef = useRef<Record<string, { count: number; expiresAt: number }>>({});
   const accomplishmentsCountCacheRef = useRef<Record<string, { count: number; expiresAt: number }>>({});
+  const tasksCountCacheRef = useRef<Record<string, { count: number; expiresAt: number }>>({});
   const inFlightNotesRef = useRef<Record<string, Promise<number | null>>>({});
   const inFlightAccomplishmentsRef = useRef<Record<string, Promise<number | null>>>({});
   const inFlightBatchRef = useRef<Record<string, Promise<{ notes: Record<string, number>; accomplishments: Record<string, number> } | null>>>({});
   const NOTES_COUNT_TTL_MS = 30 * 1000;
   const ACCOMPLISHMENT_COUNT_TTL_MS = 30 * 1000;
+  const TASKS_COUNT_TTL_MS = 30 * 1000;
 
   const getCachedUserId = useCallback(async () => {
     if (userIdRef.current) return userIdRef.current;
@@ -150,6 +154,7 @@ export default function useGoalExtras() {
 
         const notes: Record<string, number> = json?.notes || {};
         const accomplishments: Record<string, number> = json?.accomplishments || {};
+        const tasks: Record<string, number> = json?.tasks || {};
 
         const now = Date.now();
 
@@ -173,7 +178,17 @@ export default function useGoalExtras() {
           return next;
         });
 
-        return { notes, accomplishments };
+        setTasksCountMap((s) => {
+          const next = { ...s };
+          for (const id of goalIds) {
+            const count = typeof tasks[id] === 'number' ? tasks[id] : (next[id] ?? 0);
+            tasksCountCacheRef.current[id] = { count, expiresAt: now + TASKS_COUNT_TTL_MS };
+            next[id] = count;
+          }
+          return next;
+        });
+
+        return { notes, accomplishments, tasks };
       })();
 
       inFlightBatchRef.current[key] = promise;
@@ -490,5 +505,6 @@ export default function useGoalExtras() {
     refreshAccomplishmentsAndCount,
     bumpNotesCount,
     decrementNotesCount,
+    tasksCountMap,
   };
 }

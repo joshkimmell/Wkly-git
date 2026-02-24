@@ -78,7 +78,6 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
   // Tasks state
   const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
-  const [tasksCount, setTasksCount] = useState(0);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [noteDeleteTarget, setNoteDeleteTarget] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -108,7 +107,7 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
     }
   };
   // Shared counts and helpers
-  const { notesCountMap, accomplishmentCountMap, fetchNotesCount, fetchAccomplishmentsCount, refreshNotesAndCount, refreshAccomplishmentsAndCount } = useGoalExtras();
+  const { notesCountMap, accomplishmentCountMap, tasksCountMap, fetchNotesCount, fetchAccomplishmentsCount, refreshNotesAndCount, refreshAccomplishmentsAndCount } = useGoalExtras();
 
   // Proactively prime counts for Kanban cards without waiting for user interaction.
   // Only fetch when we don't already have a cached value to avoid duplicate requests.
@@ -546,8 +545,8 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
             <Tooltip title="Tasks" placement="top" arrow>
               <span>
                 <IconButton aria-label="Tasks" onClick={(e) => { e.stopPropagation(); setIsTasksModalOpen(true); }} size="small" className="btn-ghost">
-                  {tasksCount > 0 && (
-                    <div className={objectCounter}>{tasksCount}</div>
+                  {(tasksCountMap[goal.id] ?? tasks.length) > 0 && (
+                    <div className={objectCounter}>{tasksCountMap[goal.id] ?? tasks.length}</div>
                   )}
                   <ListTodo className="w-5 h-5" />
                 </IconButton>
@@ -739,8 +738,7 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
           
           <div className="max-h-[70vh] overflow-y-auto">
             <TasksList 
-              goalId={goal.id} 
-              onTaskCountChange={(count) => setTasksCount(count)}
+              goalId={goal.id}
             />
           </div>
         </div>
