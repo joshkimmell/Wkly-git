@@ -157,7 +157,13 @@ const CalendarIntegration: React.FC = () => {
                 <IconButton
                   size="small"
                   className="btn-ghost flex-shrink-0"
-                  onClick={() => { window.location.href = webcalUrl; }}
+                  onClick={() => {
+                    const a = document.createElement('a');
+                    a.href = webcalUrl;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                  }}
                 >
                   <ExternalLink className="w-5 h-5" />
                 </IconButton>
