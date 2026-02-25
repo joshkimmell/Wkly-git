@@ -18,9 +18,13 @@ const CalendarIntegration: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState<'webcal' | 'https' | null>(null);
 
+  // Embed the user's local timezone so the ICS function can attach TZID to events.
+  const userTz = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : '';
+
   // Derive URLs from token
   const appHost = typeof window !== 'undefined' ? window.location.host : '';
-  const icsUrl = calendarToken ? `https://${appHost}/api/getTasksICS?token=${calendarToken}` : '';
+  const tzParam = userTz ? `&tz=${encodeURIComponent(userTz)}` : '';
+  const icsUrl = calendarToken ? `https://${appHost}/api/getTasksICS?token=${calendarToken}${tzParam}` : '';
   const webcalUrl = icsUrl.replace(/^https?:\/\//, 'webcal://');
 
   // Load existing token from Supabase or localStorage
@@ -34,7 +38,7 @@ const CalendarIntegration: React.FC = () => {
             .from('notification_preferences')
             .select('settings')
             .eq('user_id', session.user.id)
-            .single();
+            .maybeSingle();
           if (data?.settings?.calendarToken && mounted) {
             setCalendarToken(data.settings.calendarToken);
             setLoading(false);
@@ -227,7 +231,8 @@ const CalendarIntegration: React.FC = () => {
                   <li>Open Calendar app</li>
                   <li>File → New Calendar Subscription</li>
                   <li>Paste the <strong>webcal://</strong> URL</li>
-                  <li>Choose sync frequency</li>
+                  <li>Choose sync frequency &amp; click OK</li>
+                  <li>To force refresh: right-click the calendar → Refresh</li>
                 </ol>
               </div>
               <div className="p-3 rounded border border-gray-20 dark:border-gray-70 space-y-1">

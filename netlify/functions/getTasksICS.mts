@@ -116,6 +116,10 @@ export const handler: Handler = async (event) => {
     };
   }
 
+  // Optional timezone from the client (e.g. "America/Chicago").
+  // Used to attach TZID to timed events so calendar apps display in local time.
+  const tz = event.queryStringParameters?.tz || '';
+
   try {
     // Fetch all scheduled tasks (those with a scheduled_date set).
     // Must use adminClient (service role) to bypass RLS — there is no user
@@ -157,13 +161,25 @@ export const handler: Handler = async (event) => {
         lines.push(`DTSTART;VALUE=DATE:${dtstart}`);
         lines.push(`DTEND;VALUE=DATE:${nextDayStr}`);
       } else {
-        lines.push(`DTSTART:${dtstart}`);
-        // Default 1-hour duration if no explicit end time
+        // Use TZID when the client supplied a timezone so events appear at the
+        // correct local time. Without TZID, times are "floating" and some apps
+        // may interpret them as UTC.
+        if (tz) {
+          lines.push(`DTSTART;TZID=${tz}:${dtstart}`);
+        } else {
+          lines.push(`DTSTART:${dtstart}`);
+        }
+        // Default 1-hour duration
         const [h, m] = (task.scheduled_time || '00:00').split(':').map(Number);
         const endHour = String((h + 1) % 24).padStart(2, '0');
         const endMin = String(m).padStart(2, '0');
         const [year, month, day] = task.scheduled_date.split('-');
-        lines.push(`DTEND:${year}${month}${day}T${endHour}${endMin}00`);
+        const dtend = `${year}${month}${day}T${endHour}${endMin}00`;
+        if (tz) {
+          lines.push(`DTEND;TZID=${tz}:${dtend}`);
+        } else {
+          lines.push(`DTEND:${dtend}`);
+        }
       }
       lines.push(`SUMMARY:${escapeICS(task.title)}`);
       if (task.description) {
@@ -183,7 +199,9 @@ export const handler: Handler = async (event) => {
         ...corsHeaders,
         'Content-Type': 'text/calendar; charset=utf-8',
         'Content-Disposition': 'attachment; filename="wkly-tasks.ics"',
-        'Cache-Control': 'no-cache',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
       },
       body: icsBody,
     };
