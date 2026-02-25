@@ -126,7 +126,7 @@ export const handler: Handler = async (event) => {
     // session attached to this serverless function context.
     const { data: tasks, error } = await adminClient
       .from('tasks')
-      .select('id, title, description, status, scheduled_date, scheduled_time, goal_id')
+      .select('id, title, description, status, scheduled_date, scheduled_time, goal_id, updated_at')
       .eq('user_id', userId)
       .not('scheduled_date', 'is', null)
       .order('scheduled_date', { ascending: true });
@@ -150,9 +150,21 @@ export const handler: Handler = async (event) => {
       const dtstart = toICSDate(task.scheduled_date, task.scheduled_time);
       const isAllDay = !task.scheduled_time;
 
+      // LAST-MODIFIED in UTC so calendar clients can detect edits.
+      const lastModified = task.updated_at
+        ? new Date(task.updated_at).toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z'
+        : now;
+      // SEQUENCE increments monotonically with each update; using epoch seconds
+      // of updated_at guarantees it always increases on save.
+      const sequence = task.updated_at
+        ? Math.floor(new Date(task.updated_at).getTime() / 1000)
+        : 0;
+
       lines.push('BEGIN:VEVENT');
       lines.push(`UID:wkly-task-${task.id}`);
       lines.push(`DTSTAMP:${now}`);
+      lines.push(`LAST-MODIFIED:${lastModified}`);
+      lines.push(`SEQUENCE:${sequence}`);
       if (isAllDay) {
         // DTEND for DATE events is exclusive — must be the next day per RFC 5545
         const nextDay = new Date(task.scheduled_date + 'T00:00:00Z');
