@@ -739,6 +739,8 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
           <div className="max-h-[70vh] overflow-y-auto">
             <TasksList 
               goalId={goal.id}
+              goalTitle={goal.title}
+              goalDescription={goal.description}
             />
           </div>
         </div>

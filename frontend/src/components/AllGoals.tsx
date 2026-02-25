@@ -3329,7 +3329,7 @@ const GoalsComponent = () => {
                                                     ) : (
                                                         <button
                                                             onClick={() => setAddingTaskForGoal(goal.id)}
-                                                            className="w-full p-2 text-sm text-primary hover:bg-gray-10 dark:hover:bg-gray-80 rounded border border-dashed border-gray-30 dark:border-gray-600 hover:border-primary transition-colors flex items-center justify-center gap-2"
+                                                            className="w-full p-2 text-sm text-primary hover:bg-gray-10 dark:hover:bg-gray-80 rounded border border-dashed border-gray-30 dark:border-gray-60 hover:border-primary transition-colors flex items-center justify-center gap-2"
                                                         >
                                                             <PlusIcon className="w-4 h-4" />
                                                             Add task
@@ -3386,7 +3386,7 @@ const GoalsComponent = () => {
                                         <div className="w-full flex items-center justify-center p-8">
                                             <div className="flex items-center space-x-3">
                                                 <LoadingSpinner />
-                                                <span className="text-sm text-gray-600 dark:text-gray-30">Loading scope…</span>
+                                                <span className="text-sm text-gray-60 dark:text-gray-30">Loading scope…</span>
                                             </div>
                                         </div>
                                     ) : (
