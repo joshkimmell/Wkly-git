@@ -128,8 +128,12 @@ export const handler: Handler = async (event) => {
       lines.push(`UID:wkly-task-${task.id}`);
       lines.push(`DTSTAMP:${now}`);
       if (isAllDay) {
+        // DTEND for DATE events is exclusive — must be the next day per RFC 5545
+        const nextDay = new Date(task.scheduled_date + 'T00:00:00Z');
+        nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+        const nextDayStr = nextDay.toISOString().slice(0, 10).replace(/-/g, '');
         lines.push(`DTSTART;VALUE=DATE:${dtstart}`);
-        lines.push(`DTEND;VALUE=DATE:${dtstart}`);
+        lines.push(`DTEND;VALUE=DATE:${nextDayStr}`);
       } else {
         lines.push(`DTSTART:${dtstart}`);
         // Default 1-hour duration if no explicit end time
