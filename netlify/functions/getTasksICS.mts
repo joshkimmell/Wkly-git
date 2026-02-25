@@ -79,20 +79,37 @@ export const handler: Handler = async (event) => {
   if (!userId) {
     const calToken = event.queryStringParameters?.token;
     if (calToken) {
+      // Use .contains() for JSONB — more reliable than the ->> text filter
       const { data } = await adminClient
         .from('notification_preferences')
-        .select('user_id, settings')
-        .filter('settings->>calendarToken', 'eq', calToken)
-        .single();
+        .select('user_id')
+        .contains('settings', { calendarToken: calToken })
+        .maybeSingle();
       if (data?.user_id) userId = data.user_id;
     }
   }
 
   if (!userId) {
+    // Return 200 with empty calendar instead of 401 — Apple Calendar treats 401
+    // as a password prompt which confuses users. An empty feed is less disruptive.
+    const emptyCal = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Wkly//Tasks Calendar//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'X-WR-CALNAME:Wkly Tasks',
+      'END:VCALENDAR',
+      '',
+    ].join('\r\n');
     return {
-      statusCode: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: 'Unauthorized' }),
+      statusCode: 200,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'text/calendar; charset=utf-8',
+        'Cache-Control': 'no-cache',
+      },
+      body: emptyCal,
     };
   }
 

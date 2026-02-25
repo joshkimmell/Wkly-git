@@ -63,16 +63,18 @@ const CalendarIntegration: React.FC = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user?.id) {
-        // Merge the calendarToken into the existing settings JSON
+        // Merge the calendarToken into the existing settings JSON.
+        // Use maybeSingle() so no error is thrown when no row exists yet.
         const { data: existing } = await supabase
           .from('notification_preferences')
           .select('settings')
           .eq('user_id', session.user.id)
-          .single();
+          .maybeSingle();
         const merged = { ...(existing?.settings || {}), calendarToken: token };
-        await supabase
+        const { error: upsertError } = await supabase
           .from('notification_preferences')
-          .upsert({ user_id: session.user.id, settings: merged });
+          .upsert({ user_id: session.user.id, settings: merged }, { onConflict: 'user_id' });
+        if (upsertError) throw upsertError;
       }
       // Always mirror to localStorage as fallback
       try {
