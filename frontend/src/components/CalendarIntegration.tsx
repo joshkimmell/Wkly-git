@@ -153,11 +153,11 @@ const CalendarIntegration: React.FC = () => {
                   {copied === 'webcal' ? <CheckCircle className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5" />}
                 </IconButton>
               </Tooltip>
-              <Tooltip title="Open in calendar app" placement="top">
+              <Tooltip title="Subscribe in Calendar app" placement="top">
                 <IconButton
                   size="small"
                   className="btn-ghost flex-shrink-0"
-                  onClick={() => window.open(webcalUrl, '_blank')}
+                  onClick={() => { window.location.href = webcalUrl; }}
                 >
                   <ExternalLink className="w-5 h-5" />
                 </IconButton>
