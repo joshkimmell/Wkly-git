@@ -79,13 +79,16 @@ export const handler: Handler = async (event) => {
   if (!userId) {
     const calToken = event.queryStringParameters?.token;
     if (calToken) {
-      // Use .contains() for JSONB — more reliable than the ->> text filter
-      const { data } = await adminClient
+      // Use .contains() for JSONB — reliable key-value match
+      const { data, error: tokenError } = await adminClient
         .from('notification_preferences')
         .select('user_id')
         .contains('settings', { calendarToken: calToken })
         .maybeSingle();
+      console.log('[getTasksICS] token lookup:', { calToken: calToken.slice(0, 8) + '...', found: !!data?.user_id, error: tokenError?.message });
       if (data?.user_id) userId = data.user_id;
+    } else {
+      console.log('[getTasksICS] no token provided');
     }
   }
 
@@ -125,6 +128,7 @@ export const handler: Handler = async (event) => {
       .order('scheduled_date', { ascending: true });
 
     if (error) throw error;
+    console.log('[getTasksICS] tasks found:', tasks?.length ?? 0, 'for userId:', userId.slice(0, 8) + '...');
 
     const now = toICSDateNow();
     const lines: string[] = [
@@ -134,7 +138,8 @@ export const handler: Handler = async (event) => {
       'CALSCALE:GREGORIAN',
       'METHOD:PUBLISH',
       'X-WR-CALNAME:Wkly Tasks',
-      'X-WR-TIMEZONE:UTC',
+      // No X-WR-TIMEZONE: scheduled_time is stored as local/floating time.
+      // Floating DTSTARTs (no Z, no TZID) are interpreted in the user's local timezone.
     ];
 
     for (const task of tasks || []) {
