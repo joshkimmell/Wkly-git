@@ -12,14 +12,17 @@ import { STATUS_COLORS } from '../constants/statuses';
 
 interface TasksListProps {
   goalId: string;
+  goalTitle: string;
+  goalDescription: string;
   onTaskCountChange?: (count: number) => void;
 }
 
 type ViewMode = 'list' | 'kanban' | 'calendar';
 
-const TasksList: React.FC<TasksListProps> = ({ goalId, onTaskCountChange }) => {
+const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescription, onTaskCountChange }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Partial<Task>>({});
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -80,6 +83,50 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, onTaskCountChange }) => {
       notifyError('Failed to load tasks');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const generateTasks = async () => {
+    setIsGenerating(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('User not authenticated');
+      
+      const response = await fetch('/api/generatePlan', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          title: goalTitle,
+          description: goalDescription 
+        }),
+      });
+
+      if (!response.ok) {
+        const errorMessage = await response.text();
+        throw new Error(errorMessage || 'Failed to generate tasks');
+      }
+
+      const data = await response.json();
+      if (Array.isArray(data.tasks)) {
+        // Create tasks from generated plan
+        for (const task of data.tasks) {
+          await createTask({
+            title: task.title,
+            description: task.description,
+          });
+        }
+        await fetchTasks();
+        notifySuccess(`Generated ${data.tasks.length} tasks for your goal`);
+      }
+    } catch (error) {
+      console.error('Error generating tasks:', error);
+      notifyError(error instanceof Error ? error.message : 'Failed to generate tasks');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -392,8 +439,65 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, onTaskCountChange }) => {
 
   if (tasks.length === 0) {
     return (
-      <div className="p-4 text-center text-gray-50">
-        No tasks yet. Tasks help you break down your goal into actionable steps.
+      <div className="p-8 text-center text-gray-50">
+        <p className="mb-4">No tasks yet. Tasks help you break down your goal into actionable steps.</p>
+        <div className="flex gap-3 justify-center flex-wrap">
+          <button
+            onClick={generateTasks}
+            disabled={isGenerating}
+            className="btn-primary"
+          >
+            {isGenerating ? 'Generating...' : 'Generate Tasks with AI'}
+          </button>
+          <button
+            onClick={() => setIsAddingTask(true)}
+            className="btn-secondary"
+          >
+            <Plus className="w-4 h-4 inline mr-1" />
+            Add Task Manually
+          </button>
+        </div>
+        {isAddingTask && (
+          <div className="mt-6 p-4 border rounded bg-background dark:border-gray-70">
+            <h4 className="text-sm font-semibold mb-3 text-gray-90 dark:text-gray-10">Create a New Task</h4>
+            <textarea
+              placeholder="Task title..."
+              value={newTask.title || ''}
+              onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+              className="w-full p-2 border rounded mb-2 bg-background dark:border-gray-70 text-gray-90 dark:text-gray-10"
+              rows={1}
+            />
+            <textarea
+              placeholder="Task description (optional)..."
+              value={newTask.description || ''}
+              onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+              className="w-full p-2 border rounded mb-3 bg-background dark:border-gray-70 text-gray-90 dark:text-gray-10"
+              rows={2}
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => {
+                  setIsAddingTask(false);
+                  setNewTask({ title: '', description: '' });
+                }}
+                className="btn-ghost"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  createTask();
+                  setIsAddingTask(false);
+                  setNewTask({ title: '', description: '' });
+                }}
+                disabled={isLoading}
+                className="btn-primary"
+              >
+                Create Task
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

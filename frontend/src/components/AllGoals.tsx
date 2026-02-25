@@ -21,7 +21,7 @@ import { mapPageForScope, loadPageByScope, savePageByScope } from '@utils/pagina
 import 'react-datepicker/dist/react-datepicker.css';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
-import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, CalendarDays, Eye, Edit, Trash, EyeOff, ChevronRight, ChevronDown, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash, ListTodo } from 'lucide-react';
+import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, CalendarDays, Eye, Edit, Trash, EyeOff, ChevronRight, ChevronDown, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash, ListTodo, Clock } from 'lucide-react';
 import { useGoalsContext } from '@context/GoalsContext';
 import useGoalExtras from '@hooks/useGoalExtras';
 // notify helpers imported where needed below
@@ -31,7 +31,7 @@ import { useTheme } from '@mui/material/styles';
 import supabase from '@lib/supabase';
 import { STATUS_COLORS } from '../constants/statuses';
 import { notifyError, notifySuccess } from '@components/ToastyNotification';
-import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { DatePicker, LocalizationProvider, TimeClock } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type { Dayjs } from 'dayjs';
 import type { ChangeEvent } from 'react';
@@ -3263,7 +3263,7 @@ const GoalsComponent = () => {
                                             <TableRow className="bg-gray-5 dark:bg-gray-95">
                                                 <TableCell colSpan={5} className="pl-16">
                                                     {addingTaskForGoal === goal.id ? (
-                                                        <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border-2 border-dashed border-primary space-y-2">
+                                                        <div className="p-3 bg-white dark:bg-background-color rounded-lg border-2 border-dashed border-primary space-y-2">
                                                             <TextField
                                                                 value={newTaskData.title || ''}
                                                                 onChange={(e) => setNewTaskData(prev => ({ ...prev, title: e.target.value }))}
@@ -3819,7 +3819,9 @@ const GoalsComponent = () => {
                                 
                                 <div className="max-h-[70vh] overflow-y-auto">
                                     <TasksList 
-                                        goalId={tasksGoalId} 
+                                        goalId={tasksGoalId}
+                                        goalTitle={(selectedGoal as any)?.title || ''}
+                                        goalDescription={(selectedGoal as any)?.description || ''}
                                         onTaskCountChange={(count) => setTasksCount(count)}
                                     />
                                 </div>
@@ -3855,17 +3857,17 @@ const GoalsComponent = () => {
                     className={`fixed inset-0 flex md:items-center justify-center z-50`}
                     overlayClassName={`${overlayClasses}`}
                     >
-                <div className={`${modalClasses}`}>
-                    {isGoalModalOpen && (
-                        <GoalForm
-                        newGoal={newGoal}
-                        setNewGoal={setNewGoal}
-                        handleClose={closeGoalModal}
-                                        categories={UserCategories.map((cat: unknown) => typeof cat === 'string' ? (cat as string) : ((cat as { name?: string })?.name || ''))}
-                                        refreshGoals={() => refreshGoals().then(() => {})}
-                        />
-                    )}
-                </div>
+                    <div className={`${modalClasses}`}>
+                        {isGoalModalOpen && (
+                            <GoalForm
+                            newGoal={newGoal}
+                            setNewGoal={setNewGoal}
+                            handleClose={closeGoalModal}
+                                            categories={UserCategories.map((cat: unknown) => typeof cat === 'string' ? (cat as string) : ((cat as { name?: string })?.name || ''))}
+                                            refreshGoals={() => refreshGoals().then(() => {})}
+                            />
+                        )}
+                    </div>
                 </Modal>
         </div>
   );
