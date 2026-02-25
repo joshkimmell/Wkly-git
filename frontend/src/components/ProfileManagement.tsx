@@ -28,6 +28,7 @@ import { sendPasswordReset } from '@lib/authHelpers';
 import { Eye, EyeOff } from 'lucide-react';
 import appColors, { PaletteKey } from '@styles/appColors';
 import NotificationsSettings from './NotificationsSettings';
+import CalendarIntegration from './CalendarIntegration';
 
 interface ProfileManagementProps {
   onClose?: () => void;
@@ -53,7 +54,7 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
   const notificationsSaveRef = React.useRef<(() => Promise<void>) | null>(null);
 
   // Simple UI state: which panel is active
-  const [active, setActive] = useState<'profile' | 'appearance' | 'notifications'>('profile');
+  const [active, setActive] = useState<'profile' | 'appearance' | 'notifications' | 'calendar'>('profile');
 
   const [savingAll, setSavingAll] = useState(false);
   // Local password state for optional in-profile password reset UI
@@ -228,6 +229,9 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
             </ListItemButton>
             <ListItemButton selected={active === 'notifications'} onClick={() => setActive('notifications')}>
               <ListItemText primary="Notifications" secondary="Slack & Email reminders" />
+            </ListItemButton>
+            <ListItemButton selected={active === 'calendar'} onClick={() => setActive('calendar')}>
+              <ListItemText primary="Calendar" secondary="iCal / Google Calendar sync" />
             </ListItemButton>
           </List>
         </nav>
@@ -465,6 +469,12 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
         {active === 'notifications' && (
           <section>
             <NotificationsSettings registerSave={(fn) => { notificationsSaveRef.current = fn; }} />
+          </section>
+        )}
+
+        {active === 'calendar' && (
+          <section>
+            <CalendarIntegration />
           </section>
         )}
         {/* Footer: single Save All / Cancel */}
