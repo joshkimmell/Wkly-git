@@ -484,6 +484,7 @@ export default function AllTasksCalendar({
                         onDragStart={handleDragStart}
                         compact
                         allowInlineEdit
+                        hideCategory
                         filter={textFilter}
                         selectable={!!onToggleSelect}
                         isSelected={selectedIds.has(task.id)}
@@ -548,6 +549,7 @@ export default function AllTasksCalendar({
                       onDragStart={handleDragStart}
                       compact
                       allowInlineEdit
+                      hideCategory
                       filter={textFilter}
                       selectable={!!onToggleSelect}
                       isSelected={selectedIds.has(task.id)}
@@ -626,6 +628,7 @@ export default function AllTasksCalendar({
                 onDragStart={handleDragStart}
                 compact
                 allowInlineEdit
+                hideCategory
                 filter={textFilter}
                 selectable={!!onToggleSelect}
                 isSelected={selectedIds.has(task.id)}
@@ -651,6 +654,7 @@ export default function AllTasksCalendar({
                 draggable
                 onDragStart={handleDragStart}
                 allowInlineEdit
+                hideCategory
                 filter={textFilter}
                 selectable={!!onToggleSelect}
                 isSelected={selectedIds.has(task.id)}

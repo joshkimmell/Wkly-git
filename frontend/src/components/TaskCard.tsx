@@ -29,6 +29,7 @@ interface TaskCardProps {
   compact?: boolean;
   allowInlineEdit?: boolean;
   hideStatusChip?: boolean;
+  hideCategory?: boolean;
   filter?: string; // For highlighting matching text
   selectable?: boolean;
   isSelected?: boolean;
@@ -53,6 +54,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   compact = false,
   allowInlineEdit = false,
   hideStatusChip = false,
+  hideCategory = false,
   filter = '',
   selectable = false,
   isSelected = false,
@@ -119,7 +121,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
     setDisplayStatus(task.status);
   }, [task.status]);
 
-  // Load notes when modal opens
+  // Load notes on component mount to display count
+  useEffect(() => {
+    if (notes.length === 0) {
+      loadNotes();
+    }
+  }, [task.id]);
+
+  // Load notes when modal opens (if they haven't been loaded yet)
   useEffect(() => {
     if (isNotesModalOpen && notes.length === 0) {
       loadNotes();
@@ -552,7 +561,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
           )}
 
           {/* Metadata */}
-          <div className="flex flex-wrap h-auto gap-2 mt-2">
+          <div className="flex flex-wrap h-auto gap-2 mt-2 min-h-7">
             {!task.scheduled_date && onUpdate && (
               <Button
                 size="small"
@@ -568,25 +577,37 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 Set Date & Time
               </Button>
             )}
-            {task.scheduled_date && (
+            {task.scheduled_date && !hideCategory && (
               <>
                 <Chip
                   size="small"
                   icon={<Calendar className="w-3 h-3" />}
-                  label={formattedDate}
+                  label={`${formattedDate}${task.scheduled_time ? ` ${task.scheduled_time}` : ''}`}
                   className="text-xs"
                   onClick={handleDateClick}
                   sx={{ cursor: onUpdate ? 'pointer' : 'default' }}
                 />
               </>
             )}
-            {task.scheduled_time && (
+            {task.scheduled_date && hideCategory && task.scheduled_time && (
               <>
                 <Chip
                   size="small"
                   icon={<Clock className="w-3 h-3" />}
-                  label={task.scheduled_time}
+                  label={`${task.scheduled_time}`}
                   className="text-xs"
+                  onClick={handleTimeClick}
+                  sx={{ cursor: onUpdate ? 'pointer' : 'default' }}
+                />
+              </>
+            )}
+            {task.scheduled_time && !task.scheduled_date && (
+              <>
+                <Chip
+                  size="small"
+                  icon={<Clock className="w-3 h-3" />}
+                  label={`${task.scheduled_time}`}
+                  className="text-xs" // Ensure consistent height with other chips
                   onClick={handleTimeClick}
                   sx={{ cursor: onUpdate ? 'pointer' : 'default' }}
                 />
@@ -601,7 +622,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 color="primary"
               />
             )}
-            {task.goal?.category && (
+            {!hideCategory && task.goal?.category && (
               <Chip
                 size="small"
                 icon={<Tag className="w-3 h-3" />}
