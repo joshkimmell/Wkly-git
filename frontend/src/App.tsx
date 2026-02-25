@@ -30,11 +30,10 @@ const App: React.FC = () => {
   const navigate = useNavigate();
   const [theme, setTheme] = useState<'theme-dark' | 'theme-light'>(() => {
     // Prefer an explicit user preference saved in localStorage, then fall
-    // back to the OS preference. Keep values in the form expected by the
-    // rest of the app: 'theme-dark' | 'theme-light'.
+    // back to dark theme as the default.
     const stored = typeof window !== 'undefined' ? localStorage.getItem('theme') : null;
     if (stored === 'theme-dark' || stored === 'theme-light') return stored;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'theme-dark' : 'theme-light';
+    return 'theme-dark';
   });
   const [isOpen, /*setIsOpen*/] = useState(false);
 
