@@ -61,6 +61,12 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editDescription, setEditDescription] = useState(task.description || '');
+  const [isFullEditModalOpen, setIsFullEditModalOpen] = useState(false);
+  const [modalEditTitle, setModalEditTitle] = useState(task.title);
+  const [modalEditDescription, setModalEditDescription] = useState(task.description || '');
+  const [modalEditStatus, setModalEditStatus] = useState<Task['status']>(task.status);
+  const [modalEditDate, setModalEditDate] = useState(task.scheduled_date || '');
+  const [modalEditTime, setModalEditTime] = useState(task.scheduled_time || '');
   const [isDateTimeDialogOpen, setIsDateTimeDialogOpen] = useState(false);
   const [statusMenuAnchor, setStatusMenuAnchor] = useState<null | HTMLElement>(null);
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
@@ -345,6 +351,33 @@ const TaskCard: React.FC<TaskCardProps> = ({
     setEditTitle(task.title);
     setEditDescription(task.description || '');
     setIsEditing(false);
+  };
+
+  const handleOpenFullEditModal = () => {
+    setModalEditTitle(task.title);
+    setModalEditDescription(task.description || '');
+    setModalEditStatus(task.status);
+    setModalEditDate(task.scheduled_date || '');
+    setModalEditTime(task.scheduled_time || '');
+    setIsFullEditModalOpen(true);
+  };
+
+  const handleSaveFullEdit = () => {
+    if (onUpdate) {
+      const updates: Partial<Task> = {
+        title: modalEditTitle,
+        description: modalEditDescription,
+        status: modalEditStatus,
+        scheduled_date: modalEditDate || undefined,
+        scheduled_time: modalEditTime || undefined,
+      };
+      onUpdate(task.id, updates);
+    }
+    setIsFullEditModalOpen(false);
+  };
+
+  const handleCancelFullEdit = () => {
+    setIsFullEditModalOpen(false);
   };
 
   const handleDateClick = () => {
@@ -643,12 +676,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 </Tooltip>
               )}
               
-              {allowInlineEdit && (
-                <Tooltip title="Edit task">
-                  <IconButton size="small" onClick={handleStartEdit}>
-                    <Edit2 className="w-4 h-4" />
-                  </IconButton>
-                </Tooltip>
+              {allowInlineEdit && onUpdate && (
+                <>
+                  <Tooltip title="Edit all fields">
+                    <IconButton size="small" onClick={handleOpenFullEditModal}>
+                      <Edit className="w-4 h-4" />
+                    </IconButton>
+                  </Tooltip>
+                </>
               )}
 
               <Tooltip title="Notes" placement="top" arrow>
@@ -819,6 +854,92 @@ const TaskCard: React.FC<TaskCardProps> = ({
           </div>
         </div>
       )}
+
+      {/* Full Edit Modal */}
+      <Dialog
+        open={isFullEditModalOpen}
+        onClose={handleCancelFullEdit}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Edit Task</DialogTitle>
+        <DialogContent dividers>
+          <div className="space-y-4 mt-2">
+            {/* Title */}
+            <div>
+              <label className="text-sm font-semibold block mb-1">Title</label>
+              <TextField
+                fullWidth
+                value={modalEditTitle}
+                onChange={(e) => setModalEditTitle(e.target.value)}
+                placeholder="Task title"
+                size="small"
+              />
+            </div>
+            
+            {/* Description */}
+            <div>
+              <label className="text-sm font-semibold block mb-1">Description</label>
+              <TextField
+                fullWidth
+                value={modalEditDescription}
+                onChange={(e) => setModalEditDescription(e.target.value)}
+                placeholder="Task description"
+                multiline
+                rows={3}
+                size="small"
+              />
+            </div>
+            
+            {/* Status */}
+            <div>
+              <label className="text-sm font-semibold block mb-1">Status</label>
+              <select 
+                className="w-full px-3 py-2 border border-gray-30 dark:border-gray-70 rounded bg-background-color text-primary-text"
+                value={modalEditStatus}
+                onChange={(e) => setModalEditStatus(e.target.value as Task['status'])}
+              >
+                <option value="Not started">Not started</option>
+                <option value="In progress">In progress</option>
+                <option value="Blocked">Blocked</option>
+                <option value="On hold">On hold</option>
+                <option value="Done">Done</option>
+              </select>
+            </div>
+            
+            {/* Date */}
+            <div>
+              <label className="text-sm font-semibold block mb-1">Scheduled Date</label>
+              <input
+                type="date"
+                className="w-full px-3 py-2 border border-gray-30 dark:border-gray-70 rounded bg-background-color text-primary-text"
+                value={modalEditDate}
+                onChange={(e) => setModalEditDate(e.target.value)}
+              />
+            </div>
+            
+            {/* Time */}
+            <div>
+              <label className="text-sm font-semibold block mb-1">Scheduled Time</label>
+              <input
+                type="time"
+                className="w-full px-3 py-2 border border-gray-30 dark:border-gray-70 rounded bg-background-color text-primary-text"
+                value={modalEditTime}
+                onChange={(e) => setModalEditTime(e.target.value)}
+                disabled={!modalEditDate}
+              />
+            </div>
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelFullEdit} color="inherit">
+            Cancel
+          </Button>
+          <Button onClick={handleSaveFullEdit} variant="contained" color="primary">
+            Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <ConfirmModal
         isOpen={!!noteDeleteTarget}

@@ -144,7 +144,7 @@ export default function AllTasksCalendar({
     return days;
   }, [currentDate]);
 
-  // Group tasks by date
+  // Group tasks by date (sorted chronologically by time)
   const tasksByDate = useMemo(() => {
     const grouped = new Map<string, TaskWithGoal[]>();
     
@@ -156,6 +156,15 @@ export default function AllTasksCalendar({
         }
         grouped.get(dateKey)!.push(task);
       }
+    });
+
+    // Sort each day's tasks chronologically by scheduled_time
+    grouped.forEach((tasksOnDate) => {
+      tasksOnDate.sort((a, b) => {
+        const timeA = a.scheduled_time || '23:59';
+        const timeB = b.scheduled_time || '23:59';
+        return timeA.localeCompare(timeB);
+      });
     });
 
     return grouped;
