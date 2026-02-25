@@ -1,5 +1,4 @@
 import { Handler } from '@netlify/functions';
-import supabase from './lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.SUPABASE_URL!;
@@ -98,8 +97,10 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    // Fetch all scheduled tasks (those with a scheduled_date set)
-    const { data: tasks, error } = await supabase
+    // Fetch all scheduled tasks (those with a scheduled_date set).
+    // Must use adminClient (service role) to bypass RLS — there is no user
+    // session attached to this serverless function context.
+    const { data: tasks, error } = await adminClient
       .from('tasks')
       .select('id, title, description, status, scheduled_date, scheduled_time, goal_id')
       .eq('user_id', userId)
