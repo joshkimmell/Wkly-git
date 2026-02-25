@@ -85,7 +85,8 @@ const CalendarIntegration: React.FC = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Not logged in');
-      const res = await fetch('/api/getTasksICS', {
+      const tzQuery = userTz ? `?tz=${encodeURIComponent(userTz)}` : '';
+      const res = await fetch(`/api/getTasksICS${tzQuery}`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (!res.ok) throw new Error('Failed to download');

@@ -31,15 +31,25 @@ function escapeICS(str: string): string {
     .replace(/\r/g, '');
 }
 
-// Map task status to ICS STATUS property
+// Map task status to a valid VEVENT STATUS value (RFC 5545).
+// VEVENT STATUS only accepts TENTATIVE, CONFIRMED, or CANCELLED.
+// (NEEDS-ACTION / IN-PROCESS / COMPLETED are VTODO-only values and are
+//  rejected by strict clients like Apple Calendar, breaking the whole feed.)
 function taskStatusToICS(status: string): string {
   switch (status) {
-    case 'Done': return 'COMPLETED';
-    case 'In progress': return 'IN-PROCESS';
+    case 'Done': return 'CONFIRMED';
+    case 'In progress': return 'CONFIRMED';
     case 'Blocked':
     case 'On hold': return 'CANCELLED';
-    default: return 'NEEDS-ACTION';
+    default: return 'TENTATIVE'; // not started / todo
   }
+}
+
+// Return a CATEGORIES value that carries the human-readable task status
+// so it's still visible inside calendar apps without abusing STATUS.
+function taskStatusToCategory(status: string): string {
+  if (!status) return 'Todo';
+  return status; // e.g. "Done", "In progress", "Blocked", "On hold"
 }
 
 // Fold long lines per RFC 5545 (max 75 octets per line)
@@ -198,6 +208,7 @@ export const handler: Handler = async (event) => {
         lines.push(`DESCRIPTION:${escapeICS(task.description.replace(/<[^>]+>/g, ''))}`);
       }
       lines.push(`STATUS:${taskStatusToICS(task.status)}`);
+      lines.push(`CATEGORIES:${escapeICS(taskStatusToCategory(task.status))}`);
       lines.push('END:VEVENT');
     }
 
