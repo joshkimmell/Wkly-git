@@ -4,14 +4,6 @@ import { Copy, RefreshCw, Download, Calendar, ExternalLink, CheckCircle } from '
 import supabase from '@lib/supabase';
 import { notifySuccess, notifyError } from './ToastyNotification';
 
-const STORAGE_KEY = 'wkly_notifications_settings_v1';
-
-function generateToken(): string {
-  const arr = new Uint8Array(24);
-  crypto.getRandomValues(arr);
-  return Array.from(arr, (b) => b.toString(16).padStart(2, '0')).join('');
-}
-
 const CalendarIntegration: React.FC = () => {
   const [calendarToken, setCalendarToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -27,34 +19,24 @@ const CalendarIntegration: React.FC = () => {
   const icsUrl = calendarToken ? `https://${appHost}/api/getTasksICS?token=${calendarToken}${tzParam}` : '';
   const webcalUrl = icsUrl.replace(/^https?:\/\//, 'webcal://');
 
-  // Load existing token from Supabase or localStorage
+  const getAuthHeader = async (): Promise<Record<string, string>> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) throw new Error('Not logged in');
+    return { Authorization: `Bearer ${session.access_token}` };
+  };
+
+  // Load existing token via backend (uses adminClient, bypasses RLS)
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user?.id) {
-          const { data } = await supabase
-            .from('notification_preferences')
-            .select('settings')
-            .eq('user_id', session.user.id)
-            .maybeSingle();
-          if (data?.settings?.calendarToken && mounted) {
-            setCalendarToken(data.settings.calendarToken);
-            setLoading(false);
-            return;
-          }
-        }
-        // Fallback to localStorage
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed.calendarToken && mounted) {
-            setCalendarToken(parsed.calendarToken);
-          }
-        }
+        const headers = await getAuthHeader();
+        const res = await fetch('/api/manageCalendarToken', { headers });
+        if (!res.ok) throw new Error('Failed to load token');
+        const data = await res.json();
+        if (mounted && data.token) setCalendarToken(data.token);
       } catch (e) {
-        // ignore
+        // ignore — token not generated yet
       } finally {
         if (mounted) setLoading(false);
       }
@@ -62,43 +44,33 @@ const CalendarIntegration: React.FC = () => {
     return () => { mounted = false; };
   }, []);
 
-  const saveToken = async (token: string) => {
+  const saveToken = async () => {
     setSaving(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.id) {
-        // Merge the calendarToken into the existing settings JSON.
-        // Use maybeSingle() so no error is thrown when no row exists yet.
-        const { data: existing } = await supabase
-          .from('notification_preferences')
-          .select('settings')
-          .eq('user_id', session.user.id)
-          .maybeSingle();
-        const merged = { ...(existing?.settings || {}), calendarToken: token };
-        const { error: upsertError } = await supabase
-          .from('notification_preferences')
-          .upsert({ user_id: session.user.id, settings: merged }, { onConflict: 'user_id' });
-        if (upsertError) throw upsertError;
+      const headers = await getAuthHeader();
+      // Backend generates the token and saves it via adminClient (bypasses RLS)
+      const res = await fetch('/api/manageCalendarToken', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to save token');
       }
-      // Always mirror to localStorage as fallback
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        const local = raw ? JSON.parse(raw) : {};
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...local, calendarToken: token }));
-      } catch (e) { /* ignore */ }
-      setCalendarToken(token);
+      const data = await res.json();
+      setCalendarToken(data.token);
       notifySuccess('Calendar link generated');
-    } catch (e) {
-      notifyError('Failed to save calendar token');
+    } catch (e: any) {
+      notifyError(e?.message || 'Failed to save calendar token');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleGenerate = () => saveToken(generateToken());
+  const handleGenerate = () => saveToken();
   const handleRevoke = () => {
     if (!window.confirm('Revoke the current calendar link? Existing subscriptions will stop updating.')) return;
-    saveToken(generateToken());
+    saveToken();
   };
 
   const handleCopy = (type: 'webcal' | 'https') => {
