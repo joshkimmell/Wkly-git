@@ -78,6 +78,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+    const [scrolled, setScrolled] = useState(false);
     const { session } = useAuth();
     // use the module-level `isMenuHidden` exported above
 
@@ -126,6 +127,30 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     useEffect(() => {
         setIsAuthenticated(!!session);
     }, [session]);
+
+    // Sticky header scroll-shrink: set `scrolled` once the page scrolls past a
+    // small threshold so CSS transitions can kick in.
+    // RAF debounce + hysteresis (32px in / 16px out) prevent the class from
+    // toggling rapidly near the boundary which cuts transitions off mid-flight.
+    useEffect(() => {
+        let rafId: number | null = null;
+        const onScroll = () => {
+            if (rafId !== null) return;
+            rafId = requestAnimationFrame(() => {
+                rafId = null;
+                setScrolled((prev) => {
+                    if (!prev && window.scrollY > 32) return true;
+                    if (prev && window.scrollY < 16) return false;
+                    return prev;
+                });
+            });
+        };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        return () => {
+            window.removeEventListener('scroll', onScroll);
+            if (rafId !== null) cancelAnimationFrame(rafId);
+        };
+    }, []);
 
     // Keep `drawerVisible` in sync with whether the drawer container is actually visible
     useEffect(() => {
@@ -183,14 +208,14 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     useOverlayDebug(isProfileOpen);
 
     return (
-        <div className={`header flex items-center dark relative ${menuOpen ? 'header-expanded top-0' : ''}`}>
+        <div className={`header flex items-center dark relative${menuOpen ? ' header-expanded' : ''}${scrolled ? ' header--scrolled' : ''}`}>
             
             <div className="header-brand">
                 {!drawerVisible && (
                     <div className="header-brand--logo-container relative pr-6 flex items-end ">
                         <button
                             onClick={toggleThemeInternal}
-                            className="btn-ghost ml-4 p-2 rounded absolute top-0 right-0"
+                            className="header-brand--theme-btn btn-ghost ml-4 p-2 rounded absolute top-0 right-0"
                             aria-label="Toggle theme"
                         >
                             {props.theme === 'theme-dark' ? (
@@ -223,13 +248,13 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                     {/* <div className='flex flex-col gap-2'> */}
                         <div>
                             {/* Show avatar/menu only when the drawer is not open */}
-                            <div className='absolute top-8 sm:top-10 right-3 sm:right-10'> 
+                            <div className='header-brand--avatar-wrapper absolute top-8 sm:top-10 right-3 sm:right-10'>
                                 {!drawerVisible && (
                                     <>
                                         <Avatar
                                             isEdit={false}
                                             onClick={handleMenuOpen}
-                                            size='sm'
+                                            size={drawerVisible ? 'sm' : 'md'}
                                         />
                                         <Menu
                                             anchorEl={menuAnchor}

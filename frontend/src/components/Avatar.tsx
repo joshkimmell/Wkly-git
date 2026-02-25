@@ -14,7 +14,7 @@ interface UploadAvatarsProps {
   onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void; // Added onChange prop
   src?: string; // Added src prop for preview image
   uploading?: boolean; // show uploading indicator
-  size?: 'sm' | 'lg'; // small or large avatar
+  size?: 'sm' | 'md' | 'lg'; // small, medium, or large avatar
 }
 
 export default function UploadAvatars({ isEdit, onClick, onChange, src, uploading, size = 'sm' }: UploadAvatarsProps) {
@@ -35,11 +35,13 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
     }
   };
 
-  // map size prop to responsive pixel values
-  // sm: small screens, md+: larger screens
+  // map size prop to flat pixel values driven by the caller
+  // 'sm' = 32 (mobile / drawer-visible), 'md' = 64 (desktop), 'lg' = 120/180
   const sizeValues = size === 'lg'
     ? { xs: 120, md: 180 }
-    : { xs: 32, md: 64 };
+    : size === 'sm'
+    ? { xs: 32 }
+    : { xs: 64 }; // 'md'
 
   // spinner sizes for xs and md breakpoints (we'll set size prop to md and override via sx)
   const spinnerXs = size === 'lg' ? 56 : 20;
