@@ -503,3 +503,11 @@ svg {
     }
     .floating-bulk-toolbar .fb-btn { padding: 6px 8px; font-size: 0.8rem; }
 }
+
+// Touch drag-and-drop drop zone highlight
+.touch-drag-over {
+    outline: 2px solid var(--brand-50) !important;
+    outline-offset: -2px;
+    background-color: color-mix(in srgb, var(--brand-50) 12%, transparent) !important;
+    transition: background-color 0.1s ease, outline 0.1s ease;
+}

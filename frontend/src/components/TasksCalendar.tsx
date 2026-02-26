@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Task } from '@utils/goalUtils';
 import TaskCard from './TaskCard';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { IconButton, Tooltip } from '@mui/material';
+import { useTouchDrag } from '@hooks/useTouchDrag';
 
 interface TasksCalendarProps {
   tasks: Task[];
@@ -107,6 +108,18 @@ const TasksCalendar: React.FC<TasksCalendarProps> = ({
     setDraggedTaskId(null);
   };
 
+  const handleTouchDrop = useCallback((taskId: string, dropTarget: HTMLElement) => {
+    const newDate = dropTarget.dataset.dropDate;
+    if (newDate && onReschedule) {
+      onReschedule(taskId, newDate);
+    }
+  }, [onReschedule]);
+
+  const { getTouchProps } = useTouchDrag({
+    onDragStart: (taskId) => setDraggedTaskId(taskId),
+    onTouchDrop: handleTouchDrop,
+  });
+
   const isToday = (date: Date) => {
     const today = new Date();
     return date.toDateString() === today.toDateString();
@@ -160,6 +173,7 @@ const TasksCalendar: React.FC<TasksCalendarProps> = ({
           return (
             <div
               key={index}
+              data-drop-date={dateKey}
               className={`min-h-24 p-2 rounded-lg border transition-colors ${
                 isTodayDate
                   ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700'
@@ -176,16 +190,17 @@ const TasksCalendar: React.FC<TasksCalendarProps> = ({
               
               <div className="space-y-1 overflow-y-auto max-h-32">
                 {dayTasks.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    onStatusChange={onStatusChange}
-                    onEdit={onEdit}
-                    onDelete={onDelete}
-                    draggable
-                    onDragStart={handleDragStart}
-                    compact
-                  />
+                  <div key={task.id} {...getTouchProps(task.id)}>
+                    <TaskCard
+                      task={task}
+                      onStatusChange={onStatusChange}
+                      onEdit={onEdit}
+                      onDelete={onDelete}
+                      draggable
+                      onDragStart={handleDragStart}
+                      compact
+                    />
+                  </div>
                 ))}
               </div>
             </div>

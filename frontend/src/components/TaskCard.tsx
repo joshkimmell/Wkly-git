@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Task } from '@utils/goalUtils';
-import { CheckCircle, Circle, Calendar, Bell, Trash, Edit, Clock, GripVertical, ChevronUp, ChevronDown, FileText, Tag } from 'lucide-react';
+import { CheckCircle, Circle, Calendar, Bell, Trash, Edit, Clock, GripVertical, ChevronUp, ChevronDown, FileText, Tag, Square, CheckSquare2 } from 'lucide-react';
 import { Edit2, Save, X as CloseButton, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
-import { IconButton, Tooltip, Chip, TextField, Button, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { IconButton, Tooltip, Chip, TextField, Button, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, FormControlLabel, Switch, Select, FormControl, InputLabel, useMediaQuery } from '@mui/material';
 import DateTimePickerDialog from './DateTimePickerDialog';
 import ConfirmModal from './ConfirmModal';
 import RichTextEditor from './RichTextEditor';
@@ -69,6 +69,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const [modalEditStatus, setModalEditStatus] = useState<Task['status']>(task.status);
   const [modalEditDate, setModalEditDate] = useState(task.scheduled_date || '');
   const [modalEditTime, setModalEditTime] = useState(task.scheduled_time || '');
+  const [modalEditReminderEnabled, setModalEditReminderEnabled] = useState(task.reminder_enabled || false);
+  const [modalEditReminderOffset, setModalEditReminderOffset] = useState<string>('30');
+  const [modalEditReminderDatetime, setModalEditReminderDatetime] = useState<string>('');
+  // Full-screen dialog on mobile
+  const isMobile = useMediaQuery('(max-width: 600px)');
   const [isDateTimeDialogOpen, setIsDateTimeDialogOpen] = useState(false);
   const [statusMenuAnchor, setStatusMenuAnchor] = useState<null | HTMLElement>(null);
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
@@ -85,6 +90,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
   
   // Ref for click-outside detection
   const cardRef = useRef<HTMLDivElement>(null);
+  // Suppresses card selection for one tick after any floating menu/popover closes
+  const menuJustClosedRef = useRef(false);
   
   // Track display status for optimistic UI updates
   const [displayStatus, setDisplayStatus] = useState<Task['status']>(task.status);
@@ -368,17 +375,58 @@ const TaskCard: React.FC<TaskCardProps> = ({
     setModalEditStatus(task.status);
     setModalEditDate(task.scheduled_date || '');
     setModalEditTime(task.scheduled_time || '');
+    // Initialise reminder state
+    setModalEditReminderEnabled(task.reminder_enabled || false);
+    if (task.reminder_datetime && task.scheduled_date && task.scheduled_time) {
+      const rem = new Date(task.reminder_datetime).getTime();
+      const sched = new Date(`${task.scheduled_date}T${task.scheduled_time}`).getTime();
+      const diffMin = Math.round((sched - rem) / 60000);
+      const presets = [0, 15, 30, 60, 1440];
+      const match = presets.find((p) => p === diffMin);
+      if (match !== undefined) {
+        setModalEditReminderOffset(String(match));
+        setModalEditReminderDatetime('');
+      } else {
+        setModalEditReminderOffset('custom');
+        const d = new Date(task.reminder_datetime);
+        setModalEditReminderDatetime(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+      }
+    } else if (task.reminder_datetime) {
+      setModalEditReminderOffset('custom');
+      const d = new Date(task.reminder_datetime);
+      setModalEditReminderDatetime(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+    } else {
+      setModalEditReminderOffset('30');
+      setModalEditReminderDatetime('');
+    }
     setIsFullEditModalOpen(true);
   };
 
   const handleSaveFullEdit = () => {
     if (onUpdate) {
+      // Compute reminder_datetime from offset or custom input
+      let computedReminderDatetime: string | null = null;
+      if (modalEditReminderEnabled) {
+        if (modalEditReminderOffset === 'custom') {
+          computedReminderDatetime = modalEditReminderDatetime
+            ? new Date(modalEditReminderDatetime).toISOString()
+            : null;
+        } else if (modalEditDate && modalEditTime) {
+          const sched = new Date(`${modalEditDate}T${modalEditTime}`);
+          sched.setMinutes(sched.getMinutes() - Number(modalEditReminderOffset));
+          computedReminderDatetime = sched.toISOString();
+        } else if (modalEditReminderDatetime) {
+          computedReminderDatetime = new Date(modalEditReminderDatetime).toISOString();
+        }
+      }
       const updates: Partial<Task> = {
         title: modalEditTitle,
         description: modalEditDescription,
         status: modalEditStatus,
         scheduled_date: modalEditDate || undefined,
         scheduled_time: modalEditTime || undefined,
+        reminder_enabled: modalEditReminderEnabled,
+        reminder_datetime: computedReminderDatetime ?? undefined,
       };
       onUpdate(task.id, updates);
     }
@@ -417,8 +465,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
     setStatusMenuAnchor(event.currentTarget);
   };
 
-  const handleStatusMenuClose = () => {
+  const closeStatusMenu = () => {
     setStatusMenuAnchor(null);
+    menuJustClosedRef.current = true;
+    setTimeout(() => { menuJustClosedRef.current = false; }, 0);
+  };
+
+  const handleStatusMenuClose = () => {
+    closeStatusMenu();
   };
 
   const handleStatusSelect = (newStatus: Task['status']) => {
@@ -426,7 +480,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
     
     // If selecting Done, show closing rationale dialog
     if (newStatus === 'Done' && displayStatus !== 'Done') {
-      setStatusMenuAnchor(null);
+      closeStatusMenu();
       setIsClosingRationaleDialogOpen(true);
       return;
     }
@@ -442,7 +496,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
     // Notify parent to update backend
     onStatusChange(task.id, newStatus);
     // Close menu
-    setStatusMenuAnchor(null);
+    closeStatusMenu();
   };
 
   const handleNotesClick = () => {
@@ -476,6 +530,18 @@ const TaskCard: React.FC<TaskCardProps> = ({
     setClosingRationale('');
   };
 
+  // Derive a human-readable preview of when the alert will fire (shown inline in the modal)
+  const computedAlertPreview = React.useMemo(() => {
+    if (!modalEditReminderEnabled) return '';
+    if (modalEditReminderOffset === 'custom' || !modalEditDate || !modalEditTime) {
+      if (!modalEditReminderDatetime) return '';
+      return new Date(modalEditReminderDatetime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+    }
+    const sched = new Date(`${modalEditDate}T${modalEditTime}`);
+    sched.setMinutes(sched.getMinutes() - Number(modalEditReminderOffset));
+    return sched.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+  }, [modalEditReminderEnabled, modalEditReminderOffset, modalEditDate, modalEditTime, modalEditReminderDatetime]);
+
   return (
     <div
       ref={cardRef}
@@ -489,6 +555,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
       onClick={(e) => {
         // If the click originated from an interactive element, don't toggle selection
         if (!selectable) return;
+        if (menuJustClosedRef.current) return;
         const target = e.target as HTMLElement | null;
         if (target && typeof target.closest === 'function') {
           const interactive = target.closest('button, a, input, select, textarea, [role="button"]');
@@ -498,13 +565,16 @@ const TaskCard: React.FC<TaskCardProps> = ({
       }}
     >
       <div className="flex flex-col items-start gap-2">
-        <div className="flex flex-row justify-between w-full">
-          {/* Drag handle */}
-          {draggable && (
-            <div className="cursor-grab active:cursor-grabbing mt-1">
-              <GripVertical className="w-4 h-4 text-primary" />
-            </div>
-          )}
+        <div className="flex flex-row justify-between w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1">
+            
+            {/* Drag handle */}
+            {draggable && (
+              <div className="cursor-grab active:cursor-grabbing mt-1">
+                <GripVertical className="w-4 h-4 text-primary" />
+              </div>
+            )}
+          </div>
 
           {/* Status toggle */}
           <IconButton
@@ -544,24 +614,38 @@ const TaskCard: React.FC<TaskCardProps> = ({
             </div>
           ) : (
             <>
-              <div 
-                className={`font-medium ${compact ? 'text-sm' : ''} ${displayStatus === 'Done' ? 'line-through text-tertiary-text' : 'text-primary-text'} ${allowInlineEdit ? 'cursor-pointer hover:text-primary-link' : ''}`}
-                onClick={handleStartEdit}
-                dangerouslySetInnerHTML={{ __html: applyHighlight(task.title, filter) }}
-              />
-              
-              {!compact && task.description && (
-                <div 
-                  className="text-sm text-gray-60 dark:text-gray-40 mt-1 line-clamp-2 cursor-pointer hover:text-secondary-text dark:hover:text-tertiary-text"
-                  onClick={handleStartEdit}
-                  dangerouslySetInnerHTML={{ __html: applyHighlight(task.description, filter) }}
-                />
-              )}
+                <div className="flex items-center gap-2">
+                    {/* Selection checkbox */}
+                    {selectable && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onToggleSelect?.(task.id); }}
+                        className="btn-ghost p-0.5 rounded transition-colors"
+                        aria-label={isSelected ? 'Deselect task' : 'Select task'}
+                    >
+                        {isSelected
+                        ? <CheckSquare2 className="w-4 h-4" style={{ color: 'var(--brand-50)' }} />
+                        : <Square className="w-4 h-4 text-gray-40 dark:text-gray-60" />}
+                    </button>
+                    )}
+                    <div 
+                        className={`font-medium ${compact ? 'text-sm' : ''} ${displayStatus === 'Done' ? 'line-through text-tertiary-text' : 'text-primary-text'} ${allowInlineEdit ? 'cursor-pointer hover:text-primary-link' : ''}`}
+                        onClick={handleStartEdit}
+                        dangerouslySetInnerHTML={{ __html: applyHighlight(task.title, filter) }}
+                    />
+                </div>
+                    {!compact && task.description && (
+                        <div 
+                        className="text-sm text-gray-60 dark:text-gray-40 mt-1 line-clamp-2 cursor-pointer hover:text-secondary-text dark:hover:text-tertiary-text"
+                        onClick={handleStartEdit}
+                        dangerouslySetInnerHTML={{ __html: applyHighlight(task.description, filter) }}
+                        />
+                    )}
+                
             </>
           )}
 
           {/* Metadata */}
-          <div className="flex flex-wrap h-auto gap-2 mt-2 min-h-7">
+          <div className="flex flex-wrap h-auto gap-2 mt-2 min-h-7" onClick={(e) => e.stopPropagation()}>
             {!task.scheduled_date && onUpdate && (
               <Button
                 size="small"
@@ -582,7 +666,12 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 <Chip
                   size="small"
                   icon={<Calendar className="w-3 h-3" />}
-                  label={`${formattedDate}${task.scheduled_time ? ` ${task.scheduled_time}` : ''}`}
+                  label={
+                    <span className="flex items-center text-primary-icon gap-2">
+                      {formattedDate}{task.scheduled_time ? ` ${task.scheduled_time}` : ''}
+                      {task.reminder_enabled ? <Bell className="w-3 h-3 text-primary-icon" /> : null}
+                    </span>
+                  }
                   className="text-xs"
                   onClick={handleDateClick}
                   sx={{ cursor: onUpdate ? 'pointer' : 'default' }}
@@ -594,7 +683,12 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 <Chip
                   size="small"
                   icon={<Clock className="w-3 h-3" />}
-                  label={`${task.scheduled_time}`}
+                  label={
+                    <span className="flex items-center text-primary-icon gap-2">
+                      {task.scheduled_time}
+                      {task.reminder_enabled ? <Bell className="w-3 h-3 text-primary-icon" /> : null}
+                    </span>
+                  }
                   className="text-xs"
                   onClick={handleTimeClick}
                   sx={{ cursor: onUpdate ? 'pointer' : 'default' }}
@@ -606,21 +700,17 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 <Chip
                   size="small"
                   icon={<Clock className="w-3 h-3" />}
-                  label={`${task.scheduled_time}`}
-                  className="text-xs" // Ensure consistent height with other chips
+                  label={
+                    <span className="flex items-center text-primary-icon gap-2">
+                      {task.scheduled_time}
+                      {task.reminder_enabled ? <Bell className="w-3 h-3 text-primary-icon" /> : null}
+                    </span>
+                  }
+                  className="text-xs"
                   onClick={handleTimeClick}
                   sx={{ cursor: onUpdate ? 'pointer' : 'default' }}
                 />
               </>
-            )}
-            {task.reminder_enabled && (
-              <Chip
-                size="small"
-                icon={<Bell className="w-3 h-3" />}
-                label="Reminder"
-                className="text-xs"
-                color="primary"
-              />
             )}
             {!hideCategory && task.goal?.category && (
               <Chip
@@ -634,7 +724,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
             {!hideStatusChip && (
               <Chip
                 size="small"
-                label={displayStatus}
+                label={
+                    <span className="flex items-center gap-2">
+                      {displayStatus} {!statusMenuAnchor ?<ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+                    </span>
+                }
                 color={getStatusColor(displayStatus)}
                 onClick={handleStatusChipClick}
                 className="text-xs"
@@ -646,7 +740,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
         </div>
 
         {/* Actions */}
-        <div className="flex w-full justify-end gap-1">
+        <div className="flex w-full justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           {isEditing ? (
             <>
               <Tooltip title="Save">
@@ -882,6 +976,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
         onClose={handleCancelFullEdit}
         maxWidth="sm"
         fullWidth
+        fullScreen={isMobile}
       >
         <DialogTitle>Edit Task</DialogTitle>
         <DialogContent dividers>
@@ -949,6 +1044,70 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 onChange={(e) => setModalEditTime(e.target.value)}
                 disabled={!modalEditDate}
               />
+            </div>
+
+            {/* Alert / Reminder */}
+            <div className="border border-gray-20 dark:border-gray-70 rounded-lg p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Bell className="w-4 h-4" />
+                  <label className="text-sm font-semibold">Alert</label>
+                </div>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={modalEditReminderEnabled}
+                      onChange={(e) => setModalEditReminderEnabled(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label={modalEditReminderEnabled ? 'On' : 'Off'}
+                  labelPlacement="start"
+                  sx={{ marginLeft: 0 }}
+                />
+              </div>
+
+              {modalEditReminderEnabled && (
+                <div className="space-y-2">
+                  {modalEditDate && modalEditTime ? (
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Alert time</InputLabel>
+                      <Select
+                        value={modalEditReminderOffset}
+                        onChange={(e) => setModalEditReminderOffset(e.target.value)}
+                        label="Alert time"
+                      >
+                        <MenuItem value="0">At time of task</MenuItem>
+                        <MenuItem value="15">15 minutes before</MenuItem>
+                        <MenuItem value="30">30 minutes before</MenuItem>
+                        <MenuItem value="60">1 hour before</MenuItem>
+                        <MenuItem value="1440">1 day before</MenuItem>
+                        <MenuItem value="custom">Custom time</MenuItem>
+                      </Select>
+                    </FormControl>
+                  ) : (
+                    <p className="text-xs text-secondary-text">Set a scheduled date &amp; time above to use relative alerts, or pick a custom time.</p>
+                  )}
+
+                  {(modalEditReminderOffset === 'custom' || !modalEditDate || !modalEditTime) && (
+                    <div>
+                      <label className="text-xs text-secondary-text block mb-1">Custom alert date &amp; time</label>
+                      <input
+                        type="datetime-local"
+                        className="w-full px-3 py-2 border border-gray-30 dark:border-gray-70 rounded bg-background-color text-primary-text text-sm"
+                        value={modalEditReminderDatetime}
+                        onChange={(e) => setModalEditReminderDatetime(e.target.value)}
+                      />
+                    </div>
+                  )}
+
+                  {computedAlertPreview && (
+                    <p className="text-xs text-brand-60 dark:text-brand-30">
+                      Alert at: {computedAlertPreview}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </DialogContent>

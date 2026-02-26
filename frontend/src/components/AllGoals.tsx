@@ -3507,6 +3507,7 @@ const GoalsComponent = () => {
                                                                     task={task}
                                                                     filter={filter}
                                                                     selectable
+                                                                    draggable={true} 
                                                                     isSelected={selectedIds.has(task.id)}
                                                                     onToggleSelect={(id) => toggleSelect(id, 'tasks')}
                                                                     onStatusChange={handleTaskStatusChange}

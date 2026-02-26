@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Task } from '@utils/goalUtils';
 import TaskCard from './TaskCard';
 import LoadingSpinner from './LoadingSpinner';
 import { notifyError, notifySuccess } from './ToastyNotification';
 import supabase from '@lib/supabase';
+import { useTouchDrag } from '@hooks/useTouchDrag';
 import { 
   Box, 
   FormControl, 
@@ -247,6 +248,16 @@ export default function AllTasksKanban({ onRefresh }: AllTasksKanbanProps) {
     setDraggedTaskId(null);
   };
 
+  const handleTouchDrop = useCallback((taskId: string, dropTarget: HTMLElement) => {
+    const newStatus = dropTarget.dataset.dropStatus as Task['status'] | undefined;
+    if (newStatus) handleStatusChange(taskId, newStatus);
+  }, []);
+
+  const { getTouchProps } = useTouchDrag({
+    onDragStart: (taskId) => setDraggedTaskId(taskId),
+    onTouchDrop: handleTouchDrop,
+  });
+
   const getColumnColor = (status: Task['status']) => {
     switch (status) {
       case 'Done':
@@ -336,6 +347,7 @@ export default function AllTasksKanban({ onRefresh }: AllTasksKanbanProps) {
             return (
               <div
                 key={status}
+                data-drop-status={status}
                 className={`flex-1 min-w-[300px] border-2 rounded-lg p-4 ${getColumnColor(status)} ${isDragOver ? 'ring-2 ring-blue-400 dark:ring-blue-600' : ''}`}
                 onDragOver={(e) => handleDragOver(e, status)}
                 onDragLeave={handleDragLeave}
@@ -348,7 +360,7 @@ export default function AllTasksKanban({ onRefresh }: AllTasksKanbanProps) {
 
                 <div className="space-y-3">
                   {columnTasks.map((task) => (
-                    <div key={task.id}>
+                    <div key={task.id} {...getTouchProps(task.id)}>
                       <TaskCard
                         task={task as Task}
                         onStatusChange={handleStatusChange}

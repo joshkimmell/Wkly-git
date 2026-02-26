@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Task } from '@utils/goalUtils';
 import TaskCard from './TaskCard';
 import { Plus } from 'lucide-react';
 import { TextField } from '@mui/material';
+import { useTouchDrag } from '@hooks/useTouchDrag';
 
 interface TasksKanbanProps {
   tasks: Task[];
@@ -77,6 +78,18 @@ const TasksKanban: React.FC<TasksKanbanProps> = ({
     setDragOverColumn(null);
   };
 
+  const handleTouchDrop = useCallback((taskId: string, dropTarget: HTMLElement) => {
+    const newStatus = dropTarget.dataset.dropStatus as Task['status'] | undefined;
+    if (newStatus && onStatusChange) {
+      onStatusChange(taskId, newStatus);
+    }
+  }, [onStatusChange]);
+
+  const { getTouchProps } = useTouchDrag({
+    onDragStart: (taskId) => setDraggedTaskId(taskId),
+    onTouchDrop: handleTouchDrop,
+  });
+
   const getColumnColor = (status: Task['status']) => {
     switch (status) {
       case 'Not started':
@@ -132,6 +145,7 @@ const TasksKanban: React.FC<TasksKanbanProps> = ({
         return (
           <div
             key={status}
+            data-drop-status={status}
             className={`flex-1 min-w-80 flex flex-col rounded-lg border-2 transition-all ${
               isDragOver ? 'border-blue-500 dark:border-blue-400' : getColumnBorderColor(status)
             } ${getColumnColor(status)}`}
@@ -157,16 +171,17 @@ const TasksKanban: React.FC<TasksKanbanProps> = ({
                 </div>
               ) : (
                 columnTasks.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    onStatusChange={onStatusChange}
-                    onEdit={onEdit}
-                    onDelete={onDelete}
-                    draggable
-                    onDragStart={handleDragStart}
-                    hideStatusChip
-                  />
+                  <div key={task.id} {...getTouchProps(task.id)}>
+                    <TaskCard
+                      task={task}
+                      onStatusChange={onStatusChange}
+                      onEdit={onEdit}
+                      onDelete={onDelete}
+                      draggable
+                      onDragStart={handleDragStart}
+                      hideStatusChip
+                    />
+                  </div>
                 ))
               )}
               

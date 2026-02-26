@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Task } from '@utils/goalUtils';
 import TaskCard from './TaskCard';
 import LoadingSpinner from './LoadingSpinner';
 import { notifyError, notifySuccess } from './ToastyNotification';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import supabase from '@lib/supabase';
+import { useTouchDrag } from '@hooks/useTouchDrag';
 import { 
   IconButton,
   Tooltip
@@ -380,6 +381,16 @@ export default function AllTasksCalendar({
     setDraggedTaskId(null);
   };
 
+  const handleTouchDrop = useCallback((taskId: string, dropTarget: HTMLElement) => {
+    const newDate = dropTarget.dataset.dropDate;
+    if (newDate) handleRescheduleTask(taskId, newDate);
+  }, []);
+
+  const { getTouchProps } = useTouchDrag({
+    onDragStart: (taskId) => setDraggedTaskId(taskId),
+    onTouchDrop: handleTouchDrop,
+  });
+
   const formatDateKey = (date: Date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -462,6 +473,7 @@ export default function AllTasksCalendar({
               return (
                 <div
                   key={index}
+                  data-drop-date={dateKey}
                   className={`
                     min-h-[120px] p-2 border rounded
                     ${isToday(date) ? 'bg-brand-20 dark:bg-brand-90 border-brand-40' : 'bg-background-color border-gray-20 dark:border-gray-70'}
@@ -474,22 +486,23 @@ export default function AllTasksCalendar({
                   <div className="text-sm font-medium mb-1 text-gray-70 dark:text-gray-30">{date.getDate()}</div>
                   <div className="space-y-1">
                     {dayTasks.map((task) => (
-                      <TaskCard
-                        key={task.id}
-                        task={task as Task}
-                        onStatusChange={(id, status) => handleStatusChange(id, status)}
-                        onUpdate={handleUpdateTask}
-                        onDelete={handleDeleteTask}
-                        draggable
-                        onDragStart={handleDragStart}
-                        compact
-                        allowInlineEdit
-                        hideCategory
-                        filter={textFilter}
-                        selectable={!!onToggleSelect}
-                        isSelected={selectedIds.has(task.id)}
-                        onToggleSelect={onToggleSelect ? (id) => onToggleSelect(id, 'tasks') : undefined}
-                      />
+                      <div key={task.id} {...getTouchProps(task.id)}>
+                        <TaskCard
+                          task={task as Task}
+                          onStatusChange={(id, status) => handleStatusChange(id, status)}
+                          onUpdate={handleUpdateTask}
+                          onDelete={handleDeleteTask}
+                          draggable
+                          onDragStart={handleDragStart}
+                          compact
+                          allowInlineEdit
+                          hideCategory
+                          filter={textFilter}
+                          selectable={!!onToggleSelect}
+                          isSelected={selectedIds.has(task.id)}
+                          onToggleSelect={onToggleSelect ? (id) => onToggleSelect(id, 'tasks') : undefined}
+                        />
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -530,6 +543,7 @@ export default function AllTasksCalendar({
             return (
               <div
                 key={dateKey}
+                data-drop-date={dateKey}
                 className={`min-h-[240px] p-2 border rounded ${isToday(date) ? 'bg-brand-20 dark:bg-brand-90 border-brand-40' : 'bg-background-color border-gray-20 dark:border-gray-70'} ${isDragOver ? 'ring-2 ring-brand-40' : ''}`}
                 onDragOver={(e) => handleDragOver(e, dateKey)}
                 onDrop={(e) => handleDrop(e, dateKey)}
@@ -539,22 +553,23 @@ export default function AllTasksCalendar({
                 </div>
                 <div className="space-y-1">
                   {dayTasks.map((task) => (
-                    <TaskCard
-                      key={task.id}
-                      task={task as Task}
-                      onStatusChange={(id, status) => handleStatusChange(id, status)}
-                      onUpdate={handleUpdateTask}
-                      onDelete={handleDeleteTask}
-                      draggable
-                      onDragStart={handleDragStart}
-                      compact
-                      allowInlineEdit
-                      hideCategory
-                      filter={textFilter}
-                      selectable={!!onToggleSelect}
-                      isSelected={selectedIds.has(task.id)}
-                      onToggleSelect={onToggleSelect ? (id) => onToggleSelect(id, 'tasks') : undefined}
-                    />
+                    <div key={task.id} {...getTouchProps(task.id)}>
+                      <TaskCard
+                        task={task as Task}
+                        onStatusChange={(id, status) => handleStatusChange(id, status)}
+                        onUpdate={handleUpdateTask}
+                        onDelete={handleDeleteTask}
+                        draggable
+                        onDragStart={handleDragStart}
+                        compact
+                        allowInlineEdit
+                        hideCategory
+                        filter={textFilter}
+                        selectable={!!onToggleSelect}
+                        isSelected={selectedIds.has(task.id)}
+                        onToggleSelect={onToggleSelect ? (id) => onToggleSelect(id, 'tasks') : undefined}
+                      />
+                    </div>
                   ))}
                 </div>
               </div>
@@ -609,6 +624,7 @@ export default function AllTasksCalendar({
         </div>
 
         <div
+          data-drop-date={selectedDateKey}
           className={`min-h-[220px] p-2 border rounded ${isToday(currentDate) ? 'bg-brand-20 dark:bg-brand-90 border-brand-40' : 'bg-background-color border-gray-20 dark:border-gray-70'} ${dragOverDate === selectedDateKey ? 'ring-2 ring-brand-40' : ''}`}
           onDragOver={(e) => handleDragOver(e, selectedDateKey)}
           onDrop={(e) => handleDrop(e, selectedDateKey)}
@@ -618,22 +634,23 @@ export default function AllTasksCalendar({
           </div>
           <div className="space-y-1">
             {selectedDayTasks.map((task) => (
-              <TaskCard
-                key={task.id}
-                task={task as Task}
-                onStatusChange={(id, status) => handleStatusChange(id, status)}
-                onUpdate={handleUpdateTask}
-                onDelete={handleDeleteTask}
-                draggable
-                onDragStart={handleDragStart}
-                compact
-                allowInlineEdit
-                hideCategory
-                filter={textFilter}
-                selectable={!!onToggleSelect}
-                isSelected={selectedIds.has(task.id)}
-                onToggleSelect={onToggleSelect ? (id) => onToggleSelect(id, 'tasks') : undefined}
-              />
+              <div key={task.id} {...getTouchProps(task.id)}>
+                <TaskCard
+                  task={task as Task}
+                  onStatusChange={(id, status) => handleStatusChange(id, status)}
+                  onUpdate={handleUpdateTask}
+                  onDelete={handleDeleteTask}
+                  draggable
+                  onDragStart={handleDragStart}
+                  compact
+                  allowInlineEdit
+                  hideCategory
+                  filter={textFilter}
+                  selectable={!!onToggleSelect}
+                  isSelected={selectedIds.has(task.id)}
+                  onToggleSelect={onToggleSelect ? (id) => onToggleSelect(id, 'tasks') : undefined}
+                />
+              </div>
             ))}
           </div>
         </div>
