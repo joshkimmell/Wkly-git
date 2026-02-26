@@ -120,6 +120,7 @@ const GoalsComponent = () => {
     const [debouncedFilter, setDebouncedFilter] = useState<string>('');
     const [filterFocused, setFilterFocused] = useState<boolean>(false);
     const [clearButtonFocused, setClearButtonFocused] = useState<boolean>(false);
+    const [searchBarOpen, setSearchBarOpen] = useState<boolean>(false);
     // Per-row actions menu state (used in table view)
     const [rowActionsAnchorEl, setRowActionsAnchorEl] = useState<HTMLElement | null>(null);
     const [rowActionsTargetId, setRowActionsTargetId] = useState<string | null>(null);
@@ -2050,7 +2051,7 @@ const GoalsComponent = () => {
                         aria-label="View mode"
                         className=""
                     >
-                        <Tooltip title="View grid" placement="top" arrow><ToggleButton value="cards" aria-label="Cards view" className='btn-ghost'><LayoutGrid /></ToggleButton></Tooltip>
+                        <Tooltip title="View goals" placement="top" arrow><ToggleButton value="cards" aria-label="Cards view" className='btn-ghost'><LayoutGrid /></ToggleButton></Tooltip>
                         { !isSmall && (
                         <Tooltip title="View table" placement="top" arrow><ToggleButton value="table" aria-label="Table view" className='btn-ghost'><Table2Icon /></ToggleButton></Tooltip>
                         )}
@@ -2289,7 +2290,6 @@ const GoalsComponent = () => {
                                         setFilterCategory([]);
                                         setFilterStartDate(null);
                                         setFilterEndDate(null);
-                                        filterInputRef.current?.focus();
                                     }}
                                 >
                                     <Tooltip title="Clear all filters" placement="top" arrow>
@@ -2361,7 +2361,6 @@ const GoalsComponent = () => {
                                         setFilterGoal([]);
                                         setFilterStartDate(null);
                                         setFilterEndDate(null);
-                                        filterInputRef.current?.focus();
                                     }}
                                     >
                                     <Tooltip title="Clear all filters" placement='top' arrow>
@@ -2578,52 +2577,76 @@ const GoalsComponent = () => {
                         </div>
                             </>
                         )}
-                        <TextField
-                            id="goal-filter"
+                        {/* Collapsible search bar */}
+                        <div className="relative flex items-center">
+                          {!(searchBarOpen || filter) && (
+                            <Tooltip title="Search" placement="top" arrow>
+                              <IconButton
+                                className="btn-ghost"
                                 size="small"
-                                value={filter}
-                                inputRef={(el) => { filterInputRef.current = el; }}
-                                onFocus={() => {
-                                    if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current);
-                                    setFilterFocused(true);
+                                aria-label="Search"
+                                onClick={() => {
+                                  setSearchBarOpen(true);
+                                  setTimeout(() => filterInputRef.current?.focus(), 50);
                                 }}
-                                onBlur={() => {
-                                    // delay clearing so clicks on the clear button register
-                                    blurTimeoutRef.current = window.setTimeout(() => {
-                                        setFilterFocused(false);
-                                        blurTimeoutRef.current = null;
-                                    }, 150);
-                                }}
-                                onChange={(e: ChangeEvent<HTMLInputElement>) => handleFilterChange(e.target.value)}
-                                placeholder="Filter by title, category, or impact"
-                                
-                                fullWidth
-                                InputProps={{
-                                        startAdornment: (
-                                                <InputAdornment position="start">
-                                                        <SearchIcon className='w-4 h-4' />
-                                                </InputAdornment>
-                                        ),
-                                        endAdornment: showClear ? (
-                                            <InputAdornment position="end">
-                                                <IconButton
-                                                    size="small"
-                                                    aria-label="Clear filter"
-                                                    onMouseDown={(e) => e.preventDefault()} // prevent input blur
-                                                    onClick={() => {
-                                                        handleFilterChange('');
-                                                        // return focus to input
-                                                        filterInputRef.current?.focus();
-                                                    }}
-                                                    onFocus={() => { if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current); setClearButtonFocused(true); }}
-                                                    onBlur={() => { blurTimeoutRef.current = window.setTimeout(() => setClearButtonFocused(false), 150); }}
-                                                >
-                                                    <CloseButton className="w-4 h-4" />
-                                                </IconButton>
-                                            </InputAdornment>
-                                        ) : null,
-                                }}
+                              >
+                                <SearchIcon className="w-5 h-5" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          <div
+                            style={{
+                              maxWidth: (searchBarOpen || filter) ? '260px' : '0px',
+                              opacity: (searchBarOpen || filter) ? 1 : 0,
+                              overflow: 'hidden',
+                              transition: 'max-width 0.2s ease, opacity 0.15s ease',
+                            }}
+                          >
+                            <TextField
+                              id="goal-filter"
+                              size="small"
+                              value={filter}
+                              inputRef={(el) => { filterInputRef.current = el; }}
+                              onFocus={() => {
+                                if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current);
+                                setFilterFocused(true);
+                              }}
+                              onBlur={() => {
+                                blurTimeoutRef.current = window.setTimeout(() => {
+                                  setFilterFocused(false);
+                                  blurTimeoutRef.current = null;
+                                  if (!filter) setSearchBarOpen(false);
+                                }, 150);
+                              }}
+                              onChange={(e: ChangeEvent<HTMLInputElement>) => handleFilterChange(e.target.value)}
+                              placeholder="Search..."
+                              InputProps={{
+                                startAdornment: (
+                                  <InputAdornment position="start">
+                                    <SearchIcon className="w-4 h-4" />
+                                  </InputAdornment>
+                                ),
+                                endAdornment: showClear ? (
+                                  <InputAdornment position="end">
+                                    <IconButton
+                                      size="small"
+                                      aria-label="Clear filter"
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      onClick={() => {
+                                        handleFilterChange('');
+                                        filterInputRef.current?.focus();
+                                      }}
+                                      onFocus={() => { if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current); setClearButtonFocused(true); }}
+                                      onBlur={() => { blurTimeoutRef.current = window.setTimeout(() => setClearButtonFocused(false), 150); }}
+                                    >
+                                      <CloseButton className="w-4 h-4" />
+                                    </IconButton>
+                                  </InputAdornment>
+                                ) : null,
+                              }}
                             />
+                          </div>
+                        </div>
                         
                         {/* Edit Accomplishment Modal (reuses AccomplishmentEditor) */}
                         {isEditAccomplishmentModalOpen && selectedAccomplishment && (
@@ -2651,7 +2674,7 @@ const GoalsComponent = () => {
                                 </div>
                             </div>
                         )}
-                        {viewMode !== 'kanban' && (
+                        {viewMode === 'cards' && (
                         <>
                             <Tooltip title={`Sort: ${sortBy.charAt(0).toUpperCase() + sortBy.slice(1)} (${sortDirection === 'asc' ? 'ascending' : 'descending'})`} placement="top" arrow>
                                 <span className="flex items-center space-x-2">
@@ -3169,7 +3192,7 @@ const GoalsComponent = () => {
                                                     onClose={() => { setRowActionsAnchorEl(null); setRowActionsTargetId(null); }}
                                                     anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                                                     transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                                                    PaperProps={{ sx: { bgcolor: 'var(--color-background)' } }}
+                                                    // PaperProps={{ sx: { bgcolor: 'var(--color-background)' } }}
                                                 >
                                                     <MenuItem 
                                                         aria-label="Accomplishments" 

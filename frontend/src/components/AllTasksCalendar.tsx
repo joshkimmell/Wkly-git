@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Task } from '@utils/goalUtils';
 import TaskCard from './TaskCard';
-import LoadingSpinner from './LoadingSpinner';
 import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import supabase from '@lib/supabase';
 import { useTouchDrag } from '@hooks/useTouchDrag';
 import { 
+    CircularProgress,
   IconButton,
   Tooltip
 } from '@mui/material';
@@ -419,10 +419,16 @@ export default function AllTasksCalendar({
   const selectedDateKey = formatDateKey(currentDate);
   const selectedDayTasks = tasksByDate.get(selectedDateKey) || [];
 
+  const todayNow = new Date();
+  const isViewingToday = isToday(currentDate);
+  const isViewingTodayMonth =
+    currentDate.getMonth() === todayNow.getMonth() &&
+    currentDate.getFullYear() === todayNow.getFullYear();
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <LoadingSpinner />
+        <CircularProgress />
       </div>
     );
   }
@@ -433,13 +439,15 @@ export default function AllTasksCalendar({
     <div className="flex flex-col h-full">
       {/* lg: full month */}
       <div className="hidden xl:block">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-start gap-2 mb-4">
           <h2 className="text-2xl font-bold">{monthName}</h2>
           <div className="flex items-center gap-2">
             <Tooltip title="Today">
-              <IconButton onClick={goToToday} size="small" className="btn-ghost">
-                <Calendar className="w-5 h-5" />
-              </IconButton>
+              <span>
+                <IconButton onClick={goToToday} size="small" className="btn-ghost" disabled={isViewingTodayMonth}>
+                  <Calendar className="w-5 h-5" />
+                </IconButton>
+              </span>
             </Tooltip>
             <Tooltip title="Previous month">
               <IconButton onClick={goToPrevMonth} size="small" className="btn-ghost">
@@ -517,9 +525,11 @@ export default function AllTasksCalendar({
           <h2 className="text-xl font-bold">{currentDate.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</h2>
           <div className="flex items-center gap-2">
             <Tooltip title="Today">
-              <IconButton onClick={goToToday} size="small" className="btn-ghost">
-                <Calendar className="w-5 h-5" />
-              </IconButton>
+              <span>
+                <IconButton onClick={goToToday} size="small" className="btn-ghost" disabled={isViewingToday}>
+                  <Calendar className="w-5 h-5" />
+                </IconButton>
+              </span>
             </Tooltip>
             <Tooltip title="Previous 3 days">
               <IconButton onClick={goToPrevThreeDays} size="small" className="btn-ghost">
@@ -543,7 +553,7 @@ export default function AllTasksCalendar({
               <div
                 key={dateKey}
                 data-drop-date={dateKey}
-                className={`min-h-[240px] p-2 border ${isToday(date) ? 'bg-brand-20 dark:bg-brand-90 border-brand-40' : 'bg-background-color border-gray-20 dark:border-gray-70'} ${isDragOver ? 'ring-2 ring-brand-40' : ''}`}
+                className={`min-h-[240px] p-2 border ${isToday(date) ? 'bg-brand-20 dark:bg-brand-90 border-brand-40' : 'bg-background-color border-background'} ${isDragOver ? 'ring-2 ring-brand-40' : ''}`}
                 onDragOver={(e) => handleDragOver(e, dateKey)}
                 onDrop={(e) => handleDrop(e, dateKey)}
               >
@@ -583,9 +593,11 @@ export default function AllTasksCalendar({
           <h2 className="text-lg font-bold">{currentDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</h2>
           <div className="flex items-center gap-1">
             <Tooltip title="Today">
-              <IconButton onClick={goToToday} size="small" className="btn-ghost">
-                <Calendar className="w-4 h-4" />
-              </IconButton>
+              <span>
+                <IconButton onClick={goToToday} size="small" className="btn-ghost" disabled={isViewingToday}>
+                  <Calendar className="w-4 h-4" />
+                </IconButton>
+              </span>
             </Tooltip>
             <Tooltip title="Previous day">
               <IconButton onClick={goToPrevDay} size="small" className="btn-ghost">
@@ -624,7 +636,7 @@ export default function AllTasksCalendar({
 
         <div
           data-drop-date={selectedDateKey}
-          className={`min-h-[220px] p-2 border rounded ${isToday(currentDate) ? 'bg-brand-20 dark:bg-brand-90 border-brand-40' : 'bg-background-color border-gray-20 dark:border-gray-70'} ${dragOverDate === selectedDateKey ? 'ring-2 ring-brand-40' : ''}`}
+          className={`min-h-[220px] p-2 border ${isToday(currentDate) ? 'bg-brand-20 dark:bg-brand-90 border-brand-40' : 'bg-background-color border-background'} ${dragOverDate === selectedDateKey ? 'ring-2 ring-brand-40' : ''}`}
           onDragOver={(e) => handleDragOver(e, selectedDateKey)}
           onDrop={(e) => handleDrop(e, selectedDateKey)}
         >
@@ -657,7 +669,7 @@ export default function AllTasksCalendar({
 
       {/* Unscheduled Tasks */}
       {unscheduledTasks.length > 0 && (
-        <div className="mt-4 p-4 bg-gray-20 dark:bg-gray-90 rounded-md">
+        <div className="mt-4 p-4 bg-background-color">
           <h3 className="text-lg font-semibold mb-3">Unscheduled Tasks ({unscheduledTasks.length})</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
             {unscheduledTasks.map((task) => (
