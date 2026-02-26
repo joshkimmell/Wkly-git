@@ -59,6 +59,12 @@ export default function AllTasksCalendar({
       const token = session?.access_token;
       if (!token) throw new Error('User not authenticated');
 
+      // Reschedule any overdue incomplete tasks to today before fetching
+      await fetch('/api/rescheduleOverdueTasks', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
       const response = await fetch('/api/getAllTasks', {
         headers: { Authorization: `Bearer ${token}` },
       });
