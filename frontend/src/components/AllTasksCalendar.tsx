@@ -455,7 +455,7 @@ export default function AllTasksCalendar({
         </div>
 
         <div className="flex-1 overflow-auto">
-          <div className="grid grid-cols-7 gap-1 mb-2">
+          <div className="grid grid-cols-7 gap-2 mb-2">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
               <div key={day} className="text-center font-semibold text-sm text-gray-60 dark:text-gray-40 p-2">
                 {day}
@@ -463,7 +463,7 @@ export default function AllTasksCalendar({
             ))}
           </div>
 
-          <div className="grid grid-cols-7 gap-1">
+          <div className="grid grid-cols-7 gap-0">
             {calendarDays.map((date, index) => {
               const dateKey = formatDateKey(date);
               const dayTasks = tasksByDate.get(dateKey) || [];
@@ -474,8 +474,8 @@ export default function AllTasksCalendar({
                   key={index}
                   data-drop-date={dateKey}
                   className={`
-                    min-h-[120px] p-2 border rounded
-                    ${isToday(date) ? 'bg-brand-20 dark:bg-brand-90 border-brand-40' : 'bg-background-color border-gray-20 dark:border-gray-70'}
+                    min-h-[120px] p-2 border
+                    ${isToday(date) ? 'bg-brand-20 dark:bg-brand-90 border-brand-40' : 'bg-background-color border-background'}
                     ${!isCurrentMonth(date) ? 'opacity-50' : ''}
                     ${isDragOver ? 'ring-2 ring-brand-40' : ''}
                   `}
@@ -534,7 +534,7 @@ export default function AllTasksCalendar({
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-0">
           {threeDayDates.map((date) => {
             const dateKey = formatDateKey(date);
             const dayTasks = tasksByDate.get(dateKey) || [];
@@ -543,7 +543,7 @@ export default function AllTasksCalendar({
               <div
                 key={dateKey}
                 data-drop-date={dateKey}
-                className={`min-h-[240px] p-2 border rounded ${isToday(date) ? 'bg-brand-20 dark:bg-brand-90 border-brand-40' : 'bg-background-color border-gray-20 dark:border-gray-70'} ${isDragOver ? 'ring-2 ring-brand-40' : ''}`}
+                className={`min-h-[240px] p-2 border ${isToday(date) ? 'bg-brand-20 dark:bg-brand-90 border-brand-40' : 'bg-background-color border-gray-20 dark:border-gray-70'} ${isDragOver ? 'ring-2 ring-brand-40' : ''}`}
                 onDragOver={(e) => handleDragOver(e, dateKey)}
                 onDrop={(e) => handleDrop(e, dateKey)}
               >
