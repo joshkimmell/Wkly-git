@@ -86,7 +86,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
         {`
           ${format === 'content' ? summaryClasses : cardClasses} 
         
-        ${!isSelected ? 'bg-gray-10 dark:bg-gray-80 rounded shadow-md hover:shadow-lg border-2 border-transparent hover:border-gray-20 dark:hover:border-gray-70' : 'border-2 border-brand-50 hover:border-brand-50 bg-gray-20 dark:bg-brand-90' } 
+        ${!isSelected ? 'bg-background-color rounded shadow-md hover:shadow-lg border-2 border-transparent hover:border-gray-20 dark:hover:border-gray-70' : 'border-2 border-brand-50 hover:border-brand-50 bg-gray-20 dark:bg-brand-90' } 
         
           transition-shadow shadow-xl flex flex-col text-left w-full space-y-4 mt-4 relative py-2 min-w-1/2 max-w-full`}
         onClick={(e) => {

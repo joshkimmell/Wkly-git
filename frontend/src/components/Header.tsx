@@ -1,8 +1,9 @@
 import MenuBtn, { MenuBtnProps } from '@components/menu-btn';
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import menuClosedIcon from '/images/button-menu.svg';
-import { Sun, Moon, Home, Text } from 'lucide-react';
+import { Sun, Moon, Home, Text, LayoutGrid } from 'lucide-react';
+import { classTabItem } from '@styles/classes';
 // import { classMenuItem } from '@styles/classes';
 // supabase client not needed here; use useAuth hook's session instead
 import useAuth from '@hooks/useAuth';
@@ -226,8 +227,10 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
         return () => ro.disconnect();
     }, []);
 
+    const location = useLocation();
+
     return (
-        <div ref={headerRef} className={`header flex items-center dark relative${menuOpen ? ' header-expanded' : ''}${scrolled ? ' header--scrolled' : ''}`}>
+        <div ref={headerRef} className={`header flex items-end dark relative${menuOpen ? ' header-expanded' : ''}${scrolled ? ' header--scrolled' : ''}`}>
             
             <div className="header-brand">
                 {!drawerVisible && (
@@ -262,6 +265,31 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                         </Link>
                     </div>
                 )}
+                {!isMenuHidden() && !drawerVisible && (
+                    <nav className="tabs hidden sm:flex items-end self-end ml-6 h-full">
+                        <ul className="flex -mb-px text-sm font-medium">
+                            <li>
+                                <Link
+                                    to="/"
+                                    className={`${classTabItem}${location.pathname === '/' ? ' active' : ''}`}
+                                >
+                                    <LayoutGrid className="w-4 h-4 mr-1.5" />
+                                    Goals
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    to="/summaries"
+                                    className={`${classTabItem}${location.pathname === '/summaries' ? ' active' : ''}`}
+                                >
+                                    <Text className="w-4 h-4 mr-1.5" />
+                                    Summaries
+                                </Link>
+                            </li>
+                        </ul>
+                    </nav>
+                )}
+                {/* Main navigation tabs — hidden on mobile (drawer handles mobile nav) */}
                 {isAuthenticated && (
                     <>
                     {/* <div className='flex flex-col gap-2'> */}
@@ -317,7 +345,9 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                         
                     </>
                 )}
-            </div>           
+            </div>
+
+            
         </div>
     );
 };

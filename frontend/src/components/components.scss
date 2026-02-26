@@ -46,7 +46,7 @@ svg {
         // Use runtime CSS variables from appColors with SCSS fallbacks
         background: linear-gradient(180deg, var(--brand-90, variables.$brand-90) 0%, var(--brand-70, variables.$brand-70) 100%);
         display: flex;
-        justify-content: space-between;
+        justify-content: start;
         align-items: center;
         align-self: stretch;
         padding: 2.5rem 0.5rem 0 1rem;
