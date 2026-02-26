@@ -75,6 +75,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     const [menuOpen, setIsOpen] = useState<MenuBtnProps['isOpen']>(isOpen);
     const [drawerVisible, setDrawerVisible] = useState(false);
     const drawerContainerRef = useRef<HTMLDivElement | null>(null);
+    const headerRef = useRef<HTMLDivElement | null>(null);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
@@ -207,8 +208,26 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     // Development overlay debug (logs overlay element when profile modal opens)
     useOverlayDebug(isProfileOpen);
 
+    // Keep --header-height CSS variable on :root in sync with the actual header height
+    // so notifications and other fixed-position elements can offset below the header.
+    useEffect(() => {
+        const el = headerRef.current;
+        if (!el) return;
+        // Set initial value (one reflow on mount is unavoidable; offsetHeight avoids forced-reflow)
+        document.documentElement.style.setProperty('--header-height', `${el.offsetHeight}px`);
+        // Use ResizeObserverEntry data in the callback — avoids forced reflow by not reading layout
+        const ro = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                const h = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+                document.documentElement.style.setProperty('--header-height', `${h}px`);
+            }
+        });
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
+
     return (
-        <div className={`header flex items-center dark relative${menuOpen ? ' header-expanded' : ''}${scrolled ? ' header--scrolled' : ''}`}>
+        <div ref={headerRef} className={`header flex items-center dark relative${menuOpen ? ' header-expanded' : ''}${scrolled ? ' header--scrolled' : ''}`}>
             
             <div className="header-brand">
                 {!drawerVisible && (

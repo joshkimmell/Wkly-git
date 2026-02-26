@@ -30,7 +30,7 @@ import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, FormG
 import { useTheme } from '@mui/material/styles';
 import supabase from '@lib/supabase';
 import { STATUS_COLORS } from '../constants/statuses';
-import { notifyError, notifySuccess } from '@components/ToastyNotification';
+import { notifyError, notifySuccess, notifyWithUndo } from '@components/ToastyNotification';
 import { DatePicker, LocalizationProvider, TimeClock } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type { Dayjs } from 'dayjs';
@@ -83,6 +83,14 @@ const GoalsComponent = () => {
     const [sortAnchorEl, setSortAnchorEl] = useState<HTMLElement | null>(null);
     const [isGoalModalOpen, setIsGoalModalOpen] = useState(false); // Modal state
     const [isEditorOpen, setIsEditorOpen] = useState(false); // Editor modal state
+    // Add menu (goal vs task choice)
+    const [addMenuAnchorEl, setAddMenuAnchorEl] = useState<HTMLElement | null>(null);
+    // Standalone "Add a task" modal state
+    const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
+    const [standaloneNewTask, setStandaloneNewTask] = useState<Partial<Task>>({ title: '', description: '', scheduled_date: '', scheduled_time: '' });
+    const [standaloneTaskGoalId, setStandaloneTaskGoalId] = useState<string>('');
+    const [standaloneCreateNewGoal, setStandaloneCreateNewGoal] = useState(false);
+    const [standaloneNewGoalTitle, setStandaloneNewGoalTitle] = useState('');
     const [newGoal, setNewGoal] = useState<Goal>({
         id: '',
         title: '',
@@ -106,6 +114,10 @@ const GoalsComponent = () => {
         status_notes?: string | null;
     } | null>(null);
     const [filter, setFilter] = useState<string>('');
+    // Debounced version of `filter` — expensive filtering computations use this so
+    // they don't fire on every keystroke. The raw `filter` is still used as the
+    // controlled input value so the text field responds instantly.
+    const [debouncedFilter, setDebouncedFilter] = useState<string>('');
     const [filterFocused, setFilterFocused] = useState<boolean>(false);
     const [clearButtonFocused, setClearButtonFocused] = useState<boolean>(false);
     // Per-row actions menu state (used in table view)
@@ -933,6 +945,64 @@ const GoalsComponent = () => {
       setIsGoalModalOpen(false);
     };
 
+    const closeAddTaskModal = () => {
+        setIsAddTaskModalOpen(false);
+        setStandaloneNewTask({ title: '', description: '', scheduled_date: '', scheduled_time: '' });
+        setStandaloneTaskGoalId('');
+        setStandaloneCreateNewGoal(false);
+        setStandaloneNewGoalTitle('');
+    };
+
+    const createStandaloneTask = async () => {
+        if (!standaloneNewTask.title?.trim()) { notifyError('Task title is required'); return; }
+        if (!standaloneCreateNewGoal && !standaloneTaskGoalId) { notifyError('Please select a goal or choose to create a new one'); return; }
+        if (standaloneCreateNewGoal && !standaloneNewGoalTitle.trim()) { notifyError('New goal title is required'); return; }
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) throw new Error('Not authenticated');
+            let goalId = standaloneTaskGoalId;
+            if (standaloneCreateNewGoal) {
+                const { data: { user } } = await supabase.auth.getUser();
+                const { data: createdGoal, error: goalErr } = await supabase
+                    .from('goals')
+                    .insert({
+                        title: standaloneNewGoalTitle.trim(),
+                        week_start: getWeekStartDate(),
+                        user_id: user?.id,
+                        status: 'Not started',
+                        description: '',
+                        category: '',
+                    })
+                    .select()
+                    .single();
+                if (goalErr || !createdGoal) throw new Error(goalErr?.message || 'Failed to create goal');
+                goalId = createdGoal.id;
+                await refreshGoals();
+            }
+            const response = await fetch('/api/createTask', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                    goal_id: goalId,
+                    title: standaloneNewTask.title!.trim(),
+                    description: standaloneNewTask.description || null,
+                    status: 'Not started',
+                    scheduled_date: standaloneNewTask.scheduled_date || null,
+                    scheduled_time: standaloneNewTask.scheduled_time || null,
+                    order_index: 0,
+                }),
+            });
+            if (!response.ok) throw new Error('Failed to create task');
+            notifySuccess('Task created');
+            closeAddTaskModal();
+            if (goalId) await fetchTasksForGoal(goalId);
+        } catch (err) {
+            console.error('[AllGoals] createStandaloneTask error:', err);
+            notifyError('Failed to create task');
+        }
+    };
+
     // Sets the selected summary ID and opens the editor modal
     function setLocalSummaryId(id: string): void {
         setSelectedSummary((prev) => prev ? { ...prev, id } : prev);
@@ -1085,37 +1155,41 @@ const GoalsComponent = () => {
         }
     };
 
-    const handleTaskDelete = async (taskId: string) => {
-        // Find the goal_id for this task
-        let goalId: string | undefined;
+    const handleTaskDelete = (taskId: string) => {
+        // Find the task across all goal buckets
+        let taskToDelete: Task | undefined;
         for (const gid of Object.keys(kanbanTasks)) {
-            if (kanbanTasks[gid]?.some(t => t.id === taskId)) {
-                goalId = gid;
-                break;
+            taskToDelete = kanbanTasks[gid]?.find(t => t.id === taskId);
+            if (taskToDelete) { break; }
+        }
+        if (!taskToDelete) return;
+        const prevKanbanTasks = { ...kanbanTasks };
+        // Optimistically remove from UI
+        setKanbanTasks((prev) => {
+            const updated: Record<string, Task[]> = {};
+            for (const gid of Object.keys(prev)) {
+                updated[gid] = prev[gid].filter(t => t.id !== taskId);
             }
-        }
-        
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-            if (!token) throw new Error('User not authenticated');
-
-            const response = await fetch('/api/deleteTask', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ id: taskId }),
-            });
-
-            if (!response.ok) throw new Error('Failed to delete task');
-            notifySuccess('Task deleted');
-            await fetchKanbanTasks(); // Refresh tasks
-        } catch (error) {
-            console.error('Error deleting task:', error);
-            notifyError('Failed to delete task');
-        }
+            return updated;
+        });
+        notifyWithUndo(
+            'Task deleted',
+            async () => {
+                const { data: { session } } = await supabase.auth.getSession();
+                const token = session?.access_token;
+                if (!token) throw new Error('User not authenticated');
+                const response = await fetch('/api/deleteTask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ id: taskId }),
+                });
+                if (!response.ok) throw new Error('Failed to delete task');
+                await fetchKanbanTasks();
+            },
+            () => {
+                setKanbanTasks(prevKanbanTasks);
+            },
+        );
     };
   
 // Add a new goal
@@ -1203,90 +1277,71 @@ const GoalsComponent = () => {
         }
     }, [lastUpdated, lastAddedIds, refreshGoals, setLastAddedIds]);
 
-    const handleDeleteGoal = async (goalId: string) => {
-        // Optimistic UI: remove from local indexedGoals immediately
-        const previousIndexed = { ...indexedGoals };
+    const handleDeleteGoal = (goalId: string) => {
+        // Snapshot for potential undo
+        const previousIndexed: Record<string, Goal[]> = {};
+        for (const k of Object.keys(indexedGoals)) previousIndexed[k] = [...(indexedGoals[k] || [])];
         const prevFullSnapshot = fullGoals ? [...fullGoals] : null;
-    try {
+
+        // Optimistic UI: remove from local indexedGoals immediately
         setIndexedGoals((prev) => {
             const copy: Record<string, Goal[]> = { ...prev };
             if (copy[currentPage]) copy[currentPage] = copy[currentPage].filter((g) => g.id !== goalId);
             return copy;
         });
-
-        // Also remove from global cache so other components reflect change immediately
-        try {
-            if (removeGoalFromCache) removeGoalFromCache(goalId);
-        } catch (err) {
+        try { if (removeGoalFromCache) removeGoalFromCache(goalId); } catch (err) {
             console.warn('[AllGoals] removeGoalFromCache failed (ignored):', err);
         }
-
-        // Also optimistically remove from fullGoals if present (Show All mode relies on this)
         if (fullGoals) {
             setFullGoals((prev) => prev ? prev.filter((g) => g.id !== goalId) : prev);
         }
 
-        // Attempt server delete
-        await deleteGoal(goalId);
+        notifyWithUndo(
+            'Goal deleted',
+            async () => {
+                await deleteGoal(goalId);
 
-        // After server reports success, ensure the local indexed state truly reflects deletion.
-        // Retry fetching indexed goals a few times to avoid flicker caused by race conditions.
-        const maxAttempts = 3;
-        let attempt = 0;
-        let foundStill = true;
-        while (attempt < maxAttempts) {
-            try {
-                const { indexedGoals: freshIndexed, pages: freshPages } = await fetchAllGoalsIndexed(scope);
-                // check whether goalId remains anywhere
-                const exists = Object.values(freshIndexed).some((list) => list.some((g) => g.id === goalId));
-                // update local state to the fresh snapshot
-                setIndexedGoals(freshIndexed);
-                setPages(freshPages);
-                if (!exists) {
-                    foundStill = false;
-                    break;
+                // Post-delete consistency check with retry
+                const maxAttempts = 3;
+                let attempt = 0;
+                let foundStill = true;
+                while (attempt < maxAttempts) {
+                    try {
+                        const { indexedGoals: freshIndexed, pages: freshPages } = await fetchAllGoalsIndexed(scope);
+                        const exists = Object.values(freshIndexed).some((list) => list.some((g) => g.id === goalId));
+                        setIndexedGoals(freshIndexed);
+                        setPages(freshPages);
+                        if (!exists) { foundStill = false; break; }
+                    } catch (err) {
+                        console.warn('[AllGoals] refresh attempt failed (ignored):', err);
+                    }
+                    await new Promise((res) => setTimeout(res, 250 * Math.pow(2, attempt)));
+                    attempt += 1;
                 }
-            } catch (err) {
-                console.warn('[AllGoals] refresh attempt failed (ignored):', err);
-            }
-            // backoff before retrying
-            await new Promise((res) => setTimeout(res, 250 * Math.pow(2, attempt)));
-            attempt += 1;
-        }
 
-        if (foundStill) {
-            // As a fallback, trigger a full context refresh and final reconcile
-            try {
-                if (ctxRefresh) { await ctxRefresh(); console.debug('[AllGoals] handleDeleteGoal: ctxRefresh finished'); }
-                const { indexedGoals: finalIndexed, pages: finalPages } = await fetchAllGoalsIndexed(scope);
-                setIndexedGoals(finalIndexed);
-                setPages(finalPages);
-                const stillExists = Object.values(finalIndexed).some((list) => list.some((g) => g.id === goalId));
-                if (stillExists) {
-                    // server did not remove the row or there's a deeper issue; rollback optimistic removal
-                    setIndexedGoals(previousIndexed);
-                    notifyError('Goal appeared to not be deleted (server still contains it). It has been restored locally.');
-                    return;
+                if (foundStill) {
+                    try {
+                        if (ctxRefresh) { await ctxRefresh(); }
+                        const { indexedGoals: finalIndexed, pages: finalPages } = await fetchAllGoalsIndexed(scope);
+                        setIndexedGoals(finalIndexed);
+                        setPages(finalPages);
+                        const stillExists = Object.values(finalIndexed).some((list) => list.some((g) => g.id === goalId));
+                        if (stillExists) {
+                            setIndexedGoals(previousIndexed);
+                            notifyError('Goal appeared to not be deleted (server still contains it). It has been restored locally.');
+                        }
+                    } catch (err) {
+                        console.warn('[AllGoals] final reconcile after delete failed (ignored):', err);
+                    }
                 }
-            } catch (err) {
-                console.warn('[AllGoals] final reconcile after delete failed (ignored):', err);
-            }
-        }
-
-        // If we reach here, deletion is confirmed and local state updated
-    } catch (error) {
-    console.error('Error deleting goal:', error);
-        // rollback optimistic removal
-            try {
-            setIndexedGoals(previousIndexed);
-            if (prevFullSnapshot) setFullGoals(prevFullSnapshot);
-            // best-effort: refresh from server to reconcile
-            try { await refreshGoals(); } catch { /* ignore */ }
-        } catch (err) {
-            console.warn('[AllGoals] rollback after delete failed (ignored):', err);
-        }
-        notifyError('Failed to delete goal.');
-        }
+            },
+            () => {
+                // Undo: restore goal in local state
+                setIndexedGoals(previousIndexed);
+                if (prevFullSnapshot) setFullGoals(prevFullSnapshot);
+                try { if (ctxRefresh) ctxRefresh(); } catch { /* ignore */ }
+            },
+        );
     };
 
 // Update a goal
@@ -1335,6 +1390,13 @@ const GoalsComponent = () => {
         // prevents runtime errors when some fields are null.
         setFilter(filterValue);
   };
+
+  // Debounce: propagate filter → debouncedFilter after 250 ms of inactivity.
+  // This prevents the expensive sortedAndFilteredGoals recomputation on every keystroke.
+  useEffect(() => {
+      const timer = setTimeout(() => setDebouncedFilter(filter), 250);
+      return () => clearTimeout(timer);
+  }, [filter]);
 
   const handlePageChange = (page: string) => {
       setCurrentPage(page);
@@ -1385,8 +1447,8 @@ const GoalsComponent = () => {
 
   // Filtering predicate to be shared across views
     const goalMatchesFilters = (goal: Goal) => {
-        // text filter (defensive)
-        const q = (filter || '').toString().trim();
+        // text filter (defensive) — uses debouncedFilter to avoid recomputing on every keystroke
+        const q = (debouncedFilter || '').toString().trim();
         const qLower = q ? q.toLowerCase() : '';
         const safe = (v: unknown) => (typeof v === 'string' ? v : '') as string;
         const textMatch = !qLower || (
@@ -1523,7 +1585,7 @@ const GoalsComponent = () => {
             if (sa > sb) return 1 * dir;
             return 0;
         });
-    }, [showAllGoals, fullGoals, indexedGoals, currentPage, filter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection]);
+    }, [showAllGoals, fullGoals, indexedGoals, currentPage, debouncedFilter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection]);
     
 
     // Proactively fetch counts for visible goals on page load (batched in chunks)
@@ -2673,18 +2735,33 @@ const GoalsComponent = () => {
                         </>
                     )}                  
 
-                        {/* Add Goal Button */}
-                        <Tooltip title={`Add a new goal`} placement="top" arrow>
+                        {/* Add (Goal or Task) Button */}
+                        <Tooltip title="Add a goal or task" placement="top" arrow>
                             <button
-                                onClick={openGoalModal}
+                                onClick={(e) => setAddMenuAnchorEl(e.currentTarget)}
                                 className="btn-primary gap-2 flex ml-auto sm:mt-0 md:pr-2 sm:pr-2 xs:pr-0"
-                                // title={`Add a new goal for the current ${scope}`}
-                                aria-label={`Add a new goal for the current ${scope}`}
-                                >
+                                aria-label="Add a goal or task"
+                                aria-haspopup="menu"
+                            >
                                 <PlusIcon className="w-5 h-5" />
-                                {/* <span className="block flex text-nowrap">Add Goal</span> */}
                             </button>
                         </Tooltip>
+                        <Menu
+                            anchorEl={addMenuAnchorEl}
+                            open={Boolean(addMenuAnchorEl)}
+                            onClose={() => setAddMenuAnchorEl(null)}
+                            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                        >
+                            <MenuItem onClick={() => { setAddMenuAnchorEl(null); openGoalModal(); }}>
+                                <LayoutGrid className="w-4 h-4 mr-2 text-primary" />
+                                Add a goal
+                            </MenuItem>
+                            <MenuItem onClick={() => { setAddMenuAnchorEl(null); setIsAddTaskModalOpen(true); }}>
+                                <ListTodo className="w-4 h-4 mr-2 text-primary" />
+                                Add a task
+                            </MenuItem>
+                        </Menu>
                         <div id="summary_btn">
                             <SummaryGenerator 
                             summaryId={selectedSummary?.id || ''} 
@@ -3229,28 +3306,33 @@ const GoalsComponent = () => {
                                                                 notifyError('Failed to update task');
                                                             }
                                                         }}
-                                                        onDelete={async (taskId) => {
-                                                            try {
-                                                                const { data: { session } } = await supabase.auth.getSession();
-                                                                const token = session?.access_token;
-                                                                if (!token) throw new Error('User not authenticated');
-
-                                                                const response = await fetch('/api/deleteTask', {
-                                                                    method: 'DELETE',
-                                                                    headers: {
-                                                                        'Content-Type': 'application/json',
-                                                                        Authorization: `Bearer ${token}`,
-                                                                    },
-                                                                    body: JSON.stringify({ id: taskId }),
-                                                                });
-
-                                                                if (!response.ok) throw new Error('Failed to delete task');
-                                                                notifySuccess('Task deleted');
-                                                                await fetchTasksForGoal(goal.id);
-                                                            } catch (error) {
-                                                                console.error('Error deleting task:', error);
-                                                                notifyError('Failed to delete task');
-                                                            }
+                                                        onDelete={(taskId) => {
+                                                            const taskToDelete = (tableTasksByGoal[goal.id] || []).find(t => t.id === taskId);
+                                                            if (!taskToDelete) return;
+                                                            setTableTasksByGoal(prev => ({
+                                                                ...prev,
+                                                                [goal.id]: (prev[goal.id] || []).filter(t => t.id !== taskId),
+                                                            }));
+                                                            notifyWithUndo(
+                                                                'Task deleted',
+                                                                async () => {
+                                                                    const { data: { session } } = await supabase.auth.getSession();
+                                                                    const token = session?.access_token;
+                                                                    if (!token) throw new Error('User not authenticated');
+                                                                    const response = await fetch('/api/deleteTask', {
+                                                                        method: 'DELETE',
+                                                                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                                                        body: JSON.stringify({ id: taskId }),
+                                                                    });
+                                                                    if (!response.ok) throw new Error('Failed to delete task');
+                                                                },
+                                                                () => {
+                                                                    setTableTasksByGoal(prev => ({
+                                                                        ...prev,
+                                                                        [goal.id]: [...(prev[goal.id] || []), taskToDelete].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)),
+                                                                    }));
+                                                                },
+                                                            );
                                                         }}
                                                         allowInlineEdit
                                                     />
@@ -3848,6 +3930,121 @@ const GoalsComponent = () => {
                 
             </div>
         )}
+        {/* Add Task Modal */}
+                <Modal
+                    isOpen={isAddTaskModalOpen}
+                    onRequestClose={closeAddTaskModal}
+                    shouldCloseOnOverlayClick={true}
+                    ariaHideApp={ARIA_HIDE_APP}
+                    className="fixed inset-0 flex md:items-center justify-center z-50"
+                    overlayClassName={overlayClasses}
+                >
+                    <div className={`${modalClasses} max-w-lg w-full`}>
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-semibold flex items-center gap-2">
+                                <ListTodo className="w-5 h-5 text-primary" />
+                                Add a task
+                            </h2>
+                            <IconButton size="small" onClick={closeAddTaskModal} aria-label="Close">
+                                <CloseButton className="w-4 h-4" />
+                            </IconButton>
+                        </div>
+
+                        <div className="space-y-4">
+                            {/* Goal selector */}
+                            {!standaloneCreateNewGoal ? (
+                                <FormControl fullWidth size="small">
+                                    <InputLabel id="standalone-task-goal-label">Goal *</InputLabel>
+                                    <Select
+                                        labelId="standalone-task-goal-label"
+                                        label="Goal *"
+                                        value={standaloneTaskGoalId}
+                                        onChange={(e) => setStandaloneTaskGoalId(e.target.value as string)}
+                                        displayEmpty
+                                    >
+                                        {Object.values(indexedGoals).flat().map((g) => (
+                                            <MenuItem key={g.id} value={g.id}>
+                                                <span className="truncate max-w-[320px] block">{g.title}</span>
+                                            </MenuItem>
+                                        ))}
+                                        <MenuItem
+                                            value="__new__"
+                                            onClick={(e) => { e.stopPropagation(); setStandaloneCreateNewGoal(true); setStandaloneTaskGoalId(''); }}
+                                            className="text-primary font-medium"
+                                        >
+                                            <PlusIcon className="w-4 h-4 mr-1 inline" /> Create new goal…
+                                        </MenuItem>
+                                    </Select>
+                                </FormControl>
+                            ) : (
+                                <div className="space-y-2">
+                                    <TextField
+                                        label="New goal title *"
+                                        value={standaloneNewGoalTitle}
+                                        onChange={(e) => setStandaloneNewGoalTitle(e.target.value)}
+                                        size="small"
+                                        fullWidth
+                                        autoFocus
+                                        placeholder="Enter goal title"
+                                    />
+                                    <button
+                                        className="text-sm text-gray-50 underline"
+                                        onClick={() => { setStandaloneCreateNewGoal(false); setStandaloneNewGoalTitle(''); }}
+                                    >
+                                        ← Pick an existing goal instead
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Task fields */}
+                            <TextField
+                                label="Task title *"
+                                value={standaloneNewTask.title || ''}
+                                onChange={(e) => setStandaloneNewTask((p) => ({ ...p, title: e.target.value }))}
+                                size="small"
+                                fullWidth
+                                autoFocus={standaloneCreateNewGoal ? false : true}
+                                placeholder="What needs to be done?"
+                            />
+                            <TextField
+                                label="Description"
+                                value={standaloneNewTask.description || ''}
+                                onChange={(e) => setStandaloneNewTask((p) => ({ ...p, description: e.target.value }))}
+                                size="small"
+                                fullWidth
+                                multiline
+                                rows={2}
+                                placeholder="Optional details"
+                            />
+                            <div className="flex gap-3">
+                                <TextField
+                                    type="date"
+                                    label="Scheduled date"
+                                    value={standaloneNewTask.scheduled_date || ''}
+                                    onChange={(e) => setStandaloneNewTask((p) => ({ ...p, scheduled_date: e.target.value }))}
+                                    size="small"
+                                    InputLabelProps={{ shrink: true }}
+                                    className="flex-1"
+                                />
+                                <TextField
+                                    type="time"
+                                    label="Scheduled time"
+                                    value={standaloneNewTask.scheduled_time || ''}
+                                    onChange={(e) => setStandaloneNewTask((p) => ({ ...p, scheduled_time: e.target.value }))}
+                                    size="small"
+                                    InputLabelProps={{ shrink: true }}
+                                    className="flex-1"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button className="btn-secondary" onClick={closeAddTaskModal}>Cancel</button>
+                            <button className="btn-primary" onClick={createStandaloneTask}>Add task</button>
+                        </div>
+                    </div>
+                </Modal>
+
         {/* Add Goal Modal */}
                 <Modal
                     isOpen={isGoalModalOpen}

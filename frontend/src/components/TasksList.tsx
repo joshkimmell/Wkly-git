@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import supabase from '@lib/supabase';
 import { Task } from '@utils/goalUtils';
-import { notifySuccess, notifyError } from './ToastyNotification';
+import { notifySuccess, notifyError, notifyWithUndo } from './ToastyNotification';
 import { TextField, ToggleButtonGroup, ToggleButton, Tooltip, IconButton, Collapse, Badge, Menu, MenuItem } from '@mui/material';
 import { List, LayoutGrid, Calendar as CalendarIcon, Plus, X, CheckSquare2, SquareSlash } from 'lucide-react';
 import TaskCard from './TaskCard';
@@ -214,29 +214,32 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
     }
   };
 
-  const deleteTask = async (taskId: string) => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error('User not authenticated');
-
-      const response = await fetch(`/api/deleteTask?id=${encodeURIComponent(taskId)}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete task');
-      }
-
-      setTasks(prev => prev.filter(t => t.id !== taskId));
-      onTaskCountChange?.(tasks.length - 1);
-      notifySuccess('Task deleted');
-      setDeleteConfirmId(null);
-    } catch (error) {
-      console.error('Error deleting task:', error);
-      notifyError('Failed to delete task');
-    }
+  const deleteTask = (taskId: string) => {
+    const taskToDelete = tasks.find(t => t.id === taskId);
+    if (!taskToDelete) return;
+    const prevCount = tasks.length;
+    // Optimistically remove from UI
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+    onTaskCountChange?.(prevCount - 1);
+    setDeleteConfirmId(null);
+    notifyWithUndo(
+      'Task deleted',
+      async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) throw new Error('User not authenticated');
+        const response = await fetch(`/api/deleteTask?id=${encodeURIComponent(taskId)}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) throw new Error('Failed to delete task');
+      },
+      () => {
+        // Undo: restore the task
+        setTasks(prev => [...prev, taskToDelete].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)));
+        onTaskCountChange?.(prevCount);
+      },
+    );
   };
 
   const startEdit = (task: Task) => {

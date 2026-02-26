@@ -11,7 +11,7 @@ import SummaryEditor from '@components/SummaryEditor';
 // import SummaryGenerator from '@components/SummaryGenerator';
 import { modalClasses, overlayClasses } from '@styles/classes'; // Adjust the import path as necessary
 import ReactQuill from 'react-quill';
-import { notifyError, notifySuccess } from './ToastyNotification';
+import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
 import { CheckSquare2, Filter, SquareSlash, X as CloseButton } from 'lucide-react';
 import { useTheme } from '@mui/material/styles';
 // import Editor from '@components/Editor';
@@ -132,24 +132,27 @@ const AllSummaries = () => {
     setIsSingleDeleteConfirmOpen(true);
   };
 
-  const performDeleteSummary = async (summaryId: string | null) => {
+  const performDeleteSummary = (summaryId: string | null) => {
     if (!summaryId) return;
-    setSingleDeleting(true);
-    try {
-      await deleteSummary(summaryId);
-      // reset local newSummary and editor state if needed
-      setNewSummary((prev) => ({ ...prev, id: '', title: '', content: '' } as Summary));
-      setIsEditorOpen(false);
-      await handleFetchSummaries();
-      notifySuccess('Summary deleted successfully');
-    } catch (error) {
-      console.error('Error deleting summary:', error);
-      notifyError('Error deleting summary.');
-    } finally {
-      setSingleDeleting(false);
-      setIsSingleDeleteConfirmOpen(false);
-      setSingleDeleteId(null);
-    }
+    const toDelete = summaries.find(s => s.id === summaryId);
+    // Optimistically remove from UI
+    setSummaries(prev => prev.filter(s => s.id !== summaryId));
+    setFilteredSummaries(prev => prev.filter(s => s.id !== summaryId));
+    setIsEditorOpen(false);
+    setIsSingleDeleteConfirmOpen(false);
+    setSingleDeleteId(null);
+    notifyWithUndo(
+      'Summary deleted',
+      async () => {
+        await deleteSummary(summaryId);
+      },
+      () => {
+        if (toDelete) {
+          setSummaries(prev => [...prev, toDelete]);
+          setFilteredSummaries(prev => [...prev, toDelete]);
+        }
+      },
+    );
   };
 
   const handleAddSummary = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -685,22 +688,25 @@ const AllSummaries = () => {
         loading={bulkDeleting}
         onCancel={() => setIsBulkDeleteConfirmOpen(false)}
         onConfirm={async () => {
-          setBulkDeleting(true);
-          try {
-            for (const id of selectedIds) {
-              await deleteSummary(id);
-            }
-            notifySuccess('Deleted selected summaries');
-            setSelectedIds([]);
-            await handleFetchSummaries();
-          } catch (err) {
-            console.error('Failed to delete selected summaries', err);
-            notifyError('Failed to delete some summaries');
-            await handleFetchSummaries();
-          } finally {
-            setBulkDeleting(false);
-            setIsBulkDeleteConfirmOpen(false);
-          }
+          const idsToDelete = [...selectedIds];
+          const toDeleteSummaries = summaries.filter(s => idsToDelete.includes(s.id));
+          // Optimistically remove from UI
+          setSummaries(prev => prev.filter(s => !idsToDelete.includes(s.id)));
+          setFilteredSummaries(prev => prev.filter(s => !idsToDelete.includes(s.id)));
+          setSelectedIds([]);
+          setIsBulkDeleteConfirmOpen(false);
+          notifyWithUndo(
+            `${idsToDelete.length} summaries deleted`,
+            async () => {
+              for (const id of idsToDelete) {
+                await deleteSummary(id);
+              }
+            },
+            () => {
+              setSummaries(prev => [...prev, ...toDeleteSummaries]);
+              setFilteredSummaries(prev => [...prev, ...toDeleteSummaries]);
+            },
+          );
         }}
       />
       <ConfirmModal

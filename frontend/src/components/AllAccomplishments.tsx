@@ -8,7 +8,7 @@ import { Accomplishment } from '@utils/goalUtils'; // Adjust the import path as 
 import AccomplishmentCard from './AccomplishmentCard';
 import AccomplishmentEditor from './AccomplishmentEditor';
 import { modalClasses, overlayClasses } from '@styles/classes';
-import { notifyError, notifySuccess } from './ToastyNotification';
+import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
 // import { over } from 'lodash';
 
 
@@ -116,24 +116,26 @@ const AllAccomplishments = () => {
   };
 
   // Delete an accomplishment
-  const handleDeleteAccomplishment = async (accomplishmentId: string) => {
-    try {
-      const { error } = await supabase
-        .from('accomplishments')
-        .delete()
-        .eq('id', accomplishmentId);
-
-      if (error) {
-        console.error('Error deleting accomplishment:', error.message);
-        notifyError('Error deleting accomplishment.');
-        return;
-      }
-
-      fetchAccomplishments(); // Refresh accomplishments after deleting
-      notifySuccess('Accomplishment deleted successfully.');
-    } catch (err) {
-      console.error('Unexpected error deleting accomplishment:', err);
-    }
+  const handleDeleteAccomplishment = (accomplishmentId: string) => {
+    const toDelete = accomplishments.find(a => a.id === accomplishmentId);
+    if (!toDelete) return;
+    // Optimistically remove from UI
+    setAccomplishments(prev => prev.filter(a => a.id !== accomplishmentId));
+    setFilteredAccomplishments(prev => prev.filter(a => a.id !== accomplishmentId));
+    notifyWithUndo(
+      'Accomplishment deleted',
+      async () => {
+        const { error } = await supabase
+          .from('accomplishments')
+          .delete()
+          .eq('id', accomplishmentId);
+        if (error) throw new Error(error.message);
+      },
+      () => {
+        setAccomplishments(prev => [...prev, toDelete]);
+        setFilteredAccomplishments(prev => [...prev, toDelete]);
+      },
+    );
   };
 
   // Filter accomplishments based on the filter state

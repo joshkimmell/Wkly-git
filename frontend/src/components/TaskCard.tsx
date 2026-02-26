@@ -8,7 +8,7 @@ import ConfirmModal from './ConfirmModal';
 import RichTextEditor from './RichTextEditor';
 import { objectCounter, modalClasses, overlayClasses } from '@styles/classes';
 import supabase from '@lib/supabase';
-import { notifyError, notifySuccess } from './ToastyNotification';
+import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
 import { enhanceLinks, applyHighlight } from '@utils/functions';
 
 interface TaskCardProps {
@@ -87,6 +87,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState('');
   const [noteDeleteTarget, setNoteDeleteTarget] = useState<string | null>(null);
+  const [deleteTaskConfirmOpen, setDeleteTaskConfirmOpen] = useState(false);
   
   // Ref for click-outside detection
   const cardRef = useRef<HTMLDivElement>(null);
@@ -224,30 +225,27 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
   };
 
-  const deleteNote = async (noteId: string) => {
-    const prior = notes;
+  const deleteNote = (noteId: string) => {
+    const noteToDelete = notes.find(n => n.id === noteId);
+    if (!noteToDelete) return;
+    // Optimistically remove
     setNotes((s) => s.filter((n) => n.id !== noteId));
-    setIsNotesLoading(true);
-    
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error('User not authenticated');
-      
-      const res = await fetch(`/api/deleteTaskNote?note_id=${noteId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      if (!res.ok) throw new Error(await res.text());
-      notifySuccess('Note deleted');
-    } catch (err: any) {
-      console.error('Error deleting note:', err);
-      setNotes(prior);
-      notifyError('Failed to delete note');
-    } finally {
-      setIsNotesLoading(false);
-    }
+    notifyWithUndo(
+      'Note deleted',
+      async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) throw new Error('User not authenticated');
+        const res = await fetch(`/api/deleteTaskNote?note_id=${noteId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error(await res.text());
+      },
+      () => {
+        setNotes((s) => [...s, noteToDelete].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
+      },
+    );
   };
 
   const openNotesModal = () => {
@@ -552,16 +550,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
       onDragStart={(e) => onDragStart?.(e, task.id)}
       onDragOver={onDragOver}
       onDrop={(e) => onDrop?.(e, task.id)}
-      onClick={(e) => {
-        // If the click originated from an interactive element, don't toggle selection
-        if (!selectable) return;
+      onClick={() => {
+        // Selection is only via the checkbox; card body clicks do nothing for selection
         if (menuJustClosedRef.current) return;
-        const target = e.target as HTMLElement | null;
-        if (target && typeof target.closest === 'function') {
-          const interactive = target.closest('button, a, input, select, textarea, [role="button"]');
-          if (interactive) return;
-        }
-        onToggleSelect?.(task.id);
       }}
     >
       <div className="flex flex-col items-start gap-2">
@@ -819,7 +810,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
               
               {onDelete && (
                 <Tooltip title="Delete task">
-                  <IconButton size="small" onClick={() => onDelete(task.id)}>
+                  <IconButton size="small" onClick={(e) => { e.stopPropagation(); setDeleteTaskConfirmOpen(true); }}>
                     <Trash className="w-4 h-4" />
                   </IconButton>
                 </Tooltip>
@@ -1120,6 +1111,16 @@ const TaskCard: React.FC<TaskCardProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmModal
+        isOpen={deleteTaskConfirmOpen}
+        title="Delete task?"
+        message="Are you sure you want to delete this task? This action cannot be undone."
+        onCancel={() => setDeleteTaskConfirmOpen(false)}
+        onConfirm={() => { setDeleteTaskConfirmOpen(false); onDelete?.(task.id); }}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+      />
 
       <ConfirmModal
         isOpen={!!noteDeleteTarget}

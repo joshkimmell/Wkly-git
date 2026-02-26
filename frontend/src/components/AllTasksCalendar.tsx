@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Task } from '@utils/goalUtils';
 import TaskCard from './TaskCard';
 import LoadingSpinner from './LoadingSpinner';
-import { notifyError, notifySuccess } from './ToastyNotification';
+import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import supabase from '@lib/supabase';
 import { useTouchDrag } from '@hooks/useTouchDrag';
@@ -261,30 +261,29 @@ export default function AllTasksCalendar({
     }
   };
 
-  const handleDeleteTask = async (taskId: string) => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error('User not authenticated');
-
-      const response = await fetch('/api/deleteTask', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ id: taskId }),
-      });
-
-      if (!response.ok) throw new Error('Failed to delete task');
-      
-      setTasks((prev) => prev.filter((t) => t.id !== taskId));
-      notifySuccess('Task deleted');
-      if (onRefresh) onRefresh();
-    } catch (error) {
-      console.error('Error deleting task:', error);
-      notifyError('Failed to delete task');
-    }
+  const handleDeleteTask = (taskId: string) => {
+    const taskToDelete = tasks.find(t => t.id === taskId);
+    if (!taskToDelete) return;
+    // Optimistically remove from UI
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    notifyWithUndo(
+      'Task deleted',
+      async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) throw new Error('User not authenticated');
+        const response = await fetch('/api/deleteTask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ id: taskId }),
+        });
+        if (!response.ok) throw new Error('Failed to delete task');
+        if (onRefresh) onRefresh();
+      },
+      () => {
+        setTasks((prev) => [...prev, taskToDelete].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)));
+      },
+    );
   };
 
   const handleUpdateTask = async (taskId: string, updates: Partial<Task>) => {
