@@ -27,6 +27,7 @@ interface TaskCardProps {
   onDragOver?: (e: React.DragEvent) => void;
   onDrop?: (e: React.DragEvent, taskId: string) => void;
   compact?: boolean;
+  list?: boolean;
   allowInlineEdit?: boolean;
   hideStatusChip?: boolean;
   hideCategory?: boolean;
@@ -51,6 +52,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onDragStart,
   onDragOver,
   onDrop,
+  list = false,
   compact = false,
   allowInlineEdit = false,
   hideStatusChip = false,
@@ -543,7 +545,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   return (
     <div
       ref={cardRef}
-      className={`${compact ? 'p-2' : 'p-3'} ${isSelected ? 'border-2 border-brand-50 bg-gray-20 dark:bg-brand-90' : 'border border-gray-20 dark:border-gray-70'} bg-background-color rounded-lg hover:shadow-md transition-all ${
+      className={`${compact ? 'p-2' : `${list ? 'px-10 md:px-32' : 'p-3'}`} ${isSelected ? 'border-2 border-brand-50 bg-gray-20 dark:bg-brand-90' : `${!list ? 'border border-gray-20 dark:border-gray-70' : 'border-0'}`} bg-background-color rounded-lg hover:shadow-md transition-all ${
         displayStatus === 'Done' ? 'opacity-60' : ''
       }`}
       draggable={draggable}
@@ -555,8 +557,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
         if (menuJustClosedRef.current) return;
       }}
     >
-      <div className="flex flex-col items-start gap-2">
-        <div className="flex flex-row justify-between w-full" onClick={(e) => e.stopPropagation()}>
+      <div className={`flex  items-start gap-2 ${list ? 'flex-row justify-between' : 'flex-col'}`}>
+        <div className={`flex flex-row justify-between ${list ? 'w-auto' : 'w-full'}`} onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-1">
             
             {/* Drag handle */}
@@ -571,9 +573,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
           <IconButton
             onClick={cycleStatus}
             className="text-tertiary-button mt-0.5 hover:scale-110 transition-transform"
-            title={`${displayStatus}`}
+            title={`${displayStatus === 'Done' ? 'Reopen' : 'Mark as done'} `}
           >
-            <Tooltip title={`${displayStatus === 'Done' ? 'Reopen' : 'Close'}  `}>
+            <Tooltip title={`${displayStatus === 'Done' ? 'Reopen' : 'Mark as done'}  `}>
               {getStatusIcon(displayStatus)}
             </Tooltip>
           </IconButton>
@@ -731,7 +733,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
         </div>
 
         {/* Actions */}
-        <div className="flex w-full justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+        <div className={`flex ${list ? 'w-auto flex-col sm:flex-row items-center' : 'w-full'} justify-end gap-1`} onClick={(e) => e.stopPropagation()}>
           {isEditing ? (
             <>
               <Tooltip title="Save">
@@ -775,7 +777,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
               )}
               
               {onEdit && !allowInlineEdit && (
-                <Tooltip title="Edit task">
+                <Tooltip title="Edit task" placement="top" arrow>
                   <IconButton size="small" onClick={() => onEdit(task)}>
                     <Edit2 className="w-4 h-4" />
                   </IconButton>
@@ -784,7 +786,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
               
               {allowInlineEdit && onUpdate && (
                 <>
-                  <Tooltip title="Edit all fields">
+                  <Tooltip title="Edit all fields" placement="top" arrow>
                     <IconButton size="small" onClick={handleOpenFullEditModal}>
                       <Edit className="w-4 h-4" />
                     </IconButton>
@@ -809,7 +811,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
               </Tooltip>
               
               {onDelete && (
-                <Tooltip title="Delete task">
+                <Tooltip title="Delete task" placement="top" arrow>
                   <IconButton size="small" onClick={(e) => { e.stopPropagation(); setDeleteTaskConfirmOpen(true); }}>
                     <Trash className="w-4 h-4" />
                   </IconButton>

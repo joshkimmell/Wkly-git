@@ -21,7 +21,7 @@ import { mapPageForScope, loadPageByScope, savePageByScope } from '@utils/pagina
 import 'react-datepicker/dist/react-datepicker.css';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
-import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, CalendarDays, Eye, Edit, Trash, EyeOff, ChevronRight, ChevronDown, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash, ListTodo, Clock } from 'lucide-react';
+import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, CalendarDays, Eye, Edit, Trash, EyeOff, ChevronRight, ChevronDown, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash, ListTodo, Clock, CircleEllipsis, MoreVertical, Expand, Minimize, Maximize, Shrink } from 'lucide-react';
 import { useGoalsContext } from '@context/GoalsContext';
 import useGoalExtras from '@hooks/useGoalExtras';
 // notify helpers imported where needed below
@@ -328,7 +328,7 @@ const GoalsComponent = () => {
 
     const theme = useTheme();
     const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
-    // const isMedium = useMediaQuery(theme.breakpoints.between('sm', 'md'));
+    const isMedium = useMediaQuery(theme.breakpoints.down('md'));
     // view mode: 'cards' (default), 'table', 'kanban', or 'tasks-calendar'
     const [viewMode, setViewMode] = useState<'cards' | 'table' | 'kanban' | 'tasks-calendar'>(() => {
         try {
@@ -2836,6 +2836,22 @@ const GoalsComponent = () => {
                                         <TableCell colSpan={selectedCount > 0 ?  5 : 1} className="px-4 py-2"   >
                                             <div className="flex items-center space-x-4">
                                             <div className={`floating-bulk${selectedCount > 0 ? '-toolbar flex-row align-start justify-start items-start sm:flex-row' : ''}`} role="toolbar" aria-label="Bulk actions">
+                                <Tooltip title={expandedRowIds.size === sortedAndFilteredGoals.length ? "Collapse all goals" : "Expand all goals"} placement="top" arrow>
+                                    <IconButton
+                                        className="btn-ghost fb-btn"
+                                        size="small"
+                                        aria-label={expandedRowIds.size === sortedAndFilteredGoals.length ? "Collapse all goals" : "Expand all goals"}
+                                        onClick={() => {
+                                            if (expandedRowIds.size === sortedAndFilteredGoals.length) {
+                                                setExpandedRowIds(new Set());
+                                            } else {
+                                                setExpandedRowIds(new Set(sortedAndFilteredGoals.map(g => g.id)));
+                                            }
+                                        }}
+                                    >
+                                        {expandedRowIds.size === sortedAndFilteredGoals.length ? <Shrink className="w-5 h-5" /> : <Expand className="w-5 h-5" />}
+                                    </IconButton>
+                                </Tooltip>
                                 <Tooltip title={selectedCount > 0 ? `Deselect all ${selectionType || ''}` : 'Select all...'} placement="top" arrow>
                                         <Badge badgeContent={selectedCount} color="primary">
                                         <span className="sr-only">{selectedCount} selected</span>
@@ -3060,12 +3076,6 @@ const GoalsComponent = () => {
                                         </TableCell>
                                         {selectedCount === 0 && (
                                             <>
-                                            {/* <TableCell onClick={() => toggleSort('title')} style={{ cursor: 'pointer' }}>
-                                                <span className="flex items-center">
-                                                    Goal
-                                                    {sortBy === 'title' && (sortDirection === 'asc' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />)}
-                                                </span>
-                                            </TableCell> */}
                                             <TableCell onClick={() => toggleSort('category')} style={{ cursor: 'pointer' }}>
                                                 <span className="flex items-center">
                                                     Category
@@ -3097,31 +3107,47 @@ const GoalsComponent = () => {
                                         return (
                                         <React.Fragment key={goal.id}>
                                         <TableRow
-                                            hover
+                                            // hover
+                                            // onClick={(e) => {
+                                            //     e.stopPropagation();
+                                            //     toggleRowExpanded(goal.id);
+                                            // }}
                                             // onClick={() => toggleSelect(goal.id)}
-                                            onClick={(e) => {
-                                                // If the click originated from an interactive element (button, input, link, select, textarea,
-                                                // or any element with role="button"), don't treat it as a card-select click. This prevents
-                                                // clicks on internal controls (icons, buttons, menus) from toggling selection.
-                                                const target = e.target as HTMLElement | null;
-                                                if (target && typeof target.closest === 'function') {
-                                                const interactive = target.closest('button, a, input, select, textarea, [role="button"]');
-                                                if (interactive) return;
-                                                }
-                                                toggleSelect(goal.id, 'goals');
-                                            }}
-                                            role="checkbox"
-                                            aria-checked={selectedIds.has(goal.id)}
-                                            tabIndex={-1}
+                                            // onClick={(e) => {
+                                            //     // If the click originated from an interactive element (button, input, link, select, textarea,
+                                            //     // or any element with role="button"), don't treat it as a card-select click. This prevents
+                                            //     // clicks on internal controls (icons, buttons, menus) from toggling selection.
+                                            //     const target = e.target as HTMLElement | null;
+                                            //     if (target && typeof target.closest === 'function') {
+                                            //     const interactive = target.closest('button, a, input, select, textarea, [role="button"]');
+                                            //     if (interactive) return;
+                                            //     }
+                                            //     toggleRowExpanded(goal.id);
+                                            // }}
+                                            // role="checkbox"
+                                            // aria-checked={selectedIds.has(goal.id)}
+                                            // tabIndex={-1}
                                             selected={selectedIds.has(goal.id)}
                                             // inputProps={{ 'aria-label': `Select goal ${goal.title}` }}
-                                            sx={{ cursor: 'pointer' }}
+                                            // sx={{ cursor: 'pointer' }}
                                         >
                                             {/* <TableCell>
-                                                <Checkbox size="small" checked={selectedIds.has(goal.id)} inputProps={{ 'aria-label': `Select goal ${goal.title}` }} />
+                                                <Checkbox size="small" onClick={(e) => {
+                                                    // If the click originated from an interactive element (button, input, link, select, textarea,
+                                                    // or any element with role="button"), don't treat it as a card-select click. This prevents
+                                                    // clicks on internal controls (icons, buttons, menus) from toggling selection.
+                                                    // const target = e.target as HTMLElement | null;
+                                                    // if (target && typeof target.closest === 'function') {
+                                                    // const interactive = target.closest('button, a, input, select, textarea, [role="button"]');
+                                                    // if (interactive) return;
+                                                    // }
+                                                    e.stopPropagation();
+                                                    toggleSelect(goal.id, 'goals');
+                                                }} checked={selectedIds.has(goal.id)} onChange={() => {}} inputProps={{ 'aria-label': `Select goal ${goal.title}` }}
+                                                />
                                             </TableCell> */}
                                             <TableCell>
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-start gap-2">
                                                     <IconButton
                                                         size="small"
                                                         onClick={(e) => {
@@ -3130,8 +3156,21 @@ const GoalsComponent = () => {
                                                         }}
                                                         className="btn-ghost"
                                                     >
-                                                        {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                                                        {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
                                                     </IconButton>
+                                                    <Checkbox size="small" onClick={(e) => {
+                                                    // If the click originated from an interactive element (button, input, link, select, textarea,
+                                                    // or any element with role="button"), don't treat it as a card-select click. This prevents
+                                                    // clicks on internal controls (icons, buttons, menus) from toggling selection.
+                                                    // const target = e.target as HTMLElement | null;
+                                                    // if (target && typeof target.closest === 'function') {
+                                                    // const interactive = target.closest('button, a, input, select, textarea, [role="button"]');
+                                                    // if (interactive) return;
+                                                    // }
+                                                    e.stopPropagation();
+                                                    toggleSelect(goal.id, 'goals');
+                                                }} checked={selectedIds.has(goal.id)} onChange={() => {}} inputProps={{ 'aria-label': `Select goal ${goal.title}` }}
+                                                />
                                                     <div>
                                                         <Typography variant="body1"><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></Typography>
                                                         <Typography variant="body2" className="text-gray-50">
@@ -3157,7 +3196,9 @@ const GoalsComponent = () => {
                                                     aria-haspopup="true"
                                                     aria-expanded={rowActionsAnchorEl && rowActionsTargetId === goal.id ? 'true' : undefined}
                                                     onClick={(e) => {
+                                                        e.stopPropagation();
                                                         const el = e.currentTarget as HTMLElement;
+                                                        
                                                         if (rowActionsTargetId === goal.id && rowActionsAnchorEl) {
                                                             setRowActionsAnchorEl(null);
                                                             setRowActionsTargetId(null);
@@ -3178,10 +3219,10 @@ const GoalsComponent = () => {
                                                             horizontal: 'right',
                                                         }}
                                                     >
-                                                        <ChevronRight className={`w-4 h-4 ${rowActionsTargetId === goal.id && rowActionsAnchorEl ? 'transform rotate-90' : ''}`} />
+                                                        <MoreVertical className={`w-4 h-4 ${rowActionsTargetId === goal.id && rowActionsAnchorEl ? '' : ''}`} />
                                                     </Badge>
                                                 ) : (
-                                                    <ChevronRight className={`w-4 h-4 ${rowActionsTargetId === goal.id && rowActionsAnchorEl ? 'transform rotate-90' : ''}`} />
+                                                    <MoreVertical className={`w-4 h-4 ${rowActionsTargetId === goal.id && rowActionsAnchorEl ? '' : ''}`} />
                                                 )}
                                                 </IconButton>
 
@@ -3234,7 +3275,7 @@ const GoalsComponent = () => {
                                                             )} */}
                                                             Notes
                                                     </MenuItem >
-                                                    <MenuItem
+                                                    {/* <MenuItem
                                                         aria-label="Tasks"
                                                         onClick={() => {
                                                             setSelectedGoal(goal);
@@ -3246,7 +3287,8 @@ const GoalsComponent = () => {
                                                     >
                                                         <ListTodo className="w-4 h-4 mr-2" />
                                                         Tasks
-                                                    </MenuItem>
+                                                    </MenuItem> */}
+                                                    
                                                     <MenuItem
                                                         onClick={() => {
                                                             setSelectedGoal(goal);
@@ -3275,12 +3317,13 @@ const GoalsComponent = () => {
                                         
                                         {/* Task rows when expanded */}
                                         {isExpanded && goalTasks.map((task) => (
-                                            <TableRow key={`task-${task.id}`} className="bg-background-color">
+                                            <TableRow key={`task-${task.id}`} className="flex w-full bg-background-color pl-24">
                                                 <TableCell colSpan={5} className="pl-16">
                                                     <TaskCard 
                                                         task={task}
                                                         filter={filter}
                                                         selectable
+                                                        list
                                                         isSelected={selectedIds.has(task.id)}
                                                         onToggleSelect={(id) => toggleSelect(id, 'tasks')}
                                                         onStatusChange={async (taskId, newStatus) => {
