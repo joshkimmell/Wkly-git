@@ -446,7 +446,8 @@ const Login = () => {
                               type="submit"
                               variant="contained"
                               disabled={!email || !password || !passwordReEnter || !passwordsMatch}
-                              sx={{ py: 1.2, px: 3, backgroundColor: primaryColor, color: textOnColor, '&:hover': { opacity: 0.95 } }}
+                              sx={{ py: 1.2, px: 3, color: muiTheme.palette.text.primary, '&:hover': { opacity: 0.95 } }}
+                              className='btn-primary'
                             >
                               Register
                             </Button>

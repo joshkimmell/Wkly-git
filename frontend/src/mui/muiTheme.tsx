@@ -696,16 +696,6 @@ const AppMuiThemeProvider: React.FC<Props> = ({ mode, children }) => {
     return () => window.removeEventListener(PALETTE_UPDATED_EVENT, onPalette as EventListener);
   }, []);
 
-  // Mode changes update the `.dark` class in App via an effect.
-  // Rebuild once more on the next frame so computed CSS vars are read
-  // after that class update has been applied.
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      setPaletteVersion(v => v + 1);
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [mode]);
-
   // Rebuild theme when either the mode or the paletteVersion changes.
   const theme = useMemo(() => buildTheme(mode), [mode, paletteVersion]);
 

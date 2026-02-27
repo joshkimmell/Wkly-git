@@ -1,7 +1,12 @@
 import React from 'react';
 
-export default function Logo(props: React.SVGProps<SVGSVGElement>) {
-  const { className, style, ...rest } = props;
+interface LogoProps extends React.SVGProps<SVGSVGElement> {
+  useTheme?: boolean;
+}
+
+export default function Logo(props: LogoProps) {
+  const { className, style, useTheme = false, ...rest } = props;
+  const fillColor = useTheme ? 'var(--primary-text)' : 'white';
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -21,7 +26,7 @@ export default function Logo(props: React.SVGProps<SVGSVGElement>) {
       </mask>
       <defs>
         <style type="text/css">{`
-          g { fill: white; }
+          g { fill: ${fillColor}; }
           g .fill-brand { fill: currentColor; }
         `}</style>
       </defs>

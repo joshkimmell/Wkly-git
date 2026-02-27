@@ -242,7 +242,7 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
         {active === 'profile' && (
           <form onSubmit={handleUpdateProfile} className="space-y-6">
             <div className="flex flex-col items-center gap-4 mb-4">
-              <Avatar isEdit onChange={handleAvatarChange} src={previewSrc} uploading={loading} size="lg" />
+              <Avatar isEdit onChange={handleAvatarChange} src={previewSrc} uploading={loading} size="lg" showLabel />
               <TextField label="Username" value={username} onChange={(e) => setUsername(e.target.value)} fullWidth />
               <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth />
               <div className="w-full flex justify-start">
