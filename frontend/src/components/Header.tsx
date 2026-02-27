@@ -273,6 +273,15 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                                     to="/"
                                     className={`${classTabItem}${location.pathname === '/' ? ' active' : ''}`}
                                 >
+                                    <Home className="w-4 h-4 mr-1.5" />
+                                    Home
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    to="/goals"
+                                    className={`${classTabItem}${location.pathname === '/goals' ? ' active' : ''}`}
+                                >
                                     <LayoutGrid className="w-4 h-4 mr-1.5" />
                                     Goals
                                 </Link>

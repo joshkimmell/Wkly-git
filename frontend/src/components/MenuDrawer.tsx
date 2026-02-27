@@ -137,7 +137,8 @@ const toggleThemeInternal = (): void => {
 
   const location = useLocation();
   const navItems = [
-    { label: 'Goals', href: '/', icon: <LayoutGrid className='w-4 h-4' /> },
+    { label: 'Home', href: '/', icon: <Home className='w-4 h-4' /> },
+    { label: 'Goals', href: '/goals', icon: <LayoutGrid className='w-4 h-4' /> },
     { label: 'Summaries', href: '/summaries', icon: <Text className='w-4 h-4' /> },
   ];
 

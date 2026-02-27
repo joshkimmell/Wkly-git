@@ -4,6 +4,7 @@ import { GoalsProvider } from '@context/GoalsContext';
 import ToastNotification, { notifySuccess, notifyError } from '@components/ToastyNotification';
 // import WeeklyGoals from '@components/WeeklyGoals';
 import AllGoals from '@components/AllGoals';
+import HomePage from '@components/HomePage';
 import Header from '@components/Header';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import supabase from '@lib/supabase';
@@ -141,7 +142,8 @@ const App: React.FC = () => {
 
             <Routes>
               {/* <Route path="/" element={<WeeklyGoals />} /> */}
-              <Route path="/" element={<AllGoals />} />
+              <Route path="/" element={<HomePage />} />
+              <Route path="/goals" element={<AllGoals />} />
               <Route path="/mui-demo" element={<MuiCompareDemo />} />
               {/* <Route path="/accomplishments" element={<AllAccomplishments />} /> */}
               <Route path="/summaries" element={<AllSummaries />} />
