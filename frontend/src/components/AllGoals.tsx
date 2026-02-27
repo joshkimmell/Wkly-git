@@ -1561,6 +1561,17 @@ const GoalsComponent = () => {
         return true;
     };
 
+    // Expanded rows state for table view (declared here so sort memos can reference tableTasksByGoal)
+    const [expandedRowIds, setExpandedRowIds] = useState<Set<string>>(new Set());
+    const [tableTasksByGoal, setTableTasksByGoal] = useState<Record<string, Task[]>>({});
+    const [addingTaskForGoal, setAddingTaskForGoal] = useState<string | null>(null);
+    const [newTaskData, setNewTaskData] = useState<Partial<Task>>({
+        title: '',
+        description: '',
+        scheduled_date: '',
+        scheduled_time: '',
+    });
+
     // Filtered & sorted list for the current page (cards/table)
     // If the global "Show all" toggle is enabled, present the unscoped fullGoals
     // list instead of the current page's indexed goals so the toggle applies
@@ -1573,6 +1584,13 @@ const GoalsComponent = () => {
             if (sortBy === 'date') {
                 return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
             }
+            if (sortBy === 'title') {
+                const ta = (a.title || '').toLowerCase();
+                const tb = (b.title || '').toLowerCase();
+                if (ta < tb) return -1 * dir;
+                if (ta > tb) return 1 * dir;
+                return 0;
+            }
             if (sortBy === 'category') {
                 const ca = (a.category || '').toLowerCase();
                 const cb = (b.category || '').toLowerCase();
@@ -1580,13 +1598,12 @@ const GoalsComponent = () => {
                 if (ca > cb) return 1 * dir;
                 return 0;
             }
-            const sa = (a.status || '').toLowerCase();
-            const sb = (b.status || '').toLowerCase();
-            if (sa < sb) return -1 * dir;
-            if (sa > sb) return 1 * dir;
-            return 0;
+            // status sorts by completion percentage (% of tasks done)
+            const pa = calculateGoalCompletion(tableTasksByGoal[a.id] || []);
+            const pb = calculateGoalCompletion(tableTasksByGoal[b.id] || []);
+            return dir * (pa - pb);
         });
-    }, [showAllGoals, fullGoals, indexedGoals, currentPage, debouncedFilter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection]);
+    }, [showAllGoals, fullGoals, indexedGoals, currentPage, debouncedFilter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection, tableTasksByGoal]);
     
 
     // Proactively fetch counts for visible goals on page load (batched in chunks)
@@ -1633,6 +1650,13 @@ const GoalsComponent = () => {
         if (sortBy === 'date') {
             return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
         }
+        if (sortBy === 'title') {
+            const ta = (a.title || '').toLowerCase();
+            const tb = (b.title || '').toLowerCase();
+            if (ta < tb) return -1 * dir;
+            if (ta > tb) return 1 * dir;
+            return 0;
+        }
         if (sortBy === 'category') {
             const ca = (a.category || '').toLowerCase();
             const cb = (b.category || '').toLowerCase();
@@ -1640,11 +1664,10 @@ const GoalsComponent = () => {
             if (ca > cb) return 1 * dir;
             return 0;
         }
-        const sa = (a.status || '').toLowerCase();
-        const sb = (b.status || '').toLowerCase();
-        if (sa < sb) return -1 * dir;
-        if (sa > sb) return 1 * dir;
-        return 0;
+        // status sorts by completion percentage (% of tasks done)
+        const pa = calculateGoalCompletion(kanbanTasks[a.id] || []);
+        const pb = calculateGoalCompletion(kanbanTasks[b.id] || []);
+        return dir * (pa - pb);
     });
 
     // Filtered & sorted list from the unscoped fullGoals cache (when available)
@@ -1653,6 +1676,13 @@ const GoalsComponent = () => {
         if (sortBy === 'date') {
             return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
         }
+        if (sortBy === 'title') {
+            const ta = (a.title || '').toLowerCase();
+            const tb = (b.title || '').toLowerCase();
+            if (ta < tb) return -1 * dir;
+            if (ta > tb) return 1 * dir;
+            return 0;
+        }
         if (sortBy === 'category') {
             const ca = (a.category || '').toLowerCase();
             const cb = (b.category || '').toLowerCase();
@@ -1660,11 +1690,10 @@ const GoalsComponent = () => {
             if (ca > cb) return 1 * dir;
             return 0;
         }
-        const sa = (a.status || '').toLowerCase();
-        const sb = (b.status || '').toLowerCase();
-        if (sa < sb) return -1 * dir;
-        if (sa > sb) return 1 * dir;
-        return 0;
+        // status sorts by completion percentage (% of tasks done)
+        const pa = calculateGoalCompletion(kanbanTasks[a.id] || []);
+        const pb = calculateGoalCompletion(kanbanTasks[b.id] || []);
+        return dir * (pa - pb);
     });
 
     // Compute visible IDs depending on viewMode (kanban wants all-goals filtering)
@@ -1738,16 +1767,7 @@ const GoalsComponent = () => {
         setSelectionType(null);
     };
 
-    // Expanded rows state for table view
-    const [expandedRowIds, setExpandedRowIds] = useState<Set<string>>(new Set());
-    const [tableTasksByGoal, setTableTasksByGoal] = useState<Record<string, Task[]>>({});
-    const [addingTaskForGoal, setAddingTaskForGoal] = useState<string | null>(null);
-    const [newTaskData, setNewTaskData] = useState<Partial<Task>>({
-        title: '',
-        description: '',
-        scheduled_date: '',
-        scheduled_time: '',
-    });
+    // (expandedRowIds, tableTasksByGoal, addingTaskForGoal, newTaskData moved above sortedAndFilteredGoals)
     
     // Calculate visible task IDs for task selection
     const visibleTaskIds = useMemo(() => {

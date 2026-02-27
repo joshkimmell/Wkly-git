@@ -86,13 +86,10 @@ const Login = () => {
       }
     
       try {
-          // Ask Supabase to include a redirect in the confirmation email.
-          // Use the public production host (wkly.me) so the user lands on the real site
-          // after confirming their email. We include both commonly-accepted option
-          // keys to be compatible with different client versions.
           const { data, error } = await supabase.auth.signUp({
             email,
             password,
+            options: { emailRedirectTo: 'https://wkly.me' },
           });
     
         if (error) {
@@ -190,6 +187,16 @@ const Login = () => {
         return;
       }
       // console.log('Registration successful:', result);
+      // Send branded confirmation email via Mailgun (bypasses Supabase's rate-limited email)
+      try {
+        await fetch('/api/sendConfirmEmail', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, name: fullName || undefined }),
+        });
+      } catch (emailErr) {
+        console.warn('sendConfirmEmail request failed (non-fatal):', emailErr);
+      }
       // Show a confirmation notice instructing the user to confirm their email.
       setIsRegisterModalOpen(false);
       setShowConfirmNotice(true);
@@ -318,7 +325,7 @@ const Login = () => {
               </Button>
               <div className='flex flex-row justify-start gap-4 pt-6'>
                 <Button variant="outlined" onClick={openModal} sx={{ py: 0.8, px: 3, borderRadius: radius }}>
-                  Register
+                  Try for free
                 </Button>
                 <Button variant="text" onClick={() => handlePasswordReset(email)} sx={{ py: 0.8 }}>
                   Forgot Password
