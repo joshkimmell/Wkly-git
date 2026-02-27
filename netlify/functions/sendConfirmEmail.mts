@@ -59,7 +59,8 @@ const handler: Handler = async (event) => {
     // and the standalone MAILGUN_* vars as a fallback.
     const mgApiKey = process.env.NETLIFY_EMAILS_PROVIDER_API_KEY || process.env.MAILGUN_API_KEY
     const mgDomain = process.env.NETLIFY_EMAILS_MAILGUN_DOMAIN || process.env.MAILGUN_DOMAIN
-    const fromEmail = process.env.FROM_EMAIL || `noreply@${mgDomain}`
+    // Strip surrounding quotes that some env var editors add (e.g. "Wkly <x@y>" → Wkly <x@y>)
+    const fromEmail = (process.env.FROM_EMAIL || `noreply@${mgDomain}`).replace(/^["']|["']$/g, '')
     // Netlify Emails uses 'eu' region for api.eu.mailgun.net, otherwise api.mailgun.net
     const isEu = (process.env.NETLIFY_EMAILS_MAILGUN_HOST_REGION || '').toLowerCase() === 'eu'
     const mgBase = isEu ? 'https://api.eu.mailgun.net/v3' : 'https://api.mailgun.net/v3'
