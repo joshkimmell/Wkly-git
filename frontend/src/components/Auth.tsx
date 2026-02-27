@@ -187,16 +187,8 @@ const Login = () => {
         return;
       }
       // console.log('Registration successful:', result);
-      // Send branded confirmation email via Mailgun (bypasses Supabase's rate-limited email)
-      try {
-        await fetch('/api/sendConfirmEmail', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, name: fullName || undefined }),
-        });
-      } catch (emailErr) {
-        console.warn('sendConfirmEmail request failed (non-fatal):', emailErr);
-      }
+      // Supabase sends the confirmation email directly via custom SMTP (Mailgun).
+      // No secondary send needed here.
       // Show a confirmation notice instructing the user to confirm their email.
       setIsRegisterModalOpen(false);
       setShowConfirmNotice(true);
