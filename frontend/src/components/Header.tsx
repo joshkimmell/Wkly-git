@@ -7,7 +7,7 @@ import { classTabItem } from '@styles/classes';
 // import { classMenuItem } from '@styles/classes';
 // supabase client not needed here; use useAuth hook's session instead
 import useAuth from '@hooks/useAuth';
-import { Menu, MenuItem } from '@mui/material';
+import { Menu, MenuItem, Tooltip } from '@mui/material';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP, useOverlayDebug } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
@@ -307,11 +307,24 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                             <div className='header-brand--avatar-wrapper absolute top-8 sm:top-10 right-3 sm:right-10'>
                                 {!drawerVisible && (
                                     <>
-                                        <Avatar
-                                            isEdit={false}
-                                            onClick={handleMenuOpen}
-                                            size={drawerVisible ? 'sm' : 'md'}
-                                        />
+                            <Tooltip title="Profile" placement="bottom">
+                              <span>
+                                <Avatar
+                                    isEdit={false}
+                                    onClick={handleMenuOpen}
+                                    size={drawerVisible ? 'sm' : 'md'}
+                                    buttonSx={{
+                                      '& .MuiAvatar-root': {
+                                        transition: 'border-color 150ms, background-color 150ms',
+                                      },
+                                      '&:hover .MuiAvatar-root': {
+                                        borderColor: 'var(--primary)',
+                                        backgroundColor: 'color-mix(in srgb, var(--brand-30, #c300dc) 80%, transparent)',
+                                      },
+                                    }}
+                                />
+                              </span>
+                            </Tooltip>
                                         <Menu
                                             anchorEl={menuAnchor}
                                             open={Boolean(menuAnchor)}

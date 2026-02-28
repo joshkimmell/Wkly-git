@@ -64,9 +64,9 @@ const App: React.FC = () => {
     // theme so CSS variables and class-based styles update for both
     // Tailwind/class-based styling and the MUI theme provider.
     if (theme === 'theme-dark') {
-      document.body.classList.add('dark');
+      document.documentElement.classList.add('dark');
     } else {
-      document.body.classList.remove('dark');
+      document.documentElement.classList.remove('dark');
     }
     try {
       document.documentElement.setAttribute('data-theme', theme);

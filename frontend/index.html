@@ -5,6 +5,20 @@
   <meta name="viewport" content="initial-scale=1, width=device-width" />
     <link rel="icon" href="/favicon.ico" />
     <title>Wkly</title>
+    <!-- Apply theme before React mounts to prevent flash of wrong theme -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('theme');
+          if (t === 'theme-light') {
+            document.documentElement.classList.remove('dark');
+          } else {
+            // default: dark
+            document.documentElement.classList.add('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

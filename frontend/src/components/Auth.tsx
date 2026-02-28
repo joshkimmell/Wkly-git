@@ -213,12 +213,14 @@ const Login = () => {
       }
     }
 
-    const [theme, setTheme] = useState<'theme-dark' | 'theme-light'>(
-      window.matchMedia('(prefers-color-scheme: dark)').matches ? 'theme-dark' : 'theme-light'
-    );
+    const [theme, setTheme] = useState<'theme-dark' | 'theme-light'>(() => {
+      try {
+        const stored = localStorage.getItem('theme');
+        if (stored === 'theme-dark' || stored === 'theme-light') return stored;
+      } catch {}
+      return 'theme-dark';
+    });
   const muiTheme = useMuiTheme();
-  const primaryColor = muiTheme?.palette?.primary?.main || 'var(--wkly-btn-primary)';
-  const textOnColor = muiTheme?.palette?.text?.primary || 'var(--wkly-text-on-color)';
   const fieldBg = muiTheme?.palette?.background?.paper || 'var(--wkly-background)';
   const dividerColor = muiTheme?.palette?.divider || 'var(--wkly-divider)';
   const radius = (muiTheme as any)?.shape?.borderRadius ? `${(muiTheme as any).shape.borderRadius}px` : 'var(--wkly-radius)';
@@ -244,17 +246,18 @@ const Login = () => {
   
   useEffect(() => {
     if (theme === 'theme-dark') {
-      document.body.classList.add('dark');
+      document.documentElement.classList.add('dark');
     } else {
-      document.body.classList.remove('dark');
+      document.documentElement.classList.remove('dark');
     }
+    try { localStorage.setItem('theme', theme); } catch {}
   }, [theme]);
   
     return (
     <SessionContextProvider supabaseClient={supabase}>
       <AppMuiThemeProvider mode={theme}>
       <div className={`${theme}`}>
-        <div className={`min-h-screen bg-gray-10 dark:bg-gray-90 text-gray-90 dark:text-gray-10`}>
+        <div className={`min-h-screen bg-background text-primary-text`}>
           <Header   
             theme={theme}
             toggleTheme={toggleTheme}

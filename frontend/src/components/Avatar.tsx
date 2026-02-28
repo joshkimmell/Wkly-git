@@ -16,9 +16,10 @@ interface UploadAvatarsProps {
   uploading?: boolean; // show uploading indicator
   size?: 'sm' | 'md' | 'lg'; // small, medium, or large avatar
   showLabel?: boolean; // show avatarAlt text beneath the avatar
+  buttonSx?: object; // extra sx forwarded to the ButtonBase wrapper
 }
 
-export default function UploadAvatars({ isEdit, onClick, onChange, src, uploading, size = 'sm', showLabel = false }: UploadAvatarsProps) {
+export default function UploadAvatars({ isEdit, onClick, onChange, src, uploading, size = 'sm', showLabel = false, buttonSx = {} }: UploadAvatarsProps) {
   const [avatarSrc, setAvatarSrc] = React.useState<string | undefined>(undefined); // internal or stored shown src
   const [storedAvatarUrl, setStoredAvatarUrl] = React.useState<string | undefined>(undefined); // persisted avatar_url from profile
   const [avatarAlt, setAvatarAlt] = React.useState<string | undefined>(undefined);
@@ -176,6 +177,7 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
           outline: '2px solid',
           outlineOffset: '2px',
         },
+        ...buttonSx,
       }}
       onClick={onClick} // Updated to use the correct type
     >
