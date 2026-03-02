@@ -271,17 +271,17 @@ const toggleThemeInternal = (): void => {
           {navItems.map(({ label, href, icon }) => {
             const isActive = location.pathname === href;
             return (
-              <ListItem key={label} disablePadding>
+              <ListItem key={label} disablePadding className="border-l-4" sx={{ borderColor: isActive ? 'primary.main' : 'transparent' }}>
                 <ListItemButton
                   component={Link}
                   to={href}
                   onClick={handleDrawerClose}
-                  className={`gap-0 border-b-2 ${isActive ? 'border-[var(--primary-icon)]' : 'border-transparent'}`}
+                  className={`flex gap-0 ${isActive ? 'border-2 border-brand-70 dark:border-brand-30' : 'border-none'}`}
                 >
-                  <ListItemIcon sx={{ color: isActive ? 'var(--primary-icon)' : undefined }}>
+                  <ListItemIcon className={`${isActive ? 'text-brand-70 dark:text-brand-30' : 'text-primary-text'}`}>
                     {icon}
                   </ListItemIcon>
-                  <ListItemText primary={label} />
+                  <ListItemText  className={`${isActive ? 'text-brand-70 dark:text-brand-30' : 'text-primary-text'}`} primary={label} />
                 </ListItemButton>
               </ListItem>
             );
