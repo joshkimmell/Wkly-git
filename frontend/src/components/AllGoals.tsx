@@ -21,17 +21,17 @@ import { mapPageForScope, loadPageByScope, savePageByScope } from '@utils/pagina
 import 'react-datepicker/dist/react-datepicker.css';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
-import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, CalendarDays, Eye, Edit, Trash, EyeOff, ChevronRight, ChevronDown, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash, ListTodo, Clock, CircleEllipsis, MoreVertical, Expand, Minimize, Maximize, Shrink } from 'lucide-react';
+import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, CalendarDays, Eye, Edit, Trash, EyeOff, ChevronRight, ChevronDown, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash, ListTodo, Clock, CircleEllipsis, MoreVertical, Expand, Minimize, Maximize, Shrink, CircleOff, XCircle, XCircleIcon } from 'lucide-react';
 import { useGoalsContext } from '@context/GoalsContext';
 import useGoalExtras from '@hooks/useGoalExtras';
 // notify helpers imported where needed below
-import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, FormGroup, FormLabel, InputLabel, Select, MenuItem, Tooltip, Menu, Chip, Badge, Checkbox, ListItemText, ToggleButtonGroup, ToggleButton, Table, TableHead, TableBody, TableRow, TableCell, Paper, Typography, Switch, FormControlLabel, useMediaQuery, Button } from '@mui/material';
+import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, FormGroup, FormLabel, InputLabel, Select, MenuItem, Tooltip, Menu, Chip, Badge, Checkbox, ListItemText, ToggleButtonGroup, ToggleButton, Table, TableHead, TableBody, TableRow, TableCell, Paper, Typography, Switch, FormControlLabel, useMediaQuery, Button, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 // dnd-kit was attempted but failed to install; use HTML5 drag/drop fallback
 import { useTheme } from '@mui/material/styles';
 import supabase from '@lib/supabase';
-import { STATUS_COLORS } from '../constants/statuses';
+import { STATUS_COLORS, STATUSES } from '../constants/statuses';
 import { notifyError, notifySuccess, notifyWithUndo } from '@components/ToastyNotification';
-import { DatePicker, LocalizationProvider, TimeClock } from '@mui/x-date-pickers';
+import { ClearIcon, DatePicker, LocalizationProvider, TimeClock } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type { Dayjs } from 'dayjs';
 import type { ChangeEvent } from 'react';
@@ -174,7 +174,7 @@ const GoalsComponent = () => {
     const blurTimeoutRef = useRef<number | null>(null);
     const showClear = filter.length > 0 || filterFocused || clearButtonFocused;
         // Filter popover state and criteria
-    const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLElement | null>(null);
+    const [filterPanelOpen, setFilterPanelOpen] = useState(false);
     const [filterStatus, setFilterStatus] = useState<string[]>([]);
     const [filterCategory, setFilterCategory] = useState<string[]>([]);
     const [filterGoal, setFilterGoal] = useState<string[]>([]);
@@ -315,16 +315,15 @@ const GoalsComponent = () => {
     // derive category options from the currently loaded goals (only categories actually used by goals)
     const allLoadedGoals = Object.values(indexedGoals).flat();
     const categoryOptions = Array.from(new Set(allLoadedGoals.map((g) => (g.category || '').toString()).filter(Boolean)));
-        // derive statuses from current goals if available
-        const statusOptions = Array.from(new Set(Object.values(indexedGoals).flat().map((g) => (g.status || '').toString()).filter(Boolean)));
+        // task status options (fixed list)
+        const statusOptions = [...STATUSES];
 
     // Count of active filters to display as a badge on the filter button
     const selectedFiltersCount =
         (filterStatus?.length || 0) +
         (filterCategory?.length || 0) +
         (filterGoal?.length || 0) +
-        (filterStartDate && filterEndDate ? 1 : 0) +
-        (filter && filter.trim().length > 0 ? 1 : 0);
+        (filterStartDate && filterEndDate ? 1 : 0);
 
     const theme = useTheme();
     const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
@@ -1460,9 +1459,6 @@ const GoalsComponent = () => {
         );
         if (!textMatch) return false;
 
-        // status filter (multi-select)
-        if (filterStatus && filterStatus.length > 0 && !filterStatus.includes((goal.status || ''))) return false;
-
         // category filter (multi-select)
         if (filterCategory && filterCategory.length > 0 && !filterCategory.includes((goal.category || ''))) return false;
 
@@ -2085,173 +2081,23 @@ const GoalsComponent = () => {
             {/* Filter and Sort Controls */}
                 <div className="relative mt-4 h-10 flex items-center space-x-2">
                     
-                    {/* Filter button + MUI TextField replacement for filter input */}
-                    <>
-                        <Tooltip title="Open filters" placement="top" arrow>
+                    {/* Filter toggle button */}
+                    <Tooltip title={filterPanelOpen ? 'Close filters' : 'Open filters'} placement="top" arrow>
                         <span>
-                        <Badge badgeContent={selectedFiltersCount} color="primary" invisible={selectedFiltersCount === 0}>
-                                        {/* <Button
-                                            aria-label={
-                                                selectedIds.size > 0 ? `Set category (${selectedIds.size})` : 'Set category'
-                                            }
-                                            onClick={(e) => {
-                                                setBulkCategoryAnchorEl(e.currentTarget);
-                                                setBulkCategoryAnchorPos(undefined);
-                                                setBulkCategoryLastClickPos({ x: e.clientX, y: e.clientY });
-                                            }}
-                                            {...(process.env.NODE_ENV === 'test' ? { 'data-testid': 'bulk-set-category-btn' } : {})}
-                                        >
-                                            <TagIcon />
-                                        </Button> */}
-                            <IconButton
-                                className="btn-ghost mr-2"
-                                size="small"
-                                aria-label={`Open filters${selectedFiltersCount > 0 ? ` (${selectedFiltersCount} active)` : ''}`}
-                                onClick={(e) => setFilterAnchorEl(e.currentTarget)}
+                            <Badge badgeContent={selectedFiltersCount} color="primary" invisible={selectedFiltersCount === 0}>
+                                <IconButton
+                                    className={`btn-ghost mr-2 border-2${filterPanelOpen ? ' !bg-gray-20 dark:!bg-gray-80 !text-primary-text !border-primary' : ''}`}
+                                    size="small"
+                                    aria-label={`${filterPanelOpen ? 'Close' : 'Open'} filters${selectedFiltersCount > 0 ? ` (${selectedFiltersCount} active)` : ''}`}
+                                    aria-pressed={filterPanelOpen}
+                                    onClick={() => setFilterPanelOpen(prev => !prev)}
                                 >
-                                <FilterIcon className="w-5 h-5" />
-                            </IconButton>
-                        </Badge>
+                                    <FilterIcon className="w-5 h-5" />
+                                </IconButton>
+                            </Badge>
                         </span>
-                        </Tooltip>
-                        <Popover
-                            open={Boolean(filterAnchorEl)}
-                            anchorEl={filterAnchorEl}
-                            onClose={() => setFilterAnchorEl(null)}
-                            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-                        >
-                            <Box sx={{ p: 2, width: 280, bgcolor: 'var(--color-background)' }}>
-                                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                                    <InputLabel id="filter-status-label">Status</InputLabel>
-                                        <Select
-                                            labelId="filter-status-label"
-                                            multiple
-                                            value={filterStatus}
-                                            label="Status"
-                                            onChange={(e) => {
-                                                const val = (e.target as HTMLInputElement).value;
-                                                setFilterStatus(typeof val === 'string' ? val.split(',') : (val as string[]));
-                                            }}
-                                            renderValue={(selected) => (selected as string[]).join(', ')}
-                                        >
-                                            {/* <MenuItem value="">
-                                                <ListItemText primary="Any" />
-                                            </MenuItem> */}
-                                            {statusOptions.map((s) => (
-                                                <MenuItem key={s} value={s}>
-                                                    <Checkbox size="small" checked={(filterStatus || []).indexOf(s) > -1} />
-                                                    <ListItemText primary={s} />
-                                                </MenuItem>
-                                            ))}
-                                        </Select>
-                                </FormControl>
-                                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                                    <InputLabel id="filter-category-label">Category</InputLabel>
-                                        <Select
-                                            labelId="filter-category-label"
-                                            multiple
-                                            value={filterCategory}
-                                            label="Category"
-                                            onChange={(e) => {
-                                                const val = (e.target as HTMLInputElement).value;
-                                                setFilterCategory(typeof val === 'string' ? val.split(',') : (val as string[]));
-                                            }}
-                                            renderValue={(selected) => (selected as string[]).join(', ')}
-                                        >
-                                            {/* <MenuItem value="">
-                                                <ListItemText primary="Any" />
-                                            </MenuItem> */}
-                                            {categoryOptions.map((c) => (
-                                                <MenuItem key={c} value={c}>
-                                                    <Checkbox size="small" checked={(filterCategory || []).indexOf(c) > -1} />
-                                                    <ListItemText primary={c} />
-                                                </MenuItem>
-                                            ))}
-                                        </Select>
-                                </FormControl>
-                                {(viewMode === 'kanban' || viewMode === 'tasks-calendar') && (
-                                    <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                                        <InputLabel id="filter-goal-label">Goal</InputLabel>
-                                            <Select
-                                                labelId="filter-goal-label"
-                                                multiple
-                                                value={filterGoal}
-                                                label="Goal"
-                                                onChange={(e) => {
-                                                    const val = (e.target as HTMLInputElement).value;
-                                                    setFilterGoal(typeof val === 'string' ? val.split(',') : (val as string[]));
-                                                }}
-                                                renderValue={(selected) => 
-                                                    (selected as string[]).map(id => {
-                                                        const allGoals = showAllGoals ? (fullGoals || []) : (indexedGoals[currentPage] || []);
-                                                        const goal = allGoals.find(g => g.id === id);
-                                                        return goal?.title || id;
-                                                    }).join(', ')
-                                                }
-                                            >
-                                                {(() => {
-                                                    const allGoals = showAllGoals ? (fullGoals || []) : (indexedGoals[currentPage] || []);
-                                                    return allGoals.map((goal) => (
-                                                        <MenuItem key={goal.id} value={goal.id}>
-                                                            <Checkbox size="small" checked={(filterGoal || []).indexOf(goal.id) > -1} />
-                                                            <ListItemText primary={goal.title} />
-                                                        </MenuItem>
-                                                    ));
-                                                })()}
-                                            </Select>
-                                    </FormControl>
-                                )}
-                                {(showAllGoals || scope === 'year') && (
-                                    <div className="flex flex-col space-y-2 mb-2">
-                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                        <div>
-                                            <label className="block text-sm text-gray-60 mb-1">Start</label>
-                                            <DatePicker
-                                                value={filterStartDate}
-                                                onChange={(v: Dayjs | null) => setFilterStartDate(v)}
-                                                slotProps={{ textField: { size: 'small' } }}
-                                                maxDate={filterEndDate || undefined}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm text-gray-60 mb-1">End</label>
-                                            <DatePicker
-                                                value={filterEndDate}
-                                                onChange={(v: Dayjs | null) => setFilterEndDate(v)}
-                                                slotProps={{ textField: { size: 'small' } }}
-                                                minDate={filterStartDate || undefined}
-                                            />
-                                        </div>
-                                    </LocalizationProvider>
-                                    </div>
-                                )}
-                        
-                                <div className="flex justify-end space-x-2">
-                                    <button
-                                        type="button"
-                                        className="btn-ghost"
-                                        onClick={() => {
-                                            setFilterStatus([]);
-                                            setFilterCategory([]);
-                                            setFilterGoal([]);
-                                            setFilterStartDate(null);
-                                            setFilterEndDate(null);
-                                        }}
-                                    >
-                                        Clear
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="btn-primary"
-                                        onClick={() => setFilterAnchorEl(null)}
-                                    >
-                                        Done
-                                    </button>
-                                </div>
-                            </Box>
-                        </Popover>
-                    </>
-                   
+                    </Tooltip>
+
                     {/* Selected filter tags (status, category, date range) */}
                     <div className="hidden sm:flex items-center space-x-2 ml-2">
                         {selectedFiltersCount >= 4 ? (
@@ -2368,26 +2214,7 @@ const GoalsComponent = () => {
                                         className="cursor-pointer"
                                     />
                                 )}
-                                {/* Ghost clear-all button */}
-                                {selectedFiltersCount > 0 && (
-                                <button
-                                    type="button"
-                                    className="btn-ghost ml-1"
-                                    title="Clear all filters"
-                                    onClick={() => {
-                                        setFilter('');
-                                        setFilterStatus([]);
-                                        setFilterCategory([]);
-                                        setFilterGoal([]);
-                                        setFilterStartDate(null);
-                                        setFilterEndDate(null);
-                                    }}
-                                    >
-                                    <Tooltip title="Clear all filters" placement='top' arrow>
-                                        <CloseButton className="w-4 h-4" />
-                                    </Tooltip>
-                                </button>
-                                )}
+                                
                             </>
                         )}
                     </div>
@@ -2400,7 +2227,7 @@ const GoalsComponent = () => {
                                 <Badge badgeContent={selectedCount} color="primary">
                                     <span className="sr-only">{selectedCount} selected</span>
                                     <button
-                                        className={`btn-ghost fb-btn ${selectedCount > 0 ? 'dark:[&>.lucide]:stroke-brand-30 [&>.lucide]:stroke-brand-70' : ''}`}
+                                        className={`btn-ghost ${selectedCount > 0 ? 'dark:[&>.lucide]:stroke-brand-30 [&>.lucide]:stroke-brand-70' : ''}`}
                                         onClick={() => {
                                             if (selectedCount > 0) {
                                                 deselectAll();
@@ -2599,12 +2426,23 @@ const GoalsComponent = () => {
                         )}
                         {/* Collapsible search bar */}
                         <div className="relative flex items-center">
-                          {!(searchBarOpen || filter) && (
+                          {/* Search icon: fades out when bar opens */}
+                          <div
+                            style={{
+                              width: (searchBarOpen || filter) ? '0px' : '32px',
+                              opacity: (searchBarOpen || filter) ? 0 : 1,
+                              overflow: 'hidden',
+                              flexShrink: 0,
+                              pointerEvents: (searchBarOpen || filter) ? 'none' : 'auto',
+                              transition: 'width 0.2s ease, opacity 0.15s ease',
+                            }}
+                          >
                             <Tooltip title="Search" placement="top" arrow>
                               <IconButton
                                 className="btn-ghost"
                                 size="small"
                                 aria-label="Search"
+                                tabIndex={(searchBarOpen || filter) ? -1 : 0}
                                 onClick={() => {
                                   setSearchBarOpen(true);
                                   setTimeout(() => filterInputRef.current?.focus(), 50);
@@ -2613,18 +2451,22 @@ const GoalsComponent = () => {
                                 <SearchIcon className="w-5 h-5" />
                               </IconButton>
                             </Tooltip>
-                          )}
+                          </div>
+                          {/* TextField: expands open */}
                           <div
                             style={{
-                              maxWidth: (searchBarOpen || filter) ? '260px' : '0px',
-                              opacity: (searchBarOpen || filter) ? 1 : 0,
-                              overflow: 'hidden',
-                              transition: 'max-width 0.2s ease, opacity 0.15s ease',
+                                width: '100%',
+                                maxWidth: (searchBarOpen || filter) ? '480px' : '0px',
+                                opacity: (searchBarOpen || filter) ? 1 : 0,
+                                overflow: 'hidden',
+                                flexShrink: 0,
+                                transition: 'max-width 0.2s ease, opacity 0.15s ease',
                             }}
                           >
                             <TextField
                               id="goal-filter"
                               size="small"
+                              fullWidth
                               value={filter}
                               inputRef={(el) => { filterInputRef.current = el; }}
                               onFocus={() => {
@@ -2643,30 +2485,66 @@ const GoalsComponent = () => {
                               InputProps={{
                                 startAdornment: (
                                   <InputAdornment position="start">
-                                    <SearchIcon className="w-4 h-4" />
-                                  </InputAdornment>
-                                ),
-                                endAdornment: showClear ? (
-                                  <InputAdornment position="end">
                                     <IconButton
                                       size="small"
-                                      aria-label="Clear filter"
-                                      onMouseDown={(e) => e.preventDefault()}
-                                      onClick={() => {
-                                        handleFilterChange('');
-                                        filterInputRef.current?.focus();
-                                      }}
-                                      onFocus={() => { if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current); setClearButtonFocused(true); }}
-                                      onBlur={() => { blurTimeoutRef.current = window.setTimeout(() => setClearButtonFocused(false), 150); }}
-                                    >
-                                      <CloseButton className="w-4 h-4" />
+                                      aria-label="Close search"
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => {
+                                          setSearchBarOpen(false);
+                                          setFilter('');
+                                        }}
+                                    >   
+
+                                        <CloseButton className="w-5 h-5" />
                                     </IconButton>
                                   </InputAdornment>
-                                ) : null,
+                                ),
+                                endAdornment: (
+                                  <InputAdornment position="end">
+                                    <Tooltip title={filter ? "Clear text" : ""} placement="top" arrow>
+                                      <span>
+                                        <IconButton
+                                          size="small"
+                                          aria-label="Clear text"
+                                          disabled={!filter}
+                                          onMouseDown={(e) => e.preventDefault()}
+                                          onClick={() => {
+                                            handleFilterChange('');
+                                            filterInputRef.current?.focus();
+                                          }}
+                                          onFocus={() => { if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current); setClearButtonFocused(true); }}
+                                          onBlur={() => { blurTimeoutRef.current = window.setTimeout(() => setClearButtonFocused(false), 150); }}
+                                        >
+                                          <XCircleIcon className="w-4 h-4" />
+                                        </IconButton>
+                                      </span>
+                                    </Tooltip>
+                                  </InputAdornment>
+                                ),
                               }}
                             />
                           </div>
                         </div>
+                        {/* Ghost clear-all button */}
+                                {selectedFiltersCount > 0 && (
+                                <button
+                                    type="button"
+                                    className="btn-ghost ml-1"
+                                    title="Clear all filters"
+                                    onClick={() => {
+                                        setFilter('');
+                                        setFilterStatus([]);
+                                        setFilterCategory([]);
+                                        setFilterGoal([]);
+                                        setFilterStartDate(null);
+                                        setFilterEndDate(null);
+                                    }}
+                                    >
+                                    <Tooltip title="Clear all filters" placement='top' arrow>
+                                        <CloseButton className="w-4 h-4" />
+                                    </Tooltip>
+                                </button>
+                                )}
                         
                         {/* Edit Accomplishment Modal (reuses AccomplishmentEditor) */}
                         {isEditAccomplishmentModalOpen && selectedAccomplishment && (
@@ -2815,9 +2693,169 @@ const GoalsComponent = () => {
                         </div>
                     
                     </div>
-                </div> 
+                </div>
 
-                
+                {/* Filter side panel + content row */}
+                <div className="flex flex-row items-start w-full">
+
+                    {/* Slide-in filter panel */}
+                    <div
+                        style={{
+                            width: filterPanelOpen ? '252px' : '0px',
+                            overflow: 'hidden',
+                            flexShrink: 0,
+                            transition: 'width 0.25s ease',
+                        }}
+                    >
+                        <div className="pr-4" style={{ width: '252px', minWidth: '252px' }}>
+                            <div className="rounded-lg border border-gray-20 dark:border-gray-70 bg-background-color p-3 flex flex-col gap-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-semibold text-primary">Filters</span>
+                                    <IconButton size="small" className="btn-ghost" onClick={() => setFilterPanelOpen(false)} aria-label="Close filters">
+                                        <XCircleIcon className="w-4 h-4" />
+                                    </IconButton>
+                                </div>
+                                {/* Status accordion — filters tasks */}
+                                <Accordion defaultExpanded disableGutters elevation={0} sx={{ bgcolor: 'transparent', '&:before': { display: 'none' }, borderBottom: '1px solid', borderColor: 'divider' }}>
+                                    <AccordionSummary expandIcon={<ChevronDown className="w-3.5 h-3.5" />} sx={{ p: 0, minHeight: 'unset', '& .MuiAccordionSummary-content': { my: '6px' } }}>
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-60 dark:text-gray-40">Task Status</span>
+                                    </AccordionSummary>
+                                    <AccordionDetails sx={{ p: 0, pb: 1 }}>
+                                        <div className="flex flex-col">
+                                            {statusOptions.map((s) => (
+                                                <label key={s} className="flex items-center gap-2 cursor-pointer text-sm py-0.5 px-1 rounded hover:bg-gray-10 dark:hover:bg-gray-80">
+                                                    <Checkbox
+                                                        size="small"
+                                                        checked={(filterStatus || []).indexOf(s) > -1}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) setFilterStatus(prev => [...(prev || []), s]);
+                                                            else setFilterStatus(prev => (prev || []).filter(v => v !== s));
+                                                        }}
+                                                        sx={{ p: 0 }}
+                                                    />
+                                                    <span className="flex items-center gap-1.5">
+                                                        <span style={{ width: 8, height: 8, borderRadius: 4, background: STATUS_COLORS[s], display: 'inline-block', flexShrink: 0 }} />
+                                                        {s}
+                                                    </span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </AccordionDetails>
+                                </Accordion>
+
+                                {/* Category accordion */}
+                                <Accordion defaultExpanded disableGutters elevation={0} sx={{ bgcolor: 'transparent', '&:before': { display: 'none' }, borderBottom: '1px solid', borderColor: 'divider' }}>
+                                    <AccordionSummary expandIcon={<ChevronDown className="w-3.5 h-3.5" />} sx={{ p: 0, minHeight: 'unset', '& .MuiAccordionSummary-content': { my: '6px' } }}>
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-60 dark:text-gray-40">Category</span>
+                                    </AccordionSummary>
+                                    <AccordionDetails sx={{ p: 0, pb: 1 }}>
+                                        <div className="flex flex-col">
+                                            {categoryOptions.map((c) => (
+                                                <label key={c} className="flex items-center gap-2 cursor-pointer text-sm py-0.5 px-1 rounded hover:bg-gray-10 dark:hover:bg-gray-80">
+                                                    <Checkbox
+                                                        size="small"
+                                                        checked={(filterCategory || []).indexOf(c) > -1}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) setFilterCategory(prev => [...(prev || []), c]);
+                                                            else setFilterCategory(prev => (prev || []).filter(v => v !== c));
+                                                        }}
+                                                        sx={{ p: 0 }}
+                                                    />
+                                                    {c}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </AccordionDetails>
+                                </Accordion>
+
+                                {/* Goal accordion — kanban / calendar only */}
+                                {(viewMode === 'kanban' || viewMode === 'tasks-calendar') && (
+                                    <Accordion defaultExpanded disableGutters elevation={0} sx={{ bgcolor: 'transparent', '&:before': { display: 'none' }, borderBottom: '1px solid', borderColor: 'divider' }}>
+                                        <AccordionSummary expandIcon={<ChevronDown className="w-3.5 h-3.5" />} sx={{ p: 0, minHeight: 'unset', '& .MuiAccordionSummary-content': { my: '6px' } }}>
+                                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-60 dark:text-gray-40">Goal</span>
+                                        </AccordionSummary>
+                                        <AccordionDetails sx={{ p: 0, pb: 1 }}>
+                                            <div className="flex flex-col">
+                                                {(() => {
+                                                    const allGoals = showAllGoals ? (fullGoals || []) : (indexedGoals[currentPage] || []);
+                                                    return allGoals.map((goal) => (
+                                                        <label key={goal.id} className="flex items-center gap-2 cursor-pointer text-sm py-0.5 px-1 rounded hover:bg-gray-10 dark:hover:bg-gray-80">
+                                                            <Checkbox
+                                                                size="small"
+                                                                checked={(filterGoal || []).indexOf(goal.id) > -1}
+                                                                onChange={(e) => {
+                                                                    if (e.target.checked) setFilterGoal(prev => [...(prev || []), goal.id]);
+                                                                    else setFilterGoal(prev => (prev || []).filter(v => v !== goal.id));
+                                                                }}
+                                                                sx={{ p: 0 }}
+                                                            />
+                                                            <span className="truncate" title={goal.title}>{goal.title}</span>
+                                                        </label>
+                                                    ));
+                                                })()}
+                                            </div>
+                                        </AccordionDetails>
+                                    </Accordion>
+                                )}
+
+                                {/* Date range accordion */}
+                                {(showAllGoals || scope === 'year') && (
+                                    <Accordion defaultExpanded disableGutters elevation={0} sx={{ bgcolor: 'transparent', '&:before': { display: 'none' }, borderBottom: '1px solid', borderColor: 'divider' }}>
+                                        <AccordionSummary expandIcon={<ChevronDown className="w-3.5 h-3.5" />} sx={{ p: 0, minHeight: 'unset', '& .MuiAccordionSummary-content': { my: '6px' } }}>
+                                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-60 dark:text-gray-40">Date Range</span>
+                                        </AccordionSummary>
+                                        <AccordionDetails sx={{ p: 0, pb: 1 }}>
+                                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                                <div>
+                                                    <label className="block text-xs text-gray-60 mb-1">Start</label>
+                                                    <DatePicker
+                                                        value={filterStartDate}
+                                                        onChange={(v: Dayjs | null) => setFilterStartDate(v)}
+                                                        slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                                                        maxDate={filterEndDate || undefined}
+                                                    />
+                                                </div>
+                                                <div className="mt-2">
+                                                    <label className="block text-xs text-gray-60 mb-1">End</label>
+                                                    <DatePicker
+                                                        value={filterEndDate}
+                                                        onChange={(v: Dayjs | null) => setFilterEndDate(v)}
+                                                        slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                                                        minDate={filterStartDate || undefined}
+                                                    />
+                                                </div>
+                                            </LocalizationProvider>
+                                        </AccordionDetails>
+                                    </Accordion>
+                                )}
+                                <div className="flex justify-between items-center pt-2 border-t border-gray-20 dark:border-gray-70">
+                                    <button
+                                        type="button"
+                                        className="btn-ghost text-sm"
+                                        onClick={() => {
+                                            setFilterStatus([]);
+                                            setFilterCategory([]);
+                                            setFilterGoal([]);
+                                            setFilterStartDate(null);
+                                            setFilterEndDate(null);
+                                        }}
+                                    >
+                                        Clear all
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn-primary text-sm"
+                                        onClick={() => setFilterPanelOpen(false)}
+                                    >
+                                        Done
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Goals content */}
+                    <div className="flex-1 min-w-0">
 
                 {/* Goals List - render by viewMode */}
                 {viewMode === 'cards' && (
@@ -3515,6 +3553,7 @@ const GoalsComponent = () => {
                         </Paper>
                     )
                 )}
+
                 <ConfirmModal
                     isOpen={isBulkDeleteConfirmOpen}
                     title={`Delete ${selectedCount} ${selectionType === 'tasks' ? 'tasks' : 'goals'}?`}
@@ -3725,6 +3764,8 @@ const GoalsComponent = () => {
                                     <p className="text-sm">Try adjusting your filters or clearing them to see more results</p>
                                 </div>
                             )}
+                    </div>{/* end goals content */}
+                </div>{/* end filter + content row */}
             </div>
             <div id="summary">
                     <Modal

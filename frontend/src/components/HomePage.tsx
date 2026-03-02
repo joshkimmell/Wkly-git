@@ -136,7 +136,7 @@ function TodayTaskRow({
 
       {/* Title + time */}
       <div className="min-w-0 flex-1">
-        <p className={`text-sm text-primary-text truncate ${displayStatus === 'Done' ? 'line-through' : ''}`}>
+        <p className={`text-sm text-primary-text truncate ${displayStatus === 'Done' ? 'line-through' : ''}`} title={task.title}>
           {task.title}
         </p>
         {task.scheduled_time && (
@@ -222,9 +222,9 @@ function MiniGoalCard({ goal, onClick }: { goal: Goal; onClick: () => void }) {
     <div className="flex w-full items-center justify-between gap-2">
         <div className="flex-1 min-w-0">
           {goal.category && (
-            <p className="text-xs text-gray-50 dark:text-gray-40 mt-0.5 truncate">{goal.category}</p>
+            <p className="text-xs text-gray-50 dark:text-gray-40 mt-0.5 truncate" title={goal.category}>{goal.category}</p>
           )}
-          <p className="font-semibold text-sm text-primary-text truncate">{goal.title}</p>
+          <p className="font-semibold text-sm text-primary-text truncate" title={goal.title}>{goal.title}</p>
         </div>
         <div className="mt-3 mx-8 flex items-center gap-1.5">
             {/* <span

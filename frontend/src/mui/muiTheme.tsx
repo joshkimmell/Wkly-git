@@ -193,7 +193,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
       primary: readCssVar(['--brand-60', '--primary-brand-60'], PALETTES.purple[60], preferBody),
       iconPrimary: readCssVar(['--brand-70', '--primary-brand-70'], PALETTES.purple[70], preferBody),
       background: readCssVar(['--gray-10', '--background-color', '--color-background-color'], PALETTES.gray[10], preferBody),
-      paper: readCssVar(['--gray-0', '--background-paper'], PALETTES.gray[20], preferBody),
+      paper: readCssVar(['--gray-20', '--background-paper'], PALETTES.gray[20], preferBody),
       textPrimary: readCssVar(['--primary-text', '--color-text-primary'], '#111827', preferBody),
       textSecondary: readCssVar(['--secondary-text', '--color-text-secondary'], '#4D4D4D', preferBody),
       divider: readCssVar(['--primary-border', '--color-border-primary'], brand30, preferBody),
@@ -203,7 +203,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
       primary: readCssVar(['--brand-30', '--primary-brand-30'], PALETTES.purple[30], preferBody),
       iconPrimary: readCssVar(['--brand-30', '--primary-brand-30'], PALETTES.purple[30], preferBody),
       background: readCssVar(['--gray-100', '--background-color'], PALETTES.gray[30], preferBody),
-      paper: readCssVar(['--gray-100', '--background-paper'], PALETTES.gray[100], preferBody),
+      paper: readCssVar(['--gray-90', '--background-paper'], PALETTES.gray[90], preferBody),
       textPrimary: readCssVar(['--primary-text', '--color-text-primary'], '#E6E6E6', preferBody),
       textSecondary: readCssVar(['--secondary-text', '--color-text-secondary'], '#B3B3B3', preferBody),
       divider: readCssVar(['--primary-border', '--color-border-primary'], '#e5e7eb', preferBody),
@@ -589,9 +589,36 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
       MuiPaper: {
         styleOverrides: {
           root: {
-            backgroundColor: paper,
+            backgroundColor: modeTokens[chosenMode].paper,
+            backgroundImage: 'none', // suppress MUI dark-mode white overlay
             color: textPrimary,
           },
+        },
+      },
+      MuiMenu: {
+        styleOverrides: {
+          paper: {
+            backgroundColor: modeTokens[chosenMode].paper,
+            backgroundImage: 'none',
+            color: textPrimary,
+          },
+          list: {
+            backgroundColor: modeTokens[chosenMode].paper,
+          },
+        },
+      },
+      MuiPopover: {
+        styleOverrides: {
+          paper: {
+            backgroundColor: modeTokens[chosenMode].paper,
+            backgroundImage: 'none',
+            color: textPrimary,
+          },
+        },
+      },
+      MuiSelect: {
+        styleOverrides: {
+          // The dropdown list uses a Paper; ensure it's opaque too
         },
       },
       MuiSwitch: {

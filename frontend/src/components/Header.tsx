@@ -292,9 +292,9 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                         </ul>
                     </nav>
                 )}
-                {/* Mobile drawer — only rendered on small screens when authenticated */}
+                {/* Mobile drawer — only rendered on medium screens when authenticated */}
                 {isAuthenticated && (
-                    <div ref={drawerContainerRef} className="relative sm:hidden">
+                    <div ref={drawerContainerRef} className="relative md:hidden">
                         <PersistentDrawerRight
                             theme={props.theme}
                             toggleTheme={props.toggleTheme}
