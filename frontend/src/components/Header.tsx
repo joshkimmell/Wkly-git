@@ -1,13 +1,14 @@
-import MenuBtn, { MenuBtnProps } from '@components/menu-btn';
+import { MenuBtnProps } from '@components/menu-btn';
+// import MenuBtn from '@components/menu-btn';
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import menuClosedIcon from '/images/button-menu.svg';
+// import menuClosedIcon from '/images/button-menu.svg';
 import { Sun, Moon, Home, Text, LayoutGrid } from 'lucide-react';
 import { classTabItem } from '@styles/classes';
 // import { classMenuItem } from '@styles/classes';
 // supabase client not needed here; use useAuth hook's session instead
 import useAuth from '@hooks/useAuth';
-import { Menu, MenuItem, Tooltip } from '@mui/material';
+import { Menu, MenuItem } from '@mui/material';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP, useOverlayDebug } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
@@ -101,23 +102,16 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     // };
     
     // Logo is an imported SVG component; render it directly as <Logo /> below
-    const handleClick = (): void => {
-        setIsOpen((prev) => !prev); 
-        // if (menuOpen !== true) {
-        //     setIsOpen(true);
-        // }
-        // else {
-        //     setIsOpen(false);
-        // }   
-    };
+    // const handleClick = (): void => {
+    //     setIsOpen((prev) => !prev); 
+        
+    // };
 
-    const handleMenuItemClick = (): void => {
-        setIsOpen(false); // Close the menu when a menu item is selected
-        menuClosedIcon; // Reset the menu icon to menuClosedIcon
-        handleClick;
-        // console.log({isOpen});
-        // You can add any additional logic here if needed});
-    };
+    // const handleMenuItemClick = (): void => {
+    //     setIsOpen(false); // Close the menu when a menu item is selected
+    //     menuClosedIcon; // Reset the menu icon to menuClosedIcon
+    //     handleClick;
+    // };
 
     // The app-level `theme` and `toggleTheme` are provided via props.
     // Avoid maintaining a separate local themeState here which can diverge
@@ -265,7 +259,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                         </Link>
                     </div>
                 )}
-                {!isMenuHidden() && !drawerVisible && (
+                {isAuthenticated && !isMenuHidden() && !drawerVisible && (
                     <nav className="tabs hidden sm:flex items-end self-end ml-6 h-full">
                         <ul className="flex -mb-px text-sm font-medium">
                             <li>
@@ -298,58 +292,43 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                         </ul>
                     </nav>
                 )}
-                {/* Main navigation tabs — hidden on mobile (drawer handles mobile nav) */}
+                {/* Mobile drawer — only rendered on small screens when authenticated */}
+                {isAuthenticated && (
+                    <div ref={drawerContainerRef} className="relative sm:hidden">
+                        <PersistentDrawerRight
+                            theme={props.theme}
+                            toggleTheme={props.toggleTheme}
+                            isOpen={menuOpen}
+                            handleLogout={props.handleLogout}
+                        />
+                    </div>
+                )}
+
+                {/* Desktop: avatar/menu + profile modal — authenticated only */}
                 {isAuthenticated && (
                     <>
-                    {/* <div className='flex flex-col gap-2'> */}
-                        <div>
-                            {/* Show avatar/menu only when the drawer is not open */}
-                            <div className='header-brand--avatar-wrapper absolute top-8 sm:top-10 right-3 sm:right-10'>
-                                {!drawerVisible && (
-                                    <>
-                            <Tooltip title="Profile" placement="bottom">
-                              <span>
-                                <Avatar
-                                    isEdit={false}
-                                    onClick={handleMenuOpen}
-                                    size={drawerVisible ? 'sm' : 'md'}
-                                    buttonSx={{
-                                      '& .MuiAvatar-root': {
-                                        transition: 'border-color 150ms, background-color 150ms',
-                                      },
-                                      '&:hover .MuiAvatar-root': {
-                                        borderColor: 'var(--primary)',
-                                        backgroundColor: 'color-mix(in srgb, var(--brand-30, #c300dc) 80%, transparent)',
-                                      },
-                                    }}
-                                />
-                              </span>
-                            </Tooltip>
-                                        <Menu
-                                            anchorEl={menuAnchor}
-                                            open={Boolean(menuAnchor)}
-                                            onClose={handleMenuClose}
-                                            onClick={handleMenuClose}
-                                            className='p-4'
-                                        >
-                                            <label className="px-4 pb-4" htmlFor="profile-menu">{session?.user?.email}</label>
-                                            <MenuItem onClick={() => setIsProfileOpen(true)}>Preferences</MenuItem>
-                                            {/* <MenuItem onClick={() => { handleMenuClose(); window.location.href = '/notifications'; }}>Notifications</MenuItem> */}
-                                            {/* <MenuItem onClick={() => console.log('Preferences')}>Preferences</MenuItem> */}
-                                            <MenuItem onClick={handleLogout}>Log Out</MenuItem>
-                                        </Menu>
-                                    </>
-                                )}
-                            </div>
-
-                            <div ref={drawerContainerRef} className="relative sm:hidden">
-                                <PersistentDrawerRight
-                                    theme={props.theme}
-                                    toggleTheme={props.toggleTheme}
-                                    isOpen={menuOpen}
-                                    handleLogout={props.handleLogout}
-                                />
-                            </div>
+                        {/* Show avatar/menu only when the drawer is not open */}
+                        <div className='header-brand--avatar-wrapper absolute top-8 sm:top-10 right-3 sm:right-10'>
+                            {!drawerVisible && (
+                                <>
+                                    <Avatar
+                                        isEdit={false}
+                                        onClick={handleMenuOpen}
+                                        size={drawerVisible ? 'sm' : 'md'}
+                                    />
+                                    <Menu
+                                        anchorEl={menuAnchor}
+                                        open={Boolean(menuAnchor)}
+                                        onClose={handleMenuClose}
+                                        onClick={handleMenuClose}
+                                        className='p-4'
+                                    >
+                                        <label className="px-4 pb-4" htmlFor="profile-menu">{session?.user?.email}</label>
+                                        <MenuItem onClick={() => setIsProfileOpen(true)}>Preferences</MenuItem>
+                                        <MenuItem onClick={handleLogout}>Log Out</MenuItem>
+                                    </Menu>
+                                </>
+                            )}
                         </div>
                         <Modal
                             isOpen={isProfileOpen}
@@ -364,7 +343,6 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                                 </div>
                             )}
                         </Modal>
-                        
                     </>
                 )}
             </div>

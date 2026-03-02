@@ -249,7 +249,7 @@ const toggleThemeInternal = (): void => {
           <Tooltip className='' title="Close menu" arrow>
             <IconButton onClick={handleDrawerClose} className="btn-ghost w-auto p-2">
                {/* {props.theme === 'theme-dark' && ( */}
-                    <X className="flexw-5 h-5 stroke-gray-10 hover:stroke-gray-30 focus:outline-none" />
+                    <X className="flex w-5 h-5 stroke-gray-10 hover:stroke-gray-30 focus:outline-none" />
                 {/* )} */}
 
             </IconButton>

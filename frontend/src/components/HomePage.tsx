@@ -217,7 +217,7 @@ function MiniGoalCard({ goal, onClick }: { goal: Goal; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="group w-full text-left rounded-md border border-gray-20 dark:border-gray-70 bg-background-color p-4 hover:border-primary hover:shadow-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary"
+      className="group w-full text-left rounded-md border border-gray-20 dark:border-gray-70 bg-background-color hover:bg-brand-20 dark:hover:bg-brand-80 p-4 hover:border-primary hover:shadow-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary"
     >
     <div className="flex w-full items-center justify-between gap-2">
         <div className="flex-1 min-w-0">
@@ -253,29 +253,31 @@ function EmptyState({ onAddGoal, username }: { onAddGoal: () => void; username?:
         {/* <Target className="w-8 h-8 text-primary" /> */}
         <Logo useTheme className="absolute z-0 -mt-48 fill-primary-text w-2/3 h-full text-primary-text opacity-30" />
       </div>
-    <div className='relative z-10 max-w-xl'>
+    <div className='relative text-start z-10 max-w-7xl'>
       <h2 className="text-4xl font-light mt-40 mb-3">Welcome{username ? `, ${username}` : ''}</h2>
-      <p className="text-secondary-text mb-8 leading-relaxed">
+      <p className="text-secondary-text mb-8 leading-relaxed max-w-2xl">
         Wkly helps you stay focused week over week — track goals, manage tasks, log accomplishments, and generate AI-powered summaries of your progress.
       </p>
 
       {/* feature pills */}
-      <div className="grid grid-cols-2 gap-3 w-full min-h-[20rem] mb-10">
+      <div className="grid grid-cols-2 gap-3 w-full min-h-[20rem] mb-10 ">
         {[
-          { icon: <LayoutGrid className="w-6 h-6" />,   label: 'Prioritized goals',       desc: 'Set focused goals each week'     },
-          { icon: <CheckSquare className="w-6 h-6" />, label: 'Task tracking',    desc: 'Break goals into tasks'          },
-          { icon: <Award className="w-6 h-6" />,   label: 'Accomplishments',     desc: 'Capture what you achieved'       },
-          { icon: <Sparkles className="w-6 h-6" />, label: 'AI summaries',        desc: 'Auto-generate progress reports'  },
+          { icon: <LayoutGrid className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />,   label: 'Prioritized goals', desc: 'Set focused goals each week' },
+          { icon: <CheckSquare className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />, label: 'Task tracking', desc: 'Break goals into tasks' },
+          { icon: <Award className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />,   label: 'Accomplishments', desc: 'Capture what you achieved' },
+          { icon: <Sparkles className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />, label: 'AI summaries', desc: 'Auto-generate progress reports' },
         ].map(({ icon, label, desc }) => (
           <div
             key={label}
-            className="flex flex-col items-start gap-1 rounded-md bg-background-color border border-gray-20 dark:border-gray-70 p-3 text-left"
+            className="flex flex-col items-start gap-1 rounded-md bg-background-color border border-brand-20 dark:border-brand-70 p-3 sm:p-8 text-left"
           >
-            <div className="flex items-center gap-2 text-primary font-normal text-lg md:text-2xl">
+            <div className="flex items-start gap-3 text-brand-50 font-normal text-lg md:text-2xl">
               {icon}
-              {label}
+              <div className="flex flex-col">
+                {label}
+                <p className="text-sm text-gray-50 dark:text-gray-40">{desc}</p>
+              </div>
             </div>
-            <p className="text-sm text-gray-50 dark:text-gray-40">{desc}</p>
           </div>
         ))}
       </div>
@@ -311,12 +313,12 @@ function ActionCard({
       onClick={onClick}
       className={`group w-auto text-left rounded-md border p-4 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary ${
         variant === 'primary'
-          ? 'border-primary/40 bg-primary/5 hover:bg-primary/10 dark:bg-primary/10 dark:hover:bg-primary/20'
+          ? 'border-primary/40 bg-primary/5 group-hover:bg-brand-10 dark:bg-brand-90 dark:group-hover:bg-primary/20'
           : 'border-gray-20 dark:border-gray-70 bg-transparent hover:border-primary hover:shadow-md'
       }`}
     >
       <div className="flex w-auto pr-4 items-center justify-center gap-3">
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+        <div className={`w-9 h-9 rounded-md flex items-center justify-center shrink-0 ${
           variant === 'primary' ? 'text-primary' : 'bg-transparent text-gray-60 dark:text-gray-30 group-hover:bg-primary/10 group-hover:text-primary transition-colors'
         }`}>
           {icon}

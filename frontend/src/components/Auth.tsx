@@ -9,7 +9,7 @@ import AppMuiThemeProvider from '../mui/muiTheme';
 // import appColors from '@styles/appColors';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
-import { Eye, EyeOff } from 'lucide-react';
+import { ArrowRight, Award, CheckSquare, Eye, EyeOff, LayoutGrid, Sparkles } from 'lucide-react';
 import ToastNotification, { notifySuccess, notifyError } from '@components/ToastyNotification'; 
 import { sendPasswordReset } from '@lib/authHelpers';
 // import e from 'cors';
@@ -27,6 +27,7 @@ const Login = () => {
   const [loginErrors, setLoginErrors] = useState<{ email?: string; password?: string }>({});
   const [registerErrors, setRegisterErrors] = useState<{ email?: string; password?: string; passwordReEnter?: string }>({});
     const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+    const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
     const [showConfirmNotice, setShowConfirmNotice] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordReEnter, setShowPasswordReEnter] = useState(false);
@@ -262,10 +263,78 @@ const Login = () => {
             theme={theme}
             toggleTheme={toggleTheme}
           />
-          <main className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 py-8">
-            <h1 className="text-3xl text-left mb-4">Login</h1>
-            <form onSubmit={handleLogin} className='flex flex-col gap-4 space-y-4 p-4'>
-              <div className="w-full">
+          <main className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-16 py-12 lg:py-20">
+            <div className="flex flex-col items-center">
+
+              {/* ── Hero / value prop ── */}
+              <div className="flex flex-col gap-6">
+                
+                <div className='relative text-start z-10 max-w-7xl'>
+                  <h1 className="text-4xl sm:text-5xl font-light leading-tight mb-3">
+                    Welcome to{' '}
+                    <span style={{ color: 'var(--primary)' }}>Wkly</span>
+                  </h1>
+                  <p className="text-lg mb-8" style={{ color: 'var(--secondary-text, currentColor)', opacity: 0.8 }}>
+                    Your weekly command center for goals, tasks, and progress — all in one place.
+                  </p>
+
+                  {/* feature pills */}
+                  <div className="grid grid-cols-2 gap-3 w-full min-h-[20rem] mb-10 ">
+                    {[
+                      { icon: <LayoutGrid className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />,   label: 'Prioritized goals', desc: 'Set focused goals each week' },
+                      { icon: <CheckSquare className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />, label: 'Task tracking', desc: 'Break goals into tasks' },
+                      { icon: <Award className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />,   label: 'Accomplishments', desc: 'Capture what you achieved' },
+                      { icon: <Sparkles className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />, label: 'AI summaries', desc: 'Auto-generate progress reports' },
+                    ].map(({ icon, label, desc }) => (
+                      <div
+                        key={label}
+                        className="flex flex-col items-start gap-1 rounded-md bg-background-color border border-brand-20 dark:border-brand-70 p-3 sm:p-8 text-left"
+                      >
+                        <div className="flex items-start gap-3 text-brand-50 font-normal text-lg md:text-2xl">
+                          {icon}
+                          <div className="flex flex-col">
+                            {label}
+                            <p className="text-sm text-gray-50 dark:text-gray-40">{desc}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="pt-0 flex flex-col sm:flex-row gap-4">
+                  <button
+                    type="button"
+                    onClick={openModal}
+                    className="btn-primary px-8 py-3 text-3xl font-[400]"
+                  >
+                    Get started free
+                  <ArrowRight className="w-8 h-8 ml-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsLoginModalOpen(true)}
+                    className="btn-ghost px-8 py-3 text-base font-[400] hover:underline"
+                  >
+                    Already registered? Login
+                  </button>
+                  
+                </div>
+              </div>
+
+          </div>{/* end grid */}
+          </main>
+
+          {/* Login modal */}
+          <Modal
+            isOpen={isLoginModalOpen}
+            onRequestClose={() => { setIsLoginModalOpen(false); setError(null); setLoginErrors({}); }}
+            shouldCloseOnOverlayClick={true}
+            className={`${modalClasses} w-full max-w-sm mx-4`}
+            overlayClassName={`${overlayClasses} flex items-center justify-center`}
+            ariaHideApp={ARIA_HIDE_APP}
+          >
+              <h2 className="text-2xl font-bold mb-4">Login</h2>
+              <form onSubmit={async (e) => { await handleLogin(e); }} className="flex flex-col gap-4">
                 <TextField
                   id="login-email"
                   label="Email"
@@ -282,13 +351,10 @@ const Login = () => {
                   size="small"
                   error={!!loginErrors.email}
                   helperText={loginErrors.email}
-                   // variant="outlined"
-                  sx={{ mb: 1 }}
+                  sx={{ mb: 1, '& .MuiOutlinedInput-root': { backgroundColor: fieldBg, borderRadius: radius }, '& .MuiOutlinedInput-notchedOutline': { borderColor: dividerColor } }}
                 />
-              </div>
-              <div>
                 <TextField
-                  id="login-password"
+                  id="login-password-modal"
                   label="Password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
@@ -298,7 +364,6 @@ const Login = () => {
                   size="small"
                   error={!!loginErrors.password}
                   helperText={loginErrors.password}
-                   // variant="outlined"
                   InputProps={{
                     endAdornment: (
                       <IconButton
@@ -314,21 +379,31 @@ const Login = () => {
                   }}
                   sx={{ mb: 1, '& .MuiOutlinedInput-root': { backgroundColor: fieldBg, borderRadius: radius }, '& .MuiOutlinedInput-notchedOutline': { borderColor: dividerColor } }}
                 />
-              </div>
-              <Button type="submit" variant="contained" className='btn-primary' size="large" >
-                Login
-              </Button>
-              <div className='flex flex-row justify-start gap-4 pt-6'>
-                <Button variant="outlined" onClick={openModal} sx={{ py: 0.8, px: 3, borderRadius: radius }}>
-                  Try for free
+                {error && <p className="text-sm" style={{ color: 'red' }}>{error}</p>}
+                <Button type="submit" variant="contained" className="" size="large" fullWidth>
+                  Login
                 </Button>
-                <Button variant="text" onClick={() => handlePasswordReset(email)} sx={{ py: 0.8 }}>
-                  Forgot Password
-                </Button>
-              </div>
-            </form>
-            {error && <p style={{ color: 'red' }}>{error}</p>}
+                <div className="flex flex-row justify-between items-center pt-1">
+                  <Button
+                    variant="text"
+                    className="btn-ghost text-brand-70 dark:text-brand-40"
+                    onClick={() => handlePasswordReset(email)}
+                    sx={{ py: 0.8 }}
+                  >
+                    Forgot Password
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => { setIsLoginModalOpen(false); openModal(); }}
+                    sx={{ py: 0.8, px: 2, borderRadius: radius }}
+                  >
+                    Register
+                  </Button>
+                </div>
+              </form>
+          </Modal>
 
+          {/* Register modal */}
           <Modal
             isOpen={isRegisterModalOpen}
             onRequestClose={closeModal}
@@ -460,7 +535,6 @@ const Login = () => {
                       
                     </div>
                   </Modal>
-          </main>
         </div>
       </div>
       <Modal
