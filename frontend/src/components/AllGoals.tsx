@@ -2849,7 +2849,8 @@ const GoalsComponent = () => {
                     isSmall ? (
                         setViewMode('cards'), <div></div>
                     ) : (
-                        <Paper elevation={6}>
+                        <Paper elevation={3} sx={{ bgcolor: 'var(--background-color)', color: 'var(--primary-text)' }}>
+                        {/* <Paper elevation={6}> */}
                             <Table aria-label="Goals Table">
                                 <TableHead className='border-none'>
                                     <TableRow className='bg-background-color border-none'>

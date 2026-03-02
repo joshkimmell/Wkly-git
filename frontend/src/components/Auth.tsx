@@ -243,7 +243,16 @@ const Login = () => {
       setIsRegisterModalOpen(false);
     };
 
-  const toggleTheme = () => setTheme(prev => (prev === 'theme-dark' ? 'theme-light' : 'theme-dark'));
+  const toggleTheme = () => setTheme(prev => {
+    const next = prev === 'theme-dark' ? 'theme-light' : 'theme-dark';
+    if (next === 'theme-dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    try { localStorage.setItem('theme', next); } catch {}
+    return next;
+  });
   
   useEffect(() => {
     if (theme === 'theme-dark') {

@@ -36,7 +36,18 @@ const App: React.FC = () => {
   });
   const [isOpen, /*setIsOpen*/] = useState(false);
 
-  const toggleTheme = () => setTheme(prev => (prev === 'theme-dark' ? 'theme-light' : 'theme-dark'));
+  const toggleTheme = () => setTheme(prev => {
+    const next = prev === 'theme-dark' ? 'theme-light' : 'theme-dark';
+    // Apply the class synchronously so CSS variables are updated before React
+    // re-renders the MUI theme provider (which reads CSS vars at render time).
+    if (next === 'theme-dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    try { localStorage.setItem('theme', next); } catch {}
+    return next;
+  });
 
   // const handleToast = () => {
   //   notifySuccess('Action completed successfully!');
