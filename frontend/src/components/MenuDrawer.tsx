@@ -13,7 +13,7 @@ import Typography from '@mui/material/Typography';
 import ProfileManagement from './ProfileManagement';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
-import { ChevronLeft, ChevronRight, Cross, Home, MenuIcon, Moon, Sun, Text, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Cross, Home, LayoutGrid, MenuIcon, Moon, Sun, Text, X } from 'lucide-react';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -24,7 +24,7 @@ import Avatar from '@components/Avatar';
 import { ARIA_HIDE_APP, useOverlayDebug } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
 import { HeaderProps } from './Header';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import Logo from '@components/Logo';
 
 
@@ -135,6 +135,13 @@ const toggleThemeInternal = (): void => {
         handleMenuClose();
     };
 
+  const location = useLocation();
+  const navItems = [
+    { label: 'Home', href: '/', icon: <Home className='w-4 h-4' /> },
+    { label: 'Goals', href: '/goals', icon: <LayoutGrid className='w-4 h-4' /> },
+    { label: 'Summaries', href: '/summaries', icon: <Text className='w-4 h-4' /> },
+  ];
+
   return (
     <div className="flex"> 
     {/* sx={{ display: 'flex' }}> */}
@@ -238,17 +245,17 @@ const toggleThemeInternal = (): void => {
         anchor="right"
         open={open}
       >
-        <DrawerHeader sx={{ background: 'linear-gradient(180deg, var(--brand-90, variables.$brand-90) 0%, var(--brand-70, variables.$brand-70) 100%)', border: 'none' }}>
-          <Tooltip title="Close menu" arrow>
-            <IconButton onClick={handleDrawerClose} className="btn-ghost ml-4 p-2 ">
+        <DrawerHeader className='flex w-full justify-end' sx={{ background: 'linear-gradient(180deg, var(--brand-90, variables.$brand-90) 0%, var(--brand-70, variables.$brand-70) 100%)', border: 'none', justifyContent: 'flex-end' }}>
+          <Tooltip className='' title="Close menu" arrow>
+            <IconButton onClick={handleDrawerClose} className="btn-ghost w-auto p-2">
                {/* {props.theme === 'theme-dark' && ( */}
-                    <X className="w-5 h-5 stroke-gray-10 hover:stroke-gray-30 focus:outline-none" />
+                    <X className="flexw-5 h-5 stroke-gray-10 hover:stroke-gray-30 focus:outline-none" />
                 {/* )} */}
 
             </IconButton>
           </Tooltip>
         </DrawerHeader>
-        <Divider />
+        {/* <Divider /> */}
         <List>
                 
                             {/* <Link onClick={handleMenuItemClick} to="/" className={`${classMenuItem}`}>
@@ -261,16 +268,24 @@ const toggleThemeInternal = (): void => {
                             </Link> */}
                             
 
-          {['Goals', 'Summaries'].map((text, index) => (
-            <ListItem key={text} disablePadding>
-              <ListItemButton href={index % 2 === 0 ? "/" : "/summaries"} className='gap-0'>
-                <ListItemIcon>
-                  {index % 2 === 0 ? <Home className='w-4 h-4' /> : <Text className='w-4 h-4' />}
-                </ListItemIcon>
-                <ListItemText primary={text} />
-              </ListItemButton>
-            </ListItem>
-          ))}
+          {navItems.map(({ label, href, icon }) => {
+            const isActive = location.pathname === href;
+            return (
+              <ListItem key={label} disablePadding>
+                <ListItemButton
+                  component={Link}
+                  to={href}
+                  onClick={handleDrawerClose}
+                  className={`gap-0 border-b-2 ${isActive ? 'border-[var(--primary-icon)]' : 'border-transparent'}`}
+                >
+                  <ListItemIcon sx={{ color: isActive ? 'var(--primary-icon)' : undefined }}>
+                    {icon}
+                  </ListItemIcon>
+                  <ListItemText primary={label} />
+                </ListItemButton>
+              </ListItem>
+            );
+          })}
         </List>
       </Drawer>
     </div>

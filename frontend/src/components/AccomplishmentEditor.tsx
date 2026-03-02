@@ -53,7 +53,7 @@ const AccomplishmentEditor: React.FC<AccomplishmentEditorProps> = ({
   return (
     <form onSubmit={handleSave} id="accomplishmentEditorForm">
 
-      <label htmlFor="title_acc" className="block mb-2 text-sm font-medium text-gray-700">Title</label>
+      <label htmlFor="title_acc" className="block mb-2 text-sm font-medium text-gray-70">Title</label>
       <TextField
         id="title_acc"
         name="title_acc"
@@ -64,7 +64,7 @@ const AccomplishmentEditor: React.FC<AccomplishmentEditorProps> = ({
         className="mb-4"
       />
 
-      <label htmlFor="description_acc" className="block mb-2 text-sm font-medium text-gray-700">
+      <label htmlFor="description_acc" className="block mb-2 text-sm font-medium text-gray-70">
         Description
       </label>
       <ReactQuill

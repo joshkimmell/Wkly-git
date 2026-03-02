@@ -1,0 +1,699 @@
+import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useGoalsContext } from '@context/GoalsContext';
+import useAuth from '@hooks/useAuth';
+import { getSessionToken, getWeekStartDate } from '@utils/functions';
+import { Task, Goal, calculateGoalCompletion } from '@utils/goalUtils';
+import LoadingSpinner from '@components/LoadingSpinner';
+import GoalForm from '@components/GoalForm';
+import TasksList from '@components/TasksList';
+import ProfileManagement from '@components/ProfileManagement';
+import Modal from 'react-modal';
+import { ARIA_HIDE_APP } from '@lib/modal';
+import { modalClasses, overlayClasses } from '@styles/classes';
+import {
+  Target,
+  CheckSquare,
+  Sparkles,
+  ChevronRight,
+  Plus,
+  Calendar,
+  Zap,
+  Circle,
+  CheckCircle2,
+  Clock,
+  LayoutGrid,
+  Award,
+  X,
+  ChevronUp,
+  ChevronDown as ChevronDownIcon,
+} from 'lucide-react';
+import Logo from './Logo';
+import { CircularProgress, Menu, MenuItem, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField } from '@mui/material';
+import GoalCompletionDonut from './GoalCompletionDonut';
+
+// ─── helpers ────────────────────────────────────────────────────────────────
+
+function getTodayIso(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+function formatDisplayDate(iso: string): string {
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+}
+
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+// ─── today task row ─────────────────────────────────────────────────────────
+
+const STATUS_DOT: Record<string, string> = {
+  'Done':        'bg-green-600 dark:bg-green-400',
+  'In progress': 'bg-blue-600 dark:bg-blue-400',
+  'Blocked':     'bg-red-600 dark:bg-red-400',
+  'On hold':     'bg-amber-500 dark:bg-amber-400',
+  'Not started': 'bg-gray-40 dark:bg-gray-50',
+};
+const STATUS_TEXT: Record<string, string> = {
+  'Done':        'text-green-600 dark:text-green-400',
+  'In progress': 'text-blue-600 dark:text-blue-400',
+  'Blocked':     'text-red-600 dark:text-red-400',
+  'On hold':     'text-amber-500 dark:text-amber-400',
+  'Not started': 'text-gray-50 dark:text-gray-40',
+};
+const ALL_STATUSES: Task['status'][] = ['Not started', 'In progress', 'On hold', 'Blocked', 'Done'];
+
+function TodayTaskRow({
+  task,
+  onStatusChange,
+}: {
+  task: Task;
+  onStatusChange: (taskId: string, newStatus: Task['status'], closingRationale?: string) => void;
+}) {
+  const [displayStatus, setDisplayStatus] = useState<Task['status']>(task.status);
+  const [prevStatus, setPrevStatus]       = useState<Task['status']>('Not started');
+  const [menuAnchor, setMenuAnchor]       = useState<null | HTMLElement>(null);
+  const [isClosingDialogOpen, setIsClosingDialogOpen] = useState(false);
+  const [closingRationale, setClosingRationale]       = useState('');
+
+  const openDoneDialog = () => setIsClosingDialogOpen(true);
+
+  const cycle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (displayStatus === 'Done') {
+      setDisplayStatus(prevStatus);
+      onStatusChange(task.id, prevStatus);
+    } else {
+      setPrevStatus(displayStatus);
+      openDoneDialog();
+    }
+  };
+
+  const select = (s: Task['status']) => {
+    if (s === 'Done' && displayStatus !== 'Done') {
+      setPrevStatus(displayStatus);
+      setMenuAnchor(null);
+      openDoneDialog();
+      return;
+    }
+    if (s !== 'Done') setPrevStatus(s);
+    setDisplayStatus(s);
+    onStatusChange(task.id, s);
+    setMenuAnchor(null);
+  };
+
+  const handleDoneSubmit = () => {
+    setDisplayStatus('Done');
+    onStatusChange(task.id, 'Done', closingRationale || undefined);
+    setIsClosingDialogOpen(false);
+    setClosingRationale('');
+  };
+
+  const handleDoneCancel = () => {
+    setIsClosingDialogOpen(false);
+    setClosingRationale('');
+  };
+
+  return (
+    <li className={`flex items-center gap-3 px-4 py-3 ${displayStatus === 'Done' ? 'opacity-50' : ''}`}>
+      {/* Cycle button */}
+      <Tooltip title={displayStatus === 'Done' ? 'Reopen task' : 'Mark as done'}>
+        <button
+          onClick={cycle}
+          className="btn-ghost shrink-0 hover:scale-110 transition-transform focus:outline-none"
+        >
+          {displayStatus === 'Done'
+            ? <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+            : <Circle       className="w-5 h-5 text-secondary-text" />
+          }
+        </button>
+      </Tooltip>
+
+      {/* Title + time */}
+      <div className="min-w-0 flex-1">
+        <p className={`text-sm text-primary-text truncate ${displayStatus === 'Done' ? 'line-through' : ''}`}>
+          {task.title}
+        </p>
+        {task.scheduled_time && (
+          <p className="text-xs text-gray-40 dark:text-gray-50 mt-0.5 flex items-center gap-1">
+            <Clock className="w-3 h-3" />{task.scheduled_time}
+          </p>
+        )}
+      </div>
+
+      {/* Status chip */}
+      <button
+        onClick={(e) => { e.stopPropagation(); setMenuAnchor(e.currentTarget); }}
+        className={`shrink-0 flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-gray-20 dark:border-gray-70 bg-background-color hover:border-primary transition-colors ${STATUS_TEXT[displayStatus] ?? ''}`}
+      >
+        <span className={`inline-block w-1.5 h-1.5 rounded-full ${STATUS_DOT[displayStatus] ?? ''}`} />
+        {displayStatus}
+        {menuAnchor ? <ChevronUp className="w-3 h-3" /> : <ChevronDownIcon className="w-3 h-3" />}
+      </button>
+
+      <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
+        {ALL_STATUSES.map(s => (
+          <MenuItem key={s} onClick={() => select(s)} selected={displayStatus === s}>
+            {s}
+          </MenuItem>
+        ))}
+      </Menu>
+
+      {/* Closing rationale dialog */}
+      <Dialog open={isClosingDialogOpen} onClose={handleDoneCancel} maxWidth="sm" fullWidth>
+        <DialogTitle>Mark Task as Done</DialogTitle>
+        <DialogContent>
+          <p className="text-sm text-secondary-text mb-4">
+            You're about to mark this task as complete. Would you like to add a note about why or how this was completed?
+          </p>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Closing Note (Optional)"
+            fullWidth
+            multiline
+            rows={4}
+            value={closingRationale}
+            onChange={(e) => setClosingRationale(e.target.value)}
+            placeholder="e.g., Completed ahead of schedule, Requirements changed, etc."
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDoneCancel} color="inherit">Cancel</Button>
+          <Button onClick={handleDoneSubmit} variant="contained" color="success">Mark as Done</Button>
+        </DialogActions>
+      </Dialog>
+    </li>
+  );
+}
+
+// ─── mini goal card ──────────────────────────────────────────────────────────
+
+function MiniGoalCard({ goal, onClick }: { goal: Goal; onClick: () => void }) {
+  const [tasks, setTasks] = useState<Task[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await getSessionToken();
+        if (!token) return;
+        const res = await fetch('/api/getAllTasks', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const all: Task[] = await res.json();
+        if (!cancelled) setTasks(all.filter(t => t.goal_id === goal.id));
+      } catch { /* silent */ }
+    })();
+    return () => { cancelled = true; };
+  }, [goal.id]);
+
+  return (
+    <button
+      onClick={onClick}
+      className="group w-full text-left rounded-md border border-gray-20 dark:border-gray-70 bg-background-color p-4 hover:border-primary hover:shadow-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary"
+    >
+    <div className="flex w-full items-center justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          {goal.category && (
+            <p className="text-xs text-gray-50 dark:text-gray-40 mt-0.5 truncate">{goal.category}</p>
+          )}
+          <p className="font-semibold text-sm text-primary-text truncate">{goal.title}</p>
+        </div>
+        <div className="mt-3 mx-8 flex items-center gap-1.5">
+            {/* <span
+            className="inline-block w-2 h-2 rounded-full shrink-0"
+            style={{ backgroundColor: color }}
+            />
+            <span className="text-xs text-gray-50 dark:text-gray-40">{status}</span> */}
+            <div className="flex items-center gap-2">
+              {tasks.length > 0 && (
+                <GoalCompletionDonut percentage={calculateGoalCompletion(tasks)} size={40} strokeWidth={4} />
+              )}
+            </div>
+        </div>
+        <ChevronRight className="w-4 h-4 text-secondary-text group-hover:text-primary shrink-0 mt-0.5 transition-colors" />
+      </div>
+    </button>
+  );
+}
+
+// ─── empty state ─────────────────────────────────────────────────────────────
+
+function EmptyState({ onAddGoal, username }: { onAddGoal: () => void; username?: string }) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center py-16 px-4 text-center max-w-7xl mx-auto">
+      <div className="w-auto h-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
+        {/* <Target className="w-8 h-8 text-primary" /> */}
+        <Logo useTheme className="absolute z-0 -mt-48 fill-primary-text w-2/3 h-full text-primary-text opacity-30" />
+      </div>
+    <div className='relative z-10 max-w-xl'>
+      <h2 className="text-4xl font-light mt-40 mb-3">Welcome{username ? `, ${username}` : ''}</h2>
+      <p className="text-secondary-text mb-8 leading-relaxed">
+        Wkly helps you stay focused week over week — track goals, manage tasks, log accomplishments, and generate AI-powered summaries of your progress.
+      </p>
+
+      {/* feature pills */}
+      <div className="grid grid-cols-2 gap-3 w-full min-h-[20rem] mb-10">
+        {[
+          { icon: <LayoutGrid className="w-6 h-6" />,   label: 'Prioritized goals',       desc: 'Set focused goals each week'     },
+          { icon: <CheckSquare className="w-6 h-6" />, label: 'Task tracking',    desc: 'Break goals into tasks'          },
+          { icon: <Award className="w-6 h-6" />,   label: 'Accomplishments',     desc: 'Capture what you achieved'       },
+          { icon: <Sparkles className="w-6 h-6" />, label: 'AI summaries',        desc: 'Auto-generate progress reports'  },
+        ].map(({ icon, label, desc }) => (
+          <div
+            key={label}
+            className="flex flex-col items-start gap-1 rounded-md bg-background-color border border-gray-20 dark:border-gray-70 p-3 text-left"
+          >
+            <div className="flex items-center gap-2 text-primary font-normal text-lg md:text-2xl">
+              {icon}
+              {label}
+            </div>
+            <p className="text-sm text-gray-50 dark:text-gray-40">{desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+      <button
+        onClick={onAddGoal}
+        className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-semibold px-6 py-3 rounded-xl transition-colors shadow-sm"
+      >
+        <Plus className="w-5 h-5" />
+        Add your first goal
+      </button>
+    </div>
+  );
+}
+
+// ─── action prompt card ──────────────────────────────────────────────────────
+
+function ActionCard({
+  icon,
+  label,
+  description,
+  onClick,
+  variant = 'default',
+}: {
+  icon: React.ReactNode;
+  label: string;
+  description: string;
+  onClick: () => void;
+  variant?: 'default' | 'primary';
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`group w-auto text-left rounded-md border p-4 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary ${
+        variant === 'primary'
+          ? 'border-primary/40 bg-primary/5 hover:bg-primary/10 dark:bg-primary/10 dark:hover:bg-primary/20'
+          : 'border-gray-20 dark:border-gray-70 bg-transparent hover:border-primary hover:shadow-md'
+      }`}
+    >
+      <div className="flex w-auto pr-4 items-center justify-center gap-3">
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+          variant === 'primary' ? 'text-primary' : 'bg-transparent text-gray-60 dark:text-gray-30 group-hover:bg-primary/10 group-hover:text-primary transition-colors'
+        }`}>
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <p className="font-semibold text-base text-primary-text">{label}</p>
+          <p className="text-xs text-gray-50 dark:text-gray-40 mt-0.5">{description}</p>
+        </div>
+        {/* <ChevronRight className="w-4 h-4 text-gray-40 group-hover:text-primary ml-auto shrink-0 transition-colors" /> */}
+      </div>
+    </button>
+  );
+}
+
+// ─── main component ───────────────────────────────────────────────────────────
+
+const EMPTY_GOAL: Goal = {
+  id: '', title: '', description: '', category: '',
+  week_start: '', user_id: '', created_at: '', status: 'Not started', status_notes: '',
+};
+
+export default function HomePage() {
+  const navigate = useNavigate();
+  const { goals, isRefreshing, refreshGoals } = useGoalsContext();
+  const { profile } = useAuth();
+  const username: string | undefined = profile?.username || undefined;
+
+  const [todayTasks, setTodayTasks]     = useState<Task[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(true);
+
+  // ── modal state ───────────────────────────────────────────────────────────
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+  const [newGoal, setNewGoal] = useState<Goal>({ ...EMPTY_GOAL, week_start: getWeekStartDate() });
+  const [goalsExpanded, setGoalsExpanded] = useState(false);
+  const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
+  const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
+
+  // ── first-login: auto-open profile modal once per session ─────────────────
+  useEffect(() => {
+    if (profile === null) return; // still loading
+    if (!profile.username && !sessionStorage.getItem('wkly_profile_prompted')) {
+      sessionStorage.setItem('wkly_profile_prompted', '1');
+      setIsProfileOpen(true);
+    }
+  }, [profile]);
+
+  const today = getTodayIso();
+
+  // Sort goals newest-first
+  const sortedGoals = [...goals].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+  const latestGoals   = sortedGoals.slice(0, goalsExpanded ? 10 : 3);
+  const hasGoals      = goals.length > 0;
+
+  // ── fetch today's tasks ───────────────────────────────────────────────────
+  const fetchTodayTasks = useCallback(async () => {
+    setTasksLoading(true);
+    try {
+      const token = await getSessionToken();
+      const res   = await fetch('/api/getAllTasks', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!res.ok) throw new Error(await res.text());
+
+      const data: Task[] = await res.json();
+      const forToday = data.filter(t => t.scheduled_date === today);
+      // Sort: not-done first, then done
+      forToday.sort((a, b) => {
+        if (a.status === 'Done' && b.status !== 'Done') return 1;
+        if (b.status === 'Done' && a.status !== 'Done') return -1;
+        return a.order_index - b.order_index;
+      });
+      setTodayTasks(forToday);
+    } catch (err) {
+      console.error('[HomePage] fetchTodayTasks error', err);
+    } finally {
+      setTasksLoading(false);
+    }
+  }, [today]);
+
+  useEffect(() => {
+    fetchTodayTasks();
+  }, [fetchTodayTasks]);
+
+  // ── task status update ─────────────────────────────────────────────────────
+  const handleTaskStatusChange = async (taskId: string, newStatus: Task['status'], closingRationale?: string) => {
+    setTodayTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+    try {
+      const token = await getSessionToken();
+      await fetch('/api/updateTask', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: taskId, status: newStatus, ...(closingRationale ? { closing_rationale: closingRationale } : {}) }),
+      });
+    } catch (err) {
+      console.error('[HomePage] handleTaskStatusChange error', err);
+    }
+  };
+
+  // ── handlers ──────────────────────────────────────────────────────────────
+  const goToGoals     = () => navigate('/goals');
+  const goToCalendar   = () => {
+    try { localStorage.setItem('goals_view_mode', 'tasks-calendar'); } catch { /* ignore */ }
+    navigate('/goals');
+  };
+  const openGoalModal  = () => {
+    setNewGoal({ ...EMPTY_GOAL, week_start: getWeekStartDate() });
+    setIsGoalModalOpen(true);
+  };
+  const closeGoalModal = () => setIsGoalModalOpen(false);
+
+  const openTasksModal = (goal: Goal) => {
+    setSelectedGoal(goal);
+    setIsTasksModalOpen(true);
+  };
+  const closeTasksModal = () => {
+    setIsTasksModalOpen(false);
+    setSelectedGoal(null);
+  };
+
+  // ── loading ───────────────────────────────────────────────────────────────
+  if (isRefreshing && goals.length === 0) {
+    return (
+      <div className="flex justify-center items-center py-20">
+        <CircularProgress />
+      </div>
+    );
+  }
+
+  // ── empty state ───────────────────────────────────────────────────────────
+  if (!isRefreshing && !hasGoals) {
+    return (
+      <>
+        <EmptyState onAddGoal={openGoalModal} username={username} />
+
+        {/* Profile setup modal */}
+        <Modal
+          isOpen={isProfileOpen}
+          ariaHideApp={ARIA_HIDE_APP}
+          className="fixed inset-0 flex items-center justify-center z-50"
+          overlayClassName={overlayClasses}
+        >
+          {isProfileOpen && (
+            <div className={modalClasses}>
+              <ProfileManagement onClose={() => setIsProfileOpen(false)} />
+            </div>
+          )}
+        </Modal>
+
+        {/* Add first goal modal */}
+        <Modal
+          isOpen={isGoalModalOpen}
+          onRequestClose={closeGoalModal}
+          shouldCloseOnOverlayClick
+          ariaHideApp={ARIA_HIDE_APP}
+          className="fixed inset-0 flex md:items-center justify-center z-50"
+          overlayClassName={overlayClasses}
+        >
+          <div className={modalClasses}>
+            {isGoalModalOpen && (
+              <GoalForm
+                newGoal={newGoal}
+                setNewGoal={setNewGoal}
+                handleClose={closeGoalModal}
+                categories={[]}
+                refreshGoals={() => refreshGoals().then(() => {})}
+              />
+            )}
+          </div>
+        </Modal>
+      </>
+    );
+  }
+
+  // ── dashboard ─────────────────────────────────────────────────────────────
+  const doneTasks    = todayTasks.filter(t => t.status === 'Done').length;
+  const totalTasks   = todayTasks.length;
+
+  return (
+    <div className="space-y-8">
+
+      {/* header */}
+      <div>
+        <p className="text-sm text-gray-50 dark:text-gray-40 mb-1 flex items-center gap-1.5">
+          <Calendar className="w-3.5 h-3.5" />
+          {formatDisplayDate(today)}
+        </p>
+        <h1 className="text-2xl font-bold text-primary-text">{getGreeting()}{username ? `, ${username}` : ''}</h1>
+      </div>
+
+      {/* ── quick actions ─────────────────────────────────────────────────── */}
+      <section>
+        <h2 className="font-normal text-primary-text mb-3 flex items-center gap-2">
+          <Zap className="w-4 h-4 text-primary" />
+          Quick actions
+        </h2>
+        <div className="flex gap-3">
+          <ActionCard
+            icon={<Plus className="w-6 h-6" />}
+            label="Create a goal with tasks"
+            description="Plan your next objective"
+            onClick={openGoalModal}
+          />
+          {/* <ActionCard
+            icon={<FileText className="w-4 h-4" />}
+            label="Add a note"
+            description="Capture thoughts on a goal"
+            onClick={goToGoals}
+          />
+          <ActionCard
+            icon={<Trophy className="w-4 h-4" />}
+            label="Log an accomplishment"
+            description="Record something you achieved"
+            onClick={goToGoals}
+          />
+          <ActionCard
+            icon={<Sparkles className="w-4 h-4" />}
+            label="Generate summary"
+            description="AI recap of your progress"
+            onClick={goToSummaries}
+            variant="primary"
+          /> */}
+        </div>
+      </section>
+
+      {/* two-column grid on md+ */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        {/* ── latest goals ─────────────────────────────────────────────── */}
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-normal text-primary-text flex items-center gap-2">
+              <Target className="w-4 h-4 text-primary" />
+              Latest goals
+              {goalsExpanded && goals.length > 3 && (
+                <span className="text-xs font-normal text-gray-50 dark:text-gray-40">
+                  showing {latestGoals.length} of {goals.length}
+                </span>
+              )}
+            </h2>
+            <button
+              onClick={goToGoals}
+              className="text-xs text-primary hover:underline flex items-center gap-0.5"
+            >
+              View all <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {latestGoals.map(goal => (
+              <MiniGoalCard key={goal.id} goal={goal} onClick={() => openTasksModal(goal)} />
+            ))}
+            {goals.length > 3 && (
+              <button
+                onClick={() => setGoalsExpanded(e => !e)}
+                className="w-full text-xs text-primary hover:underline text-center pt-1"
+              >
+                {goalsExpanded ? 'View less' : `+${goals.length - 3} more`}
+              </button>
+            )}
+          </div>
+        </section>
+
+        {/* ── today's tasks ─────────────────────────────────────────────── */}
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-normal text-primary-text flex items-center gap-2">
+              <CheckSquare className="w-4 h-4 text-primary" />
+              Today's tasks
+              {totalTasks > 0 && (
+                <span className="text-xs font-normal text-gray-50 dark:text-gray-40">
+                  {doneTasks}/{totalTasks} done
+                </span>
+              )}
+            </h2>
+            <button
+              onClick={goToCalendar}
+              className="text-xs text-primary hover:underline flex items-center gap-0.5"
+            >
+              Manage <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+
+          <div className="rounded-md border border-gray-20 dark:border-gray-70 bg-background-color overflow-hidden">
+            {tasksLoading ? (
+              <div className="flex justify-center items-center p-8">
+                <LoadingSpinner />
+              </div>
+            ) : todayTasks.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+                <Zap className="w-7 h-7 text-gray-30 dark:text-gray-60 mb-2" />
+                <p className="text-sm text-gray-40 dark:text-gray-50">No tasks scheduled for today</p>
+                <button
+                  onClick={goToGoals}
+                  className="mt-3 text-xs text-primary hover:underline"
+                >
+                  Schedule a task →
+                </button>
+              </div>
+            ) : (
+              <ul className="divide-y divide-gray-20 dark:divide-gray-70">
+                {todayTasks.map(task => (
+                  <TodayTaskRow key={task.id} task={task} onStatusChange={handleTaskStatusChange} />
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+      </div>
+
+      {/* Profile modal (first-login auto-open) */}
+      <Modal
+        isOpen={isProfileOpen}
+        ariaHideApp={ARIA_HIDE_APP}
+        className="fixed inset-0 flex items-center justify-center z-50"
+        overlayClassName={overlayClasses}
+      >
+        {isProfileOpen && (
+          <div className={modalClasses}>
+            <ProfileManagement onClose={() => setIsProfileOpen(false)} />
+          </div>
+        )}
+      </Modal>
+
+      {/* Tasks modal */}
+      {isTasksModalOpen && selectedGoal && (
+        <div
+          className={`${overlayClasses} flex items-center justify-center`}
+          onMouseDown={(e) => { if (e.target === e.currentTarget) closeTasksModal(); }}
+        >
+          <div className={`${modalClasses} w-full lg:w-[70vw]`}>
+            <div className="flex flex-row w-full justify-between items-start mb-4">
+              <h3 className="text-lg font-medium text-primary-text">
+                Tasks for<br />"{selectedGoal.title}"
+              </h3>
+              <button className="btn-ghost" onClick={closeTasksModal}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="max-h-[70vh] overflow-y-auto">
+              <TasksList
+                goalId={selectedGoal.id}
+                goalTitle={selectedGoal.title}
+                goalDescription={selectedGoal.description || ''}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add goal modal */}
+      <Modal
+        isOpen={isGoalModalOpen}
+        onRequestClose={closeGoalModal}
+        shouldCloseOnOverlayClick
+        ariaHideApp={ARIA_HIDE_APP}
+        className="fixed inset-0 flex md:items-center justify-center z-50"
+        overlayClassName={overlayClasses}
+      >
+        <div className={modalClasses}>
+          {isGoalModalOpen && (
+            <GoalForm
+              newGoal={newGoal}
+              setNewGoal={setNewGoal}
+              handleClose={closeGoalModal}
+              categories={[]}
+              refreshGoals={() => refreshGoals().then(() => {})}
+            />
+          )}
+        </div>
+      </Modal>
+
+    </div>
+  );
+}

@@ -2,20 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { useGoalsContext } from '@context/GoalsContext';
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 // import { handleDeleteGoal } from '@utils/functions';
-import { Goal, Accomplishment } from '@utils/goalUtils'; // Adjust the import path as necessary
-import { Trash, Edit, Award, X as CloseButton } from 'lucide-react';
+import { Goal, Accomplishment, Task, calculateGoalCompletion } from '@utils/goalUtils'; // Adjust the import path as necessary
+import { Trash, Edit, Award, X as CloseButton, ListTodo } from 'lucide-react';
 import { FileText as NotesIcon, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
 import { Chip, Menu, MenuItem, TextField, Tooltip, IconButton, Checkbox } from '@mui/material';
 import type { ChangeEvent } from 'react';
 import { STATUSES, STATUS_COLORS, type Status } from '../constants/statuses';
 import { cardClasses, modalClasses, objectCounter, overlayClasses } from '@styles/classes'; // Adjust the import path as necessary
 import useGoalExtras from '@hooks/useGoalExtras';
-import { notifyError, notifySuccess } from './ToastyNotification';
+import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
 // import { Link } from 'react-router-dom';
-import { applyHighlight } from '@utils/functions'; // Adjust the import path as necessary
+import { applyHighlight, enhanceLinks } from '@utils/functions'; // Adjust the import path as necessary
 import AccomplishmentEditor from './AccomplishmentEditor'; // Import the AccomplishmentEditor component
 import AccomplishmentsModal from './AccomplishmentsModal';
 import ConfirmModal from './ConfirmModal';
+import TasksList from './TasksList'; // Import TasksList component
+import GoalCompletionDonut from './GoalCompletionDonut';
+import RichTextEditor from './RichTextEditor';
 
 interface GoalCardProps {
   goal: Goal; // Add the goal prop to access goal properties
@@ -59,6 +62,10 @@ const GoalCard: React.FC<GoalCardProps> = ({
   // Notes state
   const [notes, setNotes] = useState<Array<{ id: string; content: string; created_at: string; updated_at: string }>>([]);
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+  // Tasks state
+  const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  // Delete confirmation
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [noteDeleteTarget, setNoteDeleteTarget] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -85,7 +92,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
   };
 
   // Shared counts and helpers
-  const { notesCountMap, accomplishmentCountMap, fetchNotesCount, fetchAccomplishmentsCount, refreshNotesAndCount, refreshAccomplishmentsAndCount, bumpNotesCount, decrementNotesCount } = useGoalExtras();
+  const { notesCountMap, accomplishmentCountMap, tasksCountMap, fetchNotesCount, fetchAccomplishmentsCount, refreshNotesAndCount, refreshAccomplishmentsAndCount, bumpNotesCount, decrementNotesCount } = useGoalExtras();
 
   // counts are provided by useGoalExtras (notesCountMap, accomplishmentCountMap)
 
@@ -177,6 +184,14 @@ const GoalCard: React.FC<GoalCardProps> = ({
     setEditingNoteContent('');
   };
 
+  const openTasksModal = () => {
+    setIsTasksModalOpen(true);
+  };
+
+  const closeTasksModal = () => {
+    setIsTasksModalOpen(false);
+  };
+
   const createNote = async () => {
     // optimistic create: add a temp note locally immediately
     // Prevent creating notes for unsaved (temp) goals
@@ -233,58 +248,44 @@ const GoalCard: React.FC<GoalCardProps> = ({
     }
   };
 
-  const deleteNote = async (noteId: string) => {
+  const deleteNote = (noteId: string) => {
     // optimistic delete: remove locally first
     const prior = notes;
     setNotes((s) => s.filter((n) => n.id !== noteId));
-    setIsNotesLoading(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error('User not authenticated');
-      const res = await fetch(`/api/deleteNote?note_id=${noteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) throw new Error(await res.text());
-      // success; refresh shared counts via helper
-  try { await refreshNotesAndCount(goal.id); } catch (e) { /* ignore */ }
-  // decrement optimistic count
-  try { decrementNotesCount(goal.id); } catch (e) { /* ignore */ }
-    } catch (err: any) {
-      console.error('Error deleting note:', err);
-      // rollback
-      setNotes(prior);
-      notifyError('Failed to delete note.');
-    } finally {
-      setIsNotesLoading(false);
-    }
+    notifyWithUndo(
+      'Note deleted',
+      async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) throw new Error('User not authenticated');
+        const res = await fetch(`/api/deleteNote?note_id=${noteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) throw new Error(await res.text());
+        try { await refreshNotesAndCount(goal.id); } catch (e) { /* ignore */ }
+        try { decrementNotesCount(goal.id); } catch (e) { /* ignore */ }
+      },
+      () => {
+        setNotes(prior);
+      },
+    );
   };
 
-  const deleteAccomplishment = async (accomplishmentId: string) => {
+  const deleteAccomplishment = (accomplishmentId: string) => {
     // optimistic delete
     const prior = accomplishments;
     setAccomplishments((s) => s.filter((a) => a.id !== accomplishmentId));
-    setIsAccomplishmentLoading(true);
-    try {
-      const { error } = await supabase
-        .from('accomplishments')
-        .delete()
-        .eq('id', accomplishmentId);
-
-      if (error) {
-        console.error('Error deleting accomplishment:', error.message);
-        // rollback
+    notifyWithUndo(
+      'Accomplishment deleted',
+      async () => {
+        const { error } = await supabase
+          .from('accomplishments')
+          .delete()
+          .eq('id', accomplishmentId);
+        if (error) throw new Error(error.message);
+      },
+      () => {
         setAccomplishments(prior);
-        notifyError('Error deleting accomplishment.');
-        return;
-      }
-
-      notifySuccess('Accomplishment deleted successfully.');
-    } catch (err) {
-      console.error('Unexpected error deleting accomplishment:', err);
-      setAccomplishments(prior);
-      notifyError('Error deleting accomplishment.');
-    } finally {
-      setIsAccomplishmentLoading(false);
-    }
+      },
+    );
   };
 
   const saveEditedAccomplishment = async (
@@ -377,9 +378,35 @@ const GoalCard: React.FC<GoalCardProps> = ({
     setLocalStatus(goal.status);
   }, [goal.status]);
 
+  // Fetch tasks for this goal
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) return;
+
+        const response = await fetch('/api/getAllTasks', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch tasks');
+        
+        const allTasks: Task[] = await response.json();
+        const goalTasks = allTasks.filter(task => task.goal_id === goal.id);
+        setTasks(goalTasks);
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+      }
+    };
+
+    fetchTasks();
+  }, [goal.id]);
+
   // Derive displayed counts: prefer the larger of the shared cached count and local array length
   const displayedNotesCount = Math.max(notesCountMap[goal.id] ?? 0, notes.length ?? 0);
   const displayedAccomplishmentsCount = Math.max(accomplishmentCountMap[goal.id] ?? 0, accomplishments.length ?? 0);
+  const displayedTasksCount = tasksCountMap[goal.id] ?? tasks.length ?? 0;
 
   // Subscribe to temp-id replacement so this component can proactively fetch
   // accomplishments and notes even if the parent doesn't re-render immediately.
@@ -413,7 +440,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
 
       <div
         key={goal.id}
-        className={`${cardClasses} ${isSelected ? 'border-2 border-brand-50 bg-gray-20 dark:bg-brand-90' : 'border-2 border-transparent bg-gray-0 dark:bg-gray-80 ' } shadow-xl`}
+        className={`${cardClasses} ${isSelected ? 'border-2 border-brand-50 bg-gray-20 dark:bg-brand-90' : 'border-2 border-transparent bg-background-color' } shadow-xl`}
         onClick={(e) => {
           // If the click originated from an interactive element (button, input, link, select, textarea,
           // or any element with role="button"), don't treat it as a card-select click. This prevents
@@ -437,71 +464,10 @@ const GoalCard: React.FC<GoalCardProps> = ({
             </div>
           )} */}
       
-        {showAllGoals && (
-          <div className="text-xs">
-            {goal.week_start}
-          </div>
-        )}
       <div className="goal-header flex flex-row w-full justify-between items-center">
         <div className="flex items-center gap-2">
-          {localStatus && (
-            <div>
-              <Chip
-                label={localStatus}
-                onClick={(e) => {
-                  // Prevent the chip click from bubbling up and toggling card selection
-                  e.stopPropagation();
-                  setStatusAnchorEl(e.currentTarget);
-                }}
-                variant='outlined'
-                sx={
-                  localStatus === 'Not started'
-                    ? { borderColor: statusColors[localStatus || 'Not started'], color: statusColors[localStatus || 'Not started'] }
-                    : { bgcolor: statusColors[localStatus || 'Not started'], color: '#fff' }
-                }
-                className="card-status cursor-pointer"
-              />
-              <Menu
-                anchorEl={statusAnchorEl}
-                open={Boolean(statusAnchorEl)}
-                onClose={() => setStatusAnchorEl(null)}
-              >
-                {STATUSES.map((s: Status) => (
-                  <MenuItem
-                    key={s}
-                    disabled={isUpdatingStatus}
-                    className='text-xs'
-                    selected={s === localStatus}
-                    onClick={async () => {
-                      setStatusAnchorEl(null);
-                      if (s === localStatus) return; // no-op
-                      const prev = localStatus;
-                      setLocalStatus(s);
-                      setIsUpdatingStatus(true);
-                      try {
-                        const { error } = await supabase
-                          .from('goals')
-                          .update({ status: s, status_set_at: new Date().toISOString() })
-                          .eq('id', goal.id);
-                        if (error) throw error;
-                        notifySuccess('Status updated');
-                        // Ensure parent list is refreshed
-                        try { await refreshGoals(); } catch (e) { /* ignore */ }
-                      } catch (err: any) {
-                        console.error('Failed to update status:', err);
-                        setLocalStatus(prev);
-                        notifyError('Failed to update status');
-                      } finally {
-                        setIsUpdatingStatus(false);
-                      }
-                    }}
-                  >
-                    <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 6, background: statusColors[s], marginRight: 8 }} />
-                    {s}
-                  </MenuItem>
-                ))}
-              </Menu>
-            </div>
+          {tasks && tasks.length > 0 && (
+            <GoalCompletionDonut percentage={calculateGoalCompletion(tasks)} size={40} strokeWidth={4} />
           )}
         </div>
         <div className="tabs flex flex-row items-center justify-end w-full">
@@ -517,7 +483,13 @@ const GoalCard: React.FC<GoalCardProps> = ({
       </div>
       {/* Footer with accomplishments and actions */}
       <footer className="mt-2 text-sm text-gray-50 dark:text-gray-30 flex flex-col items-left justify-between">
+          
           <div className='flex flex-row w-full justify-end items-end gap-2'>
+            {showAllGoals && (
+          <div className="text-xs pb-2 w-full text-tertiary-text">
+            {goal.week_start}
+          </div>
+        )}
             <Tooltip title="Accomplishments" placement="top" arrow>
               <span>
                 <IconButton aria-label="Accomplishments" onClick={(e) => { e.stopPropagation(); openModal(); }} size="small" className="btn-ghost">
@@ -544,6 +516,17 @@ const GoalCard: React.FC<GoalCardProps> = ({
                     <span data-testid={`notes-count-${goal.id}-testonly`} style={{ display: 'none' }}>{notesCountMap[goal.id] ?? (notes.length > 0 ? notes.length : 0)}</span>
                   )}
                   <NotesIcon className="w-5 h-5" />
+                </IconButton>
+              </span>
+            </Tooltip>
+
+            <Tooltip title="Tasks" placement="top" arrow>
+              <span>
+                <IconButton aria-label="Tasks" onClick={(e) => { e.stopPropagation(); openTasksModal(); }} size="small" className="btn-ghost">
+                  {displayedTasksCount > 0 && (
+                    <div data-testid={`tasks-count-${goal.id}`} className={objectCounter}>{displayedTasksCount}</div>
+                  )}
+                  <ListTodo className="w-5 h-5" />
                 </IconButton>
               </span>
             </Tooltip>
@@ -609,7 +592,14 @@ const GoalCard: React.FC<GoalCardProps> = ({
     />
     {/* Notes Modal */}
     {isNotesModalOpen && (
-      <div id="editNotes" className={`${overlayClasses} flex items-center justify-center`}>
+      <div 
+        id="editNotes" 
+        className={`${overlayClasses} flex items-center justify-center`}
+        onMouseDown={(e) => {
+          // close when clicking the backdrop (only when clicking the overlay itself)
+          if (e.target === e.currentTarget) closeNotesModal();
+        }}
+      >
         <div className={`${modalClasses} w-full max-w-2xl`}> 
           <div className='flex flex-row w-full justify-between items-start'>
               <h3 className="text-lg font-medium text-gray-90 mb-4">Notes for <br />"{goal.title}"</h3>
@@ -622,21 +612,17 @@ const GoalCard: React.FC<GoalCardProps> = ({
           </div>
           <div className="space-y-4 max-h-[60vh] overflow-y-auto">
             <div className="mt-4">
-              {/* <label className="block text-sm font-medium text-gray-700">Add a new note</label> */}
-              <TextField
+              <RichTextEditor
+                id={`new-note-${goal.id}`}
                 value={newNoteContent}
-                onChange={(e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setNewNoteContent(e.target.value)}
-                className="mt-4 block w-full"
+                onChange={setNewNoteContent}
+                placeholder="Add notes about this goal..."
                 label="Add a new note"
-                multiline
-                rows={3}
-                size="small"
-                
               />
               <div className="mt-2 flex justify-end gap-2">
                 {/* <button className="btn-ghost" onClick={() => { setNewNoteContent(''); }}>Cancel</button> */}
                 <button className="btn-primary" onClick={createNote} disabled={isNotesLoading}><PlusIcon className="w-4 h-4 inline mr-1" />Add note</button>
-                {isNotesLoading && <div className="ml-2 text-sm text-gray-500">Saving...</div>}
+                {isNotesLoading && <div className="ml-2 text-sm text-gray-50">Saving...</div>}
               </div>
             </div>
             {isNotesLoading && notes.length === 0 ? (
@@ -648,25 +634,23 @@ const GoalCard: React.FC<GoalCardProps> = ({
               <h4 className="text-md font-semibold mb-2">Existing notes</h4>
               <ul className="space-y-3">
                 {notes.map((note) => (
-                  <li key={note.id} className="p-3 border rounded bg-gray-10 dark:bg-gray-80 dark:border-gray-70">
+                  <li key={note.id} className="p-3 border rounded bg-background dark:border-gray-70">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="text-xs text-gray-40">{new Date(note.created_at).toLocaleString()}</div>
+                        <div className="text-xs text-secondary-text">{new Date(note.created_at).toLocaleString()}</div>
                         <div className="flex items-center justify-end gap-2">
                           <button className="btn-ghost" onClick={() => { setEditingNoteId(note.id); setEditingNoteContent(note.content); }} title="Edit note"><Edit className="w-4 h-4" /></button>
                           <button className="btn-ghost" onClick={() => setNoteDeleteTarget(note.id)} title="Delete note" disabled={isNotesLoading}><Trash className="w-4 h-4" /></button>
                         </div>
                       </div>
-                      <div className="text-sm text-gray-70 dark:text-gray-20" dangerouslySetInnerHTML={{ __html: note.content }} />
+                      <div className="text-sm text-primary-text" dangerouslySetInnerHTML={{ __html: enhanceLinks(note.content) }} />
                     {editingNoteId === note.id && (
                       <div className="mt-2">
-                        <TextField
+                        <RichTextEditor
+                          id={`edit-note-${note.id}`}
                           value={editingNoteContent}
-                          onChange={(e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setEditingNoteContent(e.target.value)}
-                          multiline
-                          rows={3}
-                          size="small"
-                          
-                          className="mt-1 block w-full"
+                          onChange={setEditingNoteContent}
+                          placeholder="Edit note..."
+                          label="Edit note"
                         />
                         <div className="mt-2 flex justify-end gap-2">
                           <button className="btn-ghost" onClick={() => { setEditingNoteId(null); setEditingNoteContent(''); }}>Cancel</button>
@@ -700,6 +684,37 @@ const GoalCard: React.FC<GoalCardProps> = ({
       </div>
     )}
 
+    {/* Tasks Modal */}
+    {isTasksModalOpen && (
+      <div 
+        id="editTasks" 
+        className={`${overlayClasses} flex items-center justify-center`}
+        onMouseDown={(e) => {
+          // close when clicking the backdrop (only when clicking the overlay itself)
+          if (e.target === e.currentTarget) closeTasksModal();
+        }}
+      >
+        <div className={`${modalClasses} w-3/4`}> 
+          <div className='flex flex-row w-full justify-between items-start mb-4'>
+            <h3 className="text-lg font-medium text-gray-90">
+              Tasks for <br />"{goal.title}"
+            </h3>
+            <button className="btn-ghost" onClick={closeTasksModal}>
+              <CloseButton className="w-4 h-4" />
+            </button>
+          </div>
+          
+          <div className="max-h-[70vh] overflow-y-auto">
+            <TasksList 
+              goalId={goal.id}
+              goalTitle={goal.title}
+              goalDescription={goal.description || ''}
+            />
+          </div>
+        </div>
+      </div>
+    )}
+
     <ConfirmModal
       isOpen={isDeleteConfirmOpen}
       title="Delete goal?"
@@ -725,7 +740,13 @@ const GoalCard: React.FC<GoalCardProps> = ({
 
     {/* Edit Accomplishment Modal */}
     {isEditAccomplishmentModalOpen && selectedAccomplishment && (
-      <div className={`${overlayClasses} flex items-center justify-center`}>
+      <div 
+        className={`${overlayClasses} flex items-center justify-center`}
+        onMouseDown={(e) => {
+          // close when clicking the backdrop (only when clicking the overlay itself)
+          if (e.target === e.currentTarget) closeEditAccomplishmentModal();
+        }}
+      >
         <div className={`${modalClasses}`}>
           <h3 className="text-lg font-medium text-gray-90 mb-4">Edit Accomplishment</h3>
           <AccomplishmentEditor
@@ -744,12 +765,12 @@ const GoalCard: React.FC<GoalCardProps> = ({
 export default GoalCard;
 
       // <div key={goal.id} className="bg-white shadow-sm border rounded-lg p-4">
-      //   <h4 className="text-lg font-medium text-gray-900">{goal.title}</h4>
-      //   <p className="text-gray-600 mt-1">{goal.description}</p>
+      //   <h4 className="text-lg font-medium text-gray-90">{goal.title}</h4>
+      //   <p className="text-gray-60 mt-1">{goal.description}</p>
       //   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 mt-2">
       //     {goal.category}
       //   </span>
-      //   {/* <p className="text-sm text-gray-500 mt-2">{goal.impact}</p> */}
+      //   {/* <p className="text-sm text-gray-50 mt-2">{goal.impact}</p> */}
       //   <div className="mt-4 flex justify-end space-x-2">
       //     <button
       //       onClick={() => handleDeleteGoal(goal.id)}

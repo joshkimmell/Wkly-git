@@ -361,7 +361,7 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
           </div>
             
           <div className='flex flex-col'>
-              <label htmlFor="week_start" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="week_start" className="block text-sm font-medium text-gray-70">
                   Week Start
               </label>
               <TextField

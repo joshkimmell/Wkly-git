@@ -86,13 +86,10 @@ const Login = () => {
       }
     
       try {
-          // Ask Supabase to include a redirect in the confirmation email.
-          // Use the public production host (wkly.me) so the user lands on the real site
-          // after confirming their email. We include both commonly-accepted option
-          // keys to be compatible with different client versions.
           const { data, error } = await supabase.auth.signUp({
             email,
             password,
+            options: { emailRedirectTo: 'https://wkly.me' },
           });
     
         if (error) {
@@ -190,6 +187,8 @@ const Login = () => {
         return;
       }
       // console.log('Registration successful:', result);
+      // Supabase sends the confirmation email directly via custom SMTP (Mailgun).
+      // No secondary send needed here.
       // Show a confirmation notice instructing the user to confirm their email.
       setIsRegisterModalOpen(false);
       setShowConfirmNotice(true);
@@ -214,12 +213,14 @@ const Login = () => {
       }
     }
 
-    const [theme, setTheme] = useState<'theme-dark' | 'theme-light'>(
-      window.matchMedia('(prefers-color-scheme: dark)').matches ? 'theme-dark' : 'theme-light'
-    );
+    const [theme, setTheme] = useState<'theme-dark' | 'theme-light'>(() => {
+      try {
+        const stored = localStorage.getItem('theme');
+        if (stored === 'theme-dark' || stored === 'theme-light') return stored;
+      } catch {}
+      return 'theme-dark';
+    });
   const muiTheme = useMuiTheme();
-  const primaryColor = muiTheme?.palette?.primary?.main || 'var(--wkly-btn-primary)';
-  const textOnColor = muiTheme?.palette?.text?.primary || 'var(--wkly-text-on-color)';
   const fieldBg = muiTheme?.palette?.background?.paper || 'var(--wkly-background)';
   const dividerColor = muiTheme?.palette?.divider || 'var(--wkly-divider)';
   const radius = (muiTheme as any)?.shape?.borderRadius ? `${(muiTheme as any).shape.borderRadius}px` : 'var(--wkly-radius)';
@@ -245,17 +246,18 @@ const Login = () => {
   
   useEffect(() => {
     if (theme === 'theme-dark') {
-      document.body.classList.add('dark');
+      document.documentElement.classList.add('dark');
     } else {
-      document.body.classList.remove('dark');
+      document.documentElement.classList.remove('dark');
     }
+    try { localStorage.setItem('theme', theme); } catch {}
   }, [theme]);
   
     return (
     <SessionContextProvider supabaseClient={supabase}>
       <AppMuiThemeProvider mode={theme}>
       <div className={`${theme}`}>
-        <div className={`min-h-screen bg-gray-10 dark:bg-gray-90 text-gray-90 dark:text-gray-10`}>
+        <div className={`min-h-screen bg-background text-primary-text`}>
           <Header   
             theme={theme}
             toggleTheme={toggleTheme}
@@ -318,7 +320,7 @@ const Login = () => {
               </Button>
               <div className='flex flex-row justify-start gap-4 pt-6'>
                 <Button variant="outlined" onClick={openModal} sx={{ py: 0.8, px: 3, borderRadius: radius }}>
-                  Register
+                  Try for free
                 </Button>
                 <Button variant="text" onClick={() => handlePasswordReset(email)} sx={{ py: 0.8 }}>
                   Forgot Password
@@ -447,7 +449,8 @@ const Login = () => {
                               type="submit"
                               variant="contained"
                               disabled={!email || !password || !passwordReEnter || !passwordsMatch}
-                              sx={{ py: 1.2, px: 3, backgroundColor: primaryColor, color: textOnColor, '&:hover': { opacity: 0.95 } }}
+                              sx={{ py: 1.2, px: 3, color: muiTheme.palette.text.primary, '&:hover': { opacity: 0.95 } }}
+                              className='btn-primary'
                             >
                               Register
                             </Button>

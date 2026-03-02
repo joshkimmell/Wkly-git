@@ -21,13 +21,12 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
-
-// Define the expected structure of a step
-interface Step {
+// Define the expected structure of a task
+interface Task {
   title: string;
   description: string;
-  category: string;
-  week_start: string;
+  suggested_date?: string; // Relative timing like "Week 1", "Day 1-3", etc.
+  estimated_duration?: string; // e.g., "2 hours", "30 minutes"
 }
 
 export const handler: Handler = async (event) => {
@@ -44,22 +43,21 @@ export const handler: Handler = async (event) => {
   try {
     // Log raw incoming body for debugging (helps catch unexpected shapes)
     console.debug('[generatePlan] raw event.body:', event.body);
-    // Try to parse JSON, then fall back to urlencoded or raw body
-    let input: string | undefined;
+    
+    let goalTitle: string | undefined;
+    let goalDescription: string | undefined;
+
     try {
       const parsed = JSON.parse(event.body || '{}');
-      input = parsed?.input;
+      goalTitle = parsed?.title;
+      goalDescription = parsed?.description;
       console.debug('[generatePlan] parsed JSON body:', parsed);
     } catch (e) {
-      // not JSON; try URLSearchParams
-      try {
-        const params = new URLSearchParams(event.body || '');
-        if (params.has('input')) input = params.get('input') || undefined;
-        else input = (event.body || '').trim() || undefined;
-        console.debug('[generatePlan] parsed urlencoded/raw body, input:', input);
-      } catch (ee) {
-        console.warn('[generatePlan] Failed to parse non-JSON body');
-      }
+      console.warn('[generatePlan] Failed to parse body as JSON');
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Invalid request body.' }),
+      };
     }
 
     // Make sure OpenAI key is available
@@ -71,35 +69,47 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    if (!input) {
+    if (!goalTitle || !goalDescription) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Input is required.' }),
+        body: JSON.stringify({ error: 'Both title and description are required.' }),
       };
     }
 
-    // Call OpenAI API to generate a stepped plan
-    // Updated the prompt to exclude `week_start` and `category` fields
-    const prompt = `Create a detailed, actionable plan based on the following goal prompt: "${input}". The plan should include multiple steps, and each step should have the following fields in JSON format:
-    [
-      {
-        "title": "Step 1: step.title",
-        "description": "step.description"
-      }
-    ]
-    Ensure the response is a valid JSON array and nothing else.`;
+    // Call OpenAI API to generate tasks for the goal
+    const prompt = `You are a planning assistant helping a user break down a goal into actionable tasks.
+
+Goal Title: "${goalTitle}"
+Goal Description: "${goalDescription}"
+
+Your task:
+1. Identify 3-7 specific, actionable tasks needed to achieve this goal
+2. Order tasks logically (dependencies, prerequisites first)
+3. For each task, suggest realistic timing and duration
+4. Keep tasks focused and achievable
+
+Respond with a JSON array of tasks:
+[
+  {
+    "title": "Task title (clear action, max 100 chars)",
+    "description": "What needs to be done and why (2-3 sentences)",
+    "suggested_date": "Relative timing (e.g., 'Week 1', 'Days 1-3', 'After Task 1')",
+    "estimated_duration": "How long it might take (e.g., '2 hours', '1 day', '1 week')"
+  }
+]
+
+Ensure the response is a valid JSON array only.`;
 
     let response: any;
     try {
       response = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: process.env.OPENAI_MODEL || 'gpt-4o',
         messages: [
-          { role: 'system', content: 'You are a helpful assistant that is good at breaking large goals into steps and determines the timeframe for each step, then generates JSON responses only.' },
+          { role: 'system', content: 'You are a planning expert who breaks goals into clear, actionable tasks with realistic timelines. Always respond with valid JSON only.' },
           { role: 'user', content: prompt },
         ],
-        max_tokens: 500,
-        // Set temperature to 1 since some models only support the default value
-        temperature: 1,
+        max_tokens: 1000,
+        temperature: 0.7,
       });
     } catch (openaiErr) {
       // Log the full error server-side for debugging (do not return raw error to client)
@@ -124,64 +134,45 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    // Log the raw response from OpenAI
-    console.log('Raw OpenAI response:', generatedText);
-
-    // Check if the response is truncated
-    if (!generatedText.trim().endsWith(']')) {
-      console.error('Truncated OpenAI response detected:', generatedText);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: 'Truncated OpenAI response.', response: 'Try refreshing plan.' + generatedText }),
-      };
-    }
-
     // Preprocess the response to remove code block markers
     const cleanText = generatedText.replace(/^```json\n|```$/g, '').trim();
 
-    // Parse the response into a structured format (assuming JSON-like output)
-    let steps: Step[];
+    // Parse the response into a structured format
+    let tasks: Task[];
     try {
-      steps = JSON.parse(cleanText);
+      tasks = JSON.parse(cleanText);
 
-      // Validate required fields in each step
-      // Updated validation to exclude `week_start` and `category`
-      const isValid = steps.every((step: Step) =>
-        step.title &&
-        step.description
+      // Validate required fields in each task
+      const isValid = Array.isArray(tasks) && tasks.every((task: Task) =>
+        task.title &&
+        task.description
       );
 
       if (!isValid) {
-        console.error('Validation failed for OpenAI response:', steps);
+        console.error('Validation failed for OpenAI response:', tasks);
         return {
           statusCode: 400,
-          body: JSON.stringify({ error: 'Title and description are required in each step.', response: steps }),
+          body: JSON.stringify({ error: 'Title and description are required in each task.', response: tasks }),
         };
       }
 
-      // Validate and transform each step to ensure proper formatting
-      steps = steps.map((step, index) => {
-        let title = step.title;
+      // Clean up and validate each task
+      tasks = tasks.map((task, index) => {
+        let title = task.title;
 
         // Ensure title is a string
         if (typeof title !== 'string') {
-          console.warn(`Invalid title format at step ${index + 1}:`, title);
+          console.warn(`Invalid title format at task ${index + 1}:`, title);
           title = JSON.stringify(title); // Fallback to stringifying the title
         }
 
-        // Prepend step number if not already present
-        const stepNumberPattern = /^Step \d+: /;
-        if (!stepNumberPattern.test(title)) {
-          title = `Step ${index + 1}: ${title}`;
-        }
-
         return {
-          ...step,
+          ...task,
           title,
         };
       });
     } catch (error) {
-      console.error('Failed to parse OpenAI response:', cleanText); // Log the invalid response
+      console.error('Failed to parse OpenAI response:', cleanText);
       return {
         statusCode: 500,
         body: JSON.stringify({ error: 'Failed to parse OpenAI response.', response: cleanText }),
@@ -190,7 +181,7 @@ export const handler: Handler = async (event) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ result: steps }),
+      body: JSON.stringify({ tasks }),
     };
   } catch (error) {
     // Log detailed error information for debugging

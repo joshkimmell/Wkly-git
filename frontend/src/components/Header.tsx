@@ -1,12 +1,13 @@
 import MenuBtn, { MenuBtnProps } from '@components/menu-btn';
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import menuClosedIcon from '/images/button-menu.svg';
-import { Sun, Moon, Home, Text } from 'lucide-react';
+import { Sun, Moon, Home, Text, LayoutGrid } from 'lucide-react';
+import { classTabItem } from '@styles/classes';
 // import { classMenuItem } from '@styles/classes';
 // supabase client not needed here; use useAuth hook's session instead
 import useAuth from '@hooks/useAuth';
-import { Menu, MenuItem } from '@mui/material';
+import { Menu, MenuItem, Tooltip } from '@mui/material';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP, useOverlayDebug } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
@@ -75,9 +76,11 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     const [menuOpen, setIsOpen] = useState<MenuBtnProps['isOpen']>(isOpen);
     const [drawerVisible, setDrawerVisible] = useState(false);
     const drawerContainerRef = useRef<HTMLDivElement | null>(null);
+    const headerRef = useRef<HTMLDivElement | null>(null);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+    const [scrolled, setScrolled] = useState(false);
     const { session } = useAuth();
     // use the module-level `isMenuHidden` exported above
 
@@ -126,6 +129,30 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     useEffect(() => {
         setIsAuthenticated(!!session);
     }, [session]);
+
+    // Sticky header scroll-shrink: set `scrolled` once the page scrolls past a
+    // small threshold so CSS transitions can kick in.
+    // RAF debounce + hysteresis (32px in / 16px out) prevent the class from
+    // toggling rapidly near the boundary which cuts transitions off mid-flight.
+    useEffect(() => {
+        let rafId: number | null = null;
+        const onScroll = () => {
+            if (rafId !== null) return;
+            rafId = requestAnimationFrame(() => {
+                rafId = null;
+                setScrolled((prev) => {
+                    if (!prev && window.scrollY > 32) return true;
+                    if (prev && window.scrollY < 16) return false;
+                    return prev;
+                });
+            });
+        };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        return () => {
+            window.removeEventListener('scroll', onScroll);
+            if (rafId !== null) cancelAnimationFrame(rafId);
+        };
+    }, []);
 
     // Keep `drawerVisible` in sync with whether the drawer container is actually visible
     useEffect(() => {
@@ -182,15 +209,35 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     // Development overlay debug (logs overlay element when profile modal opens)
     useOverlayDebug(isProfileOpen);
 
+    // Keep --header-height CSS variable on :root in sync with the actual header height
+    // so notifications and other fixed-position elements can offset below the header.
+    useEffect(() => {
+        const el = headerRef.current;
+        if (!el) return;
+        // Set initial value (one reflow on mount is unavoidable; offsetHeight avoids forced-reflow)
+        document.documentElement.style.setProperty('--header-height', `${el.offsetHeight}px`);
+        // Use ResizeObserverEntry data in the callback — avoids forced reflow by not reading layout
+        const ro = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                const h = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+                document.documentElement.style.setProperty('--header-height', `${h}px`);
+            }
+        });
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
+
+    const location = useLocation();
+
     return (
-        <div className={`header flex items-center dark relative ${menuOpen ? 'header-expanded top-0' : ''}`}>
+        <div ref={headerRef} className={`header flex items-end dark relative${menuOpen ? ' header-expanded' : ''}${scrolled ? ' header--scrolled' : ''}`}>
             
             <div className="header-brand">
                 {!drawerVisible && (
                     <div className="header-brand--logo-container relative pr-6 flex items-end ">
                         <button
                             onClick={toggleThemeInternal}
-                            className="btn-ghost ml-4 p-2 rounded absolute top-0 right-0"
+                            className="header-brand--theme-btn btn-ghost ml-4 p-2 rounded absolute top-0 right-0"
                             aria-label="Toggle theme"
                         >
                             {props.theme === 'theme-dark' ? (
@@ -218,19 +265,66 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                         </Link>
                     </div>
                 )}
+                {!isMenuHidden() && !drawerVisible && (
+                    <nav className="tabs hidden sm:flex items-end self-end ml-6 h-full">
+                        <ul className="flex -mb-px text-sm font-medium">
+                            <li>
+                                <Link
+                                    to="/"
+                                    className={`${classTabItem}${location.pathname === '/' ? ' active' : ''}`}
+                                >
+                                    <Home className="w-4 h-4 mr-1.5" />
+                                    Home
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    to="/goals"
+                                    className={`${classTabItem}${location.pathname === '/goals' ? ' active' : ''}`}
+                                >
+                                    <LayoutGrid className="w-4 h-4 mr-1.5" />
+                                    Goals
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    to="/summaries"
+                                    className={`${classTabItem}${location.pathname === '/summaries' ? ' active' : ''}`}
+                                >
+                                    <Text className="w-4 h-4 mr-1.5" />
+                                    Summaries
+                                </Link>
+                            </li>
+                        </ul>
+                    </nav>
+                )}
+                {/* Main navigation tabs — hidden on mobile (drawer handles mobile nav) */}
                 {isAuthenticated && (
                     <>
                     {/* <div className='flex flex-col gap-2'> */}
                         <div>
                             {/* Show avatar/menu only when the drawer is not open */}
-                            <div className='absolute top-8 sm:top-10 right-3 sm:right-10'> 
+                            <div className='header-brand--avatar-wrapper absolute top-8 sm:top-10 right-3 sm:right-10'>
                                 {!drawerVisible && (
                                     <>
-                                        <Avatar
-                                            isEdit={false}
-                                            onClick={handleMenuOpen}
-                                            size='sm'
-                                        />
+                            <Tooltip title="Profile" placement="bottom">
+                              <span>
+                                <Avatar
+                                    isEdit={false}
+                                    onClick={handleMenuOpen}
+                                    size={drawerVisible ? 'sm' : 'md'}
+                                    buttonSx={{
+                                      '& .MuiAvatar-root': {
+                                        transition: 'border-color 150ms, background-color 150ms',
+                                      },
+                                      '&:hover .MuiAvatar-root': {
+                                        borderColor: 'var(--primary)',
+                                        backgroundColor: 'color-mix(in srgb, var(--brand-30, #c300dc) 80%, transparent)',
+                                      },
+                                    }}
+                                />
+                              </span>
+                            </Tooltip>
                                         <Menu
                                             anchorEl={menuAnchor}
                                             open={Boolean(menuAnchor)}
@@ -273,7 +367,9 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                         
                     </>
                 )}
-            </div>           
+            </div>
+
+            
         </div>
     );
 };

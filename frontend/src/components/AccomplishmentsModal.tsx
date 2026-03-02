@@ -191,7 +191,7 @@ export default function AccomplishmentsModal({ goalTitle, isOpen, onClose, accom
                     </div>
                     <div className="flex-1">
                       <div className="text-md font-semibold text-brand-80 dark:text-brand-10">{acc.title}</div>
-                      <div className="text-md text-gray-80 dark:text-gray-40 mt-1">{acc.description ? <span dangerouslySetInnerHTML={{ __html: acc.description }} /> : <span className="text-gray-400">No description provided.</span>}</div>
+                      <div className="text-md text-gray-80 dark:text-gray-40 mt-1">{acc.description ? <span dangerouslySetInnerHTML={{ __html: acc.description }} /> : <span className="text-gray-40">No description provided.</span>}</div>
                       {acc.impact && acc.impact.trim() ? (
                         <div className="text-sm dark:text-gray-40 text-gray-70 mt-2"><strong>Impact:</strong> <span dangerouslySetInnerHTML={{ __html: acc.impact }} /></div>
                       ) : null}
@@ -201,7 +201,7 @@ export default function AccomplishmentsModal({ goalTitle, isOpen, onClose, accom
               ))}
 
               {accomplishments.length === 0 && (
-                <li className="text-sm text-gray-500">No accomplishments yet.</li>
+                <li className="text-sm text-gray-50">No accomplishments yet.</li>
               )}
             </ul>
           </div>

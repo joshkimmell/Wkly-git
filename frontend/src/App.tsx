@@ -1,18 +1,17 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { GoalsProvider } from '@context/GoalsContext';
-import { classTabItem } from '@styles/classes';
 import ToastNotification, { notifySuccess, notifyError } from '@components/ToastyNotification';
 // import WeeklyGoals from '@components/WeeklyGoals';
 import AllGoals from '@components/AllGoals';
-import Header, { isMenuHidden } from '@components/Header';
+import HomePage from '@components/HomePage';
+import Header from '@components/Header';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import supabase from '@lib/supabase';
 import useAuth from '@hooks/useAuth';
 import Auth from '@components/Auth';
 import AllSummaries from '@components/AllSummaries';
 // import AllAccomplishments from '@components/AllAccomplishments';
-import { Home, Text } from 'lucide-react';
 import LoadingSpinner from '@components/LoadingSpinner';
 import ProfileManagement from '@components/ProfileManagement';
 import NotificationsSettings from '@components/NotificationsSettings';
@@ -30,11 +29,10 @@ const App: React.FC = () => {
   const navigate = useNavigate();
   const [theme, setTheme] = useState<'theme-dark' | 'theme-light'>(() => {
     // Prefer an explicit user preference saved in localStorage, then fall
-    // back to the OS preference. Keep values in the form expected by the
-    // rest of the app: 'theme-dark' | 'theme-light'.
+    // back to dark theme as the default.
     const stored = typeof window !== 'undefined' ? localStorage.getItem('theme') : null;
     if (stored === 'theme-dark' || stored === 'theme-light') return stored;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'theme-dark' : 'theme-light';
+    return 'theme-dark';
   });
   const [isOpen, /*setIsOpen*/] = useState(false);
 
@@ -66,9 +64,9 @@ const App: React.FC = () => {
     // theme so CSS variables and class-based styles update for both
     // Tailwind/class-based styling and the MUI theme provider.
     if (theme === 'theme-dark') {
-      document.body.classList.add('dark');
+      document.documentElement.classList.add('dark');
     } else {
-      document.body.classList.remove('dark');
+      document.documentElement.classList.remove('dark');
     }
     try {
       document.documentElement.setAttribute('data-theme', theme);
@@ -132,7 +130,7 @@ const App: React.FC = () => {
     <SessionContextProvider supabaseClient={supabase}>
     <AppMuiThemeProvider mode={theme}>
     <div className={`${current}`}>
-      <div className={`min-h-screen bg-gray-10 dark:bg-gray-90 text-gray-90 dark:text-gray-10`}>
+      <div className={`min-h-screen bg-background text-primary-text ${current}`}>
         <Header   
           theme={theme}
           toggleTheme={toggleTheme}
@@ -141,44 +139,11 @@ const App: React.FC = () => {
           />
         <GoalsProvider>
           <main className="max-w-8xl mx-auto px-4 sm:px-8 lg:px-16 py-8">
-            <div className="hidden sm:flex">
 
-              {!isMenuHidden() && (
-                <div className="tabs w-full justify-between">
-                  <div className="border-b border-gray-20 dark:border-gray-70">
-                      <ul className="flex flex-wrap -mb-px text-sm font-medium text-center">
-                          <li className="tabs-container--list--item">
-                              <a href="/" className={`${classTabItem} ${window.location.pathname === '/' ? ' active' : ''}`}>
-                                <Home className="w-5 h-5 mr-2" />
-                                Goals
-                              </a>
-                          </li>
-                          {/* <li className="me-2">
-                              <a href="/accomplishments" className={`${classTabItem} ${window.location.pathname === '/accomplishments' ? ' active' : ''}`} aria-current="page">
-                                <Award className="w-5 h-5 mr-2" />
-                                Accomplishments
-                              </a>
-                          </li> */}
-                          <li className="me-2">
-                              <a href="/summaries" className={`${classTabItem} ${window.location.pathname === '/summaries' ? ' active' : ''}`} aria-current="page">
-                                <Text className="w-5 h-5 mr-2" />
-                                Summaries
-                              </a>
-                          </li>
-                      </ul>
-                  </div>
-                  {/* <div className="me-2 align-flex-end justify-end flex no-wrap">
-                      <a href="#" onClick={handleLogout} className="btn-ghost align-flex-end justify-end flex items-center px-3 py-2 text-sm font-medium text-brand-80 dark:text-brand-10 hover:text-brand-90 dark:hover:text-brand-20 hover:bg-gray-20 dark:hover:bg-gray-80 focus:outline-none active:bg-gray-30 active:border-transparent dark:active:bg-gray-70">
-                        <LogOut className="w-5 h-5 mr-2" />
-                        <span className='whitespace-nowrap'>Log out</span>
-                      </a>
-                  </div> */}
-                </div>
-              )}
-            </div>
             <Routes>
               {/* <Route path="/" element={<WeeklyGoals />} /> */}
-              <Route path="/" element={<AllGoals />} />
+              <Route path="/" element={<HomePage />} />
+              <Route path="/goals" element={<AllGoals />} />
               <Route path="/mui-demo" element={<MuiCompareDemo />} />
               {/* <Route path="/accomplishments" element={<AllAccomplishments />} /> */}
               <Route path="/summaries" element={<AllSummaries />} />

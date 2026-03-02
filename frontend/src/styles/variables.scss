@@ -42,33 +42,35 @@ $container-margin: 0 auto;
 // COLORS ---
 // Theme tokens
 $theme-dark: (
-    background-color: $gray-100,
+    background-base: $gray-100,
+    background-color: $gray-90,
     background-inverse: $gray-10,
     primary-text: $gray-10,
     secondary-text: $gray-30,
     tertiary-text: $gray-50,
     inverse-text: $gray-90,
     button-text: $gray-0,
-    primary-icon: $brand-30,
-    secondary-icon: $brand-20,
-    tertiary-icon: $brand-10,
-    inverse-icon: $brand-0,
-    interactive-icon: $brand-30,
-    primary-border: $brand-50,
-    secondary-border: $brand-70,
-    tertiary-border: $brand-50,
-    primary-button: $brand-30,
-    secondary-button: $brand-20,
-    tertiary-button: $brand-10,
-    primary-button-hover: $brand-20,
-    secondary-button-hover: $brand-10,
-    tertiary-button-hover: $brand-0,
-    primary-link: $brand-30,
-    secondary-link: $brand-20,
-    tertiary-link: $brand-10
+    primary-icon: var(--brand-30),
+    secondary-icon: var(--brand-20),
+    tertiary-icon: var(--brand-10),
+    inverse-icon: var(--brand-0),
+    interactive-icon: var(--brand-30),
+    primary-border: var(--brand-50),
+    secondary-border: var(--brand-70),
+    tertiary-border: var(--brand-50),
+    primary-button: var(--brand-30),
+    secondary-button: var(--brand-20),
+    tertiary-button: var(--brand-10),
+    primary-button-hover: var(--brand-20),
+    secondary-button-hover: var(--brand-10),
+    tertiary-button-hover: var(--brand-0),
+    primary-link: var(--brand-30),
+    secondary-link: var(--brand-20),
+    tertiary-link: var(--brand-10)
 );
 
 $theme-light: (
+    background-base: $gray-0,
     background-color: $gray-10,
     background-inverse: $gray-100,
     layer-1: $gray-0,
@@ -77,33 +79,31 @@ $theme-light: (
     tertiary-text: $gray-50,
     inverse-text: $gray-0,
     button-text: $gray-100,
-    primary-icon: $brand-70,
-    secondary-icon: $brand-50,
-    tertiary-icon: $brand-30,
-    inverse-icon: $brand-100,
-    interactive-icon: $brand-70,
-    primary-border: $brand-30,
-    secondary-border: $brand-20,
-    tertiary-border: $brand-10,
-    primary-button: $brand-70,
-    secondary-button: $brand-50,
-    tertiary-button: $brand-30,
-    primary-button-hover: $brand-80,
-    secondary-button-hover: $brand-70,
-    tertiary-button-hover: $brand-50,
-    primary-link: $brand-70,
-    secondary-link: $brand-50,
-    tertiary-link: $brand-30
+    primary-icon: var(--brand-70),
+    secondary-icon: var(--brand-50),
+    tertiary-icon: var(--brand-30),
+    inverse-icon: var(--brand-100),
+    interactive-icon: var(--brand-70),
+    primary-border: var(--brand-30),
+    secondary-border: var(--brand-20),
+    tertiary-border: var(--brand-10),
+    primary-button: var(--brand-70),
+    secondary-button: var(--brand-50),
+    tertiary-button: var(--brand-30),
+    primary-button-hover: var(--brand-80),
+    secondary-button-hover: var(--brand-70),
+    tertiary-button-hover: var(--brand-50),
+    primary-link: var(--brand-70),
+    secondary-link: var(--brand-50),
+    tertiary-link: var(--brand-30)
 );
 
 
 
 @mixin theme-vars($theme-map) {
-  --background-color: #{map.get($theme-map, background-color)};
+  --background: #{map.get($theme-map, background-base)};
+  --background-color: #{rgba(map.get($theme-map, background-color), 0.70)};
   --background-inverse: #{map.get($theme-map, background-inverse)};
-  // layer-1 should be background-inverse at 20% opacity
-  // $__layer_inv: map.get($theme-map, background-inverse);
-  // --layer-1: #{rgba($__layer_inv, 0.1) + var(--background-color)};
   --primary-text: #{map.get($theme-map, primary-text)};
   --secondary-text: #{map.get($theme-map, secondary-text)};
   --tertiary-text: #{map.get($theme-map, tertiary-text)};

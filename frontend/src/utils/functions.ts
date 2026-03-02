@@ -585,6 +585,24 @@ export const deleteGoalNote = async (noteId: string) => {
     const regex = new RegExp(`(${escapedFilter})`, 'gi');
     return safeText.replace(regex, '<span class="highlight">$1</span>');
   };
+
+// Enhance HTML links to open in new tab with security attributes
+export const enhanceLinks = (html: string | null | undefined): string => {
+  if (!html) return '';
+  
+  // Parse the HTML and add target="_blank" and rel="noopener noreferrer" to all <a> tags
+  const temp = document.createElement('div');
+  temp.innerHTML = html;
+  
+  const links = temp.querySelectorAll('a');
+  links.forEach(link => {
+    link.setAttribute('target', '_blank');
+    link.setAttribute('rel', 'noopener noreferrer');
+  });
+  
+  return temp.innerHTML;
+};
+
 export const handleUpdateGoal = async (goalId: string, updatedGoal: Goal) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User is not authenticated');

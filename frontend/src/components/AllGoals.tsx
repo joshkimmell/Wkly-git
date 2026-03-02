@@ -1,9 +1,12 @@
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { fetchAllGoalsIndexed, fetchAllGoals, deleteGoal, updateGoal, saveSummary, UserCategories, initializeUserCategories, addCategory, getWeekStartDate, indexDataByScope, applyHighlight } from '../utils/functions';
 import Pagination from '@components/Pagination';
 import GoalCard from '@components/GoalCard';
-import GoalKanbanCard from '@components/GoalKanbanCard';
+import GoalCompletionDonut from '@components/GoalCompletionDonut';
 import GoalForm from '@components/GoalForm';
+import TasksList from '@components/TasksList';
+import TaskCard from '@components/TaskCard';
+import AllTasksCalendar from '@components/AllTasksCalendar';
 import Modal from 'react-modal';
 import ConfirmModal from './ConfirmModal';
 import AccomplishmentsModal from './AccomplishmentsModal';
@@ -13,12 +16,12 @@ import SummaryEditor from '@components/SummaryEditor';
 import GoalEditor from '@components/GoalEditor';
 import { modalClasses, overlayClasses } from '@styles/classes';
 import { ARIA_HIDE_APP } from '@lib/modal';
-import { Goal as GoalUtilsGoal } from '@utils/goalUtils';
+import { Goal as GoalUtilsGoal, Task, calculateGoalCompletion } from '@utils/goalUtils';
 import { mapPageForScope, loadPageByScope, savePageByScope } from '@utils/pagination';
 import 'react-datepicker/dist/react-datepicker.css';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
-import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, Eye, Edit, Trash, EyeOff, ChevronRight, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash } from 'lucide-react';
+import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, CalendarDays, Eye, Edit, Trash, EyeOff, ChevronRight, ChevronDown, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash, ListTodo, Clock, CircleEllipsis, MoreVertical, Expand, Minimize, Maximize, Shrink } from 'lucide-react';
 import { useGoalsContext } from '@context/GoalsContext';
 import useGoalExtras from '@hooks/useGoalExtras';
 // notify helpers imported where needed below
@@ -26,9 +29,9 @@ import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, FormG
 // dnd-kit was attempted but failed to install; use HTML5 drag/drop fallback
 import { useTheme } from '@mui/material/styles';
 import supabase from '@lib/supabase';
-import { STATUSES, STATUS_COLORS, type Status } from '../constants/statuses';
-import { notifyError, notifySuccess } from '@components/ToastyNotification';
-import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { STATUS_COLORS } from '../constants/statuses';
+import { notifyError, notifySuccess, notifyWithUndo } from '@components/ToastyNotification';
+import { DatePicker, LocalizationProvider, TimeClock } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type { Dayjs } from 'dayjs';
 import type { ChangeEvent } from 'react';
@@ -38,62 +41,15 @@ type Goal = GoalUtilsGoal & {
   created_at?: string;
 };
 
-// Inline per-goal status component (mirrors GoalCard behavior)
-const InlineStatus: React.FC<{ goal: Goal; onUpdated?: () => void }> = ({ goal, onUpdated }) => {
-    const [localStatus, setLocalStatus] = useState<string | undefined>(goal.status);
-    const [statusAnchorEl, setStatusAnchorEl] = useState<null | HTMLElement>(null);
-    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-    const statusColors = STATUS_COLORS;
-    
+// Inline per-goal status component (shows completion donut)
+const InlineStatus: React.FC<{ tasks?: Task[] }> = ({ tasks = [] }) => {
+    const completion = calculateGoalCompletion(tasks);
     
     return (
-        <div>
-            <Chip
-                label={localStatus}
-                onClick={(e) => setStatusAnchorEl(e.currentTarget)}
-                variant='outlined'
-                sx={
-                    localStatus === 'Not started'
-                        ? { borderColor: statusColors[localStatus || 'Not started'], color: statusColors[localStatus || 'Not started'] }
-                        : { bgcolor: statusColors[localStatus || 'Not started'], color: '#fff' }
-                }
-                className="cursor-pointer text-sm font-medium card-status"
-            />
-            <Menu anchorEl={statusAnchorEl} open={Boolean(statusAnchorEl)} onClose={() => setStatusAnchorEl(null)}>
-                {STATUSES.map((s: Status) => (
-                    <MenuItem
-                        key={s}
-                        disabled={isUpdatingStatus}
-                        className="text-xs"
-                        selected={s === localStatus}
-                        onClick={async () => {
-                            setStatusAnchorEl(null);
-                            if (s === localStatus) return;
-                            const prev = localStatus;
-                            setLocalStatus(s);
-                            setIsUpdatingStatus(true);
-                            try {
-                                const { error } = await supabase
-                                    .from('goals')
-                                    .update({ status: s, status_set_at: new Date().toISOString() })
-                                    .eq('id', goal.id);
-                                if (error) throw error;
-                                notifySuccess('Status updated');
-                                try { if (onUpdated) await onUpdated(); } catch (e) { /* ignore */ }
-                            } catch (err: any) {
-                                console.error('Failed to update status:', err);
-                                setLocalStatus(prev);
-                                notifyError('Failed to update status');
-                            } finally {
-                                setIsUpdatingStatus(false);
-                            }
-                        }}
-                    >
-                        <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 6, background: statusColors[s], marginRight: 8 }} />
-                        {s}
-                    </MenuItem>
-                ))}
-            </Menu>
+        <div className="flex items-center justify-center">
+            {tasks && tasks.length > 0 && (
+                <GoalCompletionDonut percentage={completion} size={40} strokeWidth={4} />
+            )}
         </div>
     );
 };
@@ -127,6 +83,14 @@ const GoalsComponent = () => {
     const [sortAnchorEl, setSortAnchorEl] = useState<HTMLElement | null>(null);
     const [isGoalModalOpen, setIsGoalModalOpen] = useState(false); // Modal state
     const [isEditorOpen, setIsEditorOpen] = useState(false); // Editor modal state
+    // Add menu (goal vs task choice)
+    const [addMenuAnchorEl, setAddMenuAnchorEl] = useState<HTMLElement | null>(null);
+    // Standalone "Add a task" modal state
+    const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
+    const [standaloneNewTask, setStandaloneNewTask] = useState<Partial<Task>>({ title: '', description: '', scheduled_date: '', scheduled_time: '' });
+    const [standaloneTaskGoalId, setStandaloneTaskGoalId] = useState<string>('');
+    const [standaloneCreateNewGoal, setStandaloneCreateNewGoal] = useState(false);
+    const [standaloneNewGoalTitle, setStandaloneNewGoalTitle] = useState('');
     const [newGoal, setNewGoal] = useState<Goal>({
         id: '',
         title: '',
@@ -150,8 +114,13 @@ const GoalsComponent = () => {
         status_notes?: string | null;
     } | null>(null);
     const [filter, setFilter] = useState<string>('');
+    // Debounced version of `filter` — expensive filtering computations use this so
+    // they don't fire on every keystroke. The raw `filter` is still used as the
+    // controlled input value so the text field responds instantly.
+    const [debouncedFilter, setDebouncedFilter] = useState<string>('');
     const [filterFocused, setFilterFocused] = useState<boolean>(false);
     const [clearButtonFocused, setClearButtonFocused] = useState<boolean>(false);
+    const [searchBarOpen, setSearchBarOpen] = useState<boolean>(false);
     // Per-row actions menu state (used in table view)
     const [rowActionsAnchorEl, setRowActionsAnchorEl] = useState<HTMLElement | null>(null);
     const [rowActionsTargetId, setRowActionsTargetId] = useState<string | null>(null);
@@ -195,6 +164,10 @@ const GoalsComponent = () => {
     } = goalExtras;
     const [selectedSummary, setSelectedSummary] = useState<{ id: string; content?: string; type?: string; title?: string } | null>(null);
     const [noteDeleteTarget, setNoteDeleteTarget] = useState<string | null>(null);
+    // Tasks state
+    const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
+    const [tasksCount, setTasksCount] = useState(0);
+    const [tasksGoalId, setTasksGoalId] = useState<string | null>(null);
     // simple caches
     
     const filterInputRef = useRef<HTMLInputElement | null>(null);
@@ -204,6 +177,7 @@ const GoalsComponent = () => {
     const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLElement | null>(null);
     const [filterStatus, setFilterStatus] = useState<string[]>([]);
     const [filterCategory, setFilterCategory] = useState<string[]>([]);
+    const [filterGoal, setFilterGoal] = useState<string[]>([]);
     const [filterStartDate, setFilterStartDate] = useState<Dayjs | null>(null);
     const [filterEndDate, setFilterEndDate] = useState<Dayjs | null>(null);
     const [summaryAnchorEl, setSummaryAnchorEl] = useState<HTMLElement | null>(null);
@@ -348,17 +322,18 @@ const GoalsComponent = () => {
     const selectedFiltersCount =
         (filterStatus?.length || 0) +
         (filterCategory?.length || 0) +
+        (filterGoal?.length || 0) +
         (filterStartDate && filterEndDate ? 1 : 0) +
         (filter && filter.trim().length > 0 ? 1 : 0);
 
     const theme = useTheme();
     const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
-    // const isMedium = useMediaQuery(theme.breakpoints.between('sm', 'md'));
-    // view mode: 'cards' (default), 'table', or 'kanban'
-    const [viewMode, setViewMode] = useState<'cards' | 'table' | 'kanban'>(() => {
+    const isMedium = useMediaQuery(theme.breakpoints.down('md'));
+    // view mode: 'cards' (default), 'table', 'kanban', or 'tasks-calendar'
+    const [viewMode, setViewMode] = useState<'cards' | 'table' | 'kanban' | 'tasks-calendar'>(() => {
         try {
             const v = localStorage.getItem('goals_view_mode');
-            if (v === 'cards' || v === 'table' || v === 'kanban') return v;
+            if (v === 'cards' || v === 'table' || v === 'kanban' || v === 'tasks-calendar') return v;
         } catch (e) {
             // ignore
         }
@@ -373,6 +348,9 @@ const GoalsComponent = () => {
             return v === null ? false : v === 'true';
         } catch (e) { return false; }
     });
+
+    // Kanban tasks state
+    const [kanbanTasks, setKanbanTasks] = useState<Record<string, Task[]>>({});
 
     useEffect(() => {
         try {
@@ -391,9 +369,13 @@ const GoalsComponent = () => {
         }
     }, [showAllGoals]);
 
-    const handleChangeView = (_: React.MouseEvent<HTMLElement>, value: 'cards' | 'table' | 'kanban' | null) => {
+    const handleChangeView = (_: React.MouseEvent<HTMLElement>, value: 'cards' | 'table' | 'kanban' | 'tasks-calendar' | null) => {
         if (!value) return;
         setViewMode(value);
+        // Clear calendar task IDs when switching away from calendar view
+        if (value !== 'tasks-calendar') {
+            setCalendarTaskIds([]);
+        }
         try { localStorage.setItem('goals_view_mode', value); } catch { /* ignore */ }
     };
 
@@ -429,6 +411,9 @@ const GoalsComponent = () => {
         for (const s of statuses) out[s] = false;
         return out;
     });
+
+    // Track which empty columns the user has manually expanded (session-persisted)
+    const [manuallyExpandedEmptyColumns, setManuallyExpandedEmptyColumns] = useState<Set<string>>(new Set());
 
     // Keep kanbanColumns in sync when indexedGoals change
     useEffect(() => {
@@ -526,6 +511,19 @@ const GoalsComponent = () => {
 
     const handleDrop = async (e: React.DragEvent, status: string) => {
         e.preventDefault();
+        
+        // Check if we're dragging a task
+        const taskId = (() => { 
+            try { return e.dataTransfer?.getData('text/task'); } 
+            catch { return null; } 
+        })();
+        
+        if (taskId || draggingTaskId) {
+            // Handle task drop
+            return handleTaskDrop(e, status);
+        }
+        
+        // Handle goal drop (existing logic)
         const id = (() => { try { return e.dataTransfer?.getData('text/plain') || draggingId; } catch { return draggingId; } })();
         if (!id) { handleDragEnd(); return; }
         const prevColumns = { ...kanbanColumns };
@@ -582,6 +580,99 @@ const GoalsComponent = () => {
             notifyError('Failed to move goal.');
         } finally {
             handleDragEnd();
+        }
+    };
+
+    // Task drag & drop handlers for kanban
+    const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
+
+    const handleTaskDragStart = (e: React.DragEvent, taskId: string) => {
+        setDraggingTaskId(taskId);
+        try { e.dataTransfer?.setData('text/task', taskId); } catch { /* ignore */ }
+        e.dataTransfer!.effectAllowed = 'move';
+    };
+
+    const handleTaskDragEnd = () => {
+        setDraggingTaskId(null);
+        setDragOverColumn(null);
+    };
+
+    const handleTaskDrop = async (e: React.DragEvent, status: string) => {
+        e.preventDefault();
+        const taskId = (() => { 
+            try { return e.dataTransfer?.getData('text/task') || draggingTaskId; } 
+            catch { return draggingTaskId; } 
+        })();
+        
+        if (!taskId) { 
+            handleTaskDragEnd(); 
+            return; 
+        }
+
+        // Find the task in kanbanTasks
+        let task: Task | undefined;
+        let taskGoalId: string | undefined;
+        for (const goalId of Object.keys(kanbanTasks)) {
+            task = kanbanTasks[goalId]?.find((t) => t.id === taskId);
+            if (task) {
+                taskGoalId = goalId;
+                break;
+            }
+        }
+
+        if (!task) {
+            handleTaskDragEnd();
+            return;
+        }
+
+        // If status hasn't changed, just end the drag
+        if (task.status === status) {
+            handleTaskDragEnd();
+            return;
+        }
+
+        // Update task status
+        const prevKanbanTasks = { ...kanbanTasks };
+        try {
+            // Optimistically update local state
+            setKanbanTasks((prev) => {
+                const updated: Record<string, Task[]> = {};
+                for (const gid of Object.keys(prev)) {
+                    updated[gid] = prev[gid].map((t) => 
+                        t.id === taskId ? { ...t, status: status as Task['status'] } : t
+                    );
+                }
+                return updated;
+            });
+
+            // Update on server
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            
+            const response = await fetch('/api/updateTask', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({
+                    id: taskId,
+                    status: status,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update task');
+            }
+
+            notifySuccess(`Task moved to ${status}`);
+        } catch (err) {
+            // Rollback on error
+            setKanbanTasks(prevKanbanTasks);
+            console.error('Failed to move task:', err);
+            notifyError('Failed to move task.');
+        } finally {
+            handleTaskDragEnd();
         }
     };
 
@@ -855,6 +946,64 @@ const GoalsComponent = () => {
       setIsGoalModalOpen(false);
     };
 
+    const closeAddTaskModal = () => {
+        setIsAddTaskModalOpen(false);
+        setStandaloneNewTask({ title: '', description: '', scheduled_date: '', scheduled_time: '' });
+        setStandaloneTaskGoalId('');
+        setStandaloneCreateNewGoal(false);
+        setStandaloneNewGoalTitle('');
+    };
+
+    const createStandaloneTask = async () => {
+        if (!standaloneNewTask.title?.trim()) { notifyError('Task title is required'); return; }
+        if (!standaloneCreateNewGoal && !standaloneTaskGoalId) { notifyError('Please select a goal or choose to create a new one'); return; }
+        if (standaloneCreateNewGoal && !standaloneNewGoalTitle.trim()) { notifyError('New goal title is required'); return; }
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) throw new Error('Not authenticated');
+            let goalId = standaloneTaskGoalId;
+            if (standaloneCreateNewGoal) {
+                const { data: { user } } = await supabase.auth.getUser();
+                const { data: createdGoal, error: goalErr } = await supabase
+                    .from('goals')
+                    .insert({
+                        title: standaloneNewGoalTitle.trim(),
+                        week_start: getWeekStartDate(),
+                        user_id: user?.id,
+                        status: 'Not started',
+                        description: '',
+                        category: '',
+                    })
+                    .select()
+                    .single();
+                if (goalErr || !createdGoal) throw new Error(goalErr?.message || 'Failed to create goal');
+                goalId = createdGoal.id;
+                await refreshGoals();
+            }
+            const response = await fetch('/api/createTask', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                    goal_id: goalId,
+                    title: standaloneNewTask.title!.trim(),
+                    description: standaloneNewTask.description || null,
+                    status: 'Not started',
+                    scheduled_date: standaloneNewTask.scheduled_date || null,
+                    scheduled_time: standaloneNewTask.scheduled_time || null,
+                    order_index: 0,
+                }),
+            });
+            if (!response.ok) throw new Error('Failed to create task');
+            notifySuccess('Task created');
+            closeAddTaskModal();
+            if (goalId) await fetchTasksForGoal(goalId);
+        } catch (err) {
+            console.error('[AllGoals] createStandaloneTask error:', err);
+            notifyError('Failed to create task');
+        }
+    };
+
     // Sets the selected summary ID and opens the editor modal
     function setLocalSummaryId(id: string): void {
         setSelectedSummary((prev) => prev ? { ...prev, id } : prev);
@@ -892,6 +1041,157 @@ const GoalsComponent = () => {
         return { indexedGoals: {}, pages: [] };
         }
     }, [scope]);
+
+    // Function to fetch all tasks and group them by goal_id for kanban display
+    const fetchKanbanTasks = useCallback(async () => {
+        if (viewMode !== 'kanban') return;
+        
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) throw new Error('User not authenticated');
+
+            const response = await fetch('/api/getAllTasks', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to fetch tasks: ${response.status}`);
+            }
+            
+            const allTasks: (Task & { goal?: { id: string } })[] = await response.json();
+            
+            // Group tasks by goal_id
+            const tasksByGoal: Record<string, Task[]> = {};
+            allTasks.forEach((task) => {
+                const goalId = task.goal_id;
+                if (!tasksByGoal[goalId]) {
+                    tasksByGoal[goalId] = [];
+                }
+                tasksByGoal[goalId].push(task);
+            });
+            
+            // Sort tasks within each goal by order_index
+            Object.keys(tasksByGoal).forEach((goalId) => {
+                tasksByGoal[goalId].sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+            });
+            
+            setKanbanTasks(tasksByGoal);
+        } catch (error) {
+            console.error('Error fetching kanban tasks:', error);
+        }
+    }, [viewMode]);
+
+    // Fetch tasks when entering kanban mode
+    useEffect(() => {
+        if (viewMode === 'kanban') {
+            fetchKanbanTasks();
+        }
+    }, [viewMode, fetchKanbanTasks]);
+
+    // Task handlers for kanban view
+    const handleTaskStatusChange = async (taskId: string, newStatus: Task['status']) => {
+        // Find the goal_id for this task
+        let goalId: string | undefined;
+        for (const gid of Object.keys(kanbanTasks)) {
+            if (kanbanTasks[gid]?.some(t => t.id === taskId)) {
+                goalId = gid;
+                break;
+            }
+        }
+        
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) throw new Error('User not authenticated');
+
+            const response = await fetch('/api/updateTask', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ id: taskId, status: newStatus }),
+            });
+
+            if (!response.ok) throw new Error('Failed to update task status');
+            notifySuccess('Task status updated');
+            await fetchKanbanTasks(); // Refresh tasks
+        } catch (error) {
+            console.error('Error updating task status:', error);
+            notifyError('Failed to update task status');
+        }
+    };
+
+    const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
+        // Find the goal_id for this task
+        let goalId: string | undefined;
+        for (const gid of Object.keys(kanbanTasks)) {
+            if (kanbanTasks[gid]?.some(t => t.id === taskId)) {
+                goalId = gid;
+                break;
+            }
+        }
+        
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) throw new Error('User not authenticated');
+
+            const response = await fetch('/api/updateTask', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ id: taskId, ...updates }),
+            });
+
+            if (!response.ok) throw new Error('Failed to update task');
+            notifySuccess('Task updated');
+            await fetchKanbanTasks(); // Refresh tasks
+        } catch (error) {
+            console.error('Error updating task:', error);
+            notifyError('Failed to update task');
+        }
+    };
+
+    const handleTaskDelete = (taskId: string) => {
+        // Find the task across all goal buckets
+        let taskToDelete: Task | undefined;
+        for (const gid of Object.keys(kanbanTasks)) {
+            taskToDelete = kanbanTasks[gid]?.find(t => t.id === taskId);
+            if (taskToDelete) { break; }
+        }
+        if (!taskToDelete) return;
+        const prevKanbanTasks = { ...kanbanTasks };
+        // Optimistically remove from UI
+        setKanbanTasks((prev) => {
+            const updated: Record<string, Task[]> = {};
+            for (const gid of Object.keys(prev)) {
+                updated[gid] = prev[gid].filter(t => t.id !== taskId);
+            }
+            return updated;
+        });
+        notifyWithUndo(
+            'Task deleted',
+            async () => {
+                const { data: { session } } = await supabase.auth.getSession();
+                const token = session?.access_token;
+                if (!token) throw new Error('User not authenticated');
+                const response = await fetch('/api/deleteTask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ id: taskId }),
+                });
+                if (!response.ok) throw new Error('Failed to delete task');
+                await fetchKanbanTasks();
+            },
+            () => {
+                setKanbanTasks(prevKanbanTasks);
+            },
+        );
+    };
   
 // Add a new goal
     //const handleAddGoal = async (event: React.FormEvent, goal?: Goal) => {
@@ -978,90 +1278,71 @@ const GoalsComponent = () => {
         }
     }, [lastUpdated, lastAddedIds, refreshGoals, setLastAddedIds]);
 
-    const handleDeleteGoal = async (goalId: string) => {
-        // Optimistic UI: remove from local indexedGoals immediately
-        const previousIndexed = { ...indexedGoals };
+    const handleDeleteGoal = (goalId: string) => {
+        // Snapshot for potential undo
+        const previousIndexed: Record<string, Goal[]> = {};
+        for (const k of Object.keys(indexedGoals)) previousIndexed[k] = [...(indexedGoals[k] || [])];
         const prevFullSnapshot = fullGoals ? [...fullGoals] : null;
-    try {
+
+        // Optimistic UI: remove from local indexedGoals immediately
         setIndexedGoals((prev) => {
             const copy: Record<string, Goal[]> = { ...prev };
             if (copy[currentPage]) copy[currentPage] = copy[currentPage].filter((g) => g.id !== goalId);
             return copy;
         });
-
-        // Also remove from global cache so other components reflect change immediately
-        try {
-            if (removeGoalFromCache) removeGoalFromCache(goalId);
-        } catch (err) {
+        try { if (removeGoalFromCache) removeGoalFromCache(goalId); } catch (err) {
             console.warn('[AllGoals] removeGoalFromCache failed (ignored):', err);
         }
-
-        // Also optimistically remove from fullGoals if present (Show All mode relies on this)
         if (fullGoals) {
             setFullGoals((prev) => prev ? prev.filter((g) => g.id !== goalId) : prev);
         }
 
-        // Attempt server delete
-        await deleteGoal(goalId);
+        notifyWithUndo(
+            'Goal deleted',
+            async () => {
+                await deleteGoal(goalId);
 
-        // After server reports success, ensure the local indexed state truly reflects deletion.
-        // Retry fetching indexed goals a few times to avoid flicker caused by race conditions.
-        const maxAttempts = 3;
-        let attempt = 0;
-        let foundStill = true;
-        while (attempt < maxAttempts) {
-            try {
-                const { indexedGoals: freshIndexed, pages: freshPages } = await fetchAllGoalsIndexed(scope);
-                // check whether goalId remains anywhere
-                const exists = Object.values(freshIndexed).some((list) => list.some((g) => g.id === goalId));
-                // update local state to the fresh snapshot
-                setIndexedGoals(freshIndexed);
-                setPages(freshPages);
-                if (!exists) {
-                    foundStill = false;
-                    break;
+                // Post-delete consistency check with retry
+                const maxAttempts = 3;
+                let attempt = 0;
+                let foundStill = true;
+                while (attempt < maxAttempts) {
+                    try {
+                        const { indexedGoals: freshIndexed, pages: freshPages } = await fetchAllGoalsIndexed(scope);
+                        const exists = Object.values(freshIndexed).some((list) => list.some((g) => g.id === goalId));
+                        setIndexedGoals(freshIndexed);
+                        setPages(freshPages);
+                        if (!exists) { foundStill = false; break; }
+                    } catch (err) {
+                        console.warn('[AllGoals] refresh attempt failed (ignored):', err);
+                    }
+                    await new Promise((res) => setTimeout(res, 250 * Math.pow(2, attempt)));
+                    attempt += 1;
                 }
-            } catch (err) {
-                console.warn('[AllGoals] refresh attempt failed (ignored):', err);
-            }
-            // backoff before retrying
-            await new Promise((res) => setTimeout(res, 250 * Math.pow(2, attempt)));
-            attempt += 1;
-        }
 
-        if (foundStill) {
-            // As a fallback, trigger a full context refresh and final reconcile
-            try {
-                if (ctxRefresh) { await ctxRefresh(); console.debug('[AllGoals] handleDeleteGoal: ctxRefresh finished'); }
-                const { indexedGoals: finalIndexed, pages: finalPages } = await fetchAllGoalsIndexed(scope);
-                setIndexedGoals(finalIndexed);
-                setPages(finalPages);
-                const stillExists = Object.values(finalIndexed).some((list) => list.some((g) => g.id === goalId));
-                if (stillExists) {
-                    // server did not remove the row or there's a deeper issue; rollback optimistic removal
-                    setIndexedGoals(previousIndexed);
-                    notifyError('Goal appeared to not be deleted (server still contains it). It has been restored locally.');
-                    return;
+                if (foundStill) {
+                    try {
+                        if (ctxRefresh) { await ctxRefresh(); }
+                        const { indexedGoals: finalIndexed, pages: finalPages } = await fetchAllGoalsIndexed(scope);
+                        setIndexedGoals(finalIndexed);
+                        setPages(finalPages);
+                        const stillExists = Object.values(finalIndexed).some((list) => list.some((g) => g.id === goalId));
+                        if (stillExists) {
+                            setIndexedGoals(previousIndexed);
+                            notifyError('Goal appeared to not be deleted (server still contains it). It has been restored locally.');
+                        }
+                    } catch (err) {
+                        console.warn('[AllGoals] final reconcile after delete failed (ignored):', err);
+                    }
                 }
-            } catch (err) {
-                console.warn('[AllGoals] final reconcile after delete failed (ignored):', err);
-            }
-        }
-
-        // If we reach here, deletion is confirmed and local state updated
-    } catch (error) {
-    console.error('Error deleting goal:', error);
-        // rollback optimistic removal
-            try {
-            setIndexedGoals(previousIndexed);
-            if (prevFullSnapshot) setFullGoals(prevFullSnapshot);
-            // best-effort: refresh from server to reconcile
-            try { await refreshGoals(); } catch { /* ignore */ }
-        } catch (err) {
-            console.warn('[AllGoals] rollback after delete failed (ignored):', err);
-        }
-        notifyError('Failed to delete goal.');
-        }
+            },
+            () => {
+                // Undo: restore goal in local state
+                setIndexedGoals(previousIndexed);
+                if (prevFullSnapshot) setFullGoals(prevFullSnapshot);
+                try { if (ctxRefresh) ctxRefresh(); } catch { /* ignore */ }
+            },
+        );
     };
 
 // Update a goal
@@ -1110,6 +1391,13 @@ const GoalsComponent = () => {
         // prevents runtime errors when some fields are null.
         setFilter(filterValue);
   };
+
+  // Debounce: propagate filter → debouncedFilter after 250 ms of inactivity.
+  // This prevents the expensive sortedAndFilteredGoals recomputation on every keystroke.
+  useEffect(() => {
+      const timer = setTimeout(() => setDebouncedFilter(filter), 250);
+      return () => clearTimeout(timer);
+  }, [filter]);
 
   const handlePageChange = (page: string) => {
       setCurrentPage(page);
@@ -1160,8 +1448,8 @@ const GoalsComponent = () => {
 
   // Filtering predicate to be shared across views
     const goalMatchesFilters = (goal: Goal) => {
-        // text filter (defensive)
-        const q = (filter || '').toString().trim();
+        // text filter (defensive) — uses debouncedFilter to avoid recomputing on every keystroke
+        const q = (debouncedFilter || '').toString().trim();
         const qLower = q ? q.toLowerCase() : '';
         const safe = (v: unknown) => (typeof v === 'string' ? v : '') as string;
         const textMatch = !qLower || (
@@ -1218,6 +1506,72 @@ const GoalsComponent = () => {
         return true;
     };
 
+    // Task filter function - applies same filters to tasks
+    const taskMatchesFilters = (task: Task, taskGoalId?: string) => {
+        // text filter (search task title, goal title, category)
+        const q = (filter || '').toString().trim();
+        const qLower = q ? q.toLowerCase() : '';
+        const safe = (v: unknown) => (typeof v === 'string' ? v : '') as string;
+        
+        if (qLower) {
+            const titleMatch = safe(task.title).toLowerCase().includes(qLower);
+            // For kanban view, we might need to look up goal info
+            const goalInfo = taskGoalId && kanbanTasks[taskGoalId] ? 
+                (Object.values(indexedGoals).flat().find(g => g.id === taskGoalId)) : 
+                ((task as any).goal);
+            const goalTitleMatch = goalInfo ? safe(goalInfo.title).toLowerCase().includes(qLower) : false;
+            const categoryMatch = goalInfo ? safe(goalInfo.category).toLowerCase().includes(qLower) : false;
+            
+            if (!titleMatch && !goalTitleMatch && !categoryMatch) return false;
+        }
+
+        // status filter (task status)
+        if (filterStatus && filterStatus.length > 0 && !filterStatus.includes((task.status || ''))) return false;
+
+        // category filter (from goal)
+        if (filterCategory && filterCategory.length > 0) {
+            const goalInfo = taskGoalId && kanbanTasks[taskGoalId] ? 
+                (Object.values(indexedGoals).flat().find(g => g.id === taskGoalId)) : 
+                ((task as any).goal);
+            if (!goalInfo || !filterCategory.includes(safe(goalInfo.category))) return false;
+        }
+
+        // goal filter (direct task->goal relationship)
+        if (filterGoal && filterGoal.length > 0) {
+            const actualGoalId = taskGoalId || (task as any).goal?.id || task.goal_id;
+            if (!actualGoalId || !filterGoal.includes(actualGoalId)) return false;
+        }
+
+        // date range filter - use scheduled_date for tasks
+        if (filterStartDate && task.scheduled_date) {
+            try {
+                const taskDate = new Date(task.scheduled_date);
+                const start = filterStartDate.toDate ? filterStartDate.toDate() : filterStartDate as unknown as Date;
+                if (!isNaN(taskDate.getTime()) && start && taskDate < start) return false;
+            } catch { /* ignore parse errors */ }
+        }
+        if (filterEndDate && task.scheduled_date) {
+            try {
+                const taskDate = new Date(task.scheduled_date);
+                const end = filterEndDate.toDate ? filterEndDate.toDate() : filterEndDate as unknown as Date;
+                if (!isNaN(taskDate.getTime()) && end && taskDate > end) return false;
+            } catch { /* ignore parse errors */ }
+        }
+
+        return true;
+    };
+
+    // Expanded rows state for table view (declared here so sort memos can reference tableTasksByGoal)
+    const [expandedRowIds, setExpandedRowIds] = useState<Set<string>>(new Set());
+    const [tableTasksByGoal, setTableTasksByGoal] = useState<Record<string, Task[]>>({});
+    const [addingTaskForGoal, setAddingTaskForGoal] = useState<string | null>(null);
+    const [newTaskData, setNewTaskData] = useState<Partial<Task>>({
+        title: '',
+        description: '',
+        scheduled_date: '',
+        scheduled_time: '',
+    });
+
     // Filtered & sorted list for the current page (cards/table)
     // If the global "Show all" toggle is enabled, present the unscoped fullGoals
     // list instead of the current page's indexed goals so the toggle applies
@@ -1230,6 +1584,13 @@ const GoalsComponent = () => {
             if (sortBy === 'date') {
                 return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
             }
+            if (sortBy === 'title') {
+                const ta = (a.title || '').toLowerCase();
+                const tb = (b.title || '').toLowerCase();
+                if (ta < tb) return -1 * dir;
+                if (ta > tb) return 1 * dir;
+                return 0;
+            }
             if (sortBy === 'category') {
                 const ca = (a.category || '').toLowerCase();
                 const cb = (b.category || '').toLowerCase();
@@ -1237,38 +1598,47 @@ const GoalsComponent = () => {
                 if (ca > cb) return 1 * dir;
                 return 0;
             }
-            const sa = (a.status || '').toLowerCase();
-            const sb = (b.status || '').toLowerCase();
-            if (sa < sb) return -1 * dir;
-            if (sa > sb) return 1 * dir;
-            return 0;
+            // status sorts by completion percentage (% of tasks done)
+            const pa = calculateGoalCompletion(tableTasksByGoal[a.id] || []);
+            const pb = calculateGoalCompletion(tableTasksByGoal[b.id] || []);
+            return dir * (pa - pb);
         });
-    }, [showAllGoals, fullGoals, indexedGoals, currentPage, filter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection]);
+    }, [showAllGoals, fullGoals, indexedGoals, currentPage, debouncedFilter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection, tableTasksByGoal]);
     
 
-    // Proactively fetch counts for visible goals (limit and sequential to avoid spamming)
-    const visibleIdsMemo = useMemo(() => sortedAndFilteredGoals.slice(0, 10).map((g) => g.id), [sortedAndFilteredGoals]);
+    // Proactively fetch counts for visible goals on page load (batched in chunks)
+    const visibleIdsMemo = useMemo(() => sortedAndFilteredGoals.map((g) => g.id), [sortedAndFilteredGoals]);
     useEffect(() => {
         if (!visibleIdsMemo || visibleIdsMemo.length === 0) return;
         let mounted = true;
         (async () => {
             try {
-                // Use batch endpoint to fetch counts for visible goals in one call
-                const result = await (fetchCountsForMany ? fetchCountsForMany(visibleIdsMemo) : null);
-                if (!mounted) return;
-                // If batch returned nothing, fall back to per-id as a safety net
-                if (!result) {
-                    for (const id of visibleIdsMemo) {
+                // Batch requests in chunks of 100 to avoid exceeding API limits and ensure faster initial load
+                const chunkSize = 100;
+                for (let i = 0; i < visibleIdsMemo.length; i += chunkSize) {
+                    if (!mounted) break;
+                    const chunk = visibleIdsMemo.slice(i, i + chunkSize);
+                    try {
+                        const result = await (fetchCountsForMany ? fetchCountsForMany(chunk) : null);
                         if (!mounted) break;
-                        try { await fetchNotesCount(id).catch(() => null); } catch { /* ignore */ }
-                        if (!mounted) break;
-                        try { if (fetchAccomplishmentsCount) await fetchAccomplishmentsCount(id).catch(() => null); } catch { /* ignore */ }
-                        await new Promise((res) => setTimeout(res, 25));
+                        // If batch failed for this chunk, fall back to individual fetches
+                        if (!result) {
+                            for (const id of chunk) {
+                                if (!mounted) break;
+                                try { await fetchNotesCount(id).catch(() => null); } catch { /* ignore */ }
+                                if (!mounted) break;
+                                try { if (fetchAccomplishmentsCount) await fetchAccomplishmentsCount(id).catch(() => null); } catch { /* ignore */ }
+                                await new Promise((res) => setTimeout(res, 25));
+                            }
+                        }
+                    } catch (err) {
+                        // Log but continue with next chunk
+                        console.warn('[AllGoals] fetchCountsForMany chunk failed (ignored):', err);
                     }
                 }
             } catch (err) {
                 // ignore failures; counts will arrive via individual interactions
-                console.warn('[AllGoals] fetchCountsForMany failed (ignored):', err);
+                console.warn('[AllGoals] fetchCountsForMany batch failed (ignored):', err);
             }
         })();
         return () => { mounted = false; };
@@ -1280,6 +1650,13 @@ const GoalsComponent = () => {
         if (sortBy === 'date') {
             return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
         }
+        if (sortBy === 'title') {
+            const ta = (a.title || '').toLowerCase();
+            const tb = (b.title || '').toLowerCase();
+            if (ta < tb) return -1 * dir;
+            if (ta > tb) return 1 * dir;
+            return 0;
+        }
         if (sortBy === 'category') {
             const ca = (a.category || '').toLowerCase();
             const cb = (b.category || '').toLowerCase();
@@ -1287,11 +1664,10 @@ const GoalsComponent = () => {
             if (ca > cb) return 1 * dir;
             return 0;
         }
-        const sa = (a.status || '').toLowerCase();
-        const sb = (b.status || '').toLowerCase();
-        if (sa < sb) return -1 * dir;
-        if (sa > sb) return 1 * dir;
-        return 0;
+        // status sorts by completion percentage (% of tasks done)
+        const pa = calculateGoalCompletion(kanbanTasks[a.id] || []);
+        const pb = calculateGoalCompletion(kanbanTasks[b.id] || []);
+        return dir * (pa - pb);
     });
 
     // Filtered & sorted list from the unscoped fullGoals cache (when available)
@@ -1300,6 +1676,13 @@ const GoalsComponent = () => {
         if (sortBy === 'date') {
             return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
         }
+        if (sortBy === 'title') {
+            const ta = (a.title || '').toLowerCase();
+            const tb = (b.title || '').toLowerCase();
+            if (ta < tb) return -1 * dir;
+            if (ta > tb) return 1 * dir;
+            return 0;
+        }
         if (sortBy === 'category') {
             const ca = (a.category || '').toLowerCase();
             const cb = (b.category || '').toLowerCase();
@@ -1307,11 +1690,10 @@ const GoalsComponent = () => {
             if (ca > cb) return 1 * dir;
             return 0;
         }
-        const sa = (a.status || '').toLowerCase();
-        const sb = (b.status || '').toLowerCase();
-        if (sa < sb) return -1 * dir;
-        if (sa > sb) return 1 * dir;
-        return 0;
+        // status sorts by completion percentage (% of tasks done)
+        const pa = calculateGoalCompletion(kanbanTasks[a.id] || []);
+        const pb = calculateGoalCompletion(kanbanTasks[b.id] || []);
+        return dir * (pa - pb);
     });
 
     // Compute visible IDs depending on viewMode (kanban wants all-goals filtering)
@@ -1345,19 +1727,215 @@ const GoalsComponent = () => {
 
     // Selection state for bulk actions
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [selectionType, setSelectionType] = useState<'goals' | 'tasks' | null>(null);
+    const [selectAllMenuAnchor, setSelectAllMenuAnchor] = useState<HTMLElement | null>(null);
+    const [calendarTaskIds, setCalendarTaskIds] = useState<string[]>([]);
     const selectedCount = selectedIds.size;
     const visibleIdsArray = useMemo(() => Array.from(visibleGoalIds), [visibleGoalIds]);
-    const toggleSelect = (id: string) => {
+    
+    const toggleSelect = (id: string, type: 'goals' | 'tasks') => {
+        // In cards view, only goals can be selected
+        if (viewMode === 'cards' && type === 'tasks') return;
+        
+        // In other views, prevent mixing goals and tasks
+        if (viewMode !== 'cards' && selectionType && selectionType !== type) {
+            notifyError(`Already selecting ${selectionType}. Clear selection to select ${type}.`);
+            return;
+        }
+        
         setSelectedIds((prev) => {
             const copy = new Set(prev);
-            if (copy.has(id)) copy.delete(id);
-            else copy.add(id);
+            if (copy.has(id)) {
+                copy.delete(id);
+                // If no items left, reset selection type
+                if (copy.size === 0) {
+                    setSelectionType(null);
+                }
+            } else {
+                copy.add(id);
+                // Set selection type on first selection
+                if (selectionType === null) {
+                    setSelectionType(type);
+                }
+            }
             return copy;
         });
     };
-    const clearSelection = () => setSelectedIds(new Set());
-    const selectAllVisible = () => setSelectedIds(new Set(visibleIdsArray));
-    const deselectAll = () => setSelectedIds(new Set());
+    
+    const clearSelection = () => {
+        setSelectedIds(new Set());
+        setSelectionType(null);
+    };
+
+    // (expandedRowIds, tableTasksByGoal, addingTaskForGoal, newTaskData moved above sortedAndFilteredGoals)
+    
+    // Calculate visible task IDs for task selection
+    const visibleTaskIds = useMemo(() => {
+        if (viewMode === 'kanban') {
+            const taskIds: string[] = [];
+            Object.keys(kanbanTasks).forEach((goalId) => {
+                kanbanTasks[goalId]?.forEach((task) => {
+                    if (taskMatchesFilters(task, goalId)) {
+                        taskIds.push(task.id);
+                    }
+                });
+            });
+            return taskIds;
+        } else if (viewMode === 'table') {
+            const taskIds: string[] = [];
+            const visibleGoalIdSet = new Set(visibleIdsArray);
+            Object.entries(tableTasksByGoal).forEach(([goalId, tasks]) => {
+                if (!visibleGoalIdSet.has(goalId)) return;
+                tasks.forEach((task) => {
+                    if (taskMatchesFilters(task, goalId)) {
+                        taskIds.push(task.id);
+                    }
+                });
+            });
+            return taskIds;
+        } else if (viewMode === 'tasks-calendar') {
+            return calendarTaskIds;
+        }
+        return [];
+    }, [viewMode, kanbanTasks, tableTasksByGoal, calendarTaskIds, visibleIdsArray]);
+    
+    const selectAllGoals = () => {
+        setSelectedIds(new Set(visibleIdsArray));
+        setSelectionType('goals');
+        setSelectAllMenuAnchor(null);
+    };
+    
+    const selectAllTasks = () => {
+        setSelectedIds(new Set(visibleTaskIds));
+        setSelectionType('tasks');
+        setSelectAllMenuAnchor(null);
+    };
+    
+    const deselectAll = () => {
+        setSelectedIds(new Set());
+        setSelectionType(null);
+    };
+    
+    const toggleRowExpanded = (id: string) => {
+        setExpandedRowIds((prev) => {
+            const copy = new Set(prev);
+            if (copy.has(id)) {
+                copy.delete(id);
+            } else {
+                copy.add(id);
+                // Fetch tasks for this goal if not already loaded
+                if (!tableTasksByGoal[id]) {
+                    fetchTasksForGoal(id);
+                }
+            }
+            return copy;
+        });
+    };
+
+    const fetchTasksForGoal = useCallback(async (goalId: string) => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) return;
+
+            const response = await fetch('/api/getAllTasks', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            
+            if (!response.ok) throw new Error('Failed to fetch tasks');
+            
+            const allTasks: Task[] = await response.json();
+            const goalTasks = allTasks.filter(task => task.goal_id === goalId);
+            
+            setTableTasksByGoal(prev => ({
+                ...prev,
+                [goalId]: goalTasks
+            }));
+        } catch (error) {
+            console.error('Error fetching tasks for goal:', error);
+        }
+    }, []);
+
+    // Fetch tasks for all visible goals in table view
+    const fetchTasksForAllGoals = useCallback(async (goalIds: string[]) => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) return;
+
+            const response = await fetch('/api/getAllTasks', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            
+            if (!response.ok) throw new Error('Failed to fetch tasks');
+            
+            const allTasks: Task[] = await response.json();
+            
+            // Group tasks by goal_id
+            const tasksByGoal: Record<string, Task[]> = {};
+            goalIds.forEach(gid => {
+                tasksByGoal[gid] = allTasks.filter(task => task.goal_id === gid);
+            });
+            
+            setTableTasksByGoal(tasksByGoal);
+        } catch (error) {
+            console.error('Error fetching tasks for all goals:', error);
+        }
+    }, []);
+
+    // Create task for a specific goal
+    const createTaskForGoal = useCallback(async (goalId: string) => {
+        if (!newTaskData.title?.trim()) {
+            notifyError('Task title is required');
+            return;
+        }
+
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) throw new Error('User not authenticated');
+
+            const response = await fetch('/api/createTask', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    goal_id: goalId,
+                    title: newTaskData.title,
+                    description: newTaskData.description || null,
+                    status: 'Not started',
+                    scheduled_date: newTaskData.scheduled_date || null,
+                    scheduled_time: newTaskData.scheduled_time || null,
+                    order_index: (tableTasksByGoal[goalId]?.length || 0),
+                }),
+            });
+
+            if (!response.ok) throw new Error('Failed to create task');
+
+            notifySuccess('Task created');
+            setNewTaskData({
+                title: '',
+                description: '',
+                scheduled_date: '',
+                scheduled_time: '',
+            });
+            setAddingTaskForGoal(null);
+            await fetchTasksForGoal(goalId);
+        } catch (error) {
+            console.error('Error creating task:', error);
+            notifyError('Failed to create task');
+        }
+    }, [newTaskData, tableTasksByGoal]);
+
+    // Fetch tasks when switching to table view
+    useEffect(() => {
+        if (viewMode === 'table' && sortedAndFilteredGoals.length > 0) {
+            const goalIds = sortedAndFilteredGoals.map(g => g.id);
+            fetchTasksForAllGoals(goalIds);
+        }
+    }, [viewMode, sortedAndFilteredGoals, fetchTasksForAllGoals]);
 
     
 
@@ -1369,10 +1947,10 @@ const GoalsComponent = () => {
             <h1 className="mt-4 block sm:hidden">Goals</h1>
         </div>
 
-    {sortedAndFilteredGoals.length > 0 ? (
+    {(sortedAndFilteredGoals.length > 0 || selectedFiltersCount > 0) ? (
             
         <>
-        <div className="flex justify-between items-start sm:items-center w-full mb-4">
+        {/* <div className="flex justify-between items-start sm:items-center w-full mb-4">
             <div className='flex flex-col'>
                 
                 
@@ -1394,6 +1972,8 @@ const GoalsComponent = () => {
                             
                         />
 
+
+
                         {!showAllGoals && (
                             <div className='flex space-x-2'>
                                 {['week', 'month', 'year'].map((s) => (
@@ -1406,7 +1986,7 @@ const GoalsComponent = () => {
                                                 const next = { ...pageByScopeRef.current, [scope]: persistedForOld };
                                                 setPageByScope(next);
                                                 pageByScopeRef.current = next;
-                                                try { savePageByScope(next); } catch { /* ignore */ }
+                                                try { savePageByScope(next); } catch 
 
                                                 // Compute a tentative page for the new scope so the UI doesn't flip to a default.
                                                 // - week (YYYY-MM-DD) -> month (YYYY-MM)
@@ -1440,7 +2020,7 @@ const GoalsComponent = () => {
                                                 // Record which scope we're switching from so the next fetch can map correctly
                                                 try {
                                                     // debug removed in production
-                                                } catch { /* ignore */ }
+                                                } catch 
 
                                                 console.debug('[AllGoals] scope switch requested', { from: scope, to: s, lastSwitchFromRef: lastSwitchFromRef.current });
                                                 // We're about to switch scope; enter a short 'loading'
@@ -1464,7 +2044,7 @@ const GoalsComponent = () => {
                         )}
                     </FormGroup>
                 </FormControl>
-                {/* Pagination */}
+                
                 {!showAllGoals && (
                 <Pagination
                     pages={pages}
@@ -1477,7 +2057,7 @@ const GoalsComponent = () => {
             </div>
             <div className="flex space-x-2 items-center">
             </div>
-        </div>
+        </div> */}
         <div className='flex flex-col 2xl:flex-row 2xl:space-x-8 items-start justify-start w-full mb-4'>
             <div id="allGoals" className="flex flex-col gap-4 w-full">
                 <div className="flex flex-row items-center gap-4 space-x-4">
@@ -1491,11 +2071,12 @@ const GoalsComponent = () => {
                         aria-label="View mode"
                         className=""
                     >
-                        <Tooltip title="View grid" placement="top" arrow><ToggleButton value="cards" aria-label="Cards view" className='btn-ghost'><LayoutGrid /></ToggleButton></Tooltip>
+                        <Tooltip title="View goals" placement="top" arrow><ToggleButton value="cards" aria-label="Cards view" className='btn-ghost'><LayoutGrid /></ToggleButton></Tooltip>
                         { !isSmall && (
                         <Tooltip title="View table" placement="top" arrow><ToggleButton value="table" aria-label="Table view" className='btn-ghost'><Table2Icon /></ToggleButton></Tooltip>
                         )}
                         <Tooltip title="View kanban board" placement="top" arrow><ToggleButton value="kanban" aria-label="Kanban view" className='btn-ghost'><Kanban /></ToggleButton></Tooltip>
+                        <Tooltip title="View tasks calendar" placement="top" arrow><ToggleButton value="tasks-calendar" aria-label="Tasks calendar view" className='btn-ghost'><CalendarDays /></ToggleButton></Tooltip>
                     </ToggleButtonGroup>
                     {/* Scope Selector */}
                 
@@ -1539,7 +2120,7 @@ const GoalsComponent = () => {
                             onClose={() => setFilterAnchorEl(null)}
                             anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                         >
-                            <Box sx={{ p: 2, width: 280, bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100' }}>
+                            <Box sx={{ p: 2, width: 280, bgcolor: 'var(--color-background)' }}>
                                 <FormControl fullWidth size="small" sx={{ mb: 2 }}>
                                     <InputLabel id="filter-status-label">Status</InputLabel>
                                         <Select
@@ -1588,6 +2169,38 @@ const GoalsComponent = () => {
                                             ))}
                                         </Select>
                                 </FormControl>
+                                {(viewMode === 'kanban' || viewMode === 'tasks-calendar') && (
+                                    <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                                        <InputLabel id="filter-goal-label">Goal</InputLabel>
+                                            <Select
+                                                labelId="filter-goal-label"
+                                                multiple
+                                                value={filterGoal}
+                                                label="Goal"
+                                                onChange={(e) => {
+                                                    const val = (e.target as HTMLInputElement).value;
+                                                    setFilterGoal(typeof val === 'string' ? val.split(',') : (val as string[]));
+                                                }}
+                                                renderValue={(selected) => 
+                                                    (selected as string[]).map(id => {
+                                                        const allGoals = showAllGoals ? (fullGoals || []) : (indexedGoals[currentPage] || []);
+                                                        const goal = allGoals.find(g => g.id === id);
+                                                        return goal?.title || id;
+                                                    }).join(', ')
+                                                }
+                                            >
+                                                {(() => {
+                                                    const allGoals = showAllGoals ? (fullGoals || []) : (indexedGoals[currentPage] || []);
+                                                    return allGoals.map((goal) => (
+                                                        <MenuItem key={goal.id} value={goal.id}>
+                                                            <Checkbox size="small" checked={(filterGoal || []).indexOf(goal.id) > -1} />
+                                                            <ListItemText primary={goal.title} />
+                                                        </MenuItem>
+                                                    ));
+                                                })()}
+                                            </Select>
+                                    </FormControl>
+                                )}
                                 {(showAllGoals || scope === 'year') && (
                                     <div className="flex flex-col space-y-2 mb-2">
                                     <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -1620,6 +2233,7 @@ const GoalsComponent = () => {
                                         onClick={() => {
                                             setFilterStatus([]);
                                             setFilterCategory([]);
+                                            setFilterGoal([]);
                                             setFilterStartDate(null);
                                             setFilterEndDate(null);
                                         }}
@@ -1654,12 +2268,17 @@ const GoalsComponent = () => {
                                     onClose={() => setSummaryAnchorEl(null)}
                                     anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                                     transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                                    PaperProps={{ sx: { bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100', p: 1 } }}
+                                    PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1 } }}
                                 >
                                     {/* build combined list of filters */}
                                     {[
                                         ...((filterStatus || []).map((s) => ({ key: `status:${s}`, type: 'status' as const, label: `Status: ${s}`, value: s }))),
                                         ...((filterCategory || []).map((c) => ({ key: `category:${c}`, type: 'category' as const, label: `Category: ${c}`, value: c }))),
+                                        ...((filterGoal || []).map((id) => {
+                                            const allGoals = showAllGoals ? (fullGoals || []) : (indexedGoals[currentPage] || []);
+                                            const goal = allGoals.find(g => g.id === id);
+                                            return { key: `goal:${id}`, type: 'goal' as const, label: `Goal: ${goal?.title || id}`, value: id };
+                                        })),
                                         ...(filterStartDate && filterEndDate ? [{ key: 'range', type: 'range' as const, label: `Range: ${filterStartDate.format('YYYY-MM-DD')} → ${filterEndDate.format('YYYY-MM-DD')}`, value: `${filterStartDate.format('YYYY-MM-DD')}|${filterEndDate.format('YYYY-MM-DD')}` }] : []),
                                         ...(filter && filter.trim() ? [{ key: 'text', type: 'text' as const, label: `Search: ${filter}`, value: filter }] : []),
                                     ].map((item) => (
@@ -1669,6 +2288,7 @@ const GoalsComponent = () => {
                                                 // deselect individual
                                                 if (item.type === 'status') setFilterStatus((prev) => (prev || []).filter((v) => v !== item.value));
                                                 else if (item.type === 'category') setFilterCategory((prev) => (prev || []).filter((v) => v !== item.value));
+                                                else if (item.type === 'goal') setFilterGoal((prev) => (prev || []).filter((v) => v !== item.value));
                                                 else if (item.type === 'range') { setFilterStartDate(null); setFilterEndDate(null); }
                                                 else if (item.type === 'text') { setFilter(''); }
                                             }}
@@ -1690,7 +2310,6 @@ const GoalsComponent = () => {
                                         setFilterCategory([]);
                                         setFilterStartDate(null);
                                         setFilterEndDate(null);
-                                        filterInputRef.current?.focus();
                                     }}
                                 >
                                     <Tooltip title="Clear all filters" placement="top" arrow>
@@ -1724,6 +2343,22 @@ const GoalsComponent = () => {
                                         />
                                     ))
                                 )}
+                                {filterGoal && filterGoal.length > 0 && (
+                                    filterGoal.map((id) => {
+                                        const allGoals = showAllGoals ? (fullGoals || []) : (indexedGoals[currentPage] || []);
+                                        const goal = allGoals.find(g => g.id === id);
+                                        return (
+                                            <Chip
+                                                key={`goal-${id}`}
+                                                label={`Goal: ${goal?.title || id}`}
+                                                size="small"
+                                                onDelete={() => setFilterGoal((prev) => (prev || []).filter((v) => v !== id))}
+                                                deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
+                                                className="cursor-pointer"
+                                            />
+                                        );
+                                    })
+                                )}
                                 {filterStartDate && filterEndDate && (
                                     <Chip
                                         label={`Range: ${filterStartDate?.format('YYYY-MM-DD')} → ${filterEndDate?.format('YYYY-MM-DD')}`}
@@ -1743,9 +2378,9 @@ const GoalsComponent = () => {
                                         setFilter('');
                                         setFilterStatus([]);
                                         setFilterCategory([]);
+                                        setFilterGoal([]);
                                         setFilterStartDate(null);
                                         setFilterEndDate(null);
-                                        filterInputRef.current?.focus();
                                     }}
                                     >
                                     <Tooltip title="Clear all filters" placement='top' arrow>
@@ -1761,15 +2396,23 @@ const GoalsComponent = () => {
                         {viewMode !== 'table' && (
                             <>
                         <div className={`floating-bulk${selectedCount > 0 ? '-toolbar flex-row align-start justify-start items-start sm:flex-row' : ''}`} role="toolbar" aria-label="Bulk actions">
-                            <Tooltip title={selectedCount === visibleIdsArray.length ? 'Deselect all' : 'Select all'} placement="top" arrow>
+                            <Tooltip title={selectedCount > 0 ? `Deselect all ${selectionType || ''}` : (viewMode === 'cards' ? 'Select all goals' : 'Select all tasks')} placement="top" arrow>
                                 <Badge badgeContent={selectedCount} color="primary">
                                     <span className="sr-only">{selectedCount} selected</span>
                                     <button
                                         className={`btn-ghost fb-btn ${selectedCount > 0 ? 'dark:[&>.lucide]:stroke-brand-30 [&>.lucide]:stroke-brand-70' : ''}`}
-                                        onClick={() => { if (selectedCount === visibleIdsArray.length) deselectAll(); else selectAllVisible(); }}
-                                        aria-label={selectedCount === visibleIdsArray.length ? 'Deselect all' : 'Select all'}
+                                        onClick={() => {
+                                            if (selectedCount > 0) {
+                                                deselectAll();
+                                            } else if (viewMode === 'cards') {
+                                                selectAllGoals();
+                                            } else {
+                                                selectAllTasks();
+                                            }
+                                        }}
+                                        aria-label={selectedCount > 0 ? `Deselect all ${selectionType || ''}` : (viewMode === 'cards' ? 'Select all goals' : 'Select all tasks')}
                                     >
-                                        {selectedCount === visibleIdsArray.length ? <SquareSlash /> : <CheckSquare2 />}
+                                        {selectedCount > 0 ? <SquareSlash /> : <CheckSquare2 />}
                                     </button>
                                 </Badge>
                             </Tooltip>
@@ -1833,7 +2476,7 @@ const GoalsComponent = () => {
                                 anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                                 anchorReference={bulkStatusAnchorPos ? 'anchorPosition' : 'anchorEl'}
                                 anchorPosition={bulkStatusAnchorPos ? { top: Math.round(bulkStatusAnchorPos.top), left: Math.round(bulkStatusAnchorPos.left) } : undefined}
-                                PaperProps={{ sx: { bgcolor: theme.palette.mode === 'dark' ? 'grey.90' : 'grey.10', p: 1 } }}
+                                PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1 } }}
                             >
                                 {statusOptions.map((s) => (
                                     <MenuItem
@@ -1860,7 +2503,7 @@ const GoalsComponent = () => {
                                 anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                                 anchorReference={bulkCategoryAnchorPos ? 'anchorPosition' : 'anchorEl'}
                                 anchorPosition={bulkCategoryAnchorPos ? { top: Math.round(bulkCategoryAnchorPos.top), left: Math.round(bulkCategoryAnchorPos.left) } : undefined}
-                                PaperProps={{ sx: { bgcolor: theme.palette.mode === 'dark' ? 'grey.90' : 'grey.100', p: 1, maxHeight: '300px', } }}
+                                PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1, maxHeight: '300px', } }}
                             >
                                 {categoryOptions.map((c) => (
                                     c === categoryOptions[0] ? (
@@ -1875,7 +2518,7 @@ const GoalsComponent = () => {
                                                         id="bulk-category-search"
                                                         size="small"
                                                         placeholder="Filter or add category"
-                                                        sx={{ position: 'sticky', top: 0, bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100', zIndex: 1 }}
+                                                        sx={{ position: 'sticky', top: 0, bgcolor: 'var(--color-background)', zIndex: 1 }}
                                                         fullWidth
                                                         onChange={(e: ChangeEvent<HTMLInputElement>) => {
                                                             const q = (e.target.value || '').toLowerCase();
@@ -1954,54 +2597,76 @@ const GoalsComponent = () => {
                         </div>
                             </>
                         )}
-                        {(selectedCount === 0 || viewMode === 'table') && (
-                            <TextField
-                                id="goal-filter"
+                        {/* Collapsible search bar */}
+                        <div className="relative flex items-center">
+                          {!(searchBarOpen || filter) && (
+                            <Tooltip title="Search" placement="top" arrow>
+                              <IconButton
+                                className="btn-ghost"
                                 size="small"
-                                value={filter}
-                                inputRef={(el) => { filterInputRef.current = el; }}
-                                onFocus={() => {
-                                    if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current);
-                                    setFilterFocused(true);
+                                aria-label="Search"
+                                onClick={() => {
+                                  setSearchBarOpen(true);
+                                  setTimeout(() => filterInputRef.current?.focus(), 50);
                                 }}
-                                onBlur={() => {
-                                    // delay clearing so clicks on the clear button register
-                                    blurTimeoutRef.current = window.setTimeout(() => {
-                                        setFilterFocused(false);
-                                        blurTimeoutRef.current = null;
-                                    }, 150);
-                                }}
-                                onChange={(e: ChangeEvent<HTMLInputElement>) => handleFilterChange(e.target.value)}
-                                placeholder="Filter by title, category, or impact"
-                                
-                                fullWidth
-                                InputProps={{
-                                        startAdornment: (
-                                                <InputAdornment position="start">
-                                                        <SearchIcon className='w-4 h-4' />
-                                                </InputAdornment>
-                                        ),
-                                        endAdornment: showClear ? (
-                                            <InputAdornment position="end">
-                                                <IconButton
-                                                    size="small"
-                                                    aria-label="Clear filter"
-                                                    onMouseDown={(e) => e.preventDefault()} // prevent input blur
-                                                    onClick={() => {
-                                                        handleFilterChange('');
-                                                        // return focus to input
-                                                        filterInputRef.current?.focus();
-                                                    }}
-                                                    onFocus={() => { if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current); setClearButtonFocused(true); }}
-                                                    onBlur={() => { blurTimeoutRef.current = window.setTimeout(() => setClearButtonFocused(false), 150); }}
-                                                >
-                                                    <CloseButton className="w-4 h-4" />
-                                                </IconButton>
-                                            </InputAdornment>
-                                        ) : null,
-                                }}
+                              >
+                                <SearchIcon className="w-5 h-5" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          <div
+                            style={{
+                              maxWidth: (searchBarOpen || filter) ? '260px' : '0px',
+                              opacity: (searchBarOpen || filter) ? 1 : 0,
+                              overflow: 'hidden',
+                              transition: 'max-width 0.2s ease, opacity 0.15s ease',
+                            }}
+                          >
+                            <TextField
+                              id="goal-filter"
+                              size="small"
+                              value={filter}
+                              inputRef={(el) => { filterInputRef.current = el; }}
+                              onFocus={() => {
+                                if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current);
+                                setFilterFocused(true);
+                              }}
+                              onBlur={() => {
+                                blurTimeoutRef.current = window.setTimeout(() => {
+                                  setFilterFocused(false);
+                                  blurTimeoutRef.current = null;
+                                  if (!filter) setSearchBarOpen(false);
+                                }, 150);
+                              }}
+                              onChange={(e: ChangeEvent<HTMLInputElement>) => handleFilterChange(e.target.value)}
+                              placeholder="Search..."
+                              InputProps={{
+                                startAdornment: (
+                                  <InputAdornment position="start">
+                                    <SearchIcon className="w-4 h-4" />
+                                  </InputAdornment>
+                                ),
+                                endAdornment: showClear ? (
+                                  <InputAdornment position="end">
+                                    <IconButton
+                                      size="small"
+                                      aria-label="Clear filter"
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      onClick={() => {
+                                        handleFilterChange('');
+                                        filterInputRef.current?.focus();
+                                      }}
+                                      onFocus={() => { if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current); setClearButtonFocused(true); }}
+                                      onBlur={() => { blurTimeoutRef.current = window.setTimeout(() => setClearButtonFocused(false), 150); }}
+                                    >
+                                      <CloseButton className="w-4 h-4" />
+                                    </IconButton>
+                                  </InputAdornment>
+                                ) : null,
+                              }}
                             />
-                        )}
+                          </div>
+                        </div>
                         
                         {/* Edit Accomplishment Modal (reuses AccomplishmentEditor) */}
                         {isEditAccomplishmentModalOpen && selectedAccomplishment && (
@@ -2029,7 +2694,7 @@ const GoalsComponent = () => {
                                 </div>
                             </div>
                         )}
-                        {viewMode !== 'kanban' && (
+                        {viewMode === 'cards' && (
                         <>
                             <Tooltip title={`Sort: ${sortBy.charAt(0).toUpperCase() + sortBy.slice(1)} (${sortDirection === 'asc' ? 'ascending' : 'descending'})`} placement="top" arrow>
                                 <span className="flex items-center space-x-2">
@@ -2113,18 +2778,33 @@ const GoalsComponent = () => {
                         </>
                     )}                  
 
-                        {/* Add Goal Button */}
-                        <Tooltip title={`Add a new goal`} placement="top" arrow>
+                        {/* Add (Goal or Task) Button */}
+                        <Tooltip title="Add a goal or task" placement="top" arrow>
                             <button
-                                onClick={openGoalModal}
+                                onClick={(e) => setAddMenuAnchorEl(e.currentTarget)}
                                 className="btn-primary gap-2 flex ml-auto sm:mt-0 md:pr-2 sm:pr-2 xs:pr-0"
-                                // title={`Add a new goal for the current ${scope}`}
-                                aria-label={`Add a new goal for the current ${scope}`}
-                                >
+                                aria-label="Add a goal or task"
+                                aria-haspopup="menu"
+                            >
                                 <PlusIcon className="w-5 h-5" />
-                                {/* <span className="block flex text-nowrap">Add Goal</span> */}
                             </button>
                         </Tooltip>
+                        <Menu
+                            anchorEl={addMenuAnchorEl}
+                            open={Boolean(addMenuAnchorEl)}
+                            onClose={() => setAddMenuAnchorEl(null)}
+                            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                        >
+                            <MenuItem onClick={() => { setAddMenuAnchorEl(null); openGoalModal(); }}>
+                                <LayoutGrid className="w-4 h-4 mr-2 text-primary" />
+                                Add a goal
+                            </MenuItem>
+                            <MenuItem onClick={() => { setAddMenuAnchorEl(null); setIsAddTaskModalOpen(true); }}>
+                                <ListTodo className="w-4 h-4 mr-2 text-primary" />
+                                Add a task
+                            </MenuItem>
+                        </Menu>
                         <div id="summary_btn">
                             <SummaryGenerator 
                             summaryId={selectedSummary?.id || ''} 
@@ -2159,7 +2839,7 @@ const GoalsComponent = () => {
                                 filter={filter}
                                 selectable={true}
                                 isSelected={selectedIds.has(goal.id)}
-                                onToggleSelect={toggleSelect}
+                                onToggleSelect={(id) => toggleSelect(id, 'goals')}
                             />
                             ))}
                         </div>
@@ -2172,25 +2852,69 @@ const GoalsComponent = () => {
                         <Paper elevation={6}>
                             <Table aria-label="Goals Table">
                                 <TableHead className='border-none'>
-                                    <TableRow className='bg-gray-10 dark:bg-gray-90 border-none'>
+                                    <TableRow className='bg-background-color border-none'>
                                         <TableCell colSpan={selectedCount > 0 ?  5 : 1} className="px-4 py-2"   >
                                             <div className="flex items-center space-x-4">
                                             <div className={`floating-bulk${selectedCount > 0 ? '-toolbar flex-row align-start justify-start items-start sm:flex-row' : ''}`} role="toolbar" aria-label="Bulk actions">
-                                                <Tooltip title={selectedCount === visibleIdsArray.length ? 'Deselect all' : 'Select all'} placement="top" arrow>
-                                                        <Badge badgeContent={selectedCount} color="primary">
-                                                        <span className="sr-only">{selectedCount} selected</span>
-                                                        <button
-                                                            className={`btn-ghost fb-btn ${selectedCount > 0 ? 'dark:[&>.lucide]:stroke-brand-30 [&>.lucide]:stroke-brand-70' : ''}`}
-                                                            onClick={() => { if (selectedCount === visibleIdsArray.length) deselectAll(); else selectAllVisible(); }}
-                                                            aria-label={selectedCount === visibleIdsArray.length ? 'Deselect all' : 'Select all'}
-                                                        >
-                                                            {selectedCount === visibleIdsArray.length ? <SquareSlash /> : <CheckSquare2 />}
-                                                        </button>
-                                                    </Badge>
-                                                </Tooltip>
-                                                
-                                                {selectedCount > 0 && (
-                                                    <div className="flex flex-col items-start justify-start sm:flex-row ">
+                                <Tooltip title={expandedRowIds.size === sortedAndFilteredGoals.length ? "Collapse all goals" : "Expand all goals"} placement="top" arrow>
+                                    <IconButton
+                                        className="btn-ghost fb-btn"
+                                        size="small"
+                                        aria-label={expandedRowIds.size === sortedAndFilteredGoals.length ? "Collapse all goals" : "Expand all goals"}
+                                        onClick={() => {
+                                            if (expandedRowIds.size === sortedAndFilteredGoals.length) {
+                                                setExpandedRowIds(new Set());
+                                            } else {
+                                                setExpandedRowIds(new Set(sortedAndFilteredGoals.map(g => g.id)));
+                                            }
+                                        }}
+                                    >
+                                        {expandedRowIds.size === sortedAndFilteredGoals.length ? <Shrink className="w-5 h-5" /> : <Expand className="w-5 h-5" />}
+                                    </IconButton>
+                                </Tooltip>
+                                <Tooltip title={selectedCount > 0 ? `Deselect all ${selectionType || ''}` : 'Select all...'} placement="top" arrow>
+                                        <Badge badgeContent={selectedCount} color="primary">
+                                        <span className="sr-only">{selectedCount} selected</span>
+                                        <button
+                                            className={`btn-ghost fb-btn ${selectedCount > 0 ? 'dark:[&>.lucide]:stroke-brand-30 [&>.lucide]:stroke-brand-70' : ''}`}
+                                            onClick={(e) => {
+                                                if (selectedCount > 0) {
+                                                    deselectAll();
+                                                } else {
+                                                    setSelectAllMenuAnchor(e.currentTarget);
+                                                }
+                                            }}
+                                            aria-label={selectedCount > 0 ? `Deselect all ${selectionType || ''}` : 'Select all...'}
+                                        >
+                                            {selectedCount > 0 ? <SquareSlash /> : <CheckSquare2 />}
+                                        </button>
+                                    </Badge>
+                                </Tooltip>
+                                <Menu
+                                    anchorEl={selectAllMenuAnchor}
+                                    open={Boolean(selectAllMenuAnchor)}
+                                    onClose={() => setSelectAllMenuAnchor(null)}
+                                >
+                                    <MenuItem
+                                        onClick={() => {
+                                            selectAllGoals();
+                                            setSelectAllMenuAnchor(null);
+                                        }}
+                                    >
+                                        Select All Goals ({visibleIdsArray.length})
+                                    </MenuItem>
+                                    <MenuItem
+                                        onClick={() => {
+                                            selectAllTasks();
+                                            setSelectAllMenuAnchor(null);
+                                        }}
+                                    >
+                                        Select All Tasks ({visibleTaskIds.length})
+                                    </MenuItem>
+                                </Menu>
+                                
+                                {selectedCount > 0 && (
+                                    <div className="flex flex-col items-start justify-start sm:flex-row ">
                                                         <button className="btn-ghost fb-btn" onClick={() => setIsBulkDeleteConfirmOpen(true)} disabled={bulkActionLoading} title="Delete selected" aria-label="Delete selected">Delete</button>
                                                         <button
                                                             className="btn-ghost fb-btn"
@@ -2250,7 +2974,7 @@ const GoalsComponent = () => {
                                                     anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                                                     anchorReference={bulkStatusAnchorPos ? 'anchorPosition' : 'anchorEl'}
                                                     anchorPosition={bulkStatusAnchorPos ? { top: Math.round(bulkStatusAnchorPos.top), left: Math.round(bulkStatusAnchorPos.left) } : undefined}
-                                                    PaperProps={{ sx: { bgcolor: theme.palette.mode === 'dark' ? 'grey.90' : 'grey.10', p: 1 } }}
+                                                    PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1 } }}
                                                 >
                                                     {statusOptions.map((s) => (
                                                         <MenuItem
@@ -2277,7 +3001,7 @@ const GoalsComponent = () => {
                                                     anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                                                     anchorReference={bulkCategoryAnchorPos ? 'anchorPosition' : 'anchorEl'}
                                                     anchorPosition={bulkCategoryAnchorPos ? { top: Math.round(bulkCategoryAnchorPos.top), left: Math.round(bulkCategoryAnchorPos.left) } : undefined}
-                                                    PaperProps={{ sx: { bgcolor: theme.palette.mode === 'dark' ? 'grey.90' : 'grey.100', p: 1, height: '500px', } }}
+                                                    PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1, height: '500px', } }}
                                                 >
                                                     {categoryOptions.map((c) => (
                                                         c === categoryOptions[0] ? (
@@ -2292,7 +3016,7 @@ const GoalsComponent = () => {
                                                                             id="bulk-category-search"
                                                                             size="small"
                                                                             placeholder="Filter or add category"
-                                                                            sx={{ position: 'sticky', top: 0, bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100', zIndex: 1 }}
+                                                                            sx={{ position: 'sticky', top: 0, bgcolor: 'var(--color-background)', zIndex: 1 }}
                                                                             fullWidth
                                                                             onChange={(e: ChangeEvent<HTMLInputElement>) => {
                                                                                 const q = (e.target.value || '').toLowerCase();
@@ -2372,12 +3096,6 @@ const GoalsComponent = () => {
                                         </TableCell>
                                         {selectedCount === 0 && (
                                             <>
-                                            {/* <TableCell onClick={() => toggleSort('title')} style={{ cursor: 'pointer' }}>
-                                                <span className="flex items-center">
-                                                    Goal
-                                                    {sortBy === 'title' && (sortDirection === 'asc' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />)}
-                                                </span>
-                                            </TableCell> */}
                                             <TableCell onClick={() => toggleSort('category')} style={{ cursor: 'pointer' }}>
                                                 <span className="flex items-center">
                                                     Category
@@ -2402,50 +3120,90 @@ const GoalsComponent = () => {
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                    {/* <TableRow sx={{ maxHeight: '1px', display: 'block' }} className='h-[1px] p-0 m-0 block overflow-hidden'>
-                                        <TableCell className='w-full' />
-                                        <TableCell className='w-auto' />
-                                        <TableCell className='w-auto' />
-                                        <TableCell className='w-auto' />
-                                        <TableCell className='w-auto' />
-                                    </TableRow> */}
-                                    {sortedAndFilteredGoals.map((goal) => (
-                                        <TableRow 
-                                            key={goal.id}
-                                            hover
+                                    {sortedAndFilteredGoals.map((goal) => {
+                                        const goalTasks = tableTasksByGoal[goal.id] || [];
+                                        const isExpanded = expandedRowIds.has(goal.id);
+                                        
+                                        return (
+                                        <React.Fragment key={goal.id}>
+                                        <TableRow
+                                            // hover
+                                            // onClick={(e) => {
+                                            //     e.stopPropagation();
+                                            //     toggleRowExpanded(goal.id);
+                                            // }}
                                             // onClick={() => toggleSelect(goal.id)}
-                                            onClick={(e) => {
-                                                // If the click originated from an interactive element (button, input, link, select, textarea,
-                                                // or any element with role="button"), don't treat it as a card-select click. This prevents
-                                                // clicks on internal controls (icons, buttons, menus) from toggling selection.
-                                                const target = e.target as HTMLElement | null;
-                                                if (target && typeof target.closest === 'function') {
-                                                const interactive = target.closest('button, a, input, select, textarea, [role="button"]');
-                                                if (interactive) return;
-                                                }
-                                                toggleSelect(goal.id);
-                                            }}
-                                            role="checkbox"
-                                            aria-checked={selectedIds.has(goal.id)}
-                                            tabIndex={-1}
+                                            // onClick={(e) => {
+                                            //     // If the click originated from an interactive element (button, input, link, select, textarea,
+                                            //     // or any element with role="button"), don't treat it as a card-select click. This prevents
+                                            //     // clicks on internal controls (icons, buttons, menus) from toggling selection.
+                                            //     const target = e.target as HTMLElement | null;
+                                            //     if (target && typeof target.closest === 'function') {
+                                            //     const interactive = target.closest('button, a, input, select, textarea, [role="button"]');
+                                            //     if (interactive) return;
+                                            //     }
+                                            //     toggleRowExpanded(goal.id);
+                                            // }}
+                                            // role="checkbox"
+                                            // aria-checked={selectedIds.has(goal.id)}
+                                            // tabIndex={-1}
                                             selected={selectedIds.has(goal.id)}
                                             // inputProps={{ 'aria-label': `Select goal ${goal.title}` }}
-                                            sx={{ cursor: 'pointer' }}
+                                            // sx={{ cursor: 'pointer' }}
                                         >
                                             {/* <TableCell>
-                                                <Checkbox size="small" checked={selectedIds.has(goal.id)} inputProps={{ 'aria-label': `Select goal ${goal.title}` }} />
+                                                <Checkbox size="small" onClick={(e) => {
+                                                    // If the click originated from an interactive element (button, input, link, select, textarea,
+                                                    // or any element with role="button"), don't treat it as a card-select click. This prevents
+                                                    // clicks on internal controls (icons, buttons, menus) from toggling selection.
+                                                    // const target = e.target as HTMLElement | null;
+                                                    // if (target && typeof target.closest === 'function') {
+                                                    // const interactive = target.closest('button, a, input, select, textarea, [role="button"]');
+                                                    // if (interactive) return;
+                                                    // }
+                                                    e.stopPropagation();
+                                                    toggleSelect(goal.id, 'goals');
+                                                }} checked={selectedIds.has(goal.id)} onChange={() => {}} inputProps={{ 'aria-label': `Select goal ${goal.title}` }}
+                                                />
                                             </TableCell> */}
                                             <TableCell>
-                                                <Typography variant="body1"><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></Typography>
-                                                <Typography variant="body2" className="text-gray-50">
-                                                    <span dangerouslySetInnerHTML={renderHTML(((goal.description || '').substring(0, 100) + ((goal.description || '').length > 200 ? '...' : '')))} />
-                                                </Typography>
+                                                <div className="flex items-start gap-2">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            toggleRowExpanded(goal.id);
+                                                        }}
+                                                        className="btn-ghost"
+                                                    >
+                                                        {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+                                                    </IconButton>
+                                                    <Checkbox size="small" onClick={(e) => {
+                                                    // If the click originated from an interactive element (button, input, link, select, textarea,
+                                                    // or any element with role="button"), don't treat it as a card-select click. This prevents
+                                                    // clicks on internal controls (icons, buttons, menus) from toggling selection.
+                                                    // const target = e.target as HTMLElement | null;
+                                                    // if (target && typeof target.closest === 'function') {
+                                                    // const interactive = target.closest('button, a, input, select, textarea, [role="button"]');
+                                                    // if (interactive) return;
+                                                    // }
+                                                    e.stopPropagation();
+                                                    toggleSelect(goal.id, 'goals');
+                                                }} checked={selectedIds.has(goal.id)} onChange={() => {}} inputProps={{ 'aria-label': `Select goal ${goal.title}` }}
+                                                />
+                                                    <div>
+                                                        <Typography variant="body1"><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></Typography>
+                                                        <Typography variant="body2" className="text-gray-50">
+                                                            <span dangerouslySetInnerHTML={renderHTML(((goal.description || '').substring(0, 100) + ((goal.description || '').length > 200 ? '...' : '')))} />
+                                                        </Typography>
+                                                    </div>
+                                                </div>
                                             </TableCell>
                                             <TableCell>
                                                 <span className='card-category text-nowrap' dangerouslySetInnerHTML={renderHTML(goal.category)} />
                                             </TableCell>
                                             <TableCell>
-                                                <InlineStatus goal={goal} onUpdated={() => refreshGoals().then(() => {})} />
+                                                <InlineStatus tasks={goalTasks} />
                                             </TableCell>
                                             <TableCell><span className='text-xs' dangerouslySetInnerHTML={renderHTML(goal.week_start)} /></TableCell>
                                             <TableCell>
@@ -2458,7 +3216,9 @@ const GoalsComponent = () => {
                                                     aria-haspopup="true"
                                                     aria-expanded={rowActionsAnchorEl && rowActionsTargetId === goal.id ? 'true' : undefined}
                                                     onClick={(e) => {
+                                                        e.stopPropagation();
                                                         const el = e.currentTarget as HTMLElement;
+                                                        
                                                         if (rowActionsTargetId === goal.id && rowActionsAnchorEl) {
                                                             setRowActionsAnchorEl(null);
                                                             setRowActionsTargetId(null);
@@ -2479,10 +3239,10 @@ const GoalsComponent = () => {
                                                             horizontal: 'right',
                                                         }}
                                                     >
-                                                        <ChevronRight className={`w-4 h-4 ${rowActionsTargetId === goal.id && rowActionsAnchorEl ? 'transform rotate-90' : ''}`} />
+                                                        <MoreVertical className={`w-4 h-4 ${rowActionsTargetId === goal.id && rowActionsAnchorEl ? '' : ''}`} />
                                                     </Badge>
                                                 ) : (
-                                                    <ChevronRight className={`w-4 h-4 ${rowActionsTargetId === goal.id && rowActionsAnchorEl ? 'transform rotate-90' : ''}`} />
+                                                    <MoreVertical className={`w-4 h-4 ${rowActionsTargetId === goal.id && rowActionsAnchorEl ? '' : ''}`} />
                                                 )}
                                                 </IconButton>
 
@@ -2493,7 +3253,7 @@ const GoalsComponent = () => {
                                                     onClose={() => { setRowActionsAnchorEl(null); setRowActionsTargetId(null); }}
                                                     anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                                                     transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                                                    PaperProps={{ sx: { bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100' } }}
+                                                    // PaperProps={{ sx: { bgcolor: 'var(--color-background)' } }}
                                                 >
                                                     <MenuItem 
                                                         aria-label="Accomplishments" 
@@ -2535,6 +3295,20 @@ const GoalsComponent = () => {
                                                             )} */}
                                                             Notes
                                                     </MenuItem >
+                                                    {/* <MenuItem
+                                                        aria-label="Tasks"
+                                                        onClick={() => {
+                                                            setSelectedGoal(goal);
+                                                            setTasksGoalId(goal.id);
+                                                            setIsTasksModalOpen(true);
+                                                            setRowActionsAnchorEl(null);
+                                                            setRowActionsTargetId(null);
+                                                        }}
+                                                    >
+                                                        <ListTodo className="w-4 h-4 mr-2" />
+                                                        Tasks
+                                                    </MenuItem> */}
+                                                    
                                                     <MenuItem
                                                         onClick={() => {
                                                             setSelectedGoal(goal);
@@ -2560,7 +3334,181 @@ const GoalsComponent = () => {
                                                 </Menu>
                                             </TableCell>
                                         </TableRow>
-                                    ))}
+                                        
+                                        {/* Task rows when expanded */}
+                                        {isExpanded && goalTasks.map((task) => (
+                                            <TableRow key={`task-${task.id}`} className="flex w-full bg-background-color pl-24">
+                                                <TableCell colSpan={5} className="pl-16">
+                                                    <TaskCard 
+                                                        task={task}
+                                                        filter={filter}
+                                                        selectable
+                                                        list
+                                                        isSelected={selectedIds.has(task.id)}
+                                                        onToggleSelect={(id) => toggleSelect(id, 'tasks')}
+                                                        onStatusChange={async (taskId, newStatus) => {
+                                                            try {
+                                                                const { data: { session } } = await supabase.auth.getSession();
+                                                                const token = session?.access_token;
+                                                                if (!token) throw new Error('User not authenticated');
+
+                                                                const response = await fetch('/api/updateTask', {
+                                                                    method: 'PUT',
+                                                                    headers: {
+                                                                        'Content-Type': 'application/json',
+                                                                        Authorization: `Bearer ${token}`,
+                                                                    },
+                                                                    body: JSON.stringify({ id: taskId, status: newStatus }),
+                                                                });
+
+                                                                if (!response.ok) throw new Error('Failed to update task status');
+                                                                notifySuccess('Task status updated');
+                                                                await fetchTasksForGoal(goal.id);
+                                                            } catch (error) {
+                                                                console.error('Error updating task status:', error);
+                                                                notifyError('Failed to update task status');
+                                                            }
+                                                        }}
+                                                        onUpdate={async (taskId, updates) => {
+                                                            try {
+                                                                const { data: { session } } = await supabase.auth.getSession();
+                                                                const token = session?.access_token;
+                                                                if (!token) throw new Error('User not authenticated');
+
+                                                                const response = await fetch('/api/updateTask', {
+                                                                    method: 'PUT',
+                                                                    headers: {
+                                                                        'Content-Type': 'application/json',
+                                                                        Authorization: `Bearer ${token}`,
+                                                                    },
+                                                                    body: JSON.stringify({ id: taskId, ...updates }),
+                                                                });
+
+                                                                if (!response.ok) throw new Error('Failed to update task');
+                                                                notifySuccess('Task updated');
+                                                                await fetchTasksForGoal(goal.id);
+                                                            } catch (error) {
+                                                                console.error('Error updating task:', error);
+                                                                notifyError('Failed to update task');
+                                                            }
+                                                        }}
+                                                        onDelete={(taskId) => {
+                                                            const taskToDelete = (tableTasksByGoal[goal.id] || []).find(t => t.id === taskId);
+                                                            if (!taskToDelete) return;
+                                                            setTableTasksByGoal(prev => ({
+                                                                ...prev,
+                                                                [goal.id]: (prev[goal.id] || []).filter(t => t.id !== taskId),
+                                                            }));
+                                                            notifyWithUndo(
+                                                                'Task deleted',
+                                                                async () => {
+                                                                    const { data: { session } } = await supabase.auth.getSession();
+                                                                    const token = session?.access_token;
+                                                                    if (!token) throw new Error('User not authenticated');
+                                                                    const response = await fetch('/api/deleteTask', {
+                                                                        method: 'DELETE',
+                                                                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                                                        body: JSON.stringify({ id: taskId }),
+                                                                    });
+                                                                    if (!response.ok) throw new Error('Failed to delete task');
+                                                                },
+                                                                () => {
+                                                                    setTableTasksByGoal(prev => ({
+                                                                        ...prev,
+                                                                        [goal.id]: [...(prev[goal.id] || []), taskToDelete].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)),
+                                                                    }));
+                                                                },
+                                                            );
+                                                        }}
+                                                        allowInlineEdit
+                                                    />
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                        
+                                        {/* Add task row */}
+                                        {isExpanded && (
+                                            <TableRow className="bg-gray-5 dark:bg-gray-95">
+                                                <TableCell colSpan={5} className="pl-16">
+                                                    {addingTaskForGoal === goal.id ? (
+                                                        <div className="p-3 bg-white dark:bg-background-color rounded-lg border-2 border-dashed border-primary space-y-2">
+                                                            <TextField
+                                                                value={newTaskData.title || ''}
+                                                                onChange={(e) => setNewTaskData(prev => ({ ...prev, title: e.target.value }))}
+                                                                size="small"
+                                                                fullWidth
+                                                                placeholder="Enter task title"
+                                                                label="Title *"
+                                                                autoFocus
+                                                            />
+                                                            <TextField
+                                                                value={newTaskData.description || ''}
+                                                                onChange={(e) => setNewTaskData(prev => ({ ...prev, description: e.target.value }))}
+                                                                size="small"
+                                                                fullWidth
+                                                                multiline
+                                                                rows={2}
+                                                                placeholder="Add description (optional)"
+                                                                label="Description"
+                                                            />
+                                                            <div className="flex gap-2">
+                                                                <TextField
+                                                                    type="date"
+                                                                    value={newTaskData.scheduled_date || ''}
+                                                                    onChange={(e) => setNewTaskData(prev => ({ ...prev, scheduled_date: e.target.value }))}
+                                                                    size="small"
+                                                                    label="Scheduled Date"
+                                                                    InputLabelProps={{ shrink: true }}
+                                                                    className="flex-1"
+                                                                />
+                                                                <TextField
+                                                                    type="time"
+                                                                    value={newTaskData.scheduled_time || ''}
+                                                                    onChange={(e) => setNewTaskData(prev => ({ ...prev, scheduled_time: e.target.value }))}
+                                                                    size="small"
+                                                                    label="Scheduled Time"
+                                                                    InputLabelProps={{ shrink: true }}
+                                                                    className="flex-1"
+                                                                />
+                                                            </div>
+                                                            <div className="flex gap-2 justify-end">
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        setAddingTaskForGoal(null);
+                                                                        setNewTaskData({
+                                                                            title: '',
+                                                                            description: '',
+                                                                            scheduled_date: '',
+                                                                            scheduled_time: '',
+                                                                        });
+                                                                    }} 
+                                                                    className="btn-secondary btn-sm"
+                                                                >
+                                                                    Cancel
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => createTaskForGoal(goal.id)} 
+                                                                    className="btn-primary btn-sm"
+                                                                >
+                                                                    Add Task
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => setAddingTaskForGoal(goal.id)}
+                                                            className="w-full p-2 text-sm text-primary hover:bg-gray-10 dark:hover:bg-gray-80 rounded border border-dashed border-gray-30 dark:border-gray-60 hover:border-primary transition-colors flex items-center justify-center gap-2"
+                                                        >
+                                                            <PlusIcon className="w-4 h-4" />
+                                                            Add task
+                                                        </button>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                        </React.Fragment>
+                                        );
+                                    })}
                                 </TableBody>
                             </Table>
                         </Paper>
@@ -2568,20 +3516,27 @@ const GoalsComponent = () => {
                 )}
                 <ConfirmModal
                     isOpen={isBulkDeleteConfirmOpen}
-                    title={`Delete ${selectedCount} goals?`}
-                    message={`Are you sure you want to permanently delete ${selectedCount} selected goals? This action cannot be undone.`}
+                    title={`Delete ${selectedCount} ${selectionType === 'tasks' ? 'tasks' : 'goals'}?`}
+                    message={`Are you sure you want to permanently delete ${selectedCount} selected ${selectionType === 'tasks' ? 'tasks' : 'goals'}? This action cannot be undone.`}
                     onCancel={() => setIsBulkDeleteConfirmOpen(false)}
                     onConfirm={async () => {
                         setBulkActionLoading(true);
                         try {
                             const ids = Array.from(selectedIds);
-                            for (const id of ids) {
-                                await deleteGoal(id);
+                            if (selectionType === 'tasks') {
+                                for (const id of ids) {
+                                    await handleTaskDelete(id);
+                                }
+                                notifySuccess('Selected tasks deleted');
+                            } else {
+                                for (const id of ids) {
+                                    await deleteGoal(id);
+                                }
+                                notifySuccess('Selected goals deleted');
                             }
-                            notifySuccess('Selected goals deleted');
                         } catch (err) {
                             console.error('Bulk delete failed', err);
-                            notifyError('Failed to delete some goals');
+                            notifyError(`Failed to delete some ${selectionType === 'tasks' ? 'tasks' : 'goals'}`);
                         } finally {
                             setBulkActionLoading(false);
                             setIsBulkDeleteConfirmOpen(false);
@@ -2599,24 +3554,36 @@ const GoalsComponent = () => {
                                         <div className="w-full flex items-center justify-center p-8">
                                             <div className="flex items-center space-x-3">
                                                 <LoadingSpinner />
-                                                <span className="text-sm text-gray-600 dark:text-gray-300">Loading scope…</span>
+                                                <span className="text-sm text-gray-60 dark:text-gray-30">Loading scope…</span>
                                             </div>
                                         </div>
                                     ) : (
                                     ['Not started', 'In progress', 'Blocked', 'On hold', 'Done'].map((status) => {
-                                        const allIds = kanbanColumns[status] || [];
-                                        const visibleIds = allIds.filter((id) => visibleGoalIds.has(id));
-                                        const hiddenCount = allIds.length - visibleIds.length;
-                                        const isCollapsed = !!collapsedColumns[status];
+                                        // Collect all tasks matching this status AND filters
+                                        const allTasks: Task[] = [];
+                                        Object.keys(kanbanTasks).forEach((goalId) => {
+                                            const goalTasks = kanbanTasks[goalId] || [];
+                                            goalTasks.forEach((task) => {
+                                                if (task.status === status) {
+                                                    // Apply all filters (including text search, category, status, goal, dates)
+                                                    if (taskMatchesFilters(task, goalId)) {
+                                                        allTasks.push(task);
+                                                    }
+                                                }
+                                            });
+                                        });
+                                        
+                                        // Auto-collapse empty columns unless manually expanded by user
+                                        const isCollapsed = (allTasks.length === 0 && !manuallyExpandedEmptyColumns.has(status)) || !!collapsedColumns[status];
 
                                         return (
                                             <div
                                                 key={status}
                                                 className={`
                                                     ${!isCollapsed ? (
-                                                        "flex-1 border border-gray-30 dark:border-gray-70 bg-gray-0 dark:bg-gray-100 dark:bg-opacity-30 p-3 rounded-md" 
+                                                        "flex-1 border border-gray-30 dark:border-gray-70 bg-background-color dark:bg-opacity-30 p-3 rounded-md" 
                                                     ) : (
-                                                        "flex-0 border border-gray-30 dark:border-gray-70 bg-gray-0 dark:bg-gray-100 dark:bg-opacity-30 p-3 rounded-md"
+                                                        "flex-0 border border-gray-30 dark:border-gray-70 bg-background-color dark:bg-opacity-30 p-3 rounded-md"
                                                     )} 
                                                 `}
                                                 onDragOver={(e) => handleDragOver(e, status)}
@@ -2630,12 +3597,9 @@ const GoalsComponent = () => {
                                                             <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 6, background: STATUS_COLORS[status], marginRight: 8 }} />
                                                             <div className="text-nowrap" style={{color: STATUS_COLORS[status]}}>
                                                                 {status}
-                                                                <span className="ml-2 text-sm text-gray-30 dark:text-gray-70">({allIds.length})</span>
+                                                                <span className="ml-2 text-sm text-gray-30 dark:text-gray-70">({allTasks.length})</span>
                                                             </div>
                                                         </div>
-                                                    )}
-                                                    {hiddenCount > 0 && (
-                                                        <span className="text-sm text-gray-500 dark:text-gray-300">{hiddenCount} hidden</span>
                                                     )}
                                                     {(isCollapsed) ? (
                                                         <>
@@ -2650,14 +3614,19 @@ const GoalsComponent = () => {
                                                             <Tooltip title={`Show "${status}" column`} placement="top" arrow>
                                                             <IconButton
                                                                 aria-label={`Show ${status} column`}
-                                                                onClick={() => setCollapsedColumns((prev) => ({ ...prev, [status]: false }))}
+                                                                onClick={() => {
+                                                                    setCollapsedColumns((prev) => ({ ...prev, [status]: false }));
+                                                                    // Track that user manually expanded this empty column
+                                                                    if (allTasks.length === 0) {
+                                                                        setManuallyExpandedEmptyColumns((prev) => new Set(prev).add(status));
+                                                                    }
+                                                                }}
                                                                 className="btn-ghost p-1"
                                                             >
                                                                 <div className="flex items-center">
                                                                     <Badge 
-                                                                        badgeContent={allIds.length} 
+                                                                        badgeContent={allTasks.length} 
                                                                         color="primary"
-                                                                        // variant='dot'
                                                                         anchorOrigin={{
                                                                             vertical: 'top',
                                                                             horizontal: 'right',
@@ -2674,7 +3643,15 @@ const GoalsComponent = () => {
                                                         <Tooltip title={`Hide column`} placement="top" arrow>
                                                             <IconButton
                                                                 aria-label={`Hide ${status} column`}
-                                                                onClick={() => setCollapsedColumns((prev) => ({ ...prev, [status]: !prev[status] }))}
+                                                                onClick={() => {
+                                                                    setCollapsedColumns((prev) => ({ ...prev, [status]: !prev[status] }));
+                                                                    // Remove from manually expanded if user collapses it
+                                                                    setManuallyExpandedEmptyColumns((prev) => {
+                                                                        const newSet = new Set(prev);
+                                                                        newSet.delete(status);
+                                                                        return newSet;
+                                                                    });
+                                                                }}
                                                                 className="btn-ghost p-1"
                                                                 >
                                                                 <EyeOff className="w-4 h-4 text-gray-50" />
@@ -2686,41 +3663,31 @@ const GoalsComponent = () => {
 
                                                 {!isCollapsed && (
                                                     <div className="space-y-3">
-                                                        {visibleIds.map((id, _idx) => {
-                                                            // When showing all in kanban, prefer the `fullGoals` cache
-                                                            // which contains unscoped results from the server. When
-                                                            // showAllGoals is false, fall back to the scoped
-                                                            // `indexedGoals` map.
-                                                            const goalListForLookup = showAllGoals ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || []);
-                                                            const goal = (goalListForLookup || []).find((g) => g.id === id) as Goal | undefined;
-                                                            if (!goal) return null;
-                                                            return (
-                                                            
-                                                            <GoalKanbanCard
-                                                                key={id}
-                                                                goal={goal}
-                                                                handleDelete={(id) => handleDeleteGoal(id)}
-                                                                handleEdit={(id) => {
-                                                                    const goalSourceForEdit = showAllGoals ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || []);
-                                                                    const goalToEdit = goalSourceForEdit.find((g) => g.id === id);
-                                                                    if (goalToEdit) {
-                                                                        setSelectedGoal(goalToEdit);
-                                                                        setIsEditorOpen(true);
-                                                                    }
-                                                                }}
-                                                                filter={filter}
+                                                        {allTasks.map((task) => (
+                                                           <div
+                                                                key={task.id}
                                                                 draggable
-                                                                selectable={true}
-                                                                isSelected={selectedIds.has(goal.id)}
-                                                                onToggleSelect={toggleSelect}
-                                                                onDragStart={(e) => handleDragStart(e, id)}
-                                                            />
-                                                                
-                                                                    
-                                                            );
-                                                        })}
+                                                                onDragStart={(e) => handleTaskDragStart(e, task.id)}
+                                                                onDragEnd={handleTaskDragEnd}
+                                                                className="cursor-move"
+                                                            >
+                                                                <TaskCard
+                                                                    task={task}
+                                                                    filter={filter}
+                                                                    selectable
+                                                                    draggable={true} 
+                                                                    isSelected={selectedIds.has(task.id)}
+                                                                    onToggleSelect={(id) => toggleSelect(id, 'tasks')}
+                                                                    onStatusChange={handleTaskStatusChange}
+                                                                    onUpdate={handleTaskUpdate}
+                                                                    onDelete={handleTaskDelete}
+                                                                    allowInlineEdit
+                                                                    hideStatusChip
+                                                                />
+                                                            </div>
+                                                        ))}
 
-                                                        {dragOverColumn === status && dragOverIndex === visibleIds.length && (
+                                                        {dragOverColumn === status && dragOverIndex === allTasks.length && (
                                                             <div className="p-4 border border-dashed rounded bg-transparent">&nbsp;</div>
                                                         )}
                                                     </div>
@@ -2731,7 +3698,32 @@ const GoalsComponent = () => {
                                     )}
                                 </div>
                             )}
+
+                            {/* Tasks Calendar View */}
+                            {viewMode === 'tasks-calendar' && (
+                                <div className="w-full h-full">
+                                    <AllTasksCalendar 
+                                        onRefresh={refreshGoals}
+                                        textFilter={filter}
+                                        statusFilter={filterStatus}
+                                        categoryFilter={filterCategory}
+                                        goalFilter={filterGoal}
+                                        startDateFilter={filterStartDate?.toDate() || null}
+                                        endDateFilter={filterEndDate?.toDate() || null}
+                                        selectedIds={selectedIds}
+                                        onToggleSelect={toggleSelect}
+                                        onVisibleTasksChange={setCalendarTaskIds}
+                                    />
+                                </div>
+                            )}
                 
+                            {/* No results message when filters are active */}
+                            {sortedAndFilteredGoals.length === 0 && selectedFiltersCount > 0 && viewMode !== 'tasks-calendar' && (
+                                <div className="text-center text-gray-50 mt-8 mb-8">
+                                    <p className="text-lg mb-2">No goals match your current filters</p>
+                                    <p className="text-sm">Try adjusting your filters or clearing them to see more results</p>
+                                </div>
+                            )}
             </div>
             <div id="summary">
                     <Modal
@@ -2885,7 +3877,14 @@ const GoalsComponent = () => {
 
                     {/* Notes modal used by mobile stacked rows */}
                     {isNotesModalOpen && (
-                        <div id="editNotes" className={`${overlayClasses} flex items-center justify-center`}>
+                        <div 
+                            id="editNotes" 
+                            className={`${overlayClasses} flex items-center justify-center`}
+                            onMouseDown={(e) => {
+                                // close when clicking the backdrop (only when clicking the overlay itself)
+                                if (e.target === e.currentTarget) closeNotes();
+                            }}
+                        >
                             <div className={`${modalClasses} w-full max-w-2xl`}> 
                                 <div className='flex flex-row w-full justify-between items-start'>
                                     <h3 className="text-lg font-medium text-gray-90 mb-4">Notes for <br />"{(selectedGoal as any)?.title}"</h3>
@@ -2900,15 +3899,15 @@ const GoalsComponent = () => {
                                         <h4 className="text-md font-semibold mb-2">Existing notes</h4>
                                         <ul className="space-y-3">
                                             {notes.map((note) => (
-                                                <li key={note.id} className="p-3 border rounded bg-gray-10 dark:bg-gray-80 dark:border-gray-70">
+                                                <li key={note.id} className="p-3 border rounded bg-background border-background-color">
                                                     <div className="flex items-center justify-between gap-2">
-                                                        <div className="text-xs text-gray-40">{new Date(note.created_at).toLocaleString()}</div>
+                                                        <div className="text-xs text-secondary-text">{new Date(note.created_at).toLocaleString()}</div>
                                                         <div className="flex items-center justify-end gap-2">
                                                             <button className="btn-ghost" onClick={() => { setEditingNoteId(note.id); setEditingNoteContent(note.content); }} title="Edit note"><Edit className="w-4 h-4" /></button>
                                                             <button className="btn-ghost" onClick={() => setNoteDeleteTarget(note.id)} title="Delete note" disabled={isNotesLoading}><Trash className="w-4 h-4" /></button>
                                                         </div>
                                                     </div>
-                                                    <div className="text-sm text-gray-70 dark:text-gray-20" dangerouslySetInnerHTML={{ __html: note.content }} />
+                                                    <div className="text-sm text-primary-text" dangerouslySetInnerHTML={{ __html: note.content }} />
                                                     {editingNoteId === note.id && (
                                                         <div className="mt-2">
                                                             <TextField
@@ -2966,6 +3965,38 @@ const GoalsComponent = () => {
                             </div>
                         </div>
                     )}
+
+                    {/* Tasks Modal */}
+                    {isTasksModalOpen && tasksGoalId && (
+                        <div 
+                            id="editTasks" 
+                            className={`${overlayClasses} flex items-center justify-center`}
+                            onMouseDown={(e) => {
+                                // close when clicking the backdrop (only when clicking the overlay itself)
+                                if (e.target === e.currentTarget) { setIsTasksModalOpen(false); setTasksGoalId(null); }
+                            }}
+                        >
+                            <div className={`${modalClasses} w-3/4`}>
+                                <div className='flex flex-row w-full justify-between items-start mb-4'>
+                                    <h3 className="text-lg font-medium text-gray-90">
+                                        Tasks for <br />"{(selectedGoal as any)?.title}"
+                                    </h3>
+                                    <button className="btn-ghost" onClick={() => { setIsTasksModalOpen(false); setTasksGoalId(null); }}>
+                                        <CloseButton className="w-4 h-4" />
+                                    </button>
+                                </div>
+                                
+                                <div className="max-h-[70vh] overflow-y-auto">
+                                    <TasksList 
+                                        goalId={tasksGoalId}
+                                        goalTitle={(selectedGoal as any)?.title || ''}
+                                        goalDescription={(selectedGoal as any)?.description || ''}
+                                        onTaskCountChange={(count) => setTasksCount(count)}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
             </div>
             </>
     ) : (
@@ -2985,6 +4016,121 @@ const GoalsComponent = () => {
                 
             </div>
         )}
+        {/* Add Task Modal */}
+                <Modal
+                    isOpen={isAddTaskModalOpen}
+                    onRequestClose={closeAddTaskModal}
+                    shouldCloseOnOverlayClick={true}
+                    ariaHideApp={ARIA_HIDE_APP}
+                    className="fixed inset-0 flex md:items-center justify-center z-50"
+                    overlayClassName={overlayClasses}
+                >
+                    <div className={`${modalClasses} max-w-lg w-full`}>
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-semibold flex items-center gap-2">
+                                <ListTodo className="w-5 h-5 text-primary" />
+                                Add a task
+                            </h2>
+                            <IconButton size="small" onClick={closeAddTaskModal} aria-label="Close">
+                                <CloseButton className="w-4 h-4" />
+                            </IconButton>
+                        </div>
+
+                        <div className="space-y-4">
+                            {/* Goal selector */}
+                            {!standaloneCreateNewGoal ? (
+                                <FormControl fullWidth size="small">
+                                    <InputLabel id="standalone-task-goal-label">Goal *</InputLabel>
+                                    <Select
+                                        labelId="standalone-task-goal-label"
+                                        label="Goal *"
+                                        value={standaloneTaskGoalId}
+                                        onChange={(e) => setStandaloneTaskGoalId(e.target.value as string)}
+                                        displayEmpty
+                                    >
+                                        {Object.values(indexedGoals).flat().map((g) => (
+                                            <MenuItem key={g.id} value={g.id}>
+                                                <span className="truncate max-w-[320px] block">{g.title}</span>
+                                            </MenuItem>
+                                        ))}
+                                        <MenuItem
+                                            value="__new__"
+                                            onClick={(e) => { e.stopPropagation(); setStandaloneCreateNewGoal(true); setStandaloneTaskGoalId(''); }}
+                                            className="text-primary font-medium"
+                                        >
+                                            <PlusIcon className="w-4 h-4 mr-1 inline" /> Create new goal…
+                                        </MenuItem>
+                                    </Select>
+                                </FormControl>
+                            ) : (
+                                <div className="space-y-2">
+                                    <TextField
+                                        label="New goal title *"
+                                        value={standaloneNewGoalTitle}
+                                        onChange={(e) => setStandaloneNewGoalTitle(e.target.value)}
+                                        size="small"
+                                        fullWidth
+                                        autoFocus
+                                        placeholder="Enter goal title"
+                                    />
+                                    <button
+                                        className="text-sm text-gray-50 underline"
+                                        onClick={() => { setStandaloneCreateNewGoal(false); setStandaloneNewGoalTitle(''); }}
+                                    >
+                                        ← Pick an existing goal instead
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Task fields */}
+                            <TextField
+                                label="Task title *"
+                                value={standaloneNewTask.title || ''}
+                                onChange={(e) => setStandaloneNewTask((p) => ({ ...p, title: e.target.value }))}
+                                size="small"
+                                fullWidth
+                                autoFocus={standaloneCreateNewGoal ? false : true}
+                                placeholder="What needs to be done?"
+                            />
+                            <TextField
+                                label="Description"
+                                value={standaloneNewTask.description || ''}
+                                onChange={(e) => setStandaloneNewTask((p) => ({ ...p, description: e.target.value }))}
+                                size="small"
+                                fullWidth
+                                multiline
+                                rows={2}
+                                placeholder="Optional details"
+                            />
+                            <div className="flex gap-3">
+                                <TextField
+                                    type="date"
+                                    label="Scheduled date"
+                                    value={standaloneNewTask.scheduled_date || ''}
+                                    onChange={(e) => setStandaloneNewTask((p) => ({ ...p, scheduled_date: e.target.value }))}
+                                    size="small"
+                                    InputLabelProps={{ shrink: true }}
+                                    className="flex-1"
+                                />
+                                <TextField
+                                    type="time"
+                                    label="Scheduled time"
+                                    value={standaloneNewTask.scheduled_time || ''}
+                                    onChange={(e) => setStandaloneNewTask((p) => ({ ...p, scheduled_time: e.target.value }))}
+                                    size="small"
+                                    InputLabelProps={{ shrink: true }}
+                                    className="flex-1"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button className="btn-secondary" onClick={closeAddTaskModal}>Cancel</button>
+                            <button className="btn-primary" onClick={createStandaloneTask}>Add task</button>
+                        </div>
+                    </div>
+                </Modal>
+
         {/* Add Goal Modal */}
                 <Modal
                     isOpen={isGoalModalOpen}
@@ -2995,17 +4141,17 @@ const GoalsComponent = () => {
                     className={`fixed inset-0 flex md:items-center justify-center z-50`}
                     overlayClassName={`${overlayClasses}`}
                     >
-                <div className={`${modalClasses}`}>
-                    {isGoalModalOpen && (
-                        <GoalForm
-                        newGoal={newGoal}
-                        setNewGoal={setNewGoal}
-                        handleClose={closeGoalModal}
-                                        categories={UserCategories.map((cat: unknown) => typeof cat === 'string' ? (cat as string) : ((cat as { name?: string })?.name || ''))}
-                                        refreshGoals={() => refreshGoals().then(() => {})}
-                        />
-                    )}
-                </div>
+                    <div className={`${modalClasses}`}>
+                        {isGoalModalOpen && (
+                            <GoalForm
+                            newGoal={newGoal}
+                            setNewGoal={setNewGoal}
+                            handleClose={closeGoalModal}
+                                            categories={UserCategories.map((cat: unknown) => typeof cat === 'string' ? (cat as string) : ((cat as { name?: string })?.name || ''))}
+                                            refreshGoals={() => refreshGoals().then(() => {})}
+                            />
+                        )}
+                    </div>
                 </Modal>
         </div>
   );

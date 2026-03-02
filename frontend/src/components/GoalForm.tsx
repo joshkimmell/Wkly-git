@@ -1,33 +1,40 @@
 import React, { useEffect, useState } from 'react';
 import { getWeekStartDate, fetchCategories } from '@utils/functions'; // Import fetchCategories from functions.ts
-import { Category, Goal } from '@utils/goalUtils'; // Import the addCategory function
+import { Category, Goal, Task } from '@utils/goalUtils'; // Import Task type
 import supabase from '@lib/supabase'; // Import Supabase client
 import { useGoalsContext } from '@context/GoalsContext';
 import LoadingSpinner from '@components/LoadingSpinner';
-import { SearchIcon, RefreshCw } from 'lucide-react';
+import { SearchIcon, RefreshCw, CheckCircle, Edit2, Calendar, Clock, Bell } from 'lucide-react';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
 import RichTextEditor from '@components/RichTextEditor';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
-import { TextField, MenuItem, Checkbox, FormControlLabel, Switch } from '@mui/material';
+import { TextField, MenuItem, Checkbox, FormControlLabel, Switch, Select, InputLabel, FormControl } from '@mui/material';
 
 export interface AddGoalProps {
   newGoal: Goal; // Updated to use the full Goal type
   setNewGoal: React.Dispatch<React.SetStateAction<Goal>>; // Updated to match the full Goal type
-  // handleSubmit: (e: React.FormEvent) => Promise<void>;
   handleClose: () => void; // Added handleClose prop to allow closing the modal
   categories: string[];
   refreshGoals: () => Promise<void>; // Added refreshGoals prop to refresh the goals
 }
 
 const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, refreshGoals }) => {
-  // const [categories, setCategories] = React.useState<{ id: string; name: string }[]>([]); // Update state type to match the expected structure
-  const [categories, setCategories] = useState<Category[]>([]); // Update state type to match the expected structure
+  const [categories, setCategories] = useState<Category[]>([]);
+  
+  // New workflow state
+  const [draftGoal, setDraftGoal] = useState(''); // Step 1: User's draft input
+  const [refinedGoal, setRefinedGoal] = useState<{ title: string; description: string; feedback: string } | null>(null); // Step 2: AI refined goal
+  const [generatedTasks, setGeneratedTasks] = useState<Array<Task & { suggested_date?: string; estimated_duration?: string }>>([]); // Step 3: AI generated tasks
+  const [selectedTasks, setSelectedTasks] = useState<number[]>([]); // Which tasks to include
+  
+  // Old workflow state (for backward compatibility)
   const [naturalLanguageInput, setNaturalLanguageInput] = useState('');
   const [generatedPlan, setGeneratedPlan] = useState<Goal[]>([]);
   const [selectedSteps, setSelectedSteps] = useState<number[]>([]);
-  const [currentStep, setCurrentStep] = useState(1);
+  
+  const [currentStep, setCurrentStep] = useState(1); // 1: Draft, 2: Refine, 3: Tasks, 4: Schedule, 5: Review
   const [showWizard, setShowWizard] = useState(true); // State to toggle between wizard and manual form
   const [isGenerating, setIsGenerating] = useState(false); // State to track loading
   const [error, setError] = useState<string | null>(null); // State to track errors
@@ -76,6 +83,111 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
     fetchAndSetCategories();
   }, []); // Fetch categories on component mount
 
+  // Sync filteredCategories with categories
+  useEffect(() => {
+    setFilteredCategories(categories);
+  }, [categories]);
+
+  // NEW WORKFLOW HANDLERS
+  // Step 1: User provides draft goal - AI refines it
+  const handleRefineGoal = async () => {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('User not authenticated');
+      
+      const response = await fetch('/api/refineGoal', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ draft_goal: draftGoal }),
+      });
+
+      if (!response.ok) {
+        const errorMessage = await response.text();
+        throw new Error(errorMessage || 'Failed to refine goal');
+      }
+
+      const data = await response.json();
+      setRefinedGoal(data);
+      setNewGoal(prev => ({
+        ...prev,
+        title: data.refined_title,
+        description: data.refined_description,
+      }));
+      setCurrentStep(2);
+    } catch (error) {
+      console.error('Error refining goal:', error);
+      setError((error instanceof Error ? error.message : 'An unexpected error occurred'));
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Step 2: User accepts/edits refined goal - AI generates tasks
+  const handleGenerateTasks = async () => {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('User not authenticated');
+      
+      const response = await fetch('/api/generatePlan', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          title: newGoal.title,
+          description: newGoal.description 
+        }),
+      });
+
+      if (!response.ok) {
+        const errorMessage = await response.text();
+        throw new Error(errorMessage || 'Failed to generate tasks');
+      }
+
+      const data = await response.json();
+      if (Array.isArray(data.tasks)) {
+        // Transform tasks with default values
+        const tasksWithDefaults = data.tasks.map((task: any, index: number) => ({
+          id: `temp-${Date.now()}-${index}`,
+          goal_id: '',
+          user_id: '',
+          title: task.title,
+          description: task.description,
+          status: 'Not started' as const,
+          suggested_date: task.suggested_date,
+          estimated_duration: task.estimated_duration,
+          scheduled_date: undefined,
+          scheduled_time: undefined,
+          reminder_enabled: false,
+          reminder_datetime: undefined,
+          order_index: index,
+          created_at: new Date().toISOString(),
+        }));
+        setGeneratedTasks(tasksWithDefaults);
+        setSelectedTasks(tasksWithDefaults.map((_: any, i: number) => i)); // Select all by default
+        setCurrentStep(3);
+      } else {
+        throw new Error('Unexpected response format');
+      }
+    } catch (error) {
+      console.error('Error generating tasks:', error);
+      setError((error instanceof Error ? error.message : 'An unexpected error occurred'));
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // OLD WORKFLOW HANDLER (for backward compatibility)
   const handleGeneratePlan = async () => {
     setIsGenerating(true); // Show loading animation
     setError(null); // Reset error state
@@ -159,6 +271,98 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         setSelectedSteps([]);
         setGeneratedPlan([]);
     };
+
+  // NEW: Create goal with tasks
+  const createGoalWithTasks = async () => {
+    try {
+      setIsGenerating(true);
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Ensure week_start is properly formatted
+      const weekStart = newGoal.week_start ? newGoal.week_start.split('T')[0] : getWeekStartDate();
+      
+      // Create the goal first
+      const goalPayload = {
+        title: newGoal.title,
+        description: newGoal.description,
+        category: newGoal.category,
+        week_start: weekStart,
+        user_id: user.id,
+        status: 'Not started' as const,
+      };
+
+      const { data: createdGoal, error: goalError } = await supabase
+        .from('goals')
+        .insert(goalPayload)
+        .select()
+        .single();
+
+      if (goalError) {
+        throw new Error(`Failed to create goal: ${goalError.message}`);
+      }
+
+      // Create tasks for the goal
+      const tasksToCreate = generatedTasks
+        .filter((_, index) => selectedTasks.includes(index))
+        .map((task) => ({
+          goal_id: createdGoal.id,
+          user_id: user.id,
+          title: task.title,
+          description: task.description,
+          status: task.status,
+          scheduled_date: task.scheduled_date || null,
+          scheduled_time: task.scheduled_time || null,
+          reminder_enabled: task.reminder_enabled,
+          reminder_datetime: task.reminder_datetime || null,
+          order_index: task.order_index,
+        }));
+
+      if (tasksToCreate.length > 0) {
+        const { error: tasksError } = await supabase
+          .from('tasks')
+          .insert(tasksToCreate);
+
+        if (tasksError) {
+          console.error('Error creating tasks:', tasksError);
+          // Goal was created, but tasks failed - notify user
+          notifyError('Goal created, but some tasks failed to save');
+        } else {
+          notifySuccess(`Goal created with ${tasksToCreate.length} task(s)!`);
+        }
+      } else {
+        notifySuccess('Goal created!');
+      }
+
+      // Reset state and refresh
+      await refreshGoals();
+      handleClose();
+      
+      // Reset wizard
+      setDraftGoal('');
+      setRefinedGoal(null);
+      setGeneratedTasks([]);
+      setSelectedTasks([]);
+      setCurrentStep(1);
+      setNewGoal({
+        id: '',
+        title: '',
+        description: '',
+        category: '',
+        week_start: '',
+        user_id: '',
+        created_at: ''
+      });
+
+    } catch (error) {
+      console.error('Error creating goal with tasks:', error);
+      notifyError(error instanceof Error ? error.message : 'Failed to create goal');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const addGoal = async (goal: Goal) => {
     try {
@@ -459,7 +663,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
     <>
     <form id="goalForm" className="space-y-4">
       <div className="mt-6 flex justify-end space-x-4 items-center">
-        <label className="block text-sm font-medium text-gray-700">Generate goals</label>
+        <label className="block text-sm font-medium text-gray-70">Generate goals</label>
         <FormControlLabel
           control={
             <Switch
@@ -475,7 +679,313 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
     {/* Wizard steps */}
     {showWizard ? (
       <form onSubmit={handleBulkAddGoals} className="space-y-4">
+        {/* Step 1: Draft Goal Input */}
         {currentStep === 1 && (
+          <div>
+            <h3 className="text-lg font-medium mb-4">Step 1: Describe Your Goal</h3>
+            <TextField
+              id="draft-goal-input"
+              value={draftGoal}
+              onChange={(e) => setDraftGoal(e.target.value)}
+              className="mt-1 block w-full"
+              label="Draft Goal"
+              placeholder='Describe what you want to achieve, e.g. "I want to improve my physical fitness by exercising regularly and eating healthier."'
+              multiline
+              minRows={6}
+              fullWidth
+            />
+            <div className="mt-4 space-x-4 w-full justify-end ">
+              <button type="button" onClick={handleClose} className="btn-secondary">
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                onClick={handleRefineGoal} 
+                disabled={!draftGoal.trim() || isGenerating}
+                className="btn-primary mt-4"
+              >
+                {isGenerating ? 'Refining...' : 'Refine Goal'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Review Refined Goal */}
+        {currentStep === 2 && (
+          <div>
+            <h3 className="text-lg font-medium mb-4">Step 2: Review & Edit Your Goal</h3>
+            
+            {refinedGoal && (
+              <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  <CheckCircle className="inline w-4 h-4 mr-1" />
+                  <strong>AI Feedback:</strong> {refinedGoal.feedback}
+                </p>
+              </div>
+            )}
+
+            <TextField
+              label="Goal Title"
+              value={newGoal.title}
+              onChange={(e) => setNewGoal(prev => ({ ...prev, title: e.target.value }))}
+              placeholder="Enter a clear, concise title for your goal"
+              fullWidth
+              required
+              className="mb-4"
+            />
+
+            <RichTextEditor
+              id="goal-description"
+              label="Goal Description"
+              value={newGoal.description}
+              onChange={(value) => setNewGoal(prev => ({ ...prev, description: value }))}
+              placeholder="Describe what success looks like..."
+            />
+
+            <div className="mt-4">
+              <TextField
+                select
+                label="Category"
+                value={newGoal.category}
+                onChange={(e) => setNewGoal(prev => ({ ...prev, category: e.target.value }))}
+                fullWidth
+                required
+                helperText="Select a category for this goal"
+              >
+                {categories.map((cat, index) => (
+                  <MenuItem key={cat.id || cat.name || `cat-${index}`} value={cat.name}>
+                    {cat.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </div>
+
+            <div className="mt-4">
+              <TextField
+                type="date"
+                label="Week Start Date"
+                value={newGoal.week_start}
+                onChange={(e) => setNewGoal(prev => ({ ...prev, week_start: e.target.value }))}
+                fullWidth
+                required
+                InputLabelProps={{ shrink: true }}
+              />
+            </div>
+
+            <div className="mt-4 space-x-4 flex justify-end">
+              <button type="button" onClick={goToPreviousStep} className="btn-secondary">
+                Back
+              </button>
+              <button 
+                type="button" 
+                onClick={handleGenerateTasks}
+                disabled={!newGoal.title || !newGoal.category || isGenerating}
+                className="btn-primary"
+              >
+                {isGenerating ? 'Generating Tasks...' : 'Generate Tasks'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Review & Select Tasks */}
+        {currentStep === 3 && (
+          <div>
+            <h3 className="text-lg font-medium mb-4">Step 3: Review Tasks for Your Goal</h3>
+
+            {isGenerating && (
+              <div className="w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center my-4">
+                <div className="loader"><LoadingSpinner variant='mui' /></div>
+                <span className="ml-2">Generating tasks...</span>
+              </div>
+            )}
+
+            {error && (
+              <div className="h-full w-full gap-2 bg-gray-10 dark:bg-gray-90 p-4 rounded">
+                <h2 className='text-lg font-bold text-red-600'>Error!</h2> 
+                <p className='text-red-500 mt-2'>{error}</p>
+                <div className="mt-4 space-x-2">
+                  <button onClick={handleClose} className="btn-secondary">Cancel</button>
+                  <button type="button" onClick={goToPreviousStep} className="btn-secondary">Back</button>
+                  <button className='btn-primary' onClick={handleGenerateTasks}>Retry</button>
+                </div>
+              </div>
+            )}
+
+            {!isGenerating && !error && generatedTasks.length > 0 && (
+              <>
+                <div className='flex w-full items-center justify-between mb-4'>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={selectedTasks.length === generatedTasks.length}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedTasks(generatedTasks.map((_, index) => index));
+                          } else {
+                            setSelectedTasks([]);
+                          }
+                        }}
+                      />
+                    }
+                    label="Select All Tasks"
+                  />
+                  <button type="button" title="Regenerate Tasks" onClick={handleGenerateTasks} className="btn-secondary size-sm">
+                    <RefreshCw className="inline-block w-4 h-4" />
+                  </button>
+                </div>
+
+                <ul className="max-h-96 overflow-y-auto border rounded-lg">
+                  {generatedTasks.map((task, index) => (
+                    <li
+                      key={task.id}
+                      className="flex gap-4 bg-gray-10 hover:bg-gray-30 dark:bg-gray-90 dark:hover:bg-gray-80 p-4 items-start border-b last:border-b-0"
+                      onClick={() => {
+                        setSelectedTasks(prev =>
+                          prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]
+                        );
+                      }}
+                    >
+                      <Checkbox
+                        checked={selectedTasks.includes(index)}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => {
+                          setSelectedTasks(prev =>
+                            prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]
+                          );
+                        }}
+                      />
+                      <div className="flex-1">
+                        <strong className="block">{task.title}</strong>
+                        <p className="text-sm mt-1">{task.description}</p>
+                        <div className="flex gap-4 mt-2 text-xs text-gray-60 dark:text-gray-40">
+                          {task.suggested_date && (
+                            <span><Calendar className="inline w-3 h-3 mr-1" />{task.suggested_date}</span>
+                          )}
+                          {task.estimated_duration && (
+                            <span><Clock className="inline w-3 h-3 mr-1" />{task.estimated_duration}</span>
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="mt-4 space-x-4 flex justify-end">
+                  <button type="button" onClick={goToPreviousStep} className="btn-secondary">
+                    Back
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => setCurrentStep(4)}
+                    disabled={selectedTasks.length === 0}
+                    className="btn-primary"
+                  >
+                    Schedule Tasks ({selectedTasks.length})
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Step 4: Schedule & Configure Reminders */}
+        {currentStep === 4 && (
+          <div>
+            <h3 className="text-lg font-medium mb-4">Step 4: Schedule Tasks & Set Reminders</h3>
+            
+            <div className="space-y-4 max-h-96 overflow-y-auto">
+              {generatedTasks
+                .filter((_, index) => selectedTasks.includes(index))
+                .map((task, arrayIndex) => {
+                  const originalIndex = selectedTasks[arrayIndex];
+                  return (
+                    <div key={task.id} className="p-4 border rounded-lg bg-gray-10 dark:bg-gray-90">
+                      <h4 className="font-medium mb-3">{task.title}</h4>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <TextField
+                          type="date"
+                          label="Scheduled Date"
+                          value={task.scheduled_date || ''}
+                          onChange={(e) => {
+                            const updated = [...generatedTasks];
+                            updated[originalIndex] = { ...updated[originalIndex], scheduled_date: e.target.value };
+                            setGeneratedTasks(updated);
+                          }}
+                          InputLabelProps={{ shrink: true }}
+                          size="small"
+                        />
+                        
+                        <TextField
+                          type="time"
+                          label="Scheduled Time"
+                          value={task.scheduled_time || ''}
+                          onChange={(e) => {
+                            const updated = [...generatedTasks];
+                            updated[originalIndex] = { ...updated[originalIndex], scheduled_time: e.target.value };
+                            setGeneratedTasks(updated);
+                          }}
+                          InputLabelProps={{ shrink: true }}
+                          size="small"
+                        />
+                      </div>
+
+                      <div className="mt-3">
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={task.reminder_enabled}
+                              onChange={(e) => {
+                                const updated = [...generatedTasks];
+                                updated[originalIndex] = { ...updated[originalIndex], reminder_enabled: e.target.checked };
+                                setGeneratedTasks(updated);
+                              }}
+                            />
+                          }
+                          label={<span className="text-sm"><Bell className="inline w-4 h-4 mr-1" />Enable Reminder</span>}
+                        />
+                      </div>
+
+                      {task.reminder_enabled && (
+                        <TextField
+                          type="datetime-local"
+                          label="Reminder Date & Time"
+                          value={task.reminder_datetime || ''}
+                          onChange={(e) => {
+                            const updated = [...generatedTasks];
+                            updated[originalIndex] = { ...updated[originalIndex], reminder_datetime: e.target.value };
+                            setGeneratedTasks(updated);
+                          }}
+                          fullWidth
+                          size="small"
+                          className="mt-2"
+                          InputLabelProps={{ shrink: true }}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+
+            <div className="mt-6 space-x-4 flex justify-end">
+              <button type="button" onClick={goToPreviousStep} className="btn-secondary">
+                Back
+              </button>
+              <button 
+                type="button" 
+                onClick={createGoalWithTasks}
+                disabled={isGenerating}
+                className="btn-primary"
+              >
+                {isGenerating ? 'Creating...' : 'Create Goal & Tasks'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* OLD WORKFLOW - Keep for backward compatibility */}
+        {currentStep === 1 && false && (
           <div>
             <TextField
               id="natural-language-input"
@@ -706,7 +1216,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
             </div>
 
             <div>
-              <label htmlFor="week_start-wizard" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="week_start-wizard" className="block text-sm font-medium text-gray-70">
                 Week Start
               </label>
               <TextField
@@ -953,10 +1463,10 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
               fullWidth
               
             >
-              <MenuItem value="Not started">Not started</MenuItem>
-              <MenuItem value="In progress">In progress</MenuItem>
-              <MenuItem value="Blocked">Blocked</MenuItem>
-              <MenuItem value="Done">Done</MenuItem>
+              <MenuItem key="not-started" value="Not started">Not started</MenuItem>
+              <MenuItem key="in-progress" value="In progress">In progress</MenuItem>
+              <MenuItem key="blocked" value="Blocked">Blocked</MenuItem>
+              <MenuItem key="done" value="Done">Done</MenuItem>
             </TextField>
           </div>
           <div>

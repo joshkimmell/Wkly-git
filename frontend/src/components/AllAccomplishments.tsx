@@ -8,7 +8,7 @@ import { Accomplishment } from '@utils/goalUtils'; // Adjust the import path as 
 import AccomplishmentCard from './AccomplishmentCard';
 import AccomplishmentEditor from './AccomplishmentEditor';
 import { modalClasses, overlayClasses } from '@styles/classes';
-import { notifyError, notifySuccess } from './ToastyNotification';
+import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
 // import { over } from 'lodash';
 
 
@@ -116,24 +116,26 @@ const AllAccomplishments = () => {
   };
 
   // Delete an accomplishment
-  const handleDeleteAccomplishment = async (accomplishmentId: string) => {
-    try {
-      const { error } = await supabase
-        .from('accomplishments')
-        .delete()
-        .eq('id', accomplishmentId);
-
-      if (error) {
-        console.error('Error deleting accomplishment:', error.message);
-        notifyError('Error deleting accomplishment.');
-        return;
-      }
-
-      fetchAccomplishments(); // Refresh accomplishments after deleting
-      notifySuccess('Accomplishment deleted successfully.');
-    } catch (err) {
-      console.error('Unexpected error deleting accomplishment:', err);
-    }
+  const handleDeleteAccomplishment = (accomplishmentId: string) => {
+    const toDelete = accomplishments.find(a => a.id === accomplishmentId);
+    if (!toDelete) return;
+    // Optimistically remove from UI
+    setAccomplishments(prev => prev.filter(a => a.id !== accomplishmentId));
+    setFilteredAccomplishments(prev => prev.filter(a => a.id !== accomplishmentId));
+    notifyWithUndo(
+      'Accomplishment deleted',
+      async () => {
+        const { error } = await supabase
+          .from('accomplishments')
+          .delete()
+          .eq('id', accomplishmentId);
+        if (error) throw new Error(error.message);
+      },
+      () => {
+        setAccomplishments(prev => [...prev, toDelete]);
+        setFilteredAccomplishments(prev => [...prev, toDelete]);
+      },
+    );
   };
 
   // Filter accomplishments based on the filter state
@@ -257,10 +259,10 @@ const AllAccomplishments = () => {
         <div className={`${modalClasses}`}>
           {isModalOpen && (
             <>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Add Accomplishment</h3>
+              <h3 className="text-lg font-medium text-gray-90 mb-4">Add Accomplishment</h3>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Title</label>
+                  <label className="block text-sm font-medium text-gray-70">Title</label>
                   <TextField
                     value={newAccomplishment.title}
                     onChange={(e) => setNewAccomplishment({ ...newAccomplishment, title: e.target.value })}
@@ -279,7 +281,7 @@ const AllAccomplishments = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Impact</label>
+                  <label className="block text-sm font-medium text-gray-70">Impact</label>
                   <TextField
                     value={newAccomplishment.impact}
                     onChange={(e) => setNewAccomplishment({ ...newAccomplishment, impact: e.target.value })}
@@ -290,7 +292,7 @@ const AllAccomplishments = () => {
               <div className="mt-6 flex justify-end space-x-4">
                 <button
                   onClick={closeModal}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  className="px-4 py-2 text-sm font-medium text-gray-70 bg-gray-100 rounded-md hover:bg-gray-20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
                   Cancel
                 </button>
@@ -364,7 +366,7 @@ const AllAccomplishments = () => {
               />
             ) : (
               <div className="p-4 text-center">
-                <p className="text-gray-500">No accomplishment selected for editing.</p>
+                <p className="text-gray-50">No accomplishment selected for editing.</p>
               </div>
             )
           )}

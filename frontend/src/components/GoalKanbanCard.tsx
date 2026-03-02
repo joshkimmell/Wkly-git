@@ -2,15 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useGoalsContext } from '@context/GoalsContext';
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 // import { handleDeleteGoal } from '@utils/functions';
-import { Goal, Accomplishment } from '@utils/goalUtils'; // Adjust the import path as necessary
-import { Trash, Edit, Award, X as CloseButton, ChevronUp, ChevronDown, MoveHorizontal } from 'lucide-react';
+import { Goal, Accomplishment, Task, calculateGoalCompletion } from '@utils/goalUtils'; // Adjust the import path as necessary
+import { Trash, Edit, Award, X as CloseButton, ChevronUp, ChevronDown, MoveHorizontal, ListTodo } from 'lucide-react';
 import { FileText as NotesIcon, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
+import TasksList from './TasksList'; // Import TasksList component
+import GoalCompletionDonut from './GoalCompletionDonut';
 import { TextField, Tooltip, IconButton, Checkbox } from '@mui/material';
 import type { ChangeEvent } from 'react';
 // import { STATUSES, STATUS_COLORS, type Status } from '../constants/statuses';
 import { cardClasses, modalClasses, objectCounter, overlayClasses } from '@styles/classes'; // Adjust the import path as necessary
 import useGoalExtras from '@hooks/useGoalExtras';
-import { notifyError, notifySuccess } from './ToastyNotification';
+import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
 // import { Link } from 'react-router-dom';
 import { applyHighlight } from '@utils/functions'; // Adjust the import path as necessary
 import AccomplishmentEditor from './AccomplishmentEditor'; // Import the AccomplishmentEditor component
@@ -27,6 +29,7 @@ import ConfirmModal from './ConfirmModal';
 // }
 interface GoalKanbanCardProps {
   goal: Goal;
+  tasks?: Task[]; // Tasks associated with this goal
   handleDelete: (goalId: string) => void;
   handleEdit: (goalId: string) => void;
   // onDragStart accepts the native drag event so parents can forward their
@@ -43,6 +46,7 @@ interface GoalKanbanCardProps {
 // const GoalCard: React.FC<GoalCardProps> = ({ goal }) => {
 const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({ 
   goal, 
+  tasks = [],
   handleDelete, 
   handleEdit,
   onDragStart,
@@ -72,6 +76,8 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
   // Notes state
   const [notes, setNotes] = useState<Array<{ id: string; content: string; created_at: string; updated_at: string }>>([]);
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+  // Tasks state
+  const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [noteDeleteTarget, setNoteDeleteTarget] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -101,7 +107,7 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
     }
   };
   // Shared counts and helpers
-  const { notesCountMap, accomplishmentCountMap, fetchNotesCount, fetchAccomplishmentsCount, refreshNotesAndCount, refreshAccomplishmentsAndCount } = useGoalExtras();
+  const { notesCountMap, accomplishmentCountMap, tasksCountMap, fetchNotesCount, fetchAccomplishmentsCount, refreshNotesAndCount, refreshAccomplishmentsAndCount } = useGoalExtras();
 
   // Proactively prime counts for Kanban cards without waiting for user interaction.
   // Only fetch when we don't already have a cached value to avoid duplicate requests.
@@ -267,60 +273,44 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
     }
   };
 
-  const deleteNote = async (noteId: string) => {
+  const deleteNote = (noteId: string) => {
     // optimistic delete: remove locally first
     const prior = notes;
     setNotes((s) => s.filter((n) => n.id !== noteId));
-    setIsNotesLoading(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error('User not authenticated');
-      const res = await fetch(`/api/deleteNote?note_id=${noteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) throw new Error(await res.text());
-      // success; nothing else
-      try { 
-        await fetchNotesCount?.(goal.id); 
-      } catch (e) { /* ignore */ }
-    } catch (err: any) {
-      console.error('Error deleting note:', err);
-      // rollback
-      setNotes(prior);
-      notifyError('Failed to delete note.');
-    } finally {
-      setIsNotesLoading(false);
-    }
+    notifyWithUndo(
+      'Note deleted',
+      async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) throw new Error('User not authenticated');
+        const res = await fetch(`/api/deleteNote?note_id=${noteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) throw new Error(await res.text());
+        try { await fetchNotesCount?.(goal.id); } catch (e) { /* ignore */ }
+      },
+      () => {
+        setNotes(prior);
+      },
+    );
   };
 
-  const deleteAccomplishment = async (accomplishmentId: string) => {
+  const deleteAccomplishment = (accomplishmentId: string) => {
     // optimistic delete
     const prior = accomplishments;
     setAccomplishments((s) => s.filter((a) => a.id !== accomplishmentId));
-    setIsAccomplishmentLoading(true);
-    try {
-      const { error } = await supabase
-        .from('accomplishments')
-        .delete()
-        .eq('id', accomplishmentId);
-
-      if (error) {
-        console.error('Error deleting accomplishment:', error.message);
-        // rollback
+    notifyWithUndo(
+      'Accomplishment deleted',
+      async () => {
+        const { error } = await supabase
+          .from('accomplishments')
+          .delete()
+          .eq('id', accomplishmentId);
+        if (error) throw new Error(error.message);
+        try { await fetchAccomplishmentsCount?.(goal.id); } catch (e) { /* ignore */ }
+      },
+      () => {
         setAccomplishments(prior);
-        notifyError('Error deleting accomplishment.');
-        return;
-      }
-
-  notifySuccess('Accomplishment deleted successfully.');
-  // ensure shared accomplishments count is refreshed for this goal
-  try { await fetchAccomplishmentsCount?.(goal.id); } catch (e) { /* ignore */ }
-    } catch (err) {
-      console.error('Unexpected error deleting accomplishment:', err);
-      setAccomplishments(prior);
-      notifyError('Error deleting accomplishment.');
-    } finally {
-      setIsAccomplishmentLoading(false);
-    }
+      },
+    );
   };
 
   const saveEditedAccomplishment = async (
@@ -461,16 +451,23 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
         onToggleSelect?.(goal.id);
       }}
     >
-      <div className="goal-header flex flex-row w-full justify-end items-center">
+      <div className="goal-header flex flex-row w-full justify-between items-center">
+        <div className="flex items-center gap-2">
+          {tasks && tasks.length > 0 && (
+            <GoalCompletionDonut  percentage={calculateGoalCompletion(tasks)} size={40} strokeWidth={4} />
+          )}
+        </div>
+        <div className="flex items-center gap-2">
         {selectable && (
-          <div className="mr-2">
+          <div>
             {/* <Checkbox size="small" checked={!!isSelected} onChange={() => onToggleSelect?.(goal.id)} inputProps={{ 'aria-label': `Select goal ${goal.title}` }} /> */}
             <MoveHorizontal className="w-5 h-5 text-gray-40 dark:text-gray-60 cursor-move" />
           </div>
         )}
-        <div className="tabs flex flex-row items-center justify-end w-full">
+        <div className="tabs flex flex-row items-center justify-end">
           <span className="card-category" dangerouslySetInnerHTML={{ __html: applyHighlight(goal.category, filter) || 'No category provided.' }}>
           </span>
+        </div>
         </div>
       </div>
 
@@ -525,6 +522,17 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
                     <div className={objectCounter}>{notesCountMap[goal.id] ?? (notes.length > 0 ? notes.length : 0)}</div>
                   )}
                   <NotesIcon className="w-5 h-5" />
+                </IconButton>
+              </span>
+            </Tooltip>
+
+            <Tooltip title="Tasks" placement="top" arrow>
+              <span>
+                <IconButton aria-label="Tasks" onClick={(e) => { e.stopPropagation(); setIsTasksModalOpen(true); }} size="small" className="btn-ghost">
+                  {(tasksCountMap[goal.id] ?? tasks.length) > 0 && (
+                    <div className={objectCounter}>{tasksCountMap[goal.id] ?? tasks.length}</div>
+                  )}
+                  <ListTodo className="w-5 h-5" />
                 </IconButton>
               </span>
             </Tooltip>
@@ -594,7 +602,14 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
     />
     {/* Notes Modal */}
     {isNotesModalOpen && (
-      <div id="editNotes" className={`${overlayClasses} flex items-center justify-center`}>
+      <div 
+        id="editNotes" 
+        className={`${overlayClasses} flex items-center justify-center`}
+        onMouseDown={(e) => {
+          // close when clicking the backdrop (only when clicking the overlay itself)
+          if (e.target === e.currentTarget) closeNotesModal();
+        }}
+      >
         <div className={`${modalClasses} w-full max-w-2xl`}> 
           <div className='flex flex-row w-full justify-between items-start'>
               <h3 className="text-lg font-medium text-gray-90 mb-4">Notes for <br />"{goal.title}"</h3>
@@ -607,7 +622,7 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
           </div>
           <div className="space-y-4 max-h-[60vh] overflow-y-auto">
             <div className="mt-4">
-              {/* <label className="block text-sm font-medium text-gray-700">Add a new note</label> */}
+              {/* <label className="block text-sm font-medium text-gray-70">Add a new note</label> */}
               <TextField
                 value={newNoteContent}
                 onChange={(e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setNewNoteContent(e.target.value)}
@@ -621,7 +636,7 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
               <div className="mt-2 flex justify-end gap-2">
                 {/* <button className="btn-ghost" onClick={() => { setNewNoteContent(''); }}>Cancel</button> */}
                 <button className="btn-primary" onClick={createNote} disabled={isNotesLoading}><PlusIcon className="w-4 h-4 inline mr-1" />Add note</button>
-                {isNotesLoading && <div className="ml-2 text-sm text-gray-500">Saving...</div>}
+                {isNotesLoading && <div className="ml-2 text-sm text-gray-50">Saving...</div>}
               </div>
             </div>
             {isNotesLoading && notes.length === 0 ? (
@@ -633,15 +648,15 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
               <h4 className="text-md font-semibold mb-2">Existing notes</h4>
               <ul className="space-y-3">
                 {notes.map((note) => (
-                  <li key={note.id} className="p-3 border rounded bg-gray-10 dark:bg-gray-80 dark:border-gray-70">
+                  <li key={note.id} className="p-3 border rounded bg-background dark:border-gray-70">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="text-xs text-gray-40">{new Date(note.created_at).toLocaleString()}</div>
+                        <div className="text-xs text-secondary-text">{new Date(note.created_at).toLocaleString()}</div>
                         <div className="flex items-center justify-end gap-2">
                           <button className="btn-ghost" onClick={() => { setEditingNoteId(note.id); setEditingNoteContent(note.content); }} title="Edit note"><Edit className="w-4 h-4" /></button>
                           <button className="btn-ghost" onClick={() => setNoteDeleteTarget(note.id)} title="Delete note" disabled={isNotesLoading}><Trash className="w-4 h-4" /></button>
                         </div>
                       </div>
-                      <div className="text-sm text-gray-70 dark:text-gray-20" dangerouslySetInnerHTML={{ __html: note.content }} />
+                      <div className="text-sm text-primary-text" dangerouslySetInnerHTML={{ __html: note.content }} />
                     {editingNoteId === note.id && (
                       <div className="mt-2">
                         <TextField
@@ -685,6 +700,37 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
       </div>
     )}
 
+    {/* Tasks Modal */}
+    {isTasksModalOpen && (
+      <div 
+        id="editTasks" 
+        className={`${overlayClasses} flex items-center justify-center`}
+        onMouseDown={(e) => {
+          // close when clicking the backdrop (only when clicking the overlay itself)
+          if (e.target === e.currentTarget) setIsTasksModalOpen(false);
+        }}
+      >
+        <div className={`${modalClasses} w-full max-w-3xl`}>
+          <div className='flex flex-row w-full justify-between items-start mb-4'>
+            <h3 className="text-lg font-medium text-gray-90">
+              Tasks for <br />"{goal.title}"
+            </h3>
+            <button className="btn-ghost" onClick={() => setIsTasksModalOpen(false)}>
+              <CloseButton className="w-4 h-4" />
+            </button>
+          </div>
+          
+          <div className="max-h-[70vh] overflow-y-auto">
+            <TasksList 
+              goalId={goal.id}
+              goalTitle={goal.title}
+              goalDescription={goal.description}
+            />
+          </div>
+        </div>
+      </div>
+    )}
+
     <ConfirmModal
       isOpen={isDeleteConfirmOpen}
       title="Delete goal?"
@@ -710,7 +756,13 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
 
     {/* Edit Accomplishment Modal */}
     {isEditAccomplishmentModalOpen && selectedAccomplishment && (
-      <div className={`${overlayClasses} flex items-center justify-center`}>
+      <div 
+        className={`${overlayClasses} flex items-center justify-center`}
+        onMouseDown={(e) => {
+          // close when clicking the backdrop (only when clicking the overlay itself)
+          if (e.target === e.currentTarget) closeEditAccomplishmentModal();
+        }}
+      >
         <div className={`${modalClasses}`}>
           <h3 className="text-lg font-medium text-gray-90 mb-4">Edit Accomplishment</h3>
           <AccomplishmentEditor

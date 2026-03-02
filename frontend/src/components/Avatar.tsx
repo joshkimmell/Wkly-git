@@ -14,10 +14,12 @@ interface UploadAvatarsProps {
   onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void; // Added onChange prop
   src?: string; // Added src prop for preview image
   uploading?: boolean; // show uploading indicator
-  size?: 'sm' | 'lg'; // small or large avatar
+  size?: 'sm' | 'md' | 'lg'; // small, medium, or large avatar
+  showLabel?: boolean; // show avatarAlt text beneath the avatar
+  buttonSx?: object; // extra sx forwarded to the ButtonBase wrapper
 }
 
-export default function UploadAvatars({ isEdit, onClick, onChange, src, uploading, size = 'sm' }: UploadAvatarsProps) {
+export default function UploadAvatars({ isEdit, onClick, onChange, src, uploading, size = 'sm', showLabel = false, buttonSx = {} }: UploadAvatarsProps) {
   const [avatarSrc, setAvatarSrc] = React.useState<string | undefined>(undefined); // internal or stored shown src
   const [storedAvatarUrl, setStoredAvatarUrl] = React.useState<string | undefined>(undefined); // persisted avatar_url from profile
   const [avatarAlt, setAvatarAlt] = React.useState<string | undefined>(undefined);
@@ -35,11 +37,13 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
     }
   };
 
-  // map size prop to responsive pixel values
-  // sm: small screens, md+: larger screens
+  // map size prop to flat pixel values driven by the caller
+  // 'sm' = 32 (mobile / drawer-visible), 'md' = 64 (desktop), 'lg' = 120/180
   const sizeValues = size === 'lg'
     ? { xs: 120, md: 180 }
-    : { xs: 32, md: 64 };
+    : size === 'sm'
+    ? { xs: 32 }
+    : { xs: 64 }; // 'md'
 
   // spinner sizes for xs and md breakpoints (we'll set size prop to md and override via sx)
   const spinnerXs = size === 'lg' ? 56 : 20;
@@ -173,6 +177,7 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
           outline: '2px solid',
           outlineOffset: '2px',
         },
+        ...buttonSx,
       }}
       onClick={onClick} // Updated to use the correct type
     >
@@ -212,6 +217,27 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
             },
           }}
         />
+      )}
+
+      {showLabel && avatarAlt && (
+        <span
+          style={{
+            display: 'block',
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            marginTop: '0.5rem',
+            fontSize: '0.875rem',
+            color: 'var(--primary-text)',
+            textAlign: 'center',
+            lineHeight: 1.3,
+            pointerEvents: 'none',
+            userSelect: 'none',
+          }}
+        >
+          {avatarAlt}
+        </span>
       )}
 
       <input
