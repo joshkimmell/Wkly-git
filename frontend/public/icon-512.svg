@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3b0043"/>
+      <stop offset="100%" stop-color="#17001b"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="80" fill="url(#bg)"/>
+  <!-- W letterform -->
+  <path fill="#ffffff" d="
+    M56 136 L90 136 L120 252 L152 136 L184 136 L216 252 L246 136 L280 136 L232 340 L196 340 L162 218 L128 340 L92 340 Z
+  "/>
+  <!-- k -->
+  <path fill="#ffffff" d="
+    M292 136 L326 136 L326 233 L374 178 L416 178 L358 243 L420 340 L378 340 L328 270 L326 273 L326 340 L292 340 Z
+  "/>
+  <!-- accent dot -->
+  <circle cx="424" cy="322" r="22" fill="#c300dc"/>
+</svg>

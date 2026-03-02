@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
   <meta name="viewport" content="initial-scale=1, width=device-width" />
     <link rel="icon" href="/favicon.ico" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#4d0057" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Wkly" />
+    <link rel="apple-touch-icon" href="/icon-192.svg" />
     <title>Wkly</title>
     <!-- Apply theme before React mounts to prevent flash of wrong theme -->
     <script>
@@ -23,5 +29,12 @@
   <body>
     <div id="root"></div>
     <script type="module" src="src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js');
+        });
+      }
+    </script>
   </body>
 </html>
