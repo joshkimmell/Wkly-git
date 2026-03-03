@@ -2065,14 +2065,14 @@ const GoalsComponent = () => {
                         onChange={handleChangeView}
                         size="small"
                         aria-label="View mode"
-                        className=""
+                        className="border rounded-md bg-transparent"
                     >
-                        <Tooltip title="View goals" placement="top" arrow><ToggleButton value="cards" aria-label="Cards view" className='btn-ghost'><LayoutGrid /></ToggleButton></Tooltip>
+                        <Tooltip title="View goals" placement="top" arrow><ToggleButton value="cards" aria-label="Cards view" className='btn-ghost !border-none'><LayoutGrid /></ToggleButton></Tooltip>
                         { !isSmall && (
-                        <Tooltip title="View table" placement="top" arrow><ToggleButton value="table" aria-label="Table view" className='btn-ghost'><Table2Icon /></ToggleButton></Tooltip>
+                        <Tooltip title="View table" placement="top" arrow><ToggleButton value="table" aria-label="Table view" className='btn-ghost !border-none'><Table2Icon /></ToggleButton></Tooltip>
                         )}
-                        <Tooltip title="View kanban board" placement="top" arrow><ToggleButton value="kanban" aria-label="Kanban view" className='btn-ghost'><Kanban /></ToggleButton></Tooltip>
-                        <Tooltip title="View tasks calendar" placement="top" arrow><ToggleButton value="tasks-calendar" aria-label="Tasks calendar view" className='btn-ghost'><CalendarDays /></ToggleButton></Tooltip>
+                        <Tooltip title="View kanban board" placement="top" arrow><ToggleButton value="kanban" aria-label="Kanban view" className='btn-ghost !border-none'><Kanban /></ToggleButton></Tooltip>
+                        <Tooltip title="View tasks calendar" placement="top" arrow><ToggleButton value="tasks-calendar" aria-label="Tasks calendar view" className='btn-ghost !border-none'><CalendarDays /></ToggleButton></Tooltip>
                     </ToggleButtonGroup>
                     {/* Scope Selector */}
                 
@@ -2828,7 +2828,7 @@ const GoalsComponent = () => {
                                         </AccordionDetails>
                                     </Accordion>
                                 )}
-                                <div className="flex justify-between items-center pt-2 border-t border-gray-20 dark:border-gray-70">
+                                <div className="flex justify-between items-center pt-2">
                                     <button
                                         type="button"
                                         className="btn-ghost text-sm"
@@ -2842,13 +2842,13 @@ const GoalsComponent = () => {
                                     >
                                         Clear all
                                     </button>
-                                    <button
+                                    {/* <button
                                         type="button"
                                         className="btn-primary text-sm"
                                         onClick={() => setFilterPanelOpen(false)}
                                     >
                                         Done
-                                    </button>
+                                    </button> */}
                                 </div>
                             </div>
                         </div>
