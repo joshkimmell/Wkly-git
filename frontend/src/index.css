@@ -274,4 +274,22 @@
     @apply text-xs !important;
   }
   
-} 
+  .profile-nav {
+    @apply bg-transparent items-start;
+  }
+  .profile-nav .MuiListItemButton-root {
+    @apply text-gray-80 dark:text-gray-10 hover:text-gray-90 dark:hover:text-primary-text text-xs sm:text-sm md:text-base;
+  
+    & span.MuiListItemText-primary {
+      @apply text-gray-80 dark:text-gray-10 hover:text-gray-90 dark:hover:text-primary-text text-xs sm:text-sm md:text-base;
+    }
+    & p.MuiListItemText-secondary {
+      @apply text-gray-70 dark:text-gray-40 text-xs;
+    }
+  }
+  
+  }
+  /* .profile-nav .MuiListItemButton-root.Mui-selected {
+    @apply text-brand-60 dark:text-brand-10;
+  }
+}  */

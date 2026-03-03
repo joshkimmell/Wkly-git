@@ -220,9 +220,9 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
       )}
 
       {showLabel && avatarAlt && (
-        <span
+        <span className='none hover:block'
           style={{
-            display: 'block',
+            // display: 'block',
             position: 'absolute',
             top: '50%',
             left: '50%',

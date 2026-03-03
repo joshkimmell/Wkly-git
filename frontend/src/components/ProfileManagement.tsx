@@ -216,11 +216,11 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="profile-management p-0 flex flex-col sm:flex-row gap-6">
+    <div className="profile-management p-0 flex flex-col sm:flex-row gap-4">
       {/* Left: vertical menu */}
-      <aside className="w-full sm:w-64">
+      <aside className="w-full sm:w-1/4">
         <nav aria-label="Preferences">
-          <List className='flex flex-row sm:flex-col'>
+          <List className='profile-nav flex flex-row sm:flex-col'>
             <ListItemButton selected={active === 'profile'} onClick={() => setActive('profile')}>
               <ListItemText primary="Profile" secondary="Username, avatar, email" />
             </ListItemButton>
