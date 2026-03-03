@@ -579,7 +579,7 @@ export default function HomePage() {
             {goals.length > 3 && (
               <button
                 onClick={() => setGoalsExpanded(e => !e)}
-                className="w-full text-xs text-primary hover:underline text-center pt-1"
+                className="btn-ghost w-full text-xs !text-primary-link underline text-center pt-1"
               >
                 {goalsExpanded ? 'View less' : `+${goals.length - 3} more`}
               </button>

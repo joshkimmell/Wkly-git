@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Task } from '@utils/goalUtils';
 import TaskCard from './TaskCard';
 import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, CalendarX } from 'lucide-react';
 import supabase from '@lib/supabase';
 import { useTouchDrag } from '@hooks/useTouchDrag';
 import { 
@@ -362,6 +362,10 @@ export default function AllTasksCalendar({
     }
   };
 
+  const handleUnscheduleTask = (taskId: string) => {
+    handleRescheduleTask(taskId, null);
+  };
+
   // Drag and drop handlers
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
@@ -499,7 +503,7 @@ export default function AllTasksCalendar({
                   <div className="text-sm font-medium mb-1 text-gray-70 dark:text-gray-30">{date.getDate()}</div>
                   <div className="space-y-1">
                     {dayTasks.map((task) => (
-                      <div key={task.id} {...getTouchProps(task.id)}>
+                      <div key={task.id} className="relative group/cal-task" {...getTouchProps(task.id)}>
                         <TaskCard
                           task={task as Task}
                           onStatusChange={(id, status) => handleStatusChange(id, status)}
@@ -515,6 +519,16 @@ export default function AllTasksCalendar({
                           isSelected={selectedIds.has(task.id)}
                           onToggleSelect={onToggleSelect ? (id) => onToggleSelect(id, 'tasks') : undefined}
                         />
+                        <Tooltip title="Remove from calendar" placement="top" arrow>
+                          <button
+                            type="button"
+                            className="absolute top-3 right-12 z-10 opacity-0 group-hover/cal-task:opacity-100 transition-opacity btn-ghost !p-0.5"
+                            onClick={(e) => { e.stopPropagation(); handleUnscheduleTask(task.id); }}
+                            aria-label="Remove from calendar"
+                          >
+                            <CalendarX className="w-5 h-5" />
+                          </button>
+                        </Tooltip>
                       </div>
                     ))}
                   </div>
@@ -568,7 +582,7 @@ export default function AllTasksCalendar({
                 </div>
                 <div className="space-y-1">
                   {dayTasks.map((task) => (
-                    <div key={task.id} {...getTouchProps(task.id)}>
+                    <div key={task.id} className="relative group/cal-task" {...getTouchProps(task.id)}>
                       <TaskCard
                         task={task as Task}
                         onStatusChange={(id, status) => handleStatusChange(id, status)}
@@ -584,6 +598,16 @@ export default function AllTasksCalendar({
                         isSelected={selectedIds.has(task.id)}
                         onToggleSelect={onToggleSelect ? (id) => onToggleSelect(id, 'tasks') : undefined}
                       />
+                      <Tooltip title="Remove from calendar" placement="top" arrow>
+                        <button
+                          type="button"
+                          className="absolute top-3 right-12 z-10 btn-ghost !p-0.5"
+                          onClick={(e) => { e.stopPropagation(); handleUnscheduleTask(task.id); }}
+                          aria-label="Remove from calendar"
+                        >
+                          <CalendarX className="w-5 h-5" />
+                        </button>
+                      </Tooltip>
                     </div>
                   ))}
                 </div>
@@ -651,7 +675,7 @@ export default function AllTasksCalendar({
           </div>
           <div className="space-y-1">
             {selectedDayTasks.map((task) => (
-              <div key={task.id} {...getTouchProps(task.id)}>
+              <div key={task.id} className="relative group/cal-task" {...getTouchProps(task.id)}>
                 <TaskCard
                   task={task as Task}
                   onStatusChange={(id, status) => handleStatusChange(id, status)}
@@ -667,6 +691,16 @@ export default function AllTasksCalendar({
                   isSelected={selectedIds.has(task.id)}
                   onToggleSelect={onToggleSelect ? (id) => onToggleSelect(id, 'tasks') : undefined}
                 />
+                <Tooltip title="Remove from calendar" placement="top" arrow>
+                  <button
+                    type="button"
+                    className="absolute top-2 right-12 z-10 transition-opacity btn-ghost !p-2"
+                    onClick={(e) => { e.stopPropagation(); handleUnscheduleTask(task.id); }}
+                    aria-label="Remove from calendar"
+                  >
+                    <CalendarX className="w-5 h-5" />
+                  </button>
+                </Tooltip>
               </div>
             ))}
           </div>
