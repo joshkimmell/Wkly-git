@@ -13,7 +13,7 @@ import Typography from '@mui/material/Typography';
 import ProfileManagement from './ProfileManagement';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
-import { ChevronLeft, ChevronRight, Cross, Home, LayoutGrid, MenuIcon, Moon, Sun, Text, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Cross, Home, LayoutGrid, MenuIcon, Moon, Sun, Target, Text, X } from 'lucide-react';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -138,7 +138,7 @@ const toggleThemeInternal = (): void => {
   const location = useLocation();
   const navItems = [
     { label: 'Home', href: '/', icon: <Home className='w-4 h-4' /> },
-    { label: 'Goals', href: '/goals', icon: <LayoutGrid className='w-4 h-4' /> },
+    { label: 'Goals & Tasks', href: '/goals', icon: <Target className='w-4 h-4' /> },
     { label: 'Summaries', href: '/summaries', icon: <Text className='w-4 h-4' /> },
   ];
 

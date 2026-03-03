@@ -2067,7 +2067,7 @@ const GoalsComponent = () => {
                         aria-label="View mode"
                         className="border rounded-md bg-transparent"
                     >
-                        <Tooltip title="View goals" placement="top" arrow><ToggleButton value="cards" aria-label="Cards view" className='btn-ghost !border-none'><LayoutGrid /></ToggleButton></Tooltip>
+                        <Tooltip title="View goal cards" placement="top" arrow><ToggleButton value="cards" aria-label="Cards view" className='btn-ghost !border-none'><LayoutGrid /></ToggleButton></Tooltip>
                         { !isSmall && (
                         <Tooltip title="View table" placement="top" arrow><ToggleButton value="table" aria-label="Table view" className='btn-ghost !border-none'><Table2Icon /></ToggleButton></Tooltip>
                         )}

@@ -3,12 +3,12 @@ import { MenuBtnProps } from '@components/menu-btn';
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 // import menuClosedIcon from '/images/button-menu.svg';
-import { Sun, Moon, Home, Text, LayoutGrid } from 'lucide-react';
+import { Sun, Moon, Home, Text, Target } from 'lucide-react';
 import { classTabItem } from '@styles/classes';
 // import { classMenuItem } from '@styles/classes';
 // supabase client not needed here; use useAuth hook's session instead
 import useAuth from '@hooks/useAuth';
-import { Menu, MenuItem } from '@mui/material';
+import { Menu, MenuItem, Tooltip } from '@mui/material';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP, useOverlayDebug } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
@@ -263,31 +263,37 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                     <nav className="tabs hidden sm:flex items-end self-end ml-6 h-full">
                         <ul className="flex -mb-px text-sm font-medium">
                             <li>
+                                <Tooltip title="Home" placement="top" arrow className=''>
                                 <Link
                                     to="/"
                                     className={`${classTabItem}${location.pathname === '/' ? ' active' : ''}`}
                                 >
                                     <Home className="w-4 h-4 mr-1.5" />
-                                    Home
+                                    <span className='hidden lg:inline'>Home</span>
                                 </Link>
+                                    </Tooltip>
                             </li>
                             <li>
+                                <Tooltip title="Goals & Tasks" placement="top" arrow className=''>
                                 <Link
                                     to="/goals"
                                     className={`${classTabItem}${location.pathname === '/goals' ? ' active' : ''}`}
                                 >
-                                    <LayoutGrid className="w-4 h-4 mr-1.5" />
-                                    Goals
+                                    <Target className="w-4 h-4 mr-1.5" />
+                                    <span className='hidden lg:inline'>Goals & Tasks</span>
                                 </Link>
+                                    </Tooltip>
                             </li>
                             <li>
+                                <Tooltip title="Summaries" placement="top" arrow className=''>
                                 <Link
                                     to="/summaries"
                                     className={`${classTabItem}${location.pathname === '/summaries' ? ' active' : ''}`}
                                 >
                                     <Text className="w-4 h-4 mr-1.5" />
-                                    Summaries
+                                    <span className='hidden lg:inline'>Summaries</span>
                                 </Link>
+                                    </Tooltip>
                             </li>
                         </ul>
                     </nav>
