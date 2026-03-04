@@ -18,6 +18,6 @@ ALTER TABLE IF EXISTS profiles
 -- This is a safe operation that won't fail if the profile doesn't exist yet
 UPDATE profiles 
 SET is_admin = true 
-WHERE email = 'joshkimmell@gmail.com';
+WHERE email = 'jkimmell@gmail.com';
 
 COMMIT;

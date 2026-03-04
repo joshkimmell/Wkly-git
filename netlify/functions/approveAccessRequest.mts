@@ -16,7 +16,7 @@ async function isAdmin(userId: string): Promise<boolean> {
     .eq('id', userId)
     .maybeSingle();
 
-  return data?.is_admin === true || data?.email === 'joshkimmell@gmail.com';
+  return data?.is_admin === true || data?.email === 'jkimmell@gmail.com';
 }
 
 /**

@@ -17,7 +17,7 @@ async function isAdmin(userId: string): Promise<boolean> {
     .maybeSingle();
 
   // Allow by profile flag or hardcoded admin email as fallback
-  return data?.is_admin === true || data?.email === 'joshkimmell@gmail.com';
+  return data?.is_admin === true || data?.email === 'jkimmell@gmail.com';
 }
 
 /**

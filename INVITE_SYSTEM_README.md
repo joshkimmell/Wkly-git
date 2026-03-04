@@ -63,7 +63,7 @@ Wkly has been converted from open registration to an invite-only system with a p
 
 ### Your Admin Email
 
-Your email (`joshkimmell@gmail.com`) is set as admin in two places:
+Your email (`jkimmell@gmail.com`) is set as admin in two places:
 1. Database migration: Sets `is_admin=true` in profiles table
 2. Netlify functions: Hardcoded fallback check in `isAdmin()` function
 
