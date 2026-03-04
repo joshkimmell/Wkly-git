@@ -13,6 +13,7 @@ const RequestAccess: React.FC<RequestAccessProps> = ({ onClose, onSuccess }) => 
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
 
   const isValidEmail = (value: string) => {
     if (!value) return false;
@@ -56,6 +57,9 @@ const RequestAccess: React.FC<RequestAccessProps> = ({ onClose, onSuccess }) => 
 
       notifySuccess('Access request submitted! We\'ll review your request and contact you at ' + email);
       
+      // Mark as submitted
+      setSubmitted(true);
+      
       // Clear form
       setEmail('');
       setName('');
@@ -63,11 +67,6 @@ const RequestAccess: React.FC<RequestAccessProps> = ({ onClose, onSuccess }) => 
       
       if (onSuccess) {
         onSuccess();
-      } else {
-        // Close modal after short delay
-        setTimeout(() => {
-          onClose();
-        }, 1500);
       }
     } catch (err: any) {
       console.error('Error submitting access request:', err);
@@ -82,70 +81,90 @@ const RequestAccess: React.FC<RequestAccessProps> = ({ onClose, onSuccess }) => 
   return (
     <div className="p-6">
       <h2 className="text-2xl font-bold mb-2">Request Access to Wkly</h2>
-      <p className="text-gray-50 mb-6">
-        Wkly is currently invite-only. Submit your request below and we'll review it shortly.
-      </p>
-
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <TextField
-          label="Email *"
-          type="email"
-          value={email}
-          onChange={(e) => {
-            setEmail(e.target.value);
-            setError(null);
-          }}
-          required
-          fullWidth
-          size="small"
-          error={!!error && !isValidEmail(email)}
-          helperText={error && !isValidEmail(email) ? 'Please enter a valid email' : ''}
-          disabled={loading}
-        />
-
-        <TextField
-          label="Name (Optional)"
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          fullWidth
-          size="small"
-          disabled={loading}
-        />
-
-        <TextField
-          label="Why would you like to use Wkly? (Optional)"
-          multiline
-          rows={3}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          fullWidth
-          size="small"
-          disabled={loading}
-          placeholder="Tell us a bit about your goals or how you plan to use Wkly..."
-        />
-
-        {error && <p className="text-sm text-red-500">{error}</p>}
-
-        <div className="flex gap-3 justify-end mt-2">
-          <Button
-            type="button"
-            variant="outlined"
-            onClick={onClose}
-            disabled={loading}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={loading || !email}
-            className="btn-primary"
-          >
-            {loading ? 'Submitting...' : 'Submit Request'}
-          </Button>
+      
+      {submitted ? (
+        <div className="py-8">
+          <p className="text-lg text-center text-gray-50">
+            Your request has been sent
+          </p>
+          <div className="flex justify-center mt-6">
+            <Button
+              variant="outlined"
+              onClick={onClose}
+              className="min-w-[120px]"
+            >
+              Close
+            </Button>
+          </div>
         </div>
-      </form>
+      ) : (
+        <>
+          <p className="text-gray-50 mb-6">
+            Wkly is currently invite-only. Submit your request below and we'll review it shortly.
+          </p>
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <TextField
+              label="Email *"
+              type="email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError(null);
+              }}
+              required
+              fullWidth
+              size="small"
+              error={!!error && !isValidEmail(email)}
+              helperText={error && !isValidEmail(email) ? 'Please enter a valid email' : ''}
+              disabled={loading}
+            />
+
+            <TextField
+              label="Name (Optional)"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              fullWidth
+              size="small"
+              disabled={loading}
+            />
+
+            <TextField
+              label="Why would you like to use Wkly? (Optional)"
+              multiline
+              rows={3}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              fullWidth
+              size="small"
+              disabled={loading}
+              placeholder="Tell us a bit about your goals or how you plan to use Wkly..."
+            />
+
+            {error && <p className="text-sm text-red-500">{error}</p>}
+
+            <div className="flex gap-3 justify-end mt-2">
+              <Button
+                type="button"
+                variant="outlined"
+                onClick={onClose}
+                disabled={loading}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={loading || !email}
+                className="btn-primary"
+              >
+                {loading ? 'Submitting...' : 'Submit Request'}
+              </Button>
+            </div>
+          </form>
+        </>
+      )}
     </div>
   );
 };
