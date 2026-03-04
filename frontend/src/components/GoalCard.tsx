@@ -5,9 +5,11 @@ import supabase from '@lib/supabase'; // Ensure this is the correct path to your
 import { Goal, Accomplishment, Task, calculateGoalCompletion } from '@utils/goalUtils'; // Adjust the import path as necessary
 import { Trash, Edit, Award, X as CloseButton, ListTodo } from 'lucide-react';
 import { FileText as NotesIcon, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
-import { Chip, Menu, MenuItem, TextField, Tooltip, IconButton, Checkbox } from '@mui/material';
-import type { ChangeEvent } from 'react';
-import { STATUSES, STATUS_COLORS, type Status } from '../constants/statuses';
+import { Tooltip, IconButton } from '@mui/material';
+// import { Chip, Menu, MenuItem, TextField, Tooltip, IconButton, Checkbox } from '@mui/material';
+// import type { ChangeEvent } from 'react';
+import { STATUS_COLORS } from '../constants/statuses';
+// import { STATUSES, STATUS_COLORS, type Status } from '../constants/statuses';
 import { cardClasses, modalClasses, objectCounter, overlayClasses } from '@styles/classes'; // Adjust the import path as necessary
 import useGoalExtras from '@hooks/useGoalExtras';
 import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';

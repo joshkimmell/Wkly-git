@@ -8,7 +8,11 @@ import { useTouchDrag } from '@hooks/useTouchDrag';
 import { 
     CircularProgress,
   IconButton,
-  Tooltip
+  Tooltip,
+  ToggleButton,
+  ToggleButtonGroup,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 
 interface TaskWithGoal extends Omit<Task, 'goal'> {
@@ -50,6 +54,17 @@ export default function AllTasksCalendar({
   const [tasks, setTasks] = useState<TaskWithGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<'day' | '3day' | 'week' | 'month'>('month');
+  
+  const theme = useTheme();
+  const isMdUp = useMediaQuery(theme.breakpoints.up('md'));
+
+  // Switch to day/3day view if on small screen and currently viewing week/month
+  useEffect(() => {
+    if (!isMdUp && (viewMode === 'week' || viewMode === 'month')) {
+      setViewMode('day');
+    }
+  }, [isMdUp, viewMode]);
 
   // Fetch all tasks
   const fetchAllTasks = async () => {
@@ -231,6 +246,43 @@ export default function AllTasksCalendar({
 
   const goToNextDay = () => {
     setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 1));
+  };
+
+  const goToPrevWeek = () => {
+    setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 7));
+  };
+
+  const goToNextWeek = () => {
+    setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 7));
+  };
+
+  const handlePrevious = () => {
+    if (viewMode === 'day') goToPrevDay();
+    else if (viewMode === '3day') goToPrevThreeDays();
+    else if (viewMode === 'week') goToPrevWeek();
+    else goToPrevMonth();
+  };
+
+  const handleNext = () => {
+    if (viewMode === 'day') goToNextDay();
+    else if (viewMode === '3day') goToNextThreeDays();
+    else if (viewMode === 'week') goToNextWeek();
+    else goToNextMonth();
+  };
+
+  const getViewTitle = () => {
+    if (viewMode === 'day') {
+      return currentDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    } else if (viewMode === '3day') {
+      const endDate = threeDayDates[2];
+      return `${currentDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    } else if (viewMode === 'week') {
+      const startDate = weekDates[0];
+      const endDate = weekDates[6];
+      return `${startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    } else {
+      return monthName;
+    }
   };
 
   // Task handlers
@@ -426,6 +478,17 @@ export default function AllTasksCalendar({
     );
   }, [currentDate]);
 
+  const weekDates = useMemo(() => {
+    const startOfWeek = new Date(currentDate);
+    const day = startOfWeek.getDay();
+    startOfWeek.setDate(startOfWeek.getDate() - day); // Start on Sunday
+    return Array.from({ length: 7 }, (_, i) => {
+      const date = new Date(startOfWeek);
+      date.setDate(startOfWeek.getDate() + i);
+      return date;
+    });
+  }, [currentDate]);
+
   const selectedDateKey = formatDateKey(currentDate);
   const selectedDayTasks = tasksByDate.get(selectedDateKey) || [];
 
@@ -447,31 +510,59 @@ export default function AllTasksCalendar({
 
   return (
     <div className="flex flex-col h-full">
-      {/* lg: full month */}
-      <div className="hidden xl:block">
-        <div className="flex items-center justify-start gap-2 mb-4">
-          <h2 className="text-2xl font-bold">{monthName}</h2>
+      {/* View mode toggle and navigation */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+        <h2 className="text-2xl font-normal">{getViewTitle()}</h2>
+        <div className="flex items-center gap-3 flex-wrap">
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={(_, newView) => newView && setViewMode(newView)}
+            size="small"
+            aria-label="calendar view mode"
+          >
+            <ToggleButton value="day" aria-label="day view">
+              1d
+            </ToggleButton>
+            <ToggleButton value="3day" aria-label="3 day view">
+              3d
+            </ToggleButton>
+            {isMdUp && (
+              <ToggleButton value="week" aria-label="week view">
+                1w
+              </ToggleButton>
+            )}
+            {isMdUp && (
+              <ToggleButton value="month" aria-label="month view">
+                1m
+              </ToggleButton>
+            )}
+          </ToggleButtonGroup>
           <div className="flex items-center gap-2">
             <Tooltip title="Today">
               <span>
-                <IconButton onClick={goToToday} size="small" className="btn-ghost" disabled={isViewingTodayMonth}>
+                <IconButton onClick={goToToday} size="small" className="btn-ghost" disabled={viewMode === 'month' ? isViewingTodayMonth : isViewingToday}>
                   <Calendar className="w-5 h-5" />
                 </IconButton>
               </span>
             </Tooltip>
-            <Tooltip title="Previous month">
-              <IconButton onClick={goToPrevMonth} size="small" className="btn-ghost">
+            <Tooltip title={`Previous ${viewMode === 'day' ? '1d' : viewMode === '3day' ? '3d' : viewMode === 'week' ? '1w' : '1m'}`}>
+              <IconButton onClick={handlePrevious} size="small" className="btn-ghost">
                 <ChevronLeft className="w-5 h-5" />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Next month">
-              <IconButton onClick={goToNextMonth} size="small" className="btn-ghost">
+            <Tooltip title={`Next ${viewMode === 'day' ? 'day' : viewMode === '3day' ? '3 days' : viewMode === 'week' ? 'week' : 'month'}`}>
+              <IconButton onClick={handleNext} size="small" className="btn-ghost">
                 <ChevronRight className="w-5 h-5" />
               </IconButton>
             </Tooltip>
           </div>
         </div>
+      </div>
 
+      {/* Month view */}
+      {viewMode === 'month' && (
+      <div>
         <div className="flex-1 overflow-auto">
           <div className="grid grid-cols-7 gap-2 mb-2">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
@@ -538,32 +629,77 @@ export default function AllTasksCalendar({
           </div>
         </div>
       </div>
+      )}
 
-      {/* md: 3-day view */}
-      <div className="hidden md:block xl:hidden">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold">{currentDate.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</h2>
-          <div className="flex items-center gap-2">
-            <Tooltip title="Today">
-              <span>
-                <IconButton onClick={goToToday} size="small" className="btn-ghost" disabled={isViewingToday}>
-                  <Calendar className="w-5 h-5" />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Previous 3 days">
-              <IconButton onClick={goToPrevThreeDays} size="small" className="btn-ghost">
-                <ChevronLeft className="w-5 h-5" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Next 3 days">
-              <IconButton onClick={goToNextThreeDays} size="small" className="btn-ghost">
-                <ChevronRight className="w-5 h-5" />
-              </IconButton>
-            </Tooltip>
-          </div>
+      {/* Week view */}
+      {viewMode === 'week' && (
+      <div>
+        <div className="grid grid-cols-7 gap-2 mb-2">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+            <div key={day} className="text-center font-semibold text-sm text-gray-60 dark:text-gray-40 p-2">
+              {day}
+            </div>
+          ))}
         </div>
+        <div className="grid grid-cols-7 gap-0">
+          {weekDates.map((date) => {
+            const dateKey = formatDateKey(date);
+            const dayTasks = tasksByDate.get(dateKey) || [];
+            const isDragOver = dragOverDate === dateKey;
+            return (
+              <div
+                key={dateKey}
+                data-drop-date={dateKey}
+                className={`min-h-[240px] p-2 border ${
+                  isToday(date) ? 'bg-brand-20 dark:bg-brand-90 border-brand-40' : 'bg-background-color border-background'
+                } ${isDragOver ? 'ring-2 ring-brand-40' : ''}`}
+                onDragOver={(e) => handleDragOver(e, dateKey)}
+                onDrop={(e) => handleDrop(e, dateKey)}
+              >
+                <div className="text-sm font-semibold mb-2 text-gray-70 dark:text-gray-30">
+                  {date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                </div>
+                <div className="space-y-1">
+                  {dayTasks.map((task) => (
+                    <div key={task.id} className="relative group/cal-task" {...getTouchProps(task.id)}>
+                      <TaskCard
+                        task={task as Task}
+                        onStatusChange={(id, status) => handleStatusChange(id, status)}
+                        onUpdate={handleUpdateTask}
+                        onDelete={handleDeleteTask}
+                        draggable
+                        onDragStart={handleDragStart}
+                        compact
+                        allowInlineEdit
+                        hideCategory
+                        filter={textFilter}
+                        selectable={!!onToggleSelect}
+                        isSelected={selectedIds.has(task.id)}
+                        onToggleSelect={onToggleSelect ? (id) => onToggleSelect(id, 'tasks') : undefined}
+                      />
+                      <Tooltip title="Remove from calendar" placement="top" arrow>
+                        <button
+                          type="button"
+                          className="absolute top-3 right-12 z-10 opacity-0 group-hover/cal-task:opacity-100 transition-opacity btn-ghost !p-0.5"
+                          onClick={(e) => { e.stopPropagation(); handleUnscheduleTask(task.id); }}
+                          aria-label="Remove from calendar"
+                        >
+                          <CalendarX className="w-5 h-5" />
+                        </button>
+                      </Tooltip>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      )}
 
+      {/* 3-day view */}
+      {viewMode === '3day' && (
+      <div>
         <div className="grid grid-cols-3 gap-0">
           {threeDayDates.map((date) => {
             const dateKey = formatDateKey(date);
@@ -616,32 +752,11 @@ export default function AllTasksCalendar({
           })}
         </div>
       </div>
+      )}
 
-      {/* sm: 1-day view + micro month with task dots */}
-      <div className="md:hidden">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-bold">{currentDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</h2>
-          <div className="flex items-center gap-1">
-            <Tooltip title="Today">
-              <span>
-                <IconButton onClick={goToToday} size="small" className="btn-ghost" disabled={isViewingToday}>
-                  <Calendar className="w-4 h-4" />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Previous day">
-              <IconButton onClick={goToPrevDay} size="small" className="btn-ghost">
-                <ChevronLeft className="w-4 h-4" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Next day">
-              <IconButton onClick={goToNextDay} size="small" className="btn-ghost">
-                <ChevronRight className="w-4 h-4" />
-              </IconButton>
-            </Tooltip>
-          </div>
-        </div>
-
+      {/* 1-day view */}
+      {viewMode === 'day' && (
+      <div>
         <div className="grid grid-cols-7 gap-1 mb-3">
           {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
             <div key={`${day}-${i}`} className="text-center text-xs text-gray-60 dark:text-gray-40">{day}</div>
@@ -706,6 +821,7 @@ export default function AllTasksCalendar({
           </div>
         </div>
       </div>
+      )}
 
       {/* Unscheduled Tasks */}
       {unscheduledTasks.length > 0 && (
