@@ -574,7 +574,7 @@ export default function HomePage() {
             </h2>
             <button
               onClick={goToGoals}
-              className="text-xs text-primary hover:underline flex items-center gap-0.5"
+              className="btn-primary hover:underline flex items-center gap-0.5"
             >
               View all <ChevronRight className="w-3 h-3" />
             </button>
@@ -609,7 +609,7 @@ export default function HomePage() {
             </h2>
             <button
               onClick={goToCalendar}
-              className="text-xs text-primary hover:underline flex items-center gap-0.5"
+              className="btn-primary hover:underline flex items-center gap-0.5"
             >
               Manage <ChevronRight className="w-3 h-3" />
             </button>
@@ -626,7 +626,7 @@ export default function HomePage() {
                 <p className="text-sm text-gray-40 dark:text-gray-50">No tasks scheduled for today</p>
                 <button
                   onClick={goToGoals}
-                  className="mt-3 text-xs text-primary hover:underline"
+                  className="mt-3 btn-primary hover:underline"
                 >
                   Schedule a task →
                 </button>
