@@ -21,7 +21,7 @@ import { mapPageForScope, loadPageByScope, savePageByScope } from '@utils/pagina
 import 'react-datepicker/dist/react-datepicker.css';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
-import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, CalendarDays, Eye, Edit, Trash, EyeOff, ChevronRight, ChevronDown, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash, ListTodo, Clock, CircleEllipsis, MoreVertical, Expand, Minimize, Maximize, Shrink, CircleOff, XCircle, XCircleIcon } from 'lucide-react';
+import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, CalendarDays, Eye, Edit, Trash, EyeOff, ChevronRight, ChevronDown, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash, ListTodo, Clock, CircleEllipsis, MoreVertical, Expand, Minimize, Maximize, Shrink, CircleOff, XCircle, XCircleIcon, Target } from 'lucide-react';
 import { useGoalsContext } from '@context/GoalsContext';
 import useGoalExtras from '@hooks/useGoalExtras';
 // notify helpers imported where needed below
@@ -1943,117 +1943,10 @@ const GoalsComponent = () => {
             <h1 className="mt-4 block sm:hidden">Goals</h1>
         </div>
 
-    {(sortedAndFilteredGoals.length > 0 || selectedFiltersCount > 0) ? (
+    {(allLoadedGoals.length > 0) ? (
             
         <>
-        {/* <div className="flex justify-between items-start sm:items-center w-full mb-4">
-            <div className='flex flex-col'>
-                
-                
-                <FormControl component="fieldset" variant="standard" className="ml-2">
-                    <FormLabel component="legend" className="sr-only">Goal view options</FormLabel>
-                    <FormGroup row>
-                        <FormControlLabel
-                            control={
-                                <Switch
-                                id='All goals switch'    
-                                checked={showAllGoals}
-                                    onChange={(_, v) => { console.debug('[AllGoals] Kanban switch toggled ->', v); setshowAllGoals(v); }}
-                                    size="small"
-                                    color='primary'
-                                />
-                            }
-                            label={'All goals'}
-                            className="ml-0 text-sm h-16"
-                            
-                        />
-
-
-
-                        {!showAllGoals && (
-                            <div className='flex space-x-2'>
-                                {['week', 'month', 'year'].map((s) => (
-                                    <button
-                                        key={s}
-                                        title={`Select ${s}ly view`}
-                                            onClick={() => {
-                                                // persist the currently-viewed page for the active scope before switching
-                                                const persistedForOld = currentPage || pageByScopeRef.current[scope];
-                                                const next = { ...pageByScopeRef.current, [scope]: persistedForOld };
-                                                setPageByScope(next);
-                                                pageByScopeRef.current = next;
-                                                try { savePageByScope(next); } catch 
-
-                                                // Compute a tentative page for the new scope so the UI doesn't flip to a default.
-                                                // - week (YYYY-MM-DD) -> month (YYYY-MM)
-                                                // - month (YYYY-MM) -> week (YYYY-MM-01) as a reasonable anchor
-                                                // - preserve year where possible
-                                                let tentative: string | undefined = pageByScopeRef.current[s];
-                                                if (!tentative) {
-                                                    if (s === 'month') {
-                                                        if (currentPage && /^\d{4}-\d{2}-\d{2}$/.test(currentPage)) {
-                                                            tentative = currentPage.slice(0, 7); // YYYY-MM
-                                                        } else if (currentPage && /^\d{4}-\d{2}$/.test(currentPage)) {
-                                                            tentative = currentPage;
-                                                        }
-                                                    } else if (s === 'week') {
-                                                        if (currentPage && /^\d{4}-\d{2}$/.test(currentPage)) {
-                                                            tentative = `${currentPage}-01`; // first day of month as anchor week page
-                                                        } else if (currentPage && /^\d{4}-\d{2}-\d{2}$/.test(currentPage)) {
-                                                            tentative = currentPage;
-                                                        }
-                                                    } else if (s === 'year') {
-                                                        if (currentPage && /^\d{4}-\d{2}-\d{2}$/.test(currentPage)) tentative = currentPage.slice(0, 4);
-                                                        else if (currentPage && /^\d{4}-\d{2}$/.test(currentPage)) tentative = currentPage.slice(0, 4);
-                                                    }
-                                                }
-
-                                                if (tentative) {
-                                                    setCurrentPage(tentative);
-                                                    currentPageRef.current = tentative;
-                                                }
-
-                                                // Record which scope we're switching from so the next fetch can map correctly
-                                                try {
-                                                    // debug removed in production
-                                                } catch 
-
-                                                console.debug('[AllGoals] scope switch requested', { from: scope, to: s, lastSwitchFromRef: lastSwitchFromRef.current });
-                                                // We're about to switch scope; enter a short 'loading'
-                                                // mode so views like Kanban don't read stale indexed data
-                                                // while the new scoped fetch is in-flight.
-                                                setIsScopeLoading(true);
-                                                setIndexedGoals({});
-                                                setPages([]);
-                                                setCurrentPage('');
-                                                currentPageRef.current = '';
-                                                lastSwitchFromRef.current = scope;
-                                                setScope(s as 'week' | 'month' | 'year');
-                                            }}
-                                        className={`btn-ghost ${scope === s ? 'text-brand-60 hover:text-brand-70 dark:text-brand-20 dark:hover:text-brand-10 font-bold underline' : ''}`}
-                                    >
-                                        <span className="hidden md:inline sm:inline">{s.charAt(0).toUpperCase() + s.slice(1)}</span>
-                                        <span className="md:hidden sm:hidden">{s.charAt(0).toUpperCase()}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </FormGroup>
-                </FormControl>
-                
-                {!showAllGoals && (
-                <Pagination
-                    pages={pages}
-                    currentPage={currentPage}
-                    onPageChange={handlePageChange}
-                    scope={scope}
-                />
-                )}
-                
-            </div>
-            <div className="flex space-x-2 items-center">
-            </div>
-        </div> */}
+        
         <div className='flex flex-col 2xl:flex-row 2xl:space-x-8 items-start justify-start w-full mb-4'>
             <div id="allGoals" className="flex flex-col gap-4 w-full">
                 <div className="flex flex-row items-center gap-4 space-x-4">
@@ -3757,11 +3650,11 @@ const GoalsComponent = () => {
                                 </div>
                             )}
                 
-                            {/* No results message when filters are active */}
-                            {sortedAndFilteredGoals.length === 0 && selectedFiltersCount > 0 && viewMode !== 'tasks-calendar' && (
+                            {/* No results message when filters or search are active */}
+                            {sortedAndFilteredGoals.length === 0 && (selectedFiltersCount > 0 || filter.trim()) && viewMode !== 'tasks-calendar' && (
                                 <div className="text-center text-gray-50 mt-8 mb-8">
-                                    <p className="text-lg mb-2">No goals match your current filters</p>
-                                    <p className="text-sm">Try adjusting your filters or clearing them to see more results</p>
+                                    <p className="text-lg mb-2">No goals match your current {filter.trim() ? 'search' : 'filters'}</p>
+                                    <p className="text-sm">Try adjusting your {filter.trim() ? 'search terms' : 'filters'} or clearing them to see more results</p>
                                 </div>
                             )}
                     </div>{/* end goals content */}
@@ -4042,19 +3935,20 @@ const GoalsComponent = () => {
             </div>
             </>
     ) : (
-    <div className="text-center text-gray-50 mt-4 justify-center flex flex-col gap-8 items-center h-64">
-                No goals found. Try adding one!
+            <div className="text-center text-gray-50 mt-4 justify-center flex flex-col gap-2 items-center h-64">
+                <p>No goals yet.</p>
+                <p>Create a goal to get started!</p>
                 
-                    <Button
-                        onClick={openGoalModal}
-                        variant='contained'
-                        className="btn-primary gap-2 flex"
-                        // title={`Add a new goal for the current ${scope}`}
-                        aria-label={`Add a new goal`}
-                        >
-                        <PlusIcon className="w-5 h-5" />
-                        <span className="block flex text-nowrap">Add a Goal</span>
-                    </Button>
+                <Button
+                    onClick={openGoalModal}
+                    variant='contained'
+                    className="btn-primary gap-3 flex"
+                    // title={`Add a new goal for the current ${scope}`}
+                    aria-label={`Add a new goal`}
+                    >
+                    <span className="block flex text-nowrap">Add a Goal</span>
+                    <Target className="w-5 h-5" />
+                </Button>
                 
             </div>
         )}
