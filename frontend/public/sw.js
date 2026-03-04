@@ -29,6 +29,19 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
 
+  // Skip in development (localhost)
+  if (request.url.includes('localhost') || request.url.includes('127.0.0.1')) {
+    return;
+  }
+
+  // Skip chrome extensions and unsupported schemes
+  if (request.url.startsWith('chrome-extension://') || 
+      request.url.startsWith('moz-extension://') ||
+      request.url.startsWith('ws://') ||
+      request.url.startsWith('wss://')) {
+    return;
+  }
+
   // Only handle GET requests
   if (request.method !== 'GET') return;
 
@@ -52,7 +65,7 @@ self.addEventListener('fetch', (event) => {
         const networkFetch = fetch(request).then((response) => {
           if (response.ok) cache.put(request, response.clone());
           return response;
-        });
+        }).catch(() => cached || Promise.reject());
         return cached || networkFetch;
       })
     )

@@ -3,7 +3,7 @@ import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import supabase from '@lib/supabase'; // Import supabase client
 import Header from '@components/Header';
 import Modal from 'react-modal';
-import { TextField, Button, IconButton, Paper } from '@mui/material';
+import { TextField, Button, IconButton, Paper, Checkbox, FormControlLabel } from '@mui/material';
 import { useTheme as useMuiTheme } from '@mui/material/styles';
 import AppMuiThemeProvider from '../mui/muiTheme';
 // import appColors from '@styles/appColors';
@@ -12,6 +12,7 @@ import { modalClasses, overlayClasses } from '@styles/classes';
 import { ArrowRight, Award, CheckSquare, Eye, EyeOff, LayoutGrid, Sparkles } from 'lucide-react';
 import ToastNotification, { notifySuccess, notifyError } from '@components/ToastyNotification'; 
 import { sendPasswordReset } from '@lib/authHelpers';
+import RequestAccess from '@components/RequestAccess';
 // import e from 'cors';
 
 const Login = () => {
@@ -31,6 +32,8 @@ const Login = () => {
     const [showConfirmNotice, setShowConfirmNotice] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordReEnter, setShowPasswordReEnter] = useState(false);
+  const [isRequestAccessModalOpen, setIsRequestAccessModalOpen] = useState(false);
+  const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
 
     const handleLogin = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -136,6 +139,8 @@ const Login = () => {
                     id: user.id, // Ensure this matches the user ID from the `auth.users` table
                     username: username || null, // Optional field
                     full_name: fullName || null, // Optional field
+                    disclaimer_accepted: disclaimerAccepted,
+                    disclaimer_accepted_at: disclaimerAccepted ? new Date().toISOString() : null,
                   });
 
                 if (profileError) {
@@ -178,8 +183,29 @@ const Login = () => {
       if (!password) newRegErrors.password = 'Password is required';
       if (!passwordReEnter) newRegErrors.passwordReEnter = 'Please re-enter password';
       if (password && passwordReEnter && password !== passwordReEnter) newRegErrors.passwordReEnter = 'Passwords do not match';
+      if (!disclaimerAccepted) {
+        notifyError('You must acknowledge the proof-of-concept disclaimer to continue');
+        return;
+      }
       setRegisterErrors(newRegErrors);
       if (Object.keys(newRegErrors).length > 0) return;
+
+      // Check if email is approved for registration
+      try {
+        const response = await fetch(`/api/checkApproval?email=${encodeURIComponent(email.trim().toLowerCase())}`);
+        const approvalData = await response.json();
+
+        if (!approvalData.approved) {
+          setIsRegisterModalOpen(false);
+          notifyError('This email is not approved for registration. Please request access first.');
+          setTimeout(() => setIsRequestAccessModalOpen(true), 500);
+          return;
+        }
+      } catch (err) {
+        console.error('Error checking approval:', err);
+        notifyError('Failed to verify registration approval. Please try again.');
+        return;
+      }
 
       const result = await createUser(email, password, passwordReEnter, username, fullName);
     
@@ -287,6 +313,34 @@ const Login = () => {
                     Your weekly command center for goals, tasks, and progress — all in one place.
                   </p>
 
+                  <div className="pt-0 pb-4 flex flex-col sm:flex-row gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setIsRequestAccessModalOpen(true)}
+                      className="btn-primary px-8 py-3 text-2xl font-[300]"
+                    >
+                      Request Access
+                    <ArrowRight className="w-8 h-8 ml-4" />
+                    </button>
+                    <div className="flex flex-col gap-2 justify-start items-center">
+                      <button
+                        type="button"
+                        onClick={() => setIsLoginModalOpen(true)}
+                        className="btn-ghost !text-primary-link px-8 py-3 text-base font-[400] hover:underline"
+                      >
+                        Already have an account? &nbsp;<strong>Login</strong>
+                      </button>
+                    
+                      <button
+                        type="button"
+                        onClick={openModal}
+                        className="btn-ghost !text-primary-link px-8 py-3 text-base font-[400] hover:underline"
+                      >
+                        Already approved? Register here
+                      </button>
+                    </div>
+                  </div>
+
                   {/* feature pills */}
                   <div className="grid grid-cols-2 gap-3 w-full min-h-[20rem] mb-10 ">
                     {[
@@ -310,24 +364,7 @@ const Login = () => {
                     ))}
                   </div>
                 </div>
-                <div className="pt-0 flex flex-col sm:flex-row gap-4">
-                  <button
-                    type="button"
-                    onClick={openModal}
-                    className="btn-primary px-8 py-3 text-3xl font-[400]"
-                  >
-                    Get started free
-                  <ArrowRight className="w-8 h-8 ml-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsLoginModalOpen(true)}
-                    className="btn-ghost px-8 py-3 text-base font-[400] hover:underline"
-                  >
-                    Already registered? Login
-                  </button>
-                  
-                </div>
+                
               </div>
 
           </div>{/* end grid */}
@@ -360,6 +397,7 @@ const Login = () => {
                   size="small"
                   error={!!loginErrors.email}
                   helperText={loginErrors.email}
+                  inputProps={{ autoComplete: 'email' }}
                   sx={{ mb: 1, '& .MuiOutlinedInput-root': { backgroundColor: fieldBg, borderRadius: radius }, '& .MuiOutlinedInput-notchedOutline': { borderColor: dividerColor } }}
                 />
                 <TextField
@@ -373,6 +411,7 @@ const Login = () => {
                   size="small"
                   error={!!loginErrors.password}
                   helperText={loginErrors.password}
+                  inputProps={{ autoComplete: 'current-password' }}
                   InputProps={{
                     endAdornment: (
                       <IconButton
@@ -439,6 +478,7 @@ const Login = () => {
                           size="small"
                           error={!!registerErrors.email}
                           helperText={registerErrors.email || ''}
+                          inputProps={{ autoComplete: 'email' }}
                           //  // variant="outlined"
                           sx={{ mb: 1, '& .MuiOutlinedInput-root': { backgroundColor: fieldBg, borderRadius: radius }, '& .MuiOutlinedInput-notchedOutline': { borderColor: dividerColor } }}
                         />
@@ -453,6 +493,7 @@ const Login = () => {
                           size="small"
                           error={!!registerErrors.password}
                           helperText={registerErrors.password}
+                          inputProps={{ autoComplete: 'new-password' }}
                           //  // variant="outlined"
                           InputProps={{
                             endAdornment: (
@@ -479,6 +520,7 @@ const Login = () => {
                           size="small"
                           error={!!registerErrors.passwordReEnter || (!!passwordReEnter && !passwordsMatch)}
                           helperText={registerErrors.passwordReEnter || ((passwordReEnter && !passwordsMatch) ? 'Passwords do not match.' : '')}
+                          inputProps={{ autoComplete: 'new-password' }}
                           InputProps={{
                             endAdornment: (
                               <IconButton
@@ -523,6 +565,26 @@ const Login = () => {
                           />
                         </Paper>
                         
+                        {/* POC Disclaimer */}
+                        <Paper elevation={1} className="border border-amber-500 dark:border-amber-700 p-4 bg-amber-50 dark:bg-amber-950 mb-4">
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                checked={disclaimerAccepted}
+                                onChange={(e) => setDisclaimerAccepted(e.target.checked)}
+                                required
+                              />
+                            }
+                            label={
+                              <span className="text-sm">
+                                I acknowledge that Wkly is currently a <strong>free proof-of-concept</strong>.
+                                Neither Josh Kimmell nor anyone associated with Wkly.me can be held responsible
+                                for the safety, privacy, or persistence of any data I add to this application. *
+                              </span>
+                            }
+                          />
+                        </Paper>
+
                         <div className='flex flex-row justify-end gap-4 pt-6'>
                           <Button type="button"  variant="outlined" onClick={closeModal} sx={{ py: 0.8, px: 3, borderRadius: radius, color: muiTheme.palette.text.primary }}>
                             Cancel
@@ -532,7 +594,7 @@ const Login = () => {
                             <Button
                               type="submit"
                               variant="contained"
-                              disabled={!email || !password || !passwordReEnter || !passwordsMatch}
+                              disabled={!email || !password || !passwordReEnter || !passwordsMatch || !disclaimerAccepted}
                               sx={{ py: 1.2, px: 3, color: muiTheme.palette.text.primary, '&:hover': { opacity: 0.95 } }}
                               className='btn-primary'
                             >
@@ -561,6 +623,25 @@ const Login = () => {
           </div>
         </div>
       </Modal>
+      
+      {/* Request Access Modal */}
+      <Modal
+        isOpen={isRequestAccessModalOpen}
+        onRequestClose={() => setIsRequestAccessModalOpen(false)}
+        className="fixed inset-0 flex items-center justify-center z-50"
+        overlayClassName={`${overlayClasses}`}
+        ariaHideApp={ARIA_HIDE_APP}
+      >
+        <div className={`${modalClasses}`}>
+          <RequestAccess
+            onClose={() => setIsRequestAccessModalOpen(false)}
+            onSuccess={() => {
+              setTimeout(() => setIsRequestAccessModalOpen(false), 2000);
+            }}
+          />
+        </div>
+      </Modal>
+
       <ToastNotification theme={theme} />
       </AppMuiThemeProvider>
     </SessionContextProvider>

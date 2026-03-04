@@ -13,6 +13,7 @@ interface GoalsContextProps {
   replaceGoalInCache: (oldId: string, newGoal: Goal) => void;
   subscribeToTempId: (tempId: string, cb: (newId: string) => void) => () => void;
   removeGoalFromCache: (id: string) => void;
+  clearCache: () => void;
   isRefreshing: boolean;
   lastUpdated?: number;
   // IDs recently added (set by bulk/single add flows) so UI can navigate to them after refresh
@@ -157,8 +158,15 @@ export const GoalsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const removeGoalFromCache = (id: string) => setGoals((prev) => prev.filter((p) => p.id !== id));
 
+  const clearCache = () => {
+    console.debug('[GoalsContext] clearCache: clearing all goals from cache');
+    setGoals([]);
+    setLastUpdated(undefined);
+    setLastAddedIds(undefined);
+  };
+
   return (
-    <GoalsContext.Provider value={{ goals, refreshGoals, addGoalToCache, updateGoalInCache, replaceGoalInCache, subscribeToTempId, removeGoalFromCache, isRefreshing, lastUpdated, lastAddedIds, setLastAddedIds }}>
+    <GoalsContext.Provider value={{ goals, refreshGoals, addGoalToCache, updateGoalInCache, replaceGoalInCache, subscribeToTempId, removeGoalFromCache, clearCache, isRefreshing, lastUpdated, lastAddedIds, setLastAddedIds }}>
       {children}
     </GoalsContext.Provider>
   );

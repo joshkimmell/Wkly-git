@@ -18,7 +18,7 @@ import NotificationsSettings from '@components/NotificationsSettings';
 import AppMuiThemeProvider from './mui/muiTheme';
 import appColors from '@styles/appColors';
 import MuiCompareDemo from '@components/MuiCompareDemo';
-
+import AdminAccessRequests from '@components/AdminAccessRequests';
 
 
 const App: React.FC = () => {
@@ -59,8 +59,19 @@ const App: React.FC = () => {
         console.error('Supabase client is not initialized');
         return;
       }
+
+      // Clear all localStorage except theme and palette preferences
+      const themePreference = localStorage.getItem('theme');
+      const palettePreference = localStorage.getItem('wkly:primary_palette');
+      
+      // Clear localStorage (preserving theme/palette)
+      localStorage.clear();
+      if (themePreference) localStorage.setItem('theme', themePreference);
+      if (palettePreference) localStorage.setItem('wkly:primary_palette', palettePreference);
+
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      
       notifySuccess('Logged out successfully');
       window.location.href = '/auth'; // Redirect to the auth route
     } catch (error) {
@@ -161,6 +172,7 @@ const App: React.FC = () => {
               <Route path="/notifications" element={<NotificationsSettings />} />
               <Route path="/auth" element={<Navigate to="/" replace />} />
               <Route path="/profile" element={<ProfileManagement />} />
+              <Route path="/admin/access" element={<AdminAccessRequests />} />
             </Routes>
           </main>
         </GoalsProvider>

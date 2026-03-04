@@ -1,26 +1,41 @@
 import { useState, useEffect, useRef } from 'react';
-import { TextField, Tooltip, IconButton, Badge, Popover, Box, FormControl, MenuItem, Checkbox, ListItemText, Chip, InputAdornment, Menu, List } from '@mui/material';
+import { TextField, Tooltip, IconButton, Badge, Popover, Box, FormControl, MenuItem, Checkbox, ListItemText, Button, Chip, InputAdornment, Menu, List } from '@mui/material';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import ConfirmModal from '@components/ConfirmModal';
-import { Summary } from '@utils/goalUtils'; // Adjust the import path as necessary
-import { fetchSummaries, createSummary, deleteSummary, saveSummary } from '@utils/functions'; // Adjust the import path as necessary
+import { Summary, Goal } from '@utils/goalUtils'; // Adjust the import path as necessary
+import { fetchSummaries, createSummary, deleteSummary, saveSummary, UserCategories, getWeekStartDate } from '@utils/functions'; // Adjust the import path as necessary
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 import SummaryCard from '@components/SummaryCard';
 import SummaryEditor from '@components/SummaryEditor';
+import GoalForm from '@components/GoalForm';
+import { useGoalsContext } from '@context/GoalsContext';
 // import SummaryGenerator from '@components/SummaryGenerator';
 import { modalClasses, overlayClasses } from '@styles/classes'; // Adjust the import path as necessary
 import ReactQuill from 'react-quill';
 import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
-import { CheckSquare2, Filter, SquareSlash, X as CloseButton } from 'lucide-react';
+import { CheckSquare2, Filter, SquareSlash, X as CloseButton, Target } from 'lucide-react';
 import { useTheme } from '@mui/material/styles';
 // import Editor from '@components/Editor';
 
 
 const AllSummaries = () => {
   const theme = useTheme();
+  const { refreshGoals } = useGoalsContext();
   const [summaries, setSummaries] = useState<Summary[]>([]);
   const [filteredSummaries, setFilteredSummaries] = useState<Summary[]>([]);
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+  const [newGoal, setNewGoal] = useState<Goal>({
+    id: '',
+    title: '',
+    description: '',
+    category: '',
+    week_start: getWeekStartDate(new Date()),
+    user_id: '',
+    created_at: '',
+    status: 'Not started',
+    status_notes: '',
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   // Removed unused summaryType state
   const [newSummary, setNewSummary] = useState<Summary>({
@@ -67,6 +82,20 @@ const AllSummaries = () => {
  
   const closeModal = () => {
     setIsModalOpen(false);
+  };
+
+  const openGoalModal = () => {
+    if (!isGoalModalOpen) {
+      setNewGoal((prev) => ({
+        ...prev,
+        week_start: getWeekStartDate(new Date()),
+      }));
+      setIsGoalModalOpen(true);
+    }
+  };
+
+  const closeGoalModal = () => {
+    setIsGoalModalOpen(false);
   };
   
   useEffect(() => {
@@ -282,190 +311,116 @@ const AllSummaries = () => {
       <div className="flex justify-between items-center">
         <h1 className="mt-4 block sm:hidden">Summaries</h1>
       </div> 
-    
-      {/* Filter and Sort Controls */}
-      <div className="mt-4 h-10 flex items-center space-x-2">
-        <Tooltip title="Open filters" placement="top" arrow>
-          <span>
-            <Badge badgeContent={(filterType?.length || 0)} color="primary" invisible={(filterType?.length || 0) === 0}>
-              <IconButton
-                className="btn-ghost mr-2"
-                size="small"
-                aria-label={`Open filters`}
-                onClick={(e) => setFilterAnchorEl(e.currentTarget)}
-                >
-                <Filter className='w-5 h-5' />
-              </IconButton>
-            </Badge>
-          </span>
-        </Tooltip>
-        <Popover
-          open={Boolean(filterAnchorEl)}
-          anchorEl={filterAnchorEl}
-          onClose={() => setFilterAnchorEl(null)}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        >
-          <Box sx={{ p: 2, width: 240 }}>
-            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-              <label id="filter-type-label">Type</label>
-              <List role="listbox" aria-labelledby="filter-type-label" sx={{ pl: 0 }}>
-                {uniqueTypes.map((t) => {
-                  const checked = (filterType || []).includes(t);
-                  return (
-                      <MenuItem
-                      key={t}
-                      onClick={() => {
-                        setFilterType((prev) => (prev || []).includes(t) ? (prev || []).filter((v) => v !== t) : [...(prev || []), t]);
-                      }}
-                      selected={checked}
-                      dense
-                    >
-                      <Checkbox size="small" edge="start" checked={checked} tabIndex={-1} disableRipple />
-                      <ListItemText primary={t} />
-                    </MenuItem>
-                  );
-                })}
-              </List>
-              {/* <Select
-                labelId="filter-type-label"
-                multiple
-                value={filterType}
-                label="Type"
-                onChange={(e) => {
-                  const val = (e.target as HTMLInputElement).value;
-                  setFilterType(typeof val === 'string' ? val.split(',') : (val as string[]));
-                }}
-                renderValue={(selected) => (selected as string[]).join(', ')}
-              >
-                {/* <MenuItem value="">
-                  <ListItemText primary="Any" />
-                </MenuItem> */}
-                {/* {uniqueTypes.map((t) => (
-                  <MenuItem key={t} value={t}>
-                    <Checkbox size="small" checked={(filterType || []).indexOf(t) > -1} />
-                    <ListItemText primary={t} />
-                  </MenuItem>
-                ))} */}
-              {/* </Select> */}
-            </FormControl>
-            <div className="flex justify-end space-x-2">
-              <button
-                type="button"
-                className="btn-ghost"
-                onClick={() => {
-                  setFilterType([]);
-                }}
-              >
-                Clear
-              </button>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => setFilterAnchorEl(null)}
-              >
-                Done
-              </button>
-            </div>
-          </Box>
-        </Popover>
-
-        {/* Filter chips */}
-        <div className="hidden sm:flex items-center space-x-2 ml-2">
-          {selectedFiltersCount >= 4 ? (
-            <>
-              <Chip
-                  label={`${selectedFiltersCount} filters`}
+    {(summaries.length !== 0) && (
+      <>
+        {/* Filter and Sort Controls */}
+        <div className="mt-4 h-10 flex items-center space-x-2">
+          <Tooltip title="Open filters" placement="top" arrow>
+            <span>
+              <Badge badgeContent={(filterType?.length || 0)} color="primary" invisible={(filterType?.length || 0) === 0}>
+                <IconButton
+                  className="btn-ghost mr-2"
                   size="small"
-                  onClick={(e) => setSummaryAnchorEl(e.currentTarget)}
-                  className="gap-2 bg-gray-30 dark:bg-gray-70 text-gray-70 dark:text-gray-30 cursor-pointer"
-              />
-              <Menu
-                  anchorEl={summaryAnchorEl}
-                  open={Boolean(summaryAnchorEl)}
-                  onClose={() => setSummaryAnchorEl(null)}
-                  anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-                  transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                  PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1 } }}
-              >
-                  {/* build combined list of filters */}
-                  {[
-                      ...((filterStatus || []).map((s) => ({ key: `status:${s}`, type: 'status' as const, label: `Status: ${s}`, value: s }))),
-                      ...((filterCategory || []).map((c) => ({ key: `category:${c}`, type: 'category' as const, label: `Category: ${c}`, value: c }))),
-                      // ...(filterStartDate && filterEndDate ? [{ key: 'range', type: 'range' as const, label: `Range: ${filterStartDate.format('YYYY-MM-DD')} → ${filterEndDate.format('YYYY-MM-DD')}`, value: `${filterStartDate.format('YYYY-MM-DD')}|${filterEndDate.format('YYYY-MM-DD')}` }] : []),
-                      ...(filter && filter.trim() ? [{ key: 'text', type: 'text' as const, label: `Search: ${filter}`, value: filter }] : []),
-                  ].map((item) => (
-                      <MenuItem
-                          key={item.key}
-                          onClick={() => {
-                              // deselect individual
-                              if (item.type === 'status') setFilterStatus((prev) => (prev || []).filter((v) => v !== item.value));
-                              else if (item.type === 'category') setFilterCategory((prev) => (prev || []).filter((v) => v !== item.value));
-                              // else if (item.type === 'range') { setFilterStartDate(null); setFilterEndDate(null); }
-                              else if (item.type === 'text') { setFilter(''); }
-                          }}
+                  aria-label={`Open filters`}
+                  onClick={(e) => setFilterAnchorEl(e.currentTarget)}
+                  >
+                  <Filter className='w-5 h-5' />
+                </IconButton>
+              </Badge>
+            </span>
+          </Tooltip>
+          <Popover
+            open={Boolean(filterAnchorEl)}
+            anchorEl={filterAnchorEl}
+            onClose={() => setFilterAnchorEl(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          >
+            <Box sx={{ p: 2, width: 240 }}>
+              <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                <label id="filter-type-label">Type</label>
+                <List role="listbox" aria-labelledby="filter-type-label" sx={{ pl: 0 }}>
+                  {uniqueTypes.map((t) => {
+                    const checked = (filterType || []).includes(t);
+                    return (
+                        <MenuItem
+                        key={t}
+                        onClick={() => {
+                          setFilterType((prev) => (prev || []).includes(t) ? (prev || []).filter((v) => v !== t) : [...(prev || []), t]);
+                        }}
+                        selected={checked}
+                        dense
                       >
-                          <Checkbox size="small" checked={true} />
-                          <ListItemText primary={item.label} />
+                        <Checkbox size="small" edge="start" checked={checked} tabIndex={-1} disableRipple />
+                        <ListItemText primary={t} />
                       </MenuItem>
-                  ))}
-              </Menu>
-              {/* Ghost clear-all button next to summary chip */}
-              
-              <button
+                    );
+                  })}
+                </List>
+                
+              </FormControl>
+              <div className="flex justify-end space-x-2">
+                <button
                   type="button"
-                  className="btn-ghost ml-1"
-                  title="Clear all filters"
+                  className="btn-ghost"
                   onClick={() => {
-                      setFilter('');
-                      setFilterStatus([]);
-                      setFilterCategory([]);
-                      // setFilterStartDate(null);
-                      // setFilterEndDate(null);
-                      filterInputRef.current?.focus();
+                    setFilterType([]);
                   }}
-              >
-                  <Tooltip title="Clear all filters" placement="top" arrow>
-                      <CloseButton className="w-4 h-4" />
-                  </Tooltip>
-              </button>
-            </>
-          ) : (
-            <>
-              {filterStatus && filterStatus.length > 0 && (
-                filterStatus.map((s) => (
-                    <Chip
-                        key={`status-${s}`}
-                        label={`Status: ${s}`}
-                        size="small"
-                        onDelete={() => setFilterStatus((prev) => (prev || []).filter((v) => v !== s))}
-                        deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
-                        className="gap-2 bg-gray-30 dark:bg-gray-70 text-gray-70 dark:text-gray-30"
-                    />
-                ))
-              )}
-              {filterCategory && filterCategory.length > 0 && (
-                  filterCategory.map((c) => (
-                      <Chip
-                          key={`cat-${c}`}
-                          label={`Category: ${c}`}
-                          size="small"
-                          onDelete={() => setFilterCategory((prev) => (prev || []).filter((v) => v !== c))}
-                          deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
-                          className="gap-2 bg-gray-30 dark:bg-gray-70 text-gray-70 dark:text-gray-30"
-                      />
-                  ))
-              )}
-              {/* {filterStartDate && filterEndDate && (
-                  <Chip
-                      label={`Range: ${filterStartDate?.format('YYYY-MM-DD')} → ${filterEndDate?.format('YYYY-MM-DD')}`}
-                      size="small"
-                      onDelete={() => { setFilterStartDate(null); setFilterEndDate(null); }}
-                      deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
-                      className="gap-2 bg-gray-30 dark:bg-gray-70 text-gray-70 dark:text-gray-30"
-                  />
-              )} */}
-              {/* Ghost clear-all button */}
-              {selectedFiltersCount > 0 && (
+                >
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => setFilterAnchorEl(null)}
+                >
+                  Done
+                </button>
+              </div>
+            </Box>
+          </Popover>
+
+          {/* Filter chips */}
+          <div className="hidden sm:flex items-center space-x-2 ml-2">
+            {selectedFiltersCount >= 4 ? (
+              <>
+                <Chip
+                    label={`${selectedFiltersCount} filters`}
+                    size="small"
+                    onClick={(e) => setSummaryAnchorEl(e.currentTarget)}
+                    className="gap-2 bg-gray-30 dark:bg-gray-70 text-gray-70 dark:text-gray-30 cursor-pointer"
+                />
+                <Menu
+                    anchorEl={summaryAnchorEl}
+                    open={Boolean(summaryAnchorEl)}
+                    onClose={() => setSummaryAnchorEl(null)}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                    transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                    PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1 } }}
+                >
+                    {/* build combined list of filters */}
+                    {[
+                        ...((filterStatus || []).map((s) => ({ key: `status:${s}`, type: 'status' as const, label: `Status: ${s}`, value: s }))),
+                        ...((filterCategory || []).map((c) => ({ key: `category:${c}`, type: 'category' as const, label: `Category: ${c}`, value: c }))),
+                        // ...(filterStartDate && filterEndDate ? [{ key: 'range', type: 'range' as const, label: `Range: ${filterStartDate.format('YYYY-MM-DD')} → ${filterEndDate.format('YYYY-MM-DD')}`, value: `${filterStartDate.format('YYYY-MM-DD')}|${filterEndDate.format('YYYY-MM-DD')}` }] : []),
+                        ...(filter && filter.trim() ? [{ key: 'text', type: 'text' as const, label: `Search: ${filter}`, value: filter }] : []),
+                    ].map((item) => (
+                        <MenuItem
+                            key={item.key}
+                            onClick={() => {
+                                // deselect individual
+                                if (item.type === 'status') setFilterStatus((prev) => (prev || []).filter((v) => v !== item.value));
+                                else if (item.type === 'category') setFilterCategory((prev) => (prev || []).filter((v) => v !== item.value));
+                                // else if (item.type === 'range') { setFilterStartDate(null); setFilterEndDate(null); }
+                                else if (item.type === 'text') { setFilter(''); }
+                            }}
+                        >
+                            <Checkbox size="small" checked={true} />
+                            <ListItemText primary={item.label} />
+                        </MenuItem>
+                    ))}
+                </Menu>
+                {/* Ghost clear-all button next to summary chip */}
+                
                 <button
                     type="button"
                     className="btn-ghost ml-1"
@@ -478,73 +433,120 @@ const AllSummaries = () => {
                         // setFilterEndDate(null);
                         filterInputRef.current?.focus();
                     }}
-                    >
-                    <Tooltip title="Clear all filters" placement='top' arrow>
+                >
+                    <Tooltip title="Clear all filters" placement="top" arrow>
                         <CloseButton className="w-4 h-4" />
                     </Tooltip>
                 </button>
-              )}
-            </>
-          )}
-        </div>
-        <>
-          {((filterType || []).length > 0) && (filterType || []).map((t) => (
-            <Chip key={`type-${t}`} label={`Type: ${t}`} size="small" onDelete={() => setFilterType((prev) => prev.filter((v) => v !== t))} 
-              // className="gap-2 bg-gray-30 dark:bg-gray-70 text-gray-70 dark:text-gray-30 cursor-pointer" 
-              />
-          ))}
-          {/* date range filters removed */}
-        </>
-
-        {/* Bulk toolbar */}
-        <div className="selectAll">
-
-          <div className={`floating-bulk${selectedCount > 0 ? '-toolbar flex-row align-start justify-start items-start' : ''}`} role="toolbar" aria-label="Bulk actions">
-            <Tooltip title={selectedCount === visibleIdsArray.length ? 'Deselect all' : 'Select all'} placement="top" arrow>
-              <Badge badgeContent={selectedCount} color="primary">
-                <span className="sr-only">{selectedCount} selected</span>
-                <button
-                  className={`btn-ghost fb-btn`}
-                  onClick={() => { if (selectedCount === visibleIdsArray.length) deselectAll(); else selectAllVisible(); }}
-                  aria-label={selectedCount === visibleIdsArray.length ? 'Deselect all' : 'Select all'}
-                >
-                  {selectedCount === visibleIdsArray.length ? <SquareSlash /> : <CheckSquare2 />}
-                </button>
-              </Badge>
-            </Tooltip>
-            {selectedCount > 0 && (
-              <div className="flex flex-col items-start justify-start sm:flex-row ml-2">
-                <button className="btn-ghost fb-btn" onClick={() => setIsBulkDeleteConfirmOpen(true)}>Delete</button>
-              </div>
+              </>
+            ) : (
+              <>
+                {filterStatus && filterStatus.length > 0 && (
+                  filterStatus.map((s) => (
+                      <Chip
+                          key={`status-${s}`}
+                          label={`Status: ${s}`}
+                          size="small"
+                          onDelete={() => setFilterStatus((prev) => (prev || []).filter((v) => v !== s))}
+                          deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
+                          className="gap-2 bg-gray-30 dark:bg-gray-70 text-gray-70 dark:text-gray-30"
+                      />
+                  ))
+                )}
+                {filterCategory && filterCategory.length > 0 && (
+                    filterCategory.map((c) => (
+                        <Chip
+                            key={`cat-${c}`}
+                            label={`Category: ${c}`}
+                            size="small"
+                            onDelete={() => setFilterCategory((prev) => (prev || []).filter((v) => v !== c))}
+                            deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
+                            className="gap-2 bg-gray-30 dark:bg-gray-70 text-gray-70 dark:text-gray-30"
+                        />
+                    ))
+                )}
+                {/* Ghost clear-all button */}
+                {selectedFiltersCount > 0 && (
+                  <button
+                      type="button"
+                      className="btn-ghost ml-1"
+                      title="Clear all filters"
+                      onClick={() => {
+                          setFilter('');
+                          setFilterStatus([]);
+                          setFilterCategory([]);
+                          // setFilterStartDate(null);
+                          // setFilterEndDate(null);
+                          filterInputRef.current?.focus();
+                      }}
+                      >
+                      <Tooltip title="Clear all filters" placement='top' arrow>
+                          <CloseButton className="w-4 h-4" />
+                      </Tooltip>
+                  </button>
+                )}
+              </>
             )}
           </div>
-        
-      {(selectedCount === 0 ) && (
-        <TextField
-          id="summary-filter"
-          size="small"
-          value={filter}
-          onChange={(e) => handleFilterChange(e.target.value)}
-          placeholder="Filter by title, type, or content"
-          fullWidth
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <button
-                  onClick={() => setSortDirection(dir => (dir === 'asc' ? 'desc' : 'asc'))}
-                  className="border rounded px-2 py-1"
-                  title="Toggle sort direction"
-                >
-                  {sortDirection === 'asc' ? '↑' : '↓'}
-                </button>
-              </InputAdornment>
-            )
-          }}
-        />
-      )}
-      </div>
-    </div>
+          <>
+            {((filterType || []).length > 0) && (filterType || []).map((t) => (
+              <Chip key={`type-${t}`} label={`Type: ${t}`} size="small" onDelete={() => setFilterType((prev) => prev.filter((v) => v !== t))} 
+                // className="gap-2 bg-gray-30 dark:bg-gray-70 text-gray-70 dark:text-gray-30 cursor-pointer" 
+                />
+            ))}
+            {/* date range filters removed */}
+          </>
 
+          {/* Bulk toolbar */}
+          <div className="selectAll">
+
+            <div className={`floating-bulk${selectedCount > 0 ? '-toolbar flex-row align-start justify-start items-start' : ''}`} role="toolbar" aria-label="Bulk actions">
+              <Tooltip title={selectedCount === visibleIdsArray.length ? 'Deselect all' : 'Select all'} placement="top" arrow>
+                <Badge badgeContent={selectedCount} color="primary">
+                  <span className="sr-only">{selectedCount} selected</span>
+                  <button
+                    className={`btn-ghost fb-btn`}
+                    onClick={() => { if (selectedCount === visibleIdsArray.length) deselectAll(); else selectAllVisible(); }}
+                    aria-label={selectedCount === visibleIdsArray.length ? 'Deselect all' : 'Select all'}
+                  >
+                    {selectedCount === visibleIdsArray.length ? <SquareSlash /> : <CheckSquare2 />}
+                  </button>
+                </Badge>
+              </Tooltip>
+              {selectedCount > 0 && (
+                <div className="flex flex-col items-start justify-start sm:flex-row ml-2">
+                  <button className="btn-ghost fb-btn" onClick={() => setIsBulkDeleteConfirmOpen(true)}>Delete</button>
+                </div>
+              )}
+            </div>
+          
+            {(selectedCount === 0) && (
+              <TextField
+                id="summary-filter"
+                size="small"
+                value={filter}
+                onChange={(e) => handleFilterChange(e.target.value)}
+                placeholder="Filter by title, type, or content"
+                fullWidth
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <button
+                        onClick={() => setSortDirection(dir => (dir === 'asc' ? 'desc' : 'asc'))}
+                        className="border rounded px-2 py-1"
+                        title="Toggle sort direction"
+                      >
+                        {sortDirection === 'asc' ? '↑' : '↓'}
+                      </button>
+                    </InputAdornment>
+                  )
+                }}
+              />
+            )}
+          </div>
+      </div>
+      </>
+    )}
       {/* Summaries List */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {sortedAndFilteredSummaries.map((summary) => (
@@ -568,11 +570,25 @@ const AllSummaries = () => {
         ))}
       </div>
       {sortedAndFilteredSummaries.length === 0 && (
-        <div className="text-center text-gray-50 mt-4">
-          No summaries found. Create a few goals to get started!
+        <div className="text-center text-gray-50 mt-4 space-y-4">
+          {summaries.length !== 0 && (
+            <><p>No summaries match the current filters.</p></>
+          )}
+          <p>Create a few goals to get started!</p>
+          <Button
+              onClick={openGoalModal}
+              variant='contained'
+              className="btn-primary gap-3 flex"
+              // title={`Add a new goal for the current ${scope}`}
+              aria-label={`Add a new goal`}
+              >
+              <span className="block flex text-nowrap">Add a Goal</span>
+              <Target className="w-5 h-5" />
+          </Button>
         </div>
       )}
-    
+      
+
       {/* Edit Summary Modal */}
       <Modal
         isOpen={isEditorOpen && !!selectedSummary}
@@ -719,6 +735,28 @@ const AllSummaries = () => {
           await performDeleteSummary(singleDeleteId);
         }}
       />
+
+      {/* Add Goal Modal */}
+      <Modal
+        isOpen={isGoalModalOpen}
+        onRequestClose={closeGoalModal}
+        shouldCloseOnOverlayClick={true}
+        ariaHideApp={ARIA_HIDE_APP}
+        className={`fixed inset-0 flex md:items-center justify-center z-50`}
+        overlayClassName={`${overlayClasses}`}
+      >
+        <div className={`${modalClasses}`}>
+          {isGoalModalOpen && (
+            <GoalForm
+              newGoal={newGoal}
+              setNewGoal={setNewGoal}
+              handleClose={closeGoalModal}
+              categories={UserCategories.map((cat: unknown) => typeof cat === 'string' ? (cat as string) : ((cat as { name?: string })?.name || ''))}
+              refreshGoals={() => refreshGoals().then(() => {})}
+            />
+          )}
+        </div>
+      </Modal>
     </div>
     
   );

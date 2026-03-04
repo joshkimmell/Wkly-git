@@ -82,7 +82,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
     const [scrolled, setScrolled] = useState(false);
-    const { session } = useAuth();
+    const { session, profile } = useAuth();
     // use the module-level `isMenuHidden` exported above
 
     // const handleLogoutInternal = async (): Promise<void> => {
@@ -331,6 +331,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                                     >
                                         <label className="px-4 pb-4" htmlFor="profile-menu">{session?.user?.email}</label>
                                         <MenuItem onClick={() => setIsProfileOpen(true)}>Preferences</MenuItem>
+                                        {profile?.is_admin === true && <MenuItem onClick={() => window.location.href = '/admin/access'}>Admin Access Requests</MenuItem>}
                                         <MenuItem onClick={handleLogout}>Log Out</MenuItem>
                                     </Menu>
                                 </>

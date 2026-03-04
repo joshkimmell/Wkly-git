@@ -249,46 +249,54 @@ function MiniGoalCard({ goal, onClick }: { goal: Goal; onClick: () => void }) {
 function EmptyState({ onAddGoal, username }: { onAddGoal: () => void; username?: string }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center py-16 px-4 text-center max-w-7xl mx-auto">
-      <div className="w-auto h-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
-        {/* <Target className="w-8 h-8 text-primary" /> */}
-        <Logo useTheme className="absolute z-0 -mt-48 fill-primary-text w-2/3 h-full text-primary-text opacity-30" />
-      </div>
-    <div className='relative text-start z-10 max-w-7xl'>
-      <h2 className="text-4xl font-light mt-40 mb-3">Welcome{username ? `, ${username}` : ''}</h2>
-      <p className="text-secondary-text mb-8 leading-relaxed max-w-2xl">
-        Wkly helps you stay focused week over week — track goals, manage tasks, log accomplishments, and generate AI-powered summaries of your progress.
-      </p>
+      
+        <div className='relative text-start z-10 max-w-7xl space-y-8'>
+            <h2 className="text-4xl font-light mt-2 mb-3">Welcome{username ? `, ${username}` : ''}</h2>
+            <p className="text-secondary-text mb-8 leading-relaxed max-w-2xl">
+                Wkly helps you stay focused week over week — track goals, manage tasks, log accomplishments, and generate AI-powered summaries of your progress.
+            </p>
 
-      {/* feature pills */}
-      <div className="grid grid-cols-2 gap-3 w-full min-h-[20rem] mb-10 ">
-        {[
-          { icon: <LayoutGrid className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />,   label: 'Prioritized goals', desc: 'Set focused goals each week' },
-          { icon: <CheckSquare className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />, label: 'Task tracking', desc: 'Break goals into tasks' },
-          { icon: <Award className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />,   label: 'Accomplishments', desc: 'Capture what you achieved' },
-          { icon: <Sparkles className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />, label: 'AI summaries', desc: 'Auto-generate progress reports' },
-        ].map(({ icon, label, desc }) => (
-          <div
-            key={label}
-            className="flex flex-col items-start gap-1 rounded-md bg-background-color border border-brand-20 dark:border-brand-70 p-3 sm:p-8 text-left"
-          >
-            <div className="flex items-start gap-3 text-brand-50 font-normal text-lg md:text-2xl">
-              {icon}
-              <div className="flex flex-col">
-                {label}
-                <p className="text-sm text-gray-50 dark:text-gray-40">{desc}</p>
-              </div>
+            {/* <button
+                onClick={onAddGoal}
+                className="btn-primary text-2xl p-3 mb-8 font-[300] inline-flex items-center gap-3 transition-colors shadow-sm"
+            >
+                Add your first goal
+                <Target className="w-5 h-5" />
+            </button> */}
+            <Button
+                onClick={onAddGoal}
+                variant='contained'
+                className="btn-primary gap-3 flex"
+                // title={`Add a new goal for the current ${scope}`}
+                aria-label={`Add a new goal`}
+                >
+                <span className="block flex text-nowrap">Add Your First Goal</span>
+                <Target className="w-5 h-5" />
+            </Button>
+            {/* feature pills */}
+            <div className="grid grid-cols-2 gap-3 w-full min-h-[20rem] mb-10 ">
+                {[
+                    { icon: <LayoutGrid className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />,   label: 'Prioritized goals', desc: 'Set focused goals each week' },
+                    { icon: <CheckSquare className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />, label: 'Task tracking', desc: 'Break goals into tasks' },
+                    { icon: <Award className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />,   label: 'Accomplishments', desc: 'Capture what you achieved' },
+                    { icon: <Sparkles className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />, label: 'AI summaries', desc: 'Auto-generate progress reports' },
+                ].map(({ icon, label, desc }) => (
+                <div
+                    key={label}
+                    className="flex flex-col items-start gap-1 rounded-md bg-background-color border border-brand-20 dark:border-brand-70 p-3 sm:p-8 text-left"
+                    >
+                    <div className="flex items-start gap-3 text-brand-50 font-normal text-lg md:text-2xl">
+                        {icon}
+                        <div className="flex flex-col">
+                            {label}
+                            <p className="text-sm text-gray-50 dark:text-gray-40">{desc}</p>
+                        </div>
+                    </div>
+                </div>
+                ))}
             </div>
-          </div>
-        ))}
-      </div>
-    </div>
-      <button
-        onClick={onAddGoal}
-        className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-semibold px-6 py-3 rounded-xl transition-colors shadow-sm"
-      >
-        <Plus className="w-5 h-5" />
-        Add your first goal
-      </button>
+        </div>
+      
     </div>
   );
 }
