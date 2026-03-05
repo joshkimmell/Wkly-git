@@ -649,9 +649,6 @@ const Login = () => {
         <div className={`${modalClasses}`}>
           <RequestAccess
             onClose={() => setIsRequestAccessModalOpen(false)}
-            onSuccess={() => {
-              setTimeout(() => setIsRequestAccessModalOpen(false), 2000);
-            }}
           />
         </div>
       </Modal>
