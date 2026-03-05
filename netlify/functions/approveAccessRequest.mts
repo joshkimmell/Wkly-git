@@ -143,22 +143,35 @@ export const handler: Handler = async (event) => {
     if (!existingProfile) {
       try {
         const appUrl = process.env.URL || 'https://wkly.netlify.app';
+        const mailerApiKey = process.env.MAILER_API_KEY;
         
-        await fetch(`${process.env.URL || 'https://wkly.netlify.app'}/api/sendEmail`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': process.env.MAILER_API_KEY || '',
-          },
-          body: JSON.stringify({
-            email: request.email,
-            name: request.name || '',
-            url: appUrl,
-            type: 'approval',
-          }),
-        });
+        if (!mailerApiKey) {
+          console.error('[approveAccessRequest] MAILER_API_KEY environment variable is not set');
+        } else {
+          console.log('[approveAccessRequest] Sending approval email to:', request.email);
+        
+          const emailResponse = await fetch(`${process.env.URL || 'https://wkly.netlify.app'}/api/sendEmail`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': mailerApiKey,
+            },
+            body: JSON.stringify({
+              email: request.email,
+              name: request.name || '',
+              url: appUrl,
+              type: 'approval',
+            }),
+          });
 
-        console.log('[approveAccessRequest] Approval email sent to:', request.email);
+          if (!emailResponse.ok) {
+            const errorText = await emailResponse.text();
+            console.error('[approveAccessRequest] Email API error:', emailResponse.status, errorText);
+          } else {
+            const emailResult = await emailResponse.json();
+            console.log('[approveAccessRequest] Approval email sent successfully to:', request.email, emailResult);
+          }
+        }
       } catch (emailError) {
         console.error('[approveAccessRequest] Failed to send email:', emailError);
         // Don't fail the approval if email fails
