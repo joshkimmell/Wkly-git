@@ -274,7 +274,7 @@ function EmptyState({ onAddGoal, username }: { onAddGoal: () => void; username?:
                 <Target className="w-5 h-5" />
             </Button>
             {/* feature pills */}
-            <div className="grid grid-cols-2 gap-3 w-full min-h-[20rem] mb-10 ">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full min-h-[20rem] mb-10 ">
                 {[
                     { icon: <LayoutGrid className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />,   label: 'Prioritized goals', desc: 'Set focused goals each week' },
                     { icon: <CheckSquare className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />, label: 'Task tracking', desc: 'Break goals into tasks' },
