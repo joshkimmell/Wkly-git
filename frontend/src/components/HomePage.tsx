@@ -350,8 +350,8 @@ const EMPTY_GOAL: Goal = {
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { goals, isRefreshing, refreshGoals } = useGoalsContext();
-  const { profile } = useAuth();
+  const { goals, isRefreshing, refreshGoals, lastUpdated } = useGoalsContext();
+  const { profile, session } = useAuth();
   const username: string | undefined = profile?.username || undefined;
 
   const [todayTasks, setTodayTasks]     = useState<Task[]>([]);
@@ -457,6 +457,18 @@ export default function HomePage() {
     return (
       <div className="flex justify-center items-center py-20">
         <CircularProgress />
+      </div>
+    );
+  }
+
+  // ── loading state (initial load or refreshing after user change) ──────────
+  if ((session?.user?.id && lastUpdated === undefined) || (isRefreshing && !hasGoals)) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-50">Loading your goals...</p>
+        </div>
       </div>
     );
   }
