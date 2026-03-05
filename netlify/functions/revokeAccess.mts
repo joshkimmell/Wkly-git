@@ -100,6 +100,24 @@ export const handler: Handler = async (event) => {
     const revokedEmail = data[0].email;
     console.log('[revokeAccess] Revoked access for:', revokedEmail);
 
+    // Reset the access request status back to pending
+    const { error: resetError } = await adminClient
+      .from('access_requests')
+      .update({
+        status: 'pending',
+        reviewed_at: null,
+        reviewed_by: null,
+        notes: null,
+      })
+      .eq('email', revokedEmail);
+
+    if (resetError) {
+      console.error('[revokeAccess] Failed to reset access request:', resetError);
+      // Don't fail the operation if reset fails, just log it
+    } else {
+      console.log('[revokeAccess] Reset access request to pending for:', revokedEmail);
+    }
+
     return {
       statusCode: 200,
       headers,
