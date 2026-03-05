@@ -2568,7 +2568,7 @@ const GoalsComponent = () => {
                             transformOrigin={{ vertical: 'top', horizontal: 'right' }}
                         >
                             <MenuItem onClick={() => { setAddMenuAnchorEl(null); openGoalModal(); }}>
-                                <LayoutGrid className="w-4 h-4 mr-2 text-primary" />
+                                <Target className="w-4 h-4 mr-2 text-primary" />
                                 Add a goal
                             </MenuItem>
                             <MenuItem onClick={() => { setAddMenuAnchorEl(null); setIsAddTaskModalOpen(true); }}>

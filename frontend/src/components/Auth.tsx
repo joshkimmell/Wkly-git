@@ -340,7 +340,7 @@ const Login = () => {
                       <button
                         type="button"
                         onClick={() => setIsLoginModalOpen(true)}
-                        className="btn-ghost !text-primary-link px-8 py-3 text-base font-[400] hover:underline"
+                        className="btn-ghost !text-secondary-link px-8 py-1 text-base font-[400] hover:underline"
                       >
                         Already have an account? &nbsp;<strong>Login</strong>
                       </button>
@@ -348,9 +348,9 @@ const Login = () => {
                       <button
                         type="button"
                         onClick={openModal}
-                        className="btn-ghost !text-primary-link px-8 py-3 text-base font-[400] hover:underline"
+                        className="btn-ghost !text-secondary-link px-8 py-1 text-base font-[400] hover:underline"
                       >
-                        Already approved? Register here
+                        Already approved? &nbsp;<strong>Register here</strong>
                       </button>
                     </div>
                   </div>
@@ -367,9 +367,9 @@ const Login = () => {
                         key={label}
                         className="flex flex-col items-start gap-1 rounded-md bg-background-color border border-brand-20 dark:border-brand-70 p-3 sm:p-8 text-left"
                       >
-                        <div className="flex items-start gap-3 text-brand-50 font-normal text-lg md:text-2xl">
+                        <div className="flex items-start gap-3 text-brand-30 dark:text-brand-70 font-normal text-lg md:text-2xl">
                           {icon}
-                          <div className="flex flex-col">
+                          <div className="flex flex-col text-brand-60 dark:text-brand-30">
                             {label}
                             <p className="text-sm text-gray-50 dark:text-gray-40">{desc}</p>
                           </div>
