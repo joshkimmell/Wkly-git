@@ -11,6 +11,7 @@ import ProfileManagement from '@components/ProfileManagement';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
+import supabase from '@lib/supabase';
 import {
   Target,
   CheckSquare,
@@ -22,14 +23,14 @@ import {
   Circle,
   CheckCircle2,
   Clock,
-  LayoutGrid,
   Award,
   X,
   ChevronUp,
   ChevronDown as ChevronDownIcon,
+  ListTodo,
+  PlusIcon,
 } from 'lucide-react';
-import Logo from './Logo';
-import { CircularProgress, Menu, MenuItem, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField } from '@mui/material';
+import { CircularProgress, Menu, MenuItem, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, IconButton } from '@mui/material';
 import GoalCompletionDonut from './GoalCompletionDonut';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -276,7 +277,7 @@ function EmptyState({ onAddGoal, username }: { onAddGoal: () => void; username?:
             {/* feature pills */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full min-h-[20rem] mb-10 ">
                 {[
-                    { icon: <LayoutGrid className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />,   label: 'Prioritized goals', desc: 'Set focused goals each week' },
+                    { icon: <Target className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />,   label: 'Prioritized goals', desc: 'Set focused goals each week' },
                     { icon: <CheckSquare className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />, label: 'Task tracking', desc: 'Break goals into tasks' },
                     { icon: <Award className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />,   label: 'Accomplishments', desc: 'Capture what you achieved' },
                     { icon: <Sparkles className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />, label: 'AI summaries', desc: 'Auto-generate progress reports' },
@@ -364,6 +365,11 @@ export default function HomePage() {
   const [goalsExpanded, setGoalsExpanded] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
+  const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
+  const [standaloneNewTask, setStandaloneNewTask] = useState<Partial<Task>>({ title: '', description: '', scheduled_date: '', scheduled_time: '' });
+  const [standaloneTaskGoalId, setStandaloneTaskGoalId] = useState('');
+  const [standaloneCreateNewGoal, setStandaloneCreateNewGoal] = useState(false);
+  const [standaloneNewGoalTitle, setStandaloneNewGoalTitle] = useState('');
 
   // ── first-login: auto-open profile modal once per session ─────────────────
   useEffect(() => {
@@ -450,6 +456,75 @@ export default function HomePage() {
   const closeTasksModal = () => {
     setIsTasksModalOpen(false);
     setSelectedGoal(null);
+  };
+
+  const closeAddTaskModal = () => {
+    setIsAddTaskModalOpen(false);
+    setStandaloneNewTask({ title: '', description: '', scheduled_date: '', scheduled_time: '' });
+    setStandaloneTaskGoalId('');
+    setStandaloneCreateNewGoal(false);
+    setStandaloneNewGoalTitle('');
+  };
+
+  const createStandaloneTask = async () => {
+    if (!standaloneNewTask.title?.trim()) { 
+      alert('Task title is required');
+      return; 
+    }
+    if (!standaloneCreateNewGoal && !standaloneTaskGoalId) { 
+      alert('Please select a goal or choose to create a new one');
+      return; 
+    }
+    if (standaloneCreateNewGoal && !standaloneNewGoalTitle.trim()) { 
+      alert('New goal title is required');
+      return; 
+    }
+    try {
+      const token = await getSessionToken();
+      if (!token) throw new Error('Not authenticated');
+      
+      let goalId = standaloneTaskGoalId;
+      
+      if (standaloneCreateNewGoal) {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: createdGoal, error: goalErr } = await supabase
+          .from('goals')
+          .insert({
+            title: standaloneNewGoalTitle.trim(),
+            week_start: getWeekStartDate(),
+            user_id: user?.id,
+            status: 'Not started',
+            description: '',
+            category: '',
+          })
+          .select()
+          .single();
+        if (goalErr || !createdGoal) throw new Error(goalErr?.message || 'Failed to create goal');
+        goalId = createdGoal.id;
+        await refreshGoals();
+      }
+      
+      const response = await fetch('/api/createTask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          goal_id: goalId,
+          title: standaloneNewTask.title!.trim(),
+          description: standaloneNewTask.description || null,
+          status: 'Not started',
+          scheduled_date: standaloneNewTask.scheduled_date || null,
+          scheduled_time: standaloneNewTask.scheduled_time || null,
+          order_index: 0,
+        }),
+      });
+      if (!response.ok) throw new Error('Failed to create task');
+      
+      closeAddTaskModal();
+      fetchTodayTasks();
+    } catch (err) {
+      console.error('[HomePage] createStandaloneTask error:', err);
+      alert('Failed to create task');
+    }
   };
 
   // ── loading ───────────────────────────────────────────────────────────────
@@ -637,7 +712,7 @@ export default function HomePage() {
                 <Zap className="w-7 h-7 text-gray-30 dark:text-gray-60 mb-2" />
                 <p className="text-sm text-gray-40 dark:text-gray-50">No tasks scheduled for today</p>
                 <button
-                  onClick={goToGoals}
+                  onClick={() => setIsAddTaskModalOpen(true)}
                   className="mt-3 btn-primary hover:underline"
                 >
                   Schedule a task →
@@ -713,6 +788,121 @@ export default function HomePage() {
               refreshGoals={() => refreshGoals().then(() => {})}
             />
           )}
+        </div>
+      </Modal>
+
+      {/* Add Task Modal */}
+      <Modal
+        isOpen={isAddTaskModalOpen}
+        onRequestClose={closeAddTaskModal}
+        shouldCloseOnOverlayClick={true}
+        ariaHideApp={ARIA_HIDE_APP}
+        className="fixed inset-0 flex md:items-center justify-center z-50"
+        overlayClassName={overlayClasses}
+      >
+        <div className={`${modalClasses} max-w-lg w-full`}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <ListTodo className="w-5 h-5 text-primary" />
+              Add a task
+            </h2>
+            <IconButton size="small" onClick={closeAddTaskModal} aria-label="Close">
+              <X className="w-4 h-4" />
+            </IconButton>
+          </div>
+
+          <div className="space-y-4">
+            {/* Goal selector */}
+            {!standaloneCreateNewGoal ? (
+              <FormControl fullWidth size="small">
+                <InputLabel id="standalone-task-goal-label">Goal *</InputLabel>
+                <Select
+                  labelId="standalone-task-goal-label"
+                  label="Goal *"
+                  value={standaloneTaskGoalId}
+                  onChange={(e) => setStandaloneTaskGoalId(e.target.value as string)}
+                  displayEmpty
+                >
+                  {goals.map((g) => (
+                    <MenuItem key={g.id} value={g.id}>
+                      <span className="truncate max-w-[320px] block">{g.title}</span>
+                    </MenuItem>
+                  ))}
+                  <MenuItem
+                    value="__new__"
+                    onClick={(e) => { e.stopPropagation(); setStandaloneCreateNewGoal(true); setStandaloneTaskGoalId(''); }}
+                    className="text-primary font-medium"
+                  >
+                    <PlusIcon className="w-4 h-4 mr-1 inline" /> Create new goal…
+                  </MenuItem>
+                </Select>
+              </FormControl>
+            ) : (
+              <div className="space-y-2">
+                <TextField
+                  label="New goal title *"
+                  value={standaloneNewGoalTitle}
+                  onChange={(e) => setStandaloneNewGoalTitle(e.target.value)}
+                  size="small"
+                  fullWidth
+                  autoFocus
+                  placeholder="Enter goal title"
+                />
+                <button
+                  className="text-sm text-gray-50 underline"
+                  onClick={() => { setStandaloneCreateNewGoal(false); setStandaloneNewGoalTitle(''); }}
+                >
+                  ← Pick an existing goal instead
+                </button>
+              </div>
+            )}
+
+            {/* Task fields */}
+            <TextField
+              label="Task title *"
+              value={standaloneNewTask.title || ''}
+              onChange={(e) => setStandaloneNewTask((p) => ({ ...p, title: e.target.value }))}
+              size="small"
+              fullWidth
+              autoFocus={standaloneCreateNewGoal ? false : true}
+              placeholder="What needs to be done?"
+            />
+            <TextField
+              label="Description"
+              value={standaloneNewTask.description || ''}
+              onChange={(e) => setStandaloneNewTask((p) => ({ ...p, description: e.target.value }))}
+              size="small"
+              fullWidth
+              multiline
+              rows={2}
+              placeholder="Optional details"
+            />
+            <div className="flex gap-3">
+              <TextField
+                type="date"
+                label="Scheduled date"
+                value={standaloneNewTask.scheduled_date || ''}
+                onChange={(e) => setStandaloneNewTask((p) => ({ ...p, scheduled_date: e.target.value }))}
+                size="small"
+                InputLabelProps={{ shrink: true }}
+                className="flex-1"
+              />
+              <TextField
+                type="time"
+                label="Scheduled time"
+                value={standaloneNewTask.scheduled_time || ''}
+                onChange={(e) => setStandaloneNewTask((p) => ({ ...p, scheduled_time: e.target.value }))}
+                size="small"
+                InputLabelProps={{ shrink: true }}
+                className="flex-1"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 mt-6">
+            <button className="btn-secondary" onClick={closeAddTaskModal}>Cancel</button>
+            <button className="btn-primary" onClick={createStandaloneTask}>Add task</button>
+          </div>
         </div>
       </Modal>
 
