@@ -146,6 +146,19 @@ $theme-light: (
   --primary-brand-20: #{$brand-20};
   --primary-brand-10: #{$brand-10};
   --primary-brand-0: #{$brand-0};
+  // Add brand colors without "primary-" prefix for compatibility
+  --brand-100: #{$brand-100};
+  --brand-90: #{$brand-90};
+  --brand-80: #{$brand-80};
+  --brand-70: #{$brand-70};
+  --brand-60: #{$brand-60};
+  --brand-50: #{$brand-50};
+  --brand-40: #{$brand-40};
+  --brand-30: #{$brand-30};
+  --brand-20: #{$brand-20};
+  --brand-10: #{$brand-10};
+  --brand-0: #{$brand-0};
+  --primary: #{$brand-30};
   --gray-100: #{$gray-100};
   --gray-90: #{$gray-90};
   --gray-80: #{$gray-80};
