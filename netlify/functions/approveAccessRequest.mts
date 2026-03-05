@@ -135,49 +135,48 @@ export const handler: Handler = async (event) => {
     // Check if user already has a profile
     const { data: existingProfile } = await adminClient
       .from('profiles')
-      .select('id')
+      .select('id, username, full_name')
       .eq('email', request.email)
       .maybeSingle();
 
-    // Send approval email only if user doesn't have a profile yet
-    if (!existingProfile) {
-      try {
-        const appUrl = process.env.URL || 'https://wkly.netlify.app';
-        const mailerApiKey = process.env.MAILER_API_KEY;
+    // Send appropriate email based on whether user has a profile
+    try {
+      const appUrl = process.env.URL || 'https://wkly.netlify.app';
+      const mailerApiKey = process.env.MAILER_API_KEY;
+      
+      if (!mailerApiKey) {
+        console.error('[approveAccessRequest] MAILER_API_KEY environment variable is not set');
+      } else {
+        const emailType = existingProfile ? 'access_restored' : 'approval';
+        const userName = existingProfile ? (existingProfile.full_name || existingProfile.username || request.name) : request.name;
         
-        if (!mailerApiKey) {
-          console.error('[approveAccessRequest] MAILER_API_KEY environment variable is not set');
-        } else {
-          console.log('[approveAccessRequest] Sending approval email to:', request.email);
-        
-          const emailResponse = await fetch(`${process.env.URL || 'https://wkly.netlify.app'}/api/sendEmail`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': mailerApiKey,
-            },
-            body: JSON.stringify({
-              email: request.email,
-              name: request.name || '',
-              url: appUrl,
-              type: 'approval',
-            }),
-          });
+        console.log('[approveAccessRequest] Sending', emailType, 'email to:', request.email);
+      
+        const emailResponse = await fetch(`${process.env.URL || 'https://wkly.netlify.app'}/api/sendEmail`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': mailerApiKey,
+          },
+          body: JSON.stringify({
+            email: request.email,
+            name: userName || '',
+            url: appUrl,
+            type: emailType,
+          }),
+        });
 
-          if (!emailResponse.ok) {
-            const errorText = await emailResponse.text();
-            console.error('[approveAccessRequest] Email API error:', emailResponse.status, errorText);
-          } else {
-            const emailResult = await emailResponse.json();
-            console.log('[approveAccessRequest] Approval email sent successfully to:', request.email, emailResult);
-          }
+        if (!emailResponse.ok) {
+          const errorText = await emailResponse.text();
+          console.error('[approveAccessRequest] Email API error:', emailResponse.status, errorText);
+        } else {
+          const emailResult = await emailResponse.json();
+          console.log('[approveAccessRequest] Email sent successfully to:', request.email, emailResult);
         }
-      } catch (emailError) {
-        console.error('[approveAccessRequest] Failed to send email:', emailError);
-        // Don't fail the approval if email fails
       }
-    } else {
-      console.log('[approveAccessRequest] User already has profile, skipping email');
+    } catch (emailError) {
+      console.error('[approveAccessRequest] Failed to send email:', emailError);
+      // Don't fail the approval if email fails
     }
 
     return {

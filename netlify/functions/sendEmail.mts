@@ -15,6 +15,10 @@ const buildHtml = ({ type, name, url }: { type: string; name?: string; url?: str
     title = 'Your Wkly access has been approved!';
     body = 'Great news! Your request for access to Wkly has been approved. You can now create your account and start using the app.';
     buttonText = 'Create account';
+  } else if (type === 'access_restored') {
+    title = 'Your Wkly access has been restored';
+    body = 'Good news! Your access to Wkly has been restored. You can now log in to your account and continue using the app.';
+    buttonText = 'Log in to Wkly';
   } else {
     title = 'Confirm your Wkly account';
     body = 'Click the button below to confirm your account and finish signing up.';
@@ -60,6 +64,8 @@ const handler: Handler = async (event) => {
       subject = 'Reset your Wkly password';
     } else if (type === 'approval') {
       subject = 'Your Wkly access has been approved!';
+    } else if (type === 'access_restored') {
+      subject = 'Your Wkly access has been restored';
     } else {
       subject = 'Confirm your Wkly account';
     }
