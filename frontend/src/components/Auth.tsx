@@ -9,7 +9,7 @@ import AppMuiThemeProvider from '../mui/muiTheme';
 // import appColors from '@styles/appColors';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
-import { ArrowRight, Award, CheckSquare, Eye, EyeOff, LayoutGrid, Sparkles } from 'lucide-react';
+import { ArrowRight, Award, CheckSquare, Eye, EyeOff, LayoutGrid, Sparkles, Target } from 'lucide-react';
 import ToastNotification, { notifySuccess, notifyError } from '@components/ToastyNotification'; 
 import { sendPasswordReset } from '@lib/authHelpers';
 import RequestAccess from '@components/RequestAccess';
@@ -201,6 +201,20 @@ const Login = () => {
           setTimeout(() => setIsRequestAccessModalOpen(true), 500);
           return;
         }
+
+        // Check if user already has a profile
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', email.trim().toLowerCase())
+          .maybeSingle();
+
+        if (existingProfile) {
+          setIsRegisterModalOpen(false);
+          notifyError('You already have an account! Please log in instead.');
+          setTimeout(() => setIsLoginModalOpen(true), 500);
+          return;
+        }
       } catch (err) {
         console.error('Error checking approval:', err);
         notifyError('Failed to verify registration approval. Please try again.');
@@ -344,7 +358,7 @@ const Login = () => {
                   {/* feature pills */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full min-h-[20rem] mb-10 ">
                     {[
-                      { icon: <LayoutGrid className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />,   label: 'Prioritized goals', desc: 'Set focused goals each week' },
+                      { icon: <Target className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />,   label: 'Prioritized goals', desc: 'Set focused goals each week' },
                       { icon: <CheckSquare className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />, label: 'Task tracking', desc: 'Break goals into tasks' },
                       { icon: <Award className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />,   label: 'Accomplishments', desc: 'Capture what you achieved' },
                       { icon: <Sparkles className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />, label: 'AI summaries', desc: 'Auto-generate progress reports' },

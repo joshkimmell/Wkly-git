@@ -132,12 +132,48 @@ export const handler: Handler = async (event) => {
 
     console.log('[approveAccessRequest] Approved:', { email: request.email, requestId: request.id });
 
+    // Check if user already has a profile
+    const { data: existingProfile } = await adminClient
+      .from('profiles')
+      .select('id')
+      .eq('email', request.email)
+      .maybeSingle();
+
+    // Send approval email only if user doesn't have a profile yet
+    if (!existingProfile) {
+      try {
+        const appUrl = process.env.URL || 'https://wkly.netlify.app';
+        
+        await fetch(`${process.env.URL || 'https://wkly.netlify.app'}/api/sendEmail`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': process.env.MAILER_API_KEY || '',
+          },
+          body: JSON.stringify({
+            email: request.email,
+            name: request.name || '',
+            url: appUrl,
+            type: 'approval',
+          }),
+        });
+
+        console.log('[approveAccessRequest] Approval email sent to:', request.email);
+      } catch (emailError) {
+        console.error('[approveAccessRequest] Failed to send email:', emailError);
+        // Don't fail the approval if email fails
+      }
+    } else {
+      console.log('[approveAccessRequest] User already has profile, skipping email');
+    }
+
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         message: 'Access request approved successfully',
         email: request.email,
+        hasExistingProfile: !!existingProfile,
       }),
     };
   } catch (err: any) {
