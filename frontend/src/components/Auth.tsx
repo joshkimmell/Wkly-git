@@ -328,7 +328,7 @@ const Login = () => {
                     Your weekly command center for goals, tasks, and progress — all in one place.
                   </p>
 
-                  <div className="pt-0 pb-4 flex flex-row md:flex-row gap-2">
+                  <div className="pt-0 pb-4 flex flex-wrap md:flex-row gap-2">
                     <button
                       type="button"
                       onClick={() => setIsRequestAccessModalOpen(true)}
