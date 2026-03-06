@@ -182,7 +182,10 @@ export default function NotificationsSettings({ registerSave }: Props) {
     }
 
     if (Notification.permission === 'granted') {
-      setSettings((s) => ({ ...s, enableOsNotifications: true }));
+      const newSettings = { ...settings, enableOsNotifications: true };
+      setSettings(newSettings);
+      // Save immediately
+      await saveSettings(newSettings);
       // Show a test notification
       new Notification('Wkly Notifications Enabled', {
         body: 'You will now receive task reminders as OS notifications',
@@ -195,22 +198,54 @@ export default function NotificationsSettings({ registerSave }: Props) {
       const permission = await Notification.requestPermission();
       setOsNotificationPermission(permission);
       if (permission === 'granted') {
-        setSettings((s) => ({ ...s, enableOsNotifications: true }));
+        const newSettings = { ...settings, enableOsNotifications: true };
+        setSettings(newSettings);
+        // Save immediately
+        await saveSettings(newSettings);
         new Notification('Wkly Notifications Enabled', {
           body: 'You will now receive task reminders as OS notifications',
           icon: '/images/logo-192x192.png',
         });
       } else {
-        setSettings((s) => ({ ...s, enableOsNotifications: false }));
+        const newSettings = { ...settings, enableOsNotifications: false };
+        setSettings(newSettings);
+        await saveSettings(newSettings);
       }
     }
   };
 
-  const handleOsNotificationToggle = (checked: boolean) => {
+  const handleOsNotificationToggle = async (checked: boolean) => {
     if (checked) {
-      requestOsNotificationPermission();
+      await requestOsNotificationPermission();
     } else {
-      setSettings((s) => ({ ...s, enableOsNotifications: false }));
+      const newSettings = { ...settings, enableOsNotifications: false };
+      setSettings(newSettings);
+      await saveSettings(newSettings);
+    }
+  };
+
+  // Helper function to save settings immediately
+  const saveSettings = async (settingsToSave: Settings) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        const payload = { user_id: session.user.id, settings: settingsToSave };
+        const { error } = await supabase.from('notification_preferences').upsert(payload);
+        if (error) throw error;
+        console.log('[NotificationsSettings] Settings saved to Supabase');
+      } else {
+        // Not logged in: fallback to localStorage
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(settingsToSave));
+        console.log('[NotificationsSettings] Settings saved to localStorage');
+      }
+    } catch (e) {
+      // final fallback: attempt localStorage
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(settingsToSave));
+        console.log('[NotificationsSettings] Settings saved to localStorage (fallback)');
+      } catch (_) {
+        console.error('[NotificationsSettings] Failed to save settings', e);
+      }
     }
   };
 
