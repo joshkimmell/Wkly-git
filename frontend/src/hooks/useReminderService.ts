@@ -193,9 +193,6 @@ export function useReminderService() {
 
     // 2. Send Email if enabled
     if (settings.enableEmail && settings.emailTo) {
-      console.log(`[ReminderService] Email reminders temporarily disabled for debugging`);
-      // Temporarily disabled - need to fix FROM_EMAIL env variable
-      /*
       console.log(`[ReminderService] Sending email to ${settings.emailTo}`);
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -227,7 +224,6 @@ export function useReminderService() {
         console.error('[ReminderService] Failed to send email reminder:', error);
         notifyError('Failed to send email reminder');
       }
-      */
     } else {
       console.log('[ReminderService] Email disabled or no email address:', { enableEmail: settings.enableEmail, emailTo: settings.emailTo });
     }
