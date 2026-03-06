@@ -743,21 +743,21 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
             />
 
             <div className="mt-4">
-              <TextField
-                select
-                label="Category"
-                value={newGoal.category}
-                onChange={(e) => setNewGoal(prev => ({ ...prev, category: e.target.value }))}
-                fullWidth
-                required
-                helperText="Select a category for this goal"
+              <label className="block text-sm font-medium text-gray-70 dark:text-gray-30 mb-2">
+                Category *
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm('');
+                  setFilteredCategories(categories);
+                  setIsCategoryModalOpen(true);
+                }}
+                className="btn-ghost w-full text-left justify-between"
               >
-                {categories.map((cat, index) => (
-                  <MenuItem key={cat.id || cat.name || `cat-${index}`} value={cat.name}>
-                    {cat.name}
-                  </MenuItem>
-                ))}
-              </TextField>
+                {newGoal.category || '-- Select or create a category --'}
+                <SearchIcon className="w-5 h-5 inline-block ml-2" />
+              </button>
             </div>
 
             <div className="mt-4">
@@ -1511,6 +1511,145 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         </form>
 
         )}
+        
+        {/* Shared Category Modal - Available for all workflows */}
+        <Modal
+          id='category-modal'
+          isOpen={isCategoryModalOpen}
+          onRequestClose={() => setIsCategoryModalOpen(false)}
+          className="fixed inset-0 flex items-center justify-center z-50"
+          overlayClassName={`${overlayClasses}`}
+          ariaHideApp={ARIA_HIDE_APP}
+          style={{
+            content: {
+              width: 'calc(100% - 8px)',
+              height: '100%',
+              margin: 'auto',
+            },
+          }}
+        >
+          <div className="p-4 bg-gray-10 dark:bg-gray-80 rounded-lg shadow-lg w-full max-w-md">
+            <h2 className="text-lg font-bold mb-4">Select or Create a Category</h2>
+            <TextField
+              id="category-search-shared"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                const filtered = categories.filter((category) =>
+                  category.name.toLowerCase().includes(e.target.value.toLowerCase())
+                );
+                setFilteredCategories(filtered);
+              }}
+              className="w-full mb-4"
+              placeholder="Find or create a category"
+              fullWidth
+              autoFocus
+            />
+            <ul className="max-h-60 text-gray-80 dark:text-gray-30 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-70 mb-4">
+              {filteredCategories.map((category, idx) => (
+                <li
+                  key={category?.id ?? hashString(category?.name || String(idx))}
+                  className="p-2 hover:bg-gray-20 dark:hover:bg-gray-70 cursor-pointer"
+                  onClick={() => {
+                    setNewGoal(prev => ({ ...prev, category: category.name }));
+                    setIsCategoryModalOpen(false);
+                    setSearchTerm('');
+                  }}
+                >
+                  {category.name}
+                </li>
+              ))}
+              {filteredCategories.length === 0 && searchTerm && (
+                <li className="p-2 text-gray-30 dark:text-gray-70">
+                  No matching categories found. Create "{searchTerm}"?
+                </li>
+              )}
+              {filteredCategories.length === 0 && !searchTerm && (
+                <li className="p-2 text-gray-30 dark:text-gray-70">
+                  No categories yet. Start typing to create one.
+                </li>
+              )}
+            </ul>
+            <div className="flex gap-2 justify-end">
+              {searchTerm && filteredCategories.length === 0 && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!searchTerm.trim()) return;
+
+                    try {
+                      const { data: { user }, error: userError } = await supabase.auth.getUser();
+                      if (userError || !user) {
+                        console.error('Error fetching user ID:', userError?.message || 'User not authenticated');
+                        notifyError('You must be logged in to create categories');
+                        return;
+                      }
+
+                      const userId = user.id;
+                      const categoryName = searchTerm.trim();
+
+                      // Check if category already exists
+                      const { data: existingCategory, error: fetchError } = await supabase
+                        .from('categories')
+                        .select('name')
+                        .eq('name', categoryName)
+                        .single();
+
+                      if (fetchError && fetchError.code !== 'PGRST116') {
+                        console.error('Error checking category existence:', fetchError.message);
+                        notifyError('Failed to check category existence');
+                        return;
+                      }
+
+                      if (!existingCategory) {
+                        // Create the category
+                        const { error: insertError } = await supabase
+                          .from('categories')
+                          .insert({ name: categoryName, user_id: userId });
+
+                        if (insertError) {
+                          console.error('Error adding category:', insertError.message);
+                          notifyError('Failed to create category');
+                          return;
+                        }
+
+                        notifySuccess(`Category "${categoryName}" created successfully`);
+                        
+                        // Refresh categories list
+                        const { UserCategories } = await fetchCategories(); 
+                        setCategories(
+                          UserCategories && Array.isArray(UserCategories)
+                            ? UserCategories.map((category) => ({ id: category.id, name: category.name }))
+                            : []
+                        );
+                      }
+
+                      setNewGoal(prev => ({ ...prev, category: categoryName }));
+                      setIsCategoryModalOpen(false);
+                      setSearchTerm('');
+                    } catch (error) {
+                      console.error('Unexpected error creating category:', error);
+                      notifyError('An unexpected error occurred');
+                    }
+                  }}
+                  className="btn-primary"
+                >
+                  Create "{searchTerm}"
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCategoryModalOpen(false);
+                  setSearchTerm('');
+                }}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </Modal>
   </>
   );
 };
