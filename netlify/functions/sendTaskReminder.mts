@@ -127,8 +127,11 @@ const handler: Handler = async (event) => {
 
     const mgUrl = `${MAILGUN_API_BASE}/${process.env.MAILGUN_DOMAIN}/messages`;
 
+    // Strip surrounding quotes that some env var editors add (e.g. "x@y" → x@y)
+    const fromEmail = process.env.FROM_EMAIL.replace(/^["']|["']$/g, '');
+
     const params = new URLSearchParams();
-    params.append('from', `Wkly Reminders <${process.env.FROM_EMAIL}>`);
+    params.append('from', `Wkly Reminders <${fromEmail}>`);
     params.append('to', emailTo);
     params.append('subject', subject);
     params.append('html', bodyHtml);

@@ -38,7 +38,8 @@ export const handler: Handler = async (event) => {
     }
 
     console.log('[sendTestEmail] Using Mailgun');
-    const FROM_EMAIL = process.env.FROM_EMAIL;
+    // Strip surrounding quotes that some env var editors add (e.g. "x@y" → x@y)
+    const FROM_EMAIL = process.env.FROM_EMAIL.replace(/^["']|["']$/g, '');
 
     // Build simple HTML email
     const bodyHtml = `
