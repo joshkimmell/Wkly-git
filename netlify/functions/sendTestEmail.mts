@@ -40,6 +40,7 @@ export const handler: Handler = async (event) => {
     console.log('[sendTestEmail] Using Mailgun');
     // Strip surrounding quotes that some env var editors add (e.g. "x@y" → x@y)
     const FROM_EMAIL = process.env.FROM_EMAIL.replace(/^["']|["']$/g, '');
+    console.log('[sendTestEmail] FROM_EMAIL after strip:', FROM_EMAIL);
 
     // Build simple HTML email
     const bodyHtml = `
@@ -61,7 +62,8 @@ export const handler: Handler = async (event) => {
     const mgUrl = `${MAILGUN_API_BASE}/${process.env.MAILGUN_DOMAIN}/messages`;
 
     const params = new URLSearchParams();
-    params.append('from', `Wkly Test <${FROM_EMAIL}>`);
+    console.log('[sendTestEmail] from field:', FROM_EMAIL);
+    params.append('from', FROM_EMAIL);
     params.append('to', payload.to);
     params.append('subject', payload.subject);
     params.append('html', bodyHtml);

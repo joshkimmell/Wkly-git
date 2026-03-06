@@ -131,7 +131,7 @@ const handler: Handler = async (event) => {
     const fromEmail = process.env.FROM_EMAIL.replace(/^["']|["']$/g, '');
 
     const params = new URLSearchParams();
-    params.append('from', `Wkly Reminders <${fromEmail}>`);
+    params.append('from', fromEmail);
     params.append('to', emailTo);
     params.append('subject', subject);
     params.append('html', bodyHtml);
