@@ -80,7 +80,7 @@ export default function PersistentDrawerRight({...props }: HeaderProps) {
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
-const { session } = useAuth();
+const { session, profile } = useAuth();
 const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
 
     // Dev-only overlay debug
@@ -162,8 +162,8 @@ const toggleThemeInternal = (): void => {
                             className='p-4'
                         >
                             <label className="px-4 pb-4" htmlFor="profile-menu">{session?.user?.email}</label>
-                            <MenuItem onClick={() => setIsProfileOpen(true)}>Edit Profile</MenuItem>
-                            {/* <MenuItem onClick={() => console.log('Preferences')}>Preferences</MenuItem> */}
+                            <MenuItem onClick={() => setIsProfileOpen(true)}>Preferences</MenuItem>
+                            {profile?.is_admin === true && <MenuItem onClick={() => window.location.href = '/admin/access'}>Admin Access Requests</MenuItem>}
                             <MenuItem onClick={handleLogout}>Log Out</MenuItem>
                         </Menu>
                     
