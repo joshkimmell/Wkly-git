@@ -1,8 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGoalsContext } from '@context/GoalsContext';
+import { useTimezone } from '@context/TimezoneContext';
 import useAuth from '@hooks/useAuth';
 import { getSessionToken, getWeekStartDate } from '@utils/functions';
+import { getTodayInTimezone, formatDateInTimezone } from '@utils/timezone';
 import { Task, Goal, calculateGoalCompletion } from '@utils/goalUtils';
 import LoadingSpinner from '@components/LoadingSpinner';
 import GoalForm from '@components/GoalForm';
@@ -35,13 +37,9 @@ import GoalCompletionDonut from './GoalCompletionDonut';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
-function getTodayIso(): string {
-  return new Date().toISOString().split('T')[0];
-}
-
-function formatDisplayDate(iso: string): string {
+function formatDisplayDate(iso: string, timezone: string = 'UTC'): string {
   const d = new Date(iso + 'T00:00:00');
-  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  return formatDateInTimezone(d, timezone, { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
 function getGreeting(): string {
@@ -353,6 +351,7 @@ export default function HomePage() {
   const navigate = useNavigate();
   const { goals, isRefreshing, refreshGoals, lastUpdated } = useGoalsContext();
   const { profile, session } = useAuth();
+  const { timezone } = useTimezone();
   const username: string | undefined = profile?.username || undefined;
 
   const [todayTasks, setTodayTasks]     = useState<Task[]>([]);
@@ -380,7 +379,7 @@ export default function HomePage() {
     }
   }, [profile]);
 
-  const today = getTodayIso();
+  const today = getTodayInTimezone(timezone);
 
   // Sort goals newest-first
   const sortedGoals = [...goals].sort(
@@ -604,7 +603,7 @@ export default function HomePage() {
       <div>
         <p className="text-sm text-gray-50 dark:text-gray-40 mb-1 flex items-center gap-1.5">
           <Calendar className="w-3.5 h-3.5" />
-          {formatDisplayDate(today)}
+          {formatDisplayDate(today, timezone)}
         </p>
         <h1 className="text-2xl font-bold text-primary-text">{getGreeting()}{username ? `, ${username}` : ''}</h1>
       </div>
@@ -715,7 +714,7 @@ export default function HomePage() {
                   onClick={() => setIsAddTaskModalOpen(true)}
                   className="mt-3 btn-primary hover:underline"
                 >
-                  Schedule a task →
+                  Add a task →
                 </button>
               </div>
             ) : (

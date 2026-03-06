@@ -9,7 +9,7 @@ import AppMuiThemeProvider from '../mui/muiTheme';
 // import appColors from '@styles/appColors';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
-import { ArrowRight, Award, CheckSquare, Eye, EyeOff, LayoutGrid, Sparkles, Target } from 'lucide-react';
+import { ArrowRight, Award, CheckSquare, Eye, EyeOff, Sparkles, Target } from 'lucide-react';
 import ToastNotification, { notifySuccess, notifyError } from '@components/ToastyNotification'; 
 import { sendPasswordReset } from '@lib/authHelpers';
 import RequestAccess from '@components/RequestAccess';
@@ -311,27 +311,28 @@ const Login = () => {
           <Header   
             theme={theme}
             toggleTheme={toggleTheme}
+            onLoginClick={() => setIsLoginModalOpen(true)}
           />
           <main className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-16 py-12 lg:py-20">
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col w-full items-center">
 
               {/* ── Hero / value prop ── */}
-              <div className="flex flex-col gap-6">
+              <div className="flex w-full flex-col gap-6">
                 
                 <div className='relative text-start z-10 max-w-7xl'>
                   <h1 className="text-4xl sm:text-5xl font-light leading-tight mb-3">
                     Welcome to{' '}
-                    <span style={{ color: 'var(--primary)' }}>Wkly</span>
+                    <span className="text-brand-40 dark:text-brand-30">Wkly</span>
                   </h1>
                   <p className="text-lg mb-8" style={{ color: 'var(--secondary-text, currentColor)', opacity: 0.8 }}>
                     Your weekly command center for goals, tasks, and progress — all in one place.
                   </p>
 
-                  <div className="pt-0 pb-4 flex flex-col sm:flex-row gap-4">
+                  <div className="pt-0 pb-4 flex flex-row md:flex-row gap-2">
                     <button
                       type="button"
                       onClick={() => setIsRequestAccessModalOpen(true)}
-                      className="btn-primary px-8 py-3 text-2xl font-[300]"
+                      className="btn-primary w-auto px-8 py-3 text-xl sm:text-2xl font-[300] text-nowrap"
                     >
                       Request Access
                     <ArrowRight className="w-8 h-8 ml-4" />
@@ -339,18 +340,10 @@ const Login = () => {
                     <div className="flex flex-col gap-2 justify-start items-center">
                       <button
                         type="button"
-                        onClick={() => setIsLoginModalOpen(true)}
-                        className="btn-ghost !text-secondary-link px-8 py-1 text-base font-[400] hover:underline"
-                      >
-                        Already have an account? &nbsp;<strong>Login</strong>
-                      </button>
-                    
-                      <button
-                        type="button"
                         onClick={openModal}
-                        className="btn-ghost !text-secondary-link px-8 py-1 text-base font-[400] hover:underline"
+                        className="btn-ghost text-left !text-secondary-link px-8 py-1 text-base font-[400] hover:underline"
                       >
-                        Already approved? &nbsp;<strong>Register here</strong>
+                        <span className='flex-wrap'><span className='text-nowrap'>Already approved?</span> &nbsp; <span className='font-semibold text-nowrap'>Register here</span></span>
                       </button>
                     </div>
                   </div>
@@ -358,18 +351,20 @@ const Login = () => {
                   {/* feature pills */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full min-h-[20rem] mb-10 ">
                     {[
-                      { icon: <Target className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />,   label: 'Prioritized goals', desc: 'Set focused goals each week' },
-                      { icon: <CheckSquare className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />, label: 'Task tracking', desc: 'Break goals into tasks' },
-                      { icon: <Award className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />,   label: 'Accomplishments', desc: 'Capture what you achieved' },
-                      { icon: <Sparkles className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />, label: 'AI summaries', desc: 'Auto-generate progress reports' },
+                      { icon: <Target className="w-[8rem] h-[8rem] md:w-[10rem] md:h-[10rem]" />,   label: 'Prioritized goals', desc: 'Set focused goals each week' },
+                      { icon: <CheckSquare className="w-[8rem] h-[8rem] md:w-[10rem] md:h-[10rem]" />, label: 'Task tracking', desc: 'Break goals into tasks' },
+                      { icon: <Award className="w-[8rem] h-[8rem] md:w-[10rem] md:h-[10rem]" />,   label: 'Accomplishments', desc: 'Capture what you achieved' },
+                      { icon: <Sparkles className="w-[8rem] h-[8rem] md:w-[10rem] md:h-[10rem]" />, label: 'AI summaries', desc: 'Auto-generate progress reports' },
                     ].map(({ icon, label, desc }) => (
                       <div
                         key={label}
-                        className="flex flex-col items-start gap-1 rounded-md bg-background-color border border-brand-20 dark:border-brand-70 p-3 sm:p-8 text-left"
+                        className="relative flex flex-col items-start gap-1 rounded-md bg-background-color border border-brand-20 dark:border-brand-70 p-3 sm:p-8 text-left min-h-[6rem] overflow-hidden"
                       >
-                        <div className="flex items-start gap-3 text-brand-30 dark:text-brand-70 font-normal text-lg md:text-2xl">
-                          {icon}
-                          <div className="flex flex-col text-brand-60 dark:text-brand-30">
+                        <div className="flex items-start pl-3 text-brand-20 dark:text-brand-80 font-normal text-lg md:text-2xl ">
+                          <div className='absolute bottom-[6rem] md:bottom-[8rem] -left-2 md:-left-8 w-full h-1 '>
+                            {icon}
+                          </div>
+                          <div className="pl-24 relative z-20 flex flex-col text-brand-60 dark:text-brand-30">
                             {label}
                             <p className="text-sm text-gray-50 dark:text-gray-40">{desc}</p>
                           </div>

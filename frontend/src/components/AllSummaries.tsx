@@ -570,7 +570,7 @@ const AllSummaries = () => {
         ))}
       </div>
       {sortedAndFilteredSummaries.length === 0 && (
-        <div className="text-center text-gray-50 mt-4 space-y-4">
+        <div className="text-center text-gray-50 mt-16 space-y-4">
           {summaries.length !== 0 && (
             <><p>No summaries match the current filters.</p></>
           )}

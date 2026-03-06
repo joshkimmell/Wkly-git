@@ -19,6 +19,10 @@ import {
   ListItemText,
   Chip,
   Paper,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import Avatar from '@components/Avatar';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
@@ -29,6 +33,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import appColors, { PaletteKey } from '@styles/appColors';
 import NotificationsSettings from './NotificationsSettings';
 import CalendarIntegration from './CalendarIntegration';
+import { COMMON_TIMEZONES, getBrowserTimezone } from '@utils/timezone';
 
 interface ProfileManagementProps {
   onClose?: () => void;
@@ -42,6 +47,7 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
   // Profile form state
   const [username, setUsername] = useState(profile?.username || '');
   const [email, setEmail] = useState(profile?.email || '');
+  const [timezone, setTimezone] = useState(profile?.timezone || getBrowserTimezone());
   const [loading, setLoading] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [previewSrc, setPreviewSrc] = useState<string | undefined>(undefined);
@@ -69,6 +75,7 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
     if (profile) {
       setUsername(profile.username || '');
       setEmail(profile.email || '');
+      setTimezone(profile.timezone || getBrowserTimezone());
       setPreviewSrc(profile.avatar_url || undefined);
       try {
         const pref: PaletteKey | undefined = profile.primary_color;
@@ -152,6 +159,7 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
       const { error } = await supabase.from('profiles').update({
         username,
         email,
+        timezone,
         avatar_url: avatarPublicUrl || profile?.avatar_url,
       }).eq('id', session.user.id);
 
@@ -245,6 +253,24 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
               <Avatar isEdit onChange={handleAvatarChange} src={previewSrc} uploading={loading} size="lg" showLabel />
               <TextField label="Username" value={username} onChange={(e) => setUsername(e.target.value)} fullWidth />
               <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth />
+              
+              <FormControl fullWidth>
+                <InputLabel id="timezone-label">Timezone</InputLabel>
+                <Select
+                  labelId="timezone-label"
+                  id="timezone-select"
+                  value={timezone}
+                  label="Timezone"
+                  onChange={(e) => setTimezone(e.target.value)}
+                >
+                  {COMMON_TIMEZONES.map((tz) => (
+                    <MenuItem key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              
               <div className="w-full flex justify-start">
                 <FormControlLabel
                     control={
@@ -381,7 +407,7 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
           <section>
             <Typography variant="h6" className="mb-8">Choose a theme</Typography>
             <div ref={swatchesRef} role="listbox" aria-label="Primary color" className="flex gap-3 items-center mt-4 mb-4">
-              {(['gray','red','orange','teal','green','blue','indigo','purple'] as PaletteKey[]).map((k, idx) => (
+              {(['gray','red','teal','green','blue','indigo','purple'] as PaletteKey[]).map((k, idx) => (
                 <button
                   key={k}
                   data-swatch

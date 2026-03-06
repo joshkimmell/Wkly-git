@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { GoalsProvider } from '@context/GoalsContext';
+import { TimezoneProvider } from '@context/TimezoneContext';
 import ToastNotification, { notifySuccess, notifyError } from '@components/ToastyNotification';
 // import WeeklyGoals from '@components/WeeklyGoals';
 import AllGoals from '@components/AllGoals';
@@ -151,6 +152,7 @@ const App: React.FC = () => {
   return (
     <SessionContextProvider supabaseClient={supabase}>
     <AppMuiThemeProvider mode={theme}>
+    <TimezoneProvider>
     <div className={`${current}`}>
       <div className={`min-h-screen bg-background text-primary-text ${current}`}>
         <Header   
@@ -178,6 +180,7 @@ const App: React.FC = () => {
         </GoalsProvider>
       </div>
     </div>
+    </TimezoneProvider>
     </AppMuiThemeProvider>
         <ToastNotification theme={theme} />
     </SessionContextProvider>

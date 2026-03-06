@@ -3937,7 +3937,7 @@ const GoalsComponent = () => {
     ) : (
             <div className="text-center text-gray-50 mt-4 justify-center flex flex-col gap-2 items-center h-64">
                 <p>No goals yet.</p>
-                <p>Create a goal to get started!</p>
+                <p className="mb-4">Create a goal to get started!</p>
                 
                 <Button
                     onClick={openGoalModal}

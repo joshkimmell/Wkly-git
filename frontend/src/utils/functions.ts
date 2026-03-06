@@ -661,11 +661,23 @@ export const filterGoalsByWeek = (goals: Goal[], selectedWeek: Date) => {
 };
 
 // Get the start date of the week (Monday)
-export const getWeekStartDate = (date: Date = new Date()): string => {
+// For timezone-aware calculations, import getWeekStartDateInTimezone from @utils/timezone
+export const getWeekStartDate = (date: Date = new Date(), timezone?: string): string => {
   if (isNaN(date.getTime())) {
     console.error('Invalid date passed to getWeekStartDate:', date);
     return new Date().toISOString().split('T')[0]; // Fallback to current date
   }
+  
+  // If timezone is provided, use timezone-aware calculation
+  if (timezone) {
+    try {
+      const { getWeekStartDateInTimezone } = require('@utils/timezone');
+      return getWeekStartDateInTimezone(date, timezone);
+    } catch (e) {
+      // Fall through to UTC calculation if timezone utils not available
+    }
+  }
+  
   // Use UTC-based calculations to avoid local timezone shifts affecting the resulting day
   const d = new Date(date);
   const day = d.getUTCDay();

@@ -63,6 +63,7 @@ export interface HeaderProps {
     toggleTheme: () => void;
     isOpen?: boolean; // Made optional
     handleLogout?: () => Promise<void>; // Optional logout function
+    onLoginClick?: () => void; // Optional login click handler
 }
 
 // Theme is provided by the parent App via props; avoid local ThemeState here.
@@ -351,6 +352,18 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                             )}
                         </Modal>
                     </>
+                )}
+                
+                {/* Login button for logged-out users */}
+                {!isAuthenticated && props.onLoginClick && (
+                    <div className='header-brand--login-wrapper absolute bottom-3 right-3 sm:right-10'>
+                        <button
+                            onClick={props.onLoginClick}
+                            className="btn-primary px-4 py-2 font-medium"
+                        >
+                            Login
+                        </button>
+                    </div>
                 )}
             </div>
 

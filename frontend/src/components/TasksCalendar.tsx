@@ -4,6 +4,7 @@ import TaskCard from './TaskCard';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { IconButton, Tooltip } from '@mui/material';
 import { useTouchDrag } from '@hooks/useTouchDrag';
+import { useTimezone } from '@context/TimezoneContext';
 
 interface TasksCalendarProps {
   tasks: Task[];
