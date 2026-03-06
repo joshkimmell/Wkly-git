@@ -587,13 +587,13 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
       },
       
       MuiPaper: {
-        styleOverrides: {
-          root: {
-            backgroundColor: modeTokens[chosenMode].paper,
-            backgroundImage: 'none', // suppress MUI dark-mode white overlay
-            color: textPrimary,
-          },
-        },
+        // styleOverrides: {
+        //   root: {
+        //     backgroundColor: modeTokens[chosenMode].paper,
+        //     backgroundImage: 'none', // suppress MUI dark-mode white overlay
+        //     // color: textPrimary,
+        //   },
+        // },
       },
       MuiMenu: {
         styleOverrides: {

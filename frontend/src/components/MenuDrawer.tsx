@@ -30,36 +30,6 @@ import Logo from '@components/Logo';
 
 const drawerWidth = 240;
 
-// const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
-//   open?: boolean;
-// }>(({ theme }) => ({
-//   flexGrow: 1,
-//   padding: theme.spacing(3),
-//   transition: theme.transitions.create('margin', {
-//     easing: theme.transitions.easing.sharp,
-//     duration: theme.transitions.duration.leavingScreen,
-//   }),
-//   marginRight: -drawerWidth,
-//   /**
-//    * This is necessary to enable the selection of content. In the DOM, the stacking order is determined
-//    * by the order of appearance. Following this rule, elements appearing later in the markup will overlay
-//    * those that appear earlier. Since the Drawer comes after the Main content, this adjustment ensures
-//    * proper interaction with the underlying content.
-//    */
-//   position: 'relative',
-//   variants: [
-//     {
-//       props: ({ open }) => open,
-//       style: {
-//         transition: theme.transitions.create('margin', {
-//           easing: theme.transitions.easing.easeOut,
-//           duration: theme.transitions.duration.enteringScreen,
-//         }),
-//         marginRight: 0,
-//       },
-//     },
-//   ],
-// }));
 
 interface AppBarProps extends MuiAppBarProps {
   open?: boolean;
@@ -278,10 +248,21 @@ const toggleThemeInternal = (): void => {
                   onClick={handleDrawerClose}
                   className={`flex gap-0 ${isActive ? 'border-2 border-brand-70 dark:border-brand-30' : 'border-none'}`}
                 >
-                  <ListItemIcon className={`${isActive ? 'text-brand-70 dark:text-brand-30' : 'text-primary-text'}`}>
+                  <ListItemIcon 
+                    sx={{ 
+                      color: isActive ? 'primary.main' : 'text.primary'
+                    }}
+                  >
                     {icon}
                   </ListItemIcon>
-                  <ListItemText  className={`${isActive ? 'text-brand-70 dark:text-brand-30' : 'text-primary-text'}`} primary={label} />
+                  <ListItemText 
+                    primary={label}
+                    primaryTypographyProps={{
+                      sx: {
+                        color: isActive ? 'primary.main' : 'text.primary'
+                      }
+                    }}
+                  />
                 </ListItemButton>
               </ListItem>
             );
