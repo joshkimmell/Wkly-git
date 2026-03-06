@@ -31,6 +31,7 @@ interface AllTasksKanbanProps {
 export default function AllTasksKanban({ onRefresh }: AllTasksKanbanProps) {
   const [tasks, setTasks] = useState<TaskWithGoal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [taskIdToEdit, setTaskIdToEdit] = useState<string | null>(null);
   
   // Filters
   const [selectedGoal, setSelectedGoal] = useState<string>('all');
@@ -50,7 +51,7 @@ export default function AllTasksKanban({ onRefresh }: AllTasksKanbanProps) {
       const token = session?.access_token;
       if (!token) throw new Error('User not authenticated');
 
-      const response = await fetch('/api/getAllTasks', {
+      const response = await fetch('/.netlify/functions/getAllTasks', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) {
@@ -68,6 +69,21 @@ export default function AllTasksKanban({ onRefresh }: AllTasksKanbanProps) {
 
   useEffect(() => {
     fetchAllTasks();
+  }, []);
+
+  // Check for task to auto-edit from reminder notification
+  useEffect(() => {
+    try {
+      const taskId = sessionStorage.getItem('wkly_edit_task_id');
+      if (taskId) {
+        setTaskIdToEdit(taskId);
+        sessionStorage.removeItem('wkly_edit_task_id');
+        // Clear after a delay to allow TaskCard to mount and open modal
+        setTimeout(() => setTaskIdToEdit(null), 1000);
+      }
+    } catch (e) {
+      console.warn('Failed to check for task to edit', e);
+    }
   }, []);
 
   // Extract unique goals and categories for filter dropdowns
@@ -137,7 +153,7 @@ export default function AllTasksKanban({ onRefresh }: AllTasksKanbanProps) {
       const token = session?.access_token;
       if (!token) throw new Error('User not authenticated');
 
-      const response = await fetch('/api/updateTask', {
+      const response = await fetch('/.netlify/functions/updateTask', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -170,7 +186,7 @@ export default function AllTasksKanban({ onRefresh }: AllTasksKanbanProps) {
       const token = session?.access_token;
       if (!token) throw new Error('User not authenticated');
 
-      const response = await fetch('/api/updateTask', {
+      const response = await fetch('/.netlify/functions/updateTask', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -201,7 +217,7 @@ export default function AllTasksKanban({ onRefresh }: AllTasksKanbanProps) {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
         if (!token) throw new Error('User not authenticated');
-        const response = await fetch('/api/deleteTask', {
+        const response = await fetch('/.netlify/functions/deleteTask', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ id: taskId }),
@@ -369,6 +385,7 @@ export default function AllTasksKanban({ onRefresh }: AllTasksKanbanProps) {
                         onDragStart={handleDragStart}
                         allowInlineEdit
                         hideStatusChip
+                        autoOpenEditModal={taskIdToEdit === task.id}
                       />
                       {task.goal && (
                         <div className="mt-1 text-xs text-gray-50 dark:text-gray-40 px-3">

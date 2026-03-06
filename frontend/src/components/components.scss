@@ -512,3 +512,10 @@ svg {
     background-color: color-mix(in srgb, var(--brand-50) 12%, transparent) !important;
     transition: background-color 0.1s ease, outline 0.1s ease;
 }
+
+.Toastify__close-button--theme-dark {
+    color: var(--gray-100, variables.$gray-100) !important;
+}
+.Toastify__close-button--theme-light {
+    color: var(--gray-30, variables.$gray-30) !important;
+}   

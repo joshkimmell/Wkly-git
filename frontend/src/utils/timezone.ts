@@ -258,3 +258,124 @@ export function getDayBoundsInTimezone(dateInput: string | Date, timezone: strin
     };
   }
 }
+
+/**
+ * Convert a date-time string from user's timezone to UTC
+ * @param dateStr - Date in YYYY-MM-DD format
+ * @param timeStr - Time in HH:mm format
+ * @param timezone - User's timezone (e.g., 'America/New_York')
+ * @returns ISO string in UTC
+ */
+export function convertToUTC(dateStr: string, timeStr: string, timezone: string = 'UTC'): string {
+  // Validate inputs
+  if (!dateStr || !timeStr || dateStr.trim() === '' || timeStr.trim() === '') {
+    throw new Error(`Invalid date/time input: dateStr="${dateStr}", timeStr="${timeStr}"`);
+  }
+  
+  try {
+    // Create a date string in the user's timezone
+    // Handle both HH:mm and HH:mm:ss formats
+    const normalizedTime = timeStr.includes(':') && timeStr.split(':').length === 2 
+      ? `${timeStr}:00` 
+      : timeStr;
+    const localDateTimeStr = `${dateStr}T${normalizedTime}`;
+    
+    // Parse it as if it's in the user's timezone
+    // We'll use a workaround: create the date, then adjust for timezone offset
+    const date = new Date(localDateTimeStr);
+    
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      throw new Error(`Invalid date created from: ${localDateTimeStr}`);
+    }
+    
+    // Get the timezone offset for the target timezone at this specific date/time
+    // Using Intl.DateTimeFormat to get the offset
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+    
+    // Format the date in the target timezone
+    const parts = formatter.formatToParts(date);
+    const year = parts.find(p => p.type === 'year')?.value || '';
+    const month = parts.find(p => p.type === 'month')?.value || '';
+    const day = parts.find(p => p.type === 'day')?.value || '';
+    const hour = parts.find(p => p.type === 'hour')?.value || '';
+    const minute = parts.find(p => p.type === 'minute')?.value || '';
+    const second = parts.find(p => p.type === 'second')?.value || '';
+    
+    // Build the interpreted datetime
+    const interpretedStr = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+    const interpretedDate = new Date(interpretedStr);
+    
+    // Calculate the difference and adjust
+    const diff = date.getTime() - interpretedDate.getTime();
+    const correctedDate = new Date(date.getTime() + diff);
+    
+    return correctedDate.toISOString();
+  } catch (error) {
+    console.error('Error converting to UTC:', error);
+    throw error; // Re-throw instead of failing silently
+  }
+}
+
+/**
+ * Convert a datetime-local string (from input[type="datetime-local"]) to UTC
+ * @param datetimeLocal - String in format YYYY-MM-DDTHH:mm
+ * @param timezone - User's timezone
+ * @returns ISO string in UTC
+ */
+export function datetimeLocalToUTC(datetimeLocal: string, timezone: string = 'UTC'): string {
+  try {
+    const [dateStr, timeStr] = datetimeLocal.split('T');
+    return convertToUTC(dateStr, timeStr, timezone);
+  } catch (error) {
+    console.error('Error converting datetime-local to UTC:', error);
+    return new Date(datetimeLocal).toISOString();
+  }
+}
+
+/**
+ * Convert a UTC ISO string to datetime-local format for user's timezone
+ * @param isoString - UTC ISO string
+ * @param timezone - User's timezone
+ * @returns String in format YYYY-MM-DDTHH:mm for datetime-local input
+ */
+export function utcToDatetimeLocal(isoString: string, timezone: string = 'UTC'): string {
+  try {
+    const date = new Date(isoString);
+    
+    // Format in user's timezone
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    
+    const parts = formatter.formatToParts(date);
+    const year = parts.find(p => p.type === 'year')?.value || '';
+    const month = parts.find(p => p.type === 'month')?.value || '';
+    const day = parts.find(p => p.type === 'day')?.value || '';
+    const hour = parts.find(p => p.type === 'hour')?.value || '';
+    const minute = parts.find(p => p.type === 'minute')?.value || '';
+    
+    return `${year}-${month}-${day}T${hour}:${minute}`;
+  } catch (error) {
+    console.error('Error converting UTC to datetime-local:', error);
+    const date = new Date(isoString);
+    const offset = date.getTimezoneOffset();
+    const localDate = new Date(date.getTime() - offset * 60000);
+    return localDate.toISOString().slice(0, 16);
+  }
+}

@@ -388,7 +388,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
         const token = session?.access_token;
         if (!token) return;
 
-        const response = await fetch('/api/getAllTasks', {
+        const response = await fetch('/.netlify/functions/getAllTasks', {
           headers: { Authorization: `Bearer ${token}` },
         });
         

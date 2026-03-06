@@ -55,6 +55,7 @@ export default function AllTasksCalendar({
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'day' | '3day' | 'week' | 'month'>('month');
+  const [taskIdToEdit, setTaskIdToEdit] = useState<string | null>(null);
   
   const theme = useTheme();
   const isMdUp = useMediaQuery(theme.breakpoints.up('md'));
@@ -75,12 +76,12 @@ export default function AllTasksCalendar({
       if (!token) throw new Error('User not authenticated');
 
       // Reschedule any overdue incomplete tasks to today before fetching
-      await fetch('/api/rescheduleOverdueTasks', {
+      await fetch('/.netlify/functions/rescheduleOverdueTasks', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const response = await fetch('/api/getAllTasks', {
+      const response = await fetch('/.netlify/functions/getAllTasks', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) {
@@ -98,6 +99,21 @@ export default function AllTasksCalendar({
 
   useEffect(() => {
     fetchAllTasks();
+  }, []);
+
+  // Check for task to auto-edit from reminder notification
+  useEffect(() => {
+    try {
+      const taskId = sessionStorage.getItem('wkly_edit_task_id');
+      if (taskId) {
+        setTaskIdToEdit(taskId);
+        sessionStorage.removeItem('wkly_edit_task_id');
+        // Clear after a delay to allow TaskCard to mount and open modal
+        setTimeout(() => setTaskIdToEdit(null), 1000);
+      }
+    } catch (e) {
+      console.warn('Failed to check for task to edit', e);
+    }
   }, []);
 
   // Filter tasks based on parent filters only
@@ -299,7 +315,7 @@ export default function AllTasksCalendar({
       const token = session?.access_token;
       if (!token) throw new Error('User not authenticated');
 
-      const response = await fetch('/api/updateTask', {
+      const response = await fetch('/.netlify/functions/updateTask', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -330,7 +346,7 @@ export default function AllTasksCalendar({
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
         if (!token) throw new Error('User not authenticated');
-        const response = await fetch('/api/deleteTask', {
+        const response = await fetch('/.netlify/functions/deleteTask', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ id: taskId }),
@@ -357,7 +373,7 @@ export default function AllTasksCalendar({
       const token = session?.access_token;
       if (!token) throw new Error('User not authenticated');
 
-      const response = await fetch('/api/updateTask', {
+      const response = await fetch('/.netlify/functions/updateTask', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -392,7 +408,7 @@ export default function AllTasksCalendar({
       const token = session?.access_token;
       if (!token) throw new Error('User not authenticated');
 
-      const response = await fetch('/api/updateTask', {
+      const response = await fetch('/.netlify/functions/updateTask', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -609,6 +625,7 @@ export default function AllTasksCalendar({
                           selectable={!!onToggleSelect}
                           isSelected={selectedIds.has(task.id)}
                           onToggleSelect={onToggleSelect ? (id) => onToggleSelect(id, 'tasks') : undefined}
+                          autoOpenEditModal={taskIdToEdit === task.id}
                         />
                         <Tooltip title="Remove from calendar" placement="top" arrow>
                           <button
@@ -676,6 +693,7 @@ export default function AllTasksCalendar({
                         selectable={!!onToggleSelect}
                         isSelected={selectedIds.has(task.id)}
                         onToggleSelect={onToggleSelect ? (id) => onToggleSelect(id, 'tasks') : undefined}
+                        autoOpenEditModal={taskIdToEdit === task.id}
                       />
                       <Tooltip title="Remove from calendar" placement="top" arrow>
                         <button
@@ -733,6 +751,7 @@ export default function AllTasksCalendar({
                         selectable={!!onToggleSelect}
                         isSelected={selectedIds.has(task.id)}
                         onToggleSelect={onToggleSelect ? (id) => onToggleSelect(id, 'tasks') : undefined}
+                        autoOpenEditModal={taskIdToEdit === task.id}
                       />
                       <Tooltip title="Remove from calendar" placement="top" arrow>
                         <button
@@ -805,6 +824,7 @@ export default function AllTasksCalendar({
                   selectable={!!onToggleSelect}
                   isSelected={selectedIds.has(task.id)}
                   onToggleSelect={onToggleSelect ? (id) => onToggleSelect(id, 'tasks') : undefined}
+                  autoOpenEditModal={taskIdToEdit === task.id}
                 />
                 <Tooltip title="Remove from calendar" placement="top" arrow>
                   <button
@@ -843,6 +863,7 @@ export default function AllTasksCalendar({
                 selectable={!!onToggleSelect}
                 isSelected={selectedIds.has(task.id)}
                 onToggleSelect={onToggleSelect ? (id) => onToggleSelect(id, 'tasks') : undefined}
+                autoOpenEditModal={taskIdToEdit === task.id}
               />
             ))}
           </div>

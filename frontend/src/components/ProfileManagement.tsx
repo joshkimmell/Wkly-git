@@ -13,11 +13,11 @@ import {
   Switch,
   Checkbox,
   FormControlLabel,
-  FormLabel,
+  // FormLabel,
   List,
   ListItemButton,
   ListItemText,
-  Chip,
+  // Chip,
   Paper,
   MenuItem,
   Select,
@@ -28,7 +28,7 @@ import Avatar from '@components/Avatar';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
 import supabase from '@lib/supabase';
 import useAuth from '@hooks/useAuth';
-import { sendPasswordReset } from '@lib/authHelpers';
+// import { sendPasswordReset } from '@lib/authHelpers';
 import { Eye, EyeOff } from 'lucide-react';
 import appColors, { PaletteKey } from '@styles/appColors';
 import NotificationsSettings from './NotificationsSettings';

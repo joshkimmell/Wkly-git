@@ -148,7 +148,7 @@ export default function useGoalExtras() {
       const promise = (async () => {
         const token = await getToken();
         if (!token) return null;
-        const res = await fetch('/api/getCounts', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ goal_ids: goalIds }) });
+        const res = await fetch('/.netlify/functions/getCounts', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ goal_ids: goalIds }) });
         if (!res.ok) throw new Error(await res.text());
         const json = await res.json();
 
@@ -389,7 +389,7 @@ export default function useGoalExtras() {
       if (!userId) throw new Error('Not authenticated');
       const token = await getToken();
       if (!token) throw new Error('Not authenticated');
-      const res = await fetch('/api/createNote', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ goal_id: goalId, content: tempNote.content }) });
+      const res = await fetch('/.netlify/functions/createNote', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ goal_id: goalId, content: tempNote.content }) });
       if (!res.ok) throw new Error(await res.text());
       // Use centralized helper to refresh notes and count
       await refreshNotesAndCount(goalId);
@@ -407,7 +407,7 @@ export default function useGoalExtras() {
       if (!userId) throw new Error('Not authenticated');
       const token = await getToken();
       if (!token) throw new Error('Not authenticated');
-      const res = await fetch('/api/updateNote', { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ id: noteId, content }) });
+      const res = await fetch('/.netlify/functions/updateNote', { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ id: noteId, content }) });
       if (!res.ok) throw new Error(await res.text());
       if (goalId) await refreshNotesAndCount(goalId);
     } catch (err) {

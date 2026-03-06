@@ -98,7 +98,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       const token = session?.access_token;
       if (!token) throw new Error('User not authenticated');
       
-      const response = await fetch('/api/refineGoal', {
+      const response = await fetch('/.netlify/functions/refineGoal', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -137,7 +137,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       const token = session?.access_token;
       if (!token) throw new Error('User not authenticated');
       
-      const response = await fetch('/api/generatePlan', {
+      const response = await fetch('/.netlify/functions/generatePlan', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -196,7 +196,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       const token = session?.access_token;
       if (!token) throw new Error('User not authenticated');
       
-      const response = await fetch('/api/generatePlan', {
+      const response = await fetch('/.netlify/functions/generatePlan', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

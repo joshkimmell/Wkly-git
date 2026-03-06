@@ -33,7 +33,7 @@ const RequestAccess: React.FC<RequestAccessProps> = ({ onClose, onSuccess }) => 
     setLoading(true);
 
     try {
-      const response = await fetch('/api/requestAccess', {
+      const response = await fetch('/.netlify/functions/requestAccess', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

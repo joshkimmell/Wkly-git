@@ -10,6 +10,7 @@ import Header from '@components/Header';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import supabase from '@lib/supabase';
 import useAuth from '@hooks/useAuth';
+import { useReminderService } from '@hooks/useReminderService';
 import Auth from '@components/Auth';
 import AllSummaries from '@components/AllSummaries';
 // import AllAccomplishments from '@components/AllAccomplishments';
@@ -119,6 +120,9 @@ const App: React.FC = () => {
       // ignore
     }
   }, [profile]);
+
+  // Start reminder service when user is authenticated
+  useReminderService();
 
 
   

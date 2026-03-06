@@ -107,7 +107,7 @@ const AdminAccessRequests: React.FC = () => {
         return;
       }
 
-      const response = await fetch('/api/getApprovedUsers', {
+      const response = await fetch('/.netlify/functions/getApprovedUsers', {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
         },
@@ -140,7 +140,7 @@ const AdminAccessRequests: React.FC = () => {
         return;
       }
 
-      const response = await fetch('/api/approveAccessRequest', {
+      const response = await fetch('/.netlify/functions/approveAccessRequest', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -176,7 +176,7 @@ const AdminAccessRequests: React.FC = () => {
         return;
       }
 
-      const response = await fetch('/api/rejectAccessRequest', {
+      const response = await fetch('/.netlify/functions/rejectAccessRequest', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -212,7 +212,7 @@ const AdminAccessRequests: React.FC = () => {
         return;
       }
 
-      const response = await fetch('/api/revokeAccess', {
+      const response = await fetch('/.netlify/functions/revokeAccess', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

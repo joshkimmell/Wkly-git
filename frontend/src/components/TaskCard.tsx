@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Task } from '@utils/goalUtils';
 import { CheckCircle, Circle, Calendar, Bell, Trash, Edit, Clock, GripVertical, ChevronUp, ChevronDown, FileText, Tag, Square, CheckSquare2 } from 'lucide-react';
 import { Edit2, Save, X as CloseButton, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
@@ -10,6 +10,9 @@ import { objectCounter, modalClasses, overlayClasses } from '@styles/classes';
 import supabase from '@lib/supabase';
 import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
 import { enhanceLinks, applyHighlight } from '@utils/functions';
+import { useTimezone } from '@context/TimezoneContext';
+import { utcToDatetimeLocal, convertToUTC } from '@utils/timezone';
+import { clearNotifiedReminder } from '@hooks/useReminderService';
 
 interface TaskCardProps {
   task: Task;
@@ -35,6 +38,7 @@ interface TaskCardProps {
   selectable?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (id: string) => void;
+  autoOpenEditModal?: boolean; // Auto-open edit modal on mount (for reminder navigation)
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({
@@ -61,7 +65,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
   selectable = false,
   isSelected = false,
   onToggleSelect,
+  autoOpenEditModal = false,
 }) => {
+  const { timezone } = useTimezone();
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editDescription, setEditDescription] = useState(task.description || '');
@@ -369,7 +375,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
     setIsEditing(false);
   };
 
-  const handleOpenFullEditModal = () => {
+  const handleOpenFullEditModal = useCallback(() => {
     setModalEditTitle(task.title);
     setModalEditDescription(task.description || '');
     setModalEditStatus(task.status);
@@ -388,44 +394,67 @@ const TaskCard: React.FC<TaskCardProps> = ({
         setModalEditReminderDatetime('');
       } else {
         setModalEditReminderOffset('custom');
-        const d = new Date(task.reminder_datetime);
-        setModalEditReminderDatetime(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+        setModalEditReminderDatetime(utcToDatetimeLocal(task.reminder_datetime, timezone));
       }
     } else if (task.reminder_datetime) {
       setModalEditReminderOffset('custom');
-      const d = new Date(task.reminder_datetime);
-      setModalEditReminderDatetime(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+      setModalEditReminderDatetime(utcToDatetimeLocal(task.reminder_datetime, timezone));
     } else {
       setModalEditReminderOffset('30');
       setModalEditReminderDatetime('');
     }
     setIsFullEditModalOpen(true);
-  };
+  }, [task, timezone]);
+
+  // Auto-open edit modal if requested (for reminder navigation)
+  useEffect(() => {
+    if (autoOpenEditModal && allowInlineEdit) {
+      // Small delay to ensure component is fully mounted
+      const timer = setTimeout(() => {
+        handleOpenFullEditModal();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [autoOpenEditModal, allowInlineEdit, handleOpenFullEditModal]);
 
   const handleSaveFullEdit = () => {
     if (onUpdate) {
-      // Compute reminder_datetime from offset or custom input
+      // Compute reminder_datetime from offset or custom input (in UTC)
       let computedReminderDatetime: string | null = null;
       if (modalEditReminderEnabled) {
-        if (modalEditReminderOffset === 'custom') {
-          computedReminderDatetime = modalEditReminderDatetime
-            ? new Date(modalEditReminderDatetime).toISOString()
-            : null;
-        } else if (modalEditDate && modalEditTime) {
-          const sched = new Date(`${modalEditDate}T${modalEditTime}`);
-          sched.setMinutes(sched.getMinutes() - Number(modalEditReminderOffset));
-          computedReminderDatetime = sched.toISOString();
-        } else if (modalEditReminderDatetime) {
-          computedReminderDatetime = new Date(modalEditReminderDatetime).toISOString();
+        try {
+          if (modalEditReminderOffset === 'custom') {
+            computedReminderDatetime = modalEditReminderDatetime
+              ? new Date(modalEditReminderDatetime).toISOString()
+              : null;
+          } else if (modalEditDate && modalEditTime) {
+            // Convert scheduled time from user's timezone to UTC
+            const scheduledUTC = convertToUTC(modalEditDate, modalEditTime, timezone);
+            const scheduledDate = new Date(scheduledUTC);
+            scheduledDate.setMinutes(scheduledDate.getMinutes() - Number(modalEditReminderOffset));
+            computedReminderDatetime = scheduledDate.toISOString();
+          } else if (modalEditReminderDatetime) {
+            computedReminderDatetime = new Date(modalEditReminderDatetime).toISOString();
+          }
+        } catch (error) {
+          console.error('Failed to compute reminder datetime:', error);
+          // If conversion fails, disable the reminder
+          computedReminderDatetime = null;
         }
       }
+      
+      // If reminder datetime changed, clear it from notified list so it can fire again
+      if (task.reminder_datetime !== computedReminderDatetime) {
+        clearNotifiedReminder(task.id);
+      }
+      
       const updates: Partial<Task> = {
         title: modalEditTitle,
         description: modalEditDescription,
         status: modalEditStatus,
         scheduled_date: modalEditDate || undefined,
         scheduled_time: modalEditTime || undefined,
-        reminder_enabled: modalEditReminderEnabled,
+        reminder_enabled: modalEditReminderEnabled && computedReminderDatetime !== null,
         reminder_datetime: computedReminderDatetime ?? undefined,
       };
       onUpdate(task.id, updates);
@@ -449,12 +478,19 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
   };
 
-  const handleDateTimeSave = (date: string | null, time: string | null) => {
+  const handleDateTimeSave = (date: string | null, time: string | null, reminderEnabled?: boolean, reminderDatetime?: string | null) => {
     if (onUpdate) {
+      // If reminder datetime changed, clear it from notified list so it can fire again
+      if (task.reminder_datetime !== reminderDatetime) {
+        clearNotifiedReminder(task.id);
+      }
+      
       // Explicitly send null to clear fields when unscheduling
       const updates: any = {
         scheduled_date: date,
         scheduled_time: time,
+        reminder_enabled: reminderEnabled ?? false,
+        reminder_datetime: reminderDatetime ?? null,
       };
       onUpdate(task.id, updates);
     }
@@ -530,17 +566,29 @@ const TaskCard: React.FC<TaskCardProps> = ({
     setClosingRationale('');
   };
 
-  // Derive a human-readable preview of when the alert will fire (shown inline in the modal)
+  // Derive a human-readable preview of when the alert will fire (shown inline in the modal, in user's timezone)
   const computedAlertPreview = React.useMemo(() => {
     if (!modalEditReminderEnabled) return '';
     if (modalEditReminderOffset === 'custom' || !modalEditDate || !modalEditTime) {
       if (!modalEditReminderDatetime) return '';
-      return new Date(modalEditReminderDatetime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+      try {
+        // modalEditReminderDatetime is already in user's timezone (from utcToDatetimeLocal)
+        return new Date(modalEditReminderDatetime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+      } catch {
+        return '';
+      }
     }
-    const sched = new Date(`${modalEditDate}T${modalEditTime}`);
-    sched.setMinutes(sched.getMinutes() - Number(modalEditReminderOffset));
-    return sched.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
-  }, [modalEditReminderEnabled, modalEditReminderOffset, modalEditDate, modalEditTime, modalEditReminderDatetime]);
+    try {
+      // Scheduled time is in user's timezone
+      const scheduledUTC = convertToUTC(modalEditDate, modalEditTime, timezone);
+      const scheduledDate = new Date(scheduledUTC);
+      scheduledDate.setMinutes(scheduledDate.getMinutes() - Number(modalEditReminderOffset));
+      return scheduledDate.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+    } catch (error) {
+      console.warn('Failed to compute alert preview:', error);
+      return '';
+    }
+  }, [modalEditReminderEnabled, modalEditReminderOffset, modalEditDate, modalEditTime, modalEditReminderDatetime, timezone]);
 
   return (
     <div
@@ -575,7 +623,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
             className="text-tertiary-button mt-0.5 hover:scale-110 transition-transform"
             title={`${displayStatus === 'Done' ? 'Reopen' : 'Mark as done'} `}
           >
-            <Tooltip title={`${displayStatus === 'Done' ? 'Reopen' : 'Mark as done'}  `}>
+            <Tooltip title={`${displayStatus === 'Done' ? 'Reopen' : 'Mark as done'}  `} placement="top" arrow>
               {getStatusIcon(displayStatus)}
             </Tooltip>
           </IconButton>
@@ -769,7 +817,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                         onClick={() => onMoveDown?.(task.id)}
                         disabled={isLast}
                       >
-                        <ChevronDown className="w-4 h-4" />
+                        <ChevronDown className="w-5 h-5" />
                       </IconButton>
                     </span>
                   </Tooltip>
@@ -778,8 +826,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
               
               {onEdit && !allowInlineEdit && (
                 <Tooltip title="Edit task" placement="top" arrow>
-                  <IconButton size="small" onClick={() => onEdit(task)}>
-                    <Edit2 className="w-4 h-4" />
+                  <IconButton size="small" className='btn-ghost' onClick={() => onEdit(task)}>
+                    <Edit2 className="w-5 h-5" />
                   </IconButton>
                 </Tooltip>
               )}
@@ -787,8 +835,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
               {allowInlineEdit && onUpdate && (
                 <>
                   <Tooltip title="Edit all fields" placement="top" arrow>
-                    <IconButton size="small" onClick={handleOpenFullEditModal}>
-                      <Edit className="w-4 h-4" />
+                    <IconButton className='btn-ghost' size="small" onClick={handleOpenFullEditModal}>
+                      <Edit className="w-5 h-5" />
                     </IconButton>
                   </Tooltip>
                 </>
@@ -812,8 +860,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
               
               {onDelete && (
                 <Tooltip title="Delete task" placement="top" arrow>
-                  <IconButton size="small" onClick={(e) => { e.stopPropagation(); setDeleteTaskConfirmOpen(true); }}>
-                    <Trash className="w-4 h-4" />
+                  <IconButton className='btn-ghost' size="small" onClick={(e) => { e.stopPropagation(); setDeleteTaskConfirmOpen(true); }}>
+                    <Trash className="w-5 h-5" />
                   </IconButton>
                 </Tooltip>
               )}
@@ -829,6 +877,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
         onSave={handleDateTimeSave}
         initialDate={task.scheduled_date}
         initialTime={task.scheduled_time}
+        initialReminderEnabled={task.reminder_enabled}
+        initialReminderDatetime={task.reminder_datetime}
         title="Set Date & Time"
       />
 

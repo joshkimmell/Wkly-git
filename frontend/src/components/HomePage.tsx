@@ -202,7 +202,7 @@ function MiniGoalCard({ goal, onClick }: { goal: Goal; onClick: () => void }) {
       try {
         const token = await getSessionToken();
         if (!token) return;
-        const res = await fetch('/api/getAllTasks', {
+        const res = await fetch('/.netlify/functions/getAllTasks', {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) return;
@@ -393,7 +393,7 @@ export default function HomePage() {
     setTasksLoading(true);
     try {
       const token = await getSessionToken();
-      const res   = await fetch('/api/getAllTasks', {
+      const res   = await fetch('/.netlify/functions/getAllTasks', {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -426,7 +426,7 @@ export default function HomePage() {
     setTodayTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
     try {
       const token = await getSessionToken();
-      await fetch('/api/updateTask', {
+      await fetch('/.netlify/functions/updateTask', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: taskId, status: newStatus, ...(closingRationale ? { closing_rationale: closingRationale } : {}) }),
@@ -503,7 +503,7 @@ export default function HomePage() {
         await refreshGoals();
       }
       
-      const response = await fetch('/api/createTask', {
+      const response = await fetch('/.netlify/functions/createTask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({

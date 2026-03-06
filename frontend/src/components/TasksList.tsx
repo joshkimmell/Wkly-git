@@ -93,7 +93,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
       const token = session?.access_token;
       if (!token) throw new Error('User not authenticated');
       
-      const response = await fetch('/api/generatePlan', {
+      const response = await fetch('/.netlify/functions/generatePlan', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -143,7 +143,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
       const token = session?.access_token;
       if (!token) throw new Error('User not authenticated');
 
-      const response = await fetch('/api/createTask', {
+      const response = await fetch('/.netlify/functions/createTask', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -192,7 +192,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
       // Optimistic update
       setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
 
-      const response = await fetch('/api/updateTask', {
+      const response = await fetch('/.netlify/functions/updateTask', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -260,7 +260,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
       const token = session?.access_token;
       if (!token) throw new Error('User not authenticated');
 
-      const response = await fetch('/api/updateTask', {
+      const response = await fetch('/.netlify/functions/updateTask', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -301,12 +301,12 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
       setTasks(newTasks);
 
       await Promise.all([
-        fetch('/api/updateTask', {
+        fetch('/.netlify/functions/updateTask', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ id: newTasks[taskIndex].id, order_index: taskIndex }),
         }),
-        fetch('/api/updateTask', {
+        fetch('/.netlify/functions/updateTask', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ id: newTasks[newIndex].id, order_index: newIndex }),
@@ -325,7 +325,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
       const token = session?.access_token;
       if (!token) throw new Error('User not authenticated');
 
-      const response = await fetch('/api/updateTask', {
+      const response = await fetch('/.netlify/functions/updateTask', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -376,7 +376,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
 
       const results = await Promise.allSettled(
         ids.map((id) =>
-          fetch('/api/updateTask', {
+          fetch('/.netlify/functions/updateTask', {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
@@ -412,7 +412,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
 
       const results = await Promise.allSettled(
         ids.map((id) =>
-          fetch('/api/deleteTask', {
+          fetch('/.netlify/functions/deleteTask', {
             method: 'DELETE',
             headers: {
               'Content-Type': 'application/json',

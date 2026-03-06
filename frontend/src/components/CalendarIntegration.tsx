@@ -31,7 +31,7 @@ const CalendarIntegration: React.FC = () => {
     (async () => {
       try {
         const headers = await getAuthHeader();
-        const res = await fetch('/api/manageCalendarToken', { headers });
+        const res = await fetch('/.netlify/functions/manageCalendarToken', { headers });
         if (!res.ok) throw new Error('Failed to load token');
         const data = await res.json();
         if (mounted && data.token) setCalendarToken(data.token);
@@ -49,7 +49,7 @@ const CalendarIntegration: React.FC = () => {
     try {
       const headers = await getAuthHeader();
       // Backend generates the token and saves it via adminClient (bypasses RLS)
-      const res = await fetch('/api/manageCalendarToken', {
+      const res = await fetch('/.netlify/functions/manageCalendarToken', {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
       });

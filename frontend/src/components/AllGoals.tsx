@@ -350,6 +350,10 @@ const GoalsComponent = () => {
 
     // Kanban tasks state
     const [kanbanTasks, setKanbanTasks] = useState<Record<string, Task[]>>({});
+    
+    // Notification-triggered task edit modal state
+    const [notificationTaskModalOpen, setNotificationTaskModalOpen] = useState(false);
+    const [notificationTask, setNotificationTask] = useState<Task | null>(null);
 
     useEffect(() => {
         try {
@@ -648,7 +652,7 @@ const GoalsComponent = () => {
             const { data: { session } } = await supabase.auth.getSession();
             const token = session?.access_token;
             
-            const response = await fetch('/api/updateTask', {
+            const response = await fetch('/.netlify/functions/updateTask', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -980,7 +984,7 @@ const GoalsComponent = () => {
                 goalId = createdGoal.id;
                 await refreshGoals();
             }
-            const response = await fetch('/api/createTask', {
+            const response = await fetch('/.netlify/functions/createTask', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({
@@ -1041,6 +1045,40 @@ const GoalsComponent = () => {
         }
     }, [scope]);
 
+    // Check for notification-triggered task edit on mount
+    useEffect(() => {
+        const checkNotificationTask = async () => {
+            const taskId = sessionStorage.getItem('wkly_edit_task_id');
+            if (taskId) {
+                sessionStorage.removeItem('wkly_edit_task_id');
+                
+                try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const token = session?.access_token;
+                    if (!token) return;
+                    
+                    const response = await fetch('/.netlify/functions/getAllTasks', {
+                        headers: { 'Authorization': `Bearer ${token}` },
+                    });
+                    
+                    if (!response.ok) return;
+                    
+                    const allTasks: Task[] = await response.json();
+                    const task = allTasks.find((t) => t.id === taskId);
+                    
+                    if (task) {
+                        setNotificationTask(task);
+                        setNotificationTaskModalOpen(true);
+                    }
+                } catch (error) {
+                    console.error('Failed to load notification task:', error);
+                }
+            }
+        };
+        
+        checkNotificationTask();
+    }, []);
+
     // Function to fetch all tasks and group them by goal_id for kanban display
     const fetchKanbanTasks = useCallback(async () => {
         if (viewMode !== 'kanban') return;
@@ -1050,7 +1088,7 @@ const GoalsComponent = () => {
             const token = session?.access_token;
             if (!token) throw new Error('User not authenticated');
 
-            const response = await fetch('/api/getAllTasks', {
+            const response = await fetch('/.netlify/functions/getAllTasks', {
                 headers: { Authorization: `Bearer ${token}` },
             });
             
@@ -1104,7 +1142,7 @@ const GoalsComponent = () => {
             const token = session?.access_token;
             if (!token) throw new Error('User not authenticated');
 
-            const response = await fetch('/api/updateTask', {
+            const response = await fetch('/.netlify/functions/updateTask', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1137,7 +1175,7 @@ const GoalsComponent = () => {
             const token = session?.access_token;
             if (!token) throw new Error('User not authenticated');
 
-            const response = await fetch('/api/updateTask', {
+            const response = await fetch('/.netlify/functions/updateTask', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1178,7 +1216,7 @@ const GoalsComponent = () => {
                 const { data: { session } } = await supabase.auth.getSession();
                 const token = session?.access_token;
                 if (!token) throw new Error('User not authenticated');
-                const response = await fetch('/api/deleteTask', {
+                const response = await fetch('/.netlify/functions/deleteTask', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                     body: JSON.stringify({ id: taskId }),
@@ -1834,7 +1872,7 @@ const GoalsComponent = () => {
             const token = session?.access_token;
             if (!token) return;
 
-            const response = await fetch('/api/getAllTasks', {
+            const response = await fetch('/.netlify/functions/getAllTasks', {
                 headers: { Authorization: `Bearer ${token}` },
             });
             
@@ -1859,7 +1897,7 @@ const GoalsComponent = () => {
             const token = session?.access_token;
             if (!token) return;
 
-            const response = await fetch('/api/getAllTasks', {
+            const response = await fetch('/.netlify/functions/getAllTasks', {
                 headers: { Authorization: `Bearer ${token}` },
             });
             
@@ -1891,7 +1929,7 @@ const GoalsComponent = () => {
             const token = session?.access_token;
             if (!token) throw new Error('User not authenticated');
 
-            const response = await fetch('/api/createTask', {
+            const response = await fetch('/.netlify/functions/createTask', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -3284,7 +3322,7 @@ const GoalsComponent = () => {
                                                                 const token = session?.access_token;
                                                                 if (!token) throw new Error('User not authenticated');
 
-                                                                const response = await fetch('/api/updateTask', {
+                                                                const response = await fetch('/.netlify/functions/updateTask', {
                                                                     method: 'PUT',
                                                                     headers: {
                                                                         'Content-Type': 'application/json',
@@ -3307,7 +3345,7 @@ const GoalsComponent = () => {
                                                                 const token = session?.access_token;
                                                                 if (!token) throw new Error('User not authenticated');
 
-                                                                const response = await fetch('/api/updateTask', {
+                                                                const response = await fetch('/.netlify/functions/updateTask', {
                                                                     method: 'PUT',
                                                                     headers: {
                                                                         'Content-Type': 'application/json',
@@ -3337,7 +3375,7 @@ const GoalsComponent = () => {
                                                                     const { data: { session } } = await supabase.auth.getSession();
                                                                     const token = session?.access_token;
                                                                     if (!token) throw new Error('User not authenticated');
-                                                                    const response = await fetch('/api/deleteTask', {
+                                                                    const response = await fetch('/.netlify/functions/deleteTask', {
                                                                         method: 'DELETE',
                                                                         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                                                                         body: JSON.stringify({ id: taskId }),
@@ -4089,6 +4127,127 @@ const GoalsComponent = () => {
                         )}
                     </div>
                 </Modal>
+
+        {/* Notification Task Edit Modal */}
+        <Modal
+            isOpen={notificationTaskModalOpen}
+            onRequestClose={() => {
+                setNotificationTaskModalOpen(false);
+                setNotificationTask(null);
+            }}
+            shouldCloseOnOverlayClick={true}
+            ariaHideApp={ARIA_HIDE_APP}
+            className={`fixed inset-0 flex md:items-center justify-center z-50`}
+            overlayClassName={`${overlayClasses}`}
+        >
+            <div className={`${modalClasses} max-w-2xl w-full max-h-[90vh] overflow-y-auto`}>
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-semibold">Task Reminder</h2>
+                    <IconButton
+                        onClick={() => {
+                            setNotificationTaskModalOpen(false);
+                            setNotificationTask(null);
+                        }}
+                        size="small"
+                    >
+                        <CloseButton className="w-5 h-5" />
+                    </IconButton>
+                </div>
+                {notificationTask && (
+                    <TaskCard
+                        task={notificationTask}
+                        allowInlineEdit={true}
+                        autoOpenEditModal={true}
+                        onUpdate={async (taskId, updates) => {
+                            try {
+                                const { data: { session } } = await supabase.auth.getSession();
+                                const token = session?.access_token;
+                                if (!token) throw new Error('Not authenticated');
+                                
+                                const response = await fetch('/.netlify/functions/updateTask', {
+                                    method: 'PUT',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${token}`,
+                                    },
+                                    body: JSON.stringify({ id: taskId, ...updates }),
+                                });
+                                
+                                if (!response.ok) throw new Error('Failed to update task');
+                                
+                                const updatedTask = await response.json();
+                                setNotificationTask(updatedTask);
+                                notifySuccess('Task updated');
+                                
+                                // Refresh kanban tasks if applicable
+                                if (viewMode === 'kanban' || viewMode === 'tasks-calendar') {
+                                    fetchKanbanTasks();
+                                }
+                            } catch (error) {
+                                console.error('Failed to update task:', error);
+                                notifyError('Failed to update task');
+                            }
+                        }}
+                        onDelete={async (taskId) => {
+                            try {
+                                const { data: { session } } = await supabase.auth.getSession();
+                                const token = session?.access_token;
+                                if (!token) throw new Error('Not authenticated');
+                                
+                                const response = await fetch(`/.netlify/functions/deleteTask?task_id=${taskId}`, {
+                                    method: 'DELETE',
+                                    headers: { 'Authorization': `Bearer ${token}` },
+                                });
+                                
+                                if (!response.ok) throw new Error('Failed to delete task');
+                                
+                                notifySuccess('Task deleted');
+                                setNotificationTaskModalOpen(false);
+                                setNotificationTask(null);
+                                
+                                // Refresh kanban tasks if applicable
+                                if (viewMode === 'kanban' || viewMode === 'tasks-calendar') {
+                                    fetchKanbanTasks();
+                                }
+                            } catch (error) {
+                                console.error('Failed to delete task:', error);
+                                notifyError('Failed to delete task');
+                            }
+                        }}
+                        onStatusChange={async (taskId, newStatus) => {
+                            try {
+                                const { data: { session } } = await supabase.auth.getSession();
+                                const token = session?.access_token;
+                                if (!token) throw new Error('Not authenticated');
+                                
+                                const response = await fetch('/.netlify/functions/updateTask', {
+                                    method: 'PUT',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${token}`,
+                                    },
+                                    body: JSON.stringify({ id: taskId, status: newStatus }),
+                                });
+                                
+                                if (!response.ok) throw new Error('Failed to update task status');
+                                
+                                const updatedTask = await response.json();
+                                setNotificationTask(updatedTask);
+                                notifySuccess('Task status updated');
+                                
+                                // Refresh kanban tasks if applicable
+                                if (viewMode === 'kanban' || viewMode === 'tasks-calendar') {
+                                    fetchKanbanTasks();
+                                }
+                            } catch (error) {
+                                console.error('Failed to update task status:', error);
+                                notifyError('Failed to update task status');
+                            }
+                        }}
+                    />
+                )}
+            </div>
+        </Modal>
         </div>
   );
 };

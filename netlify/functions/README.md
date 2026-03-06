@@ -56,9 +56,9 @@ Security:
 Local development and Netlify setup
 - Copy `.env.example` to `.env` for local testing (do not commit `.env`).
 - Start the functions locally with `netlify dev` and the Netlify CLI will load your `.env` file.
-- To set environment variables in Netlify dashboard: Site Settings → Build & deploy → Environment → Environment variables. Add `SENDGRID_API_KEY` and `FROM_EMAIL` there.
-
 - To set environment variables in Netlify dashboard: Site Settings → Build & deploy → Environment → Environment variables. Add `MAILGUN_API_KEY`, `MAILGUN_DOMAIN` and `FROM_EMAIL` there.
+
+**Note:** All email functions (test emails, task reminders, confirmations) use **Mailgun** for email delivery.
 
 Example `.env` (local only):
 
