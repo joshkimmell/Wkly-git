@@ -813,14 +813,14 @@ export const saveSummary = async (
     title: formattedTitle,
     week_start: weekStart,
     content: summaryContent,
-    type: summaryType, // Changed from summary_type to match interface
+    summary_type: summaryType, // Use actual database column name
     scope: scope,
   };
 
   const { data, error } = await supabase
     .from('summaries')
     .insert(requestBody)
-    .select('id') // Changed from summary_id to match table schema
+    .select('summary_id') // Use actual database column name
     .single();
 
   if (error) {
@@ -829,7 +829,7 @@ export const saveSummary = async (
     throw new Error('Failed to save summary');
   }
   console.log('Summary title:', formattedTitle);
-  setLocalSummaryId(data.id); // Changed from data.summary_id to data.id
+  setLocalSummaryId(data.summary_id); // Use actual database column name
   notifySuccess('Summary saved successfully!');
   return data;
 };

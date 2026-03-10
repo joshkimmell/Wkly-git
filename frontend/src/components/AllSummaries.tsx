@@ -21,7 +21,7 @@ import { useTheme } from '@mui/material/styles';
 
 const AllSummaries = () => {
   const theme = useTheme();
-  const { refreshGoals } = useGoalsContext();
+  const { goals, refreshGoals } = useGoalsContext();
   const [summaries, setSummaries] = useState<Summary[]>([]);
   const [filteredSummaries, setFilteredSummaries] = useState<Summary[]>([]);
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
@@ -78,6 +78,9 @@ const AllSummaries = () => {
         (filterType?.length || 0) +
         // (filterStartDate && filterEndDate ? 1 : 0) +
         (filter && filter.trim().length > 0 ? 1 : 0);
+
+  // Count incomplete goals (all goals where status is not 'Done')
+  const incompleteGoalsCount = goals.filter(g => g.status !== 'Done').length;
 
  
   const closeModal = () => {
@@ -574,17 +577,36 @@ const AllSummaries = () => {
           {summaries.length !== 0 && (
             <><p>No summaries match the current filters.</p></>
           )}
-          <p>Create a few goals to get started!</p>
+          {incompleteGoalsCount !== 0 ? (
+            <>
+          <p>You have {incompleteGoalsCount} incomplete goal{incompleteGoalsCount !== 1 ? 's' : ''}. Create a summary when you're ready!</p>
           <Button
-              onClick={openGoalModal}
-              variant='contained'
-              className="btn-primary gap-3 flex"
-              // title={`Add a new goal for the current ${scope}`}
-              aria-label={`Add a new goal`}
-              >
+          onClick={openGoalModal}
+          variant='contained'
+          className="btn-primary gap-3 flex"
+          // title={`Add a new goal for the current ${scope}`}
+          aria-label={`Add a new goal`}
+          >
               <span className="block flex text-nowrap">Add a Goal</span>
               <Target className="w-5 h-5" />
           </Button>
+          </>
+        ) : (
+          <><p>You don't have any goals yet. Create a goal to start generating summaries!</p>
+          <Button
+          onClick={openGoalModal}
+          variant='contained'
+          className="btn-primary gap-3 flex"
+          // title={`Add a new goal for the current ${scope}`}
+          aria-label={`Add a new goal`}
+          >
+              <span className="block flex text-nowrap">Add a Goal</span>
+              <Target className="w-5 h-5" />
+          </Button>
+          </> 
+        )
+        
+        }
         </div>
       )}
       
