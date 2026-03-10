@@ -2669,7 +2669,7 @@ const GoalsComponent = () => {
                             <SummaryGenerator 
                             summaryId={selectedSummary?.id || ''} 
                             summaryTitle={selectedSummary?.title || `Summary for ${scope}: ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}                                                                                                                                                                                selectedRange={new Date()}
-                            filteredGoals={showAllGoals ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || [])} // Pass the goals for the current page or full list
+                            filteredGoals={sortedAndFilteredGoals} // Pass only the filtered/visible goals
                             scope={scope}
                             />
                         </div>

@@ -106,7 +106,7 @@ export const handler: Handler = async (event) => {
 
   try {
     const parsedBody = JSON.parse(event.body || '{}');
-    const { summary_id, week_start, goalsWithAccomplishments, summaryTitle, scope } = parsedBody;
+    const { summary_id, week_start, goalsWithAccomplishments, summaryTitle, scope, responseLength, additionalContext } = parsedBody;
 
     // Defensive server-side logging to help debug mismatches between client and server.
     try {
@@ -116,6 +116,8 @@ export const handler: Handler = async (event) => {
         summaryTitle_preview: typeof summaryTitle === 'string' ? summaryTitle.slice(0, 200) : null,
         goals_count: Array.isArray(goalsWithAccomplishments) ? goalsWithAccomplishments.length : 0,
         scope,
+        responseLength,
+        additionalContext_preview: typeof additionalContext === 'string' ? additionalContext.slice(0, 100) : null,
       });
     } catch (e) {
       // ignore logging errors
@@ -160,10 +162,20 @@ export const handler: Handler = async (event) => {
         ? `${startDate.getFullYear()}` // e.g., 2025
         : ''; // Fallback for unexpected scope values
 
+    // Determine the length instruction based on responseLength parameter or default
+    const lengthInstruction = responseLength 
+      ? `approximately ${responseLength} words` 
+      : 'no more than 480 characters';
+
+    // Include additional context if provided
+    const contextSection = additionalContext 
+      ? `\n\nAdditional Context: ${additionalContext}\n` 
+      : '';
+
     // Build the prompt using summaryTitle
     const prompt = `
-      Summarize the following goals with their accomplishments into a concise self-reflection defaulting to no more than 480 characters. Format for use with ReactQuill.
-      Do not include the goals or accomplishments list in the summary. Instead, focus on the overall progress and impact of the goals and accomplishments. 
+      Summarize the following goals with their accomplishments into a concise self-reflection defaulting to ${lengthInstruction}. Format for use with ReactQuill.
+      Do not include the goals or accomplishments list in the summary. Instead, focus on the overall progress and impact of the goals and accomplishments.${contextSection}
       Title: ${summaryTitle}
       ${goalsWithAccomplishments
         .map((goal: any, index: number) => {

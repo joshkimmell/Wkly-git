@@ -149,11 +149,11 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
 
       const goalsWithAccomplishments = filteredGoals.map(goal => ({
         title: goal.title,
-        description: `${goal.description} ${additionalContext}`, // Append additional context to the description
+        description: goal.description,
         category: goal.category || 'Technical skills',
         accomplishments: (goal.accomplishments || []).map(accomplishment => ({
           title: accomplishment,
-          description: `${accomplishment} ${additionalContext}`, // Append additional context to accomplishments
+          description: accomplishment,
           impact: 'Medium',
         })),
       }));
@@ -174,7 +174,8 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
         userId,
         weekStart,
         goalsWithAccomplishments,
-        responseLength // Pass the updated response length
+        responseLength, // Pass the updated response length
+        additionalContext // Pass additional context as separate parameter
       );
 
       setSummary(generatedSummary);
@@ -283,7 +284,7 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
                 <TextField
                   id="response-length"
                   type="number"
-                  label="Response length"
+                  label="Response length (words)"
                   value={responseLength}
                   onChange={(e) => setResponseLength(Number(e.target.value))}
                   placeholder="Modify the length of the generated summary"

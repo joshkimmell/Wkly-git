@@ -727,7 +727,8 @@ export const generateSummary = async (
     category: string;
     accomplishments: { title: string; description: string; impact: string }[];
   }[],
-  responseLength?: number // Add optional responseLength parameter
+  responseLength?: number, // Add optional responseLength parameter
+  additionalContext?: string // Add optional additionalContext parameter
 ): Promise<string> => {
   const summaryId = id || uuidv4();
   const token = await getSessionToken();
@@ -739,6 +740,7 @@ export const generateSummary = async (
     week_start: weekStart,
     goalsWithAccomplishments,
     responseLength, // Include responseLength in the request body if provided
+    additionalContext, // Include additionalContext in the request body if provided
   };
 
   // Add a short correlation id so server logs can be matched to client logs
@@ -755,6 +757,7 @@ export const generateSummary = async (
       week_start: requestBody.week_start,
       goals_count: Array.isArray(requestBody.goalsWithAccomplishments) ? (requestBody.goalsWithAccomplishments as any[]).length : 0,
       responseLength: requestBody.responseLength,
+      additionalContext_preview: (requestBody.additionalContext as string | undefined)?.slice?.(0, 100),
     });
   } catch (e) {
     // ignore logging failures
