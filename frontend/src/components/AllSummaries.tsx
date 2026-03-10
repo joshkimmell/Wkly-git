@@ -3,7 +3,7 @@ import { TextField, Tooltip, IconButton, Badge, Popover, Box, FormControl, MenuI
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import ConfirmModal from '@components/ConfirmModal';
-import { Summary, Goal } from '@utils/goalUtils'; // Adjust the import path as necessary
+import { Summary, Goal, Task, calculateGoalCompletion } from '@utils/goalUtils'; // Adjust the import path as necessary
 import { fetchSummaries, createSummary, deleteSummary, saveSummary, UserCategories, getWeekStartDate } from '@utils/functions'; // Adjust the import path as necessary
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 import SummaryCard from '@components/SummaryCard';
@@ -71,6 +71,8 @@ const AllSummaries = () => {
   const [singleDeleteId, setSingleDeleteId] = useState<string | null>(null);
   const [isSingleDeleteConfirmOpen, setIsSingleDeleteConfirmOpen] = useState(false);
   const [singleDeleting, setSingleDeleting] = useState(false);
+  const [tasksByGoal, setTasksByGoal] = useState<Record<string, Task[]>>({});
+  
   // Count of active filters to display as a badge on the filter button
     const selectedFiltersCount =
         (filterStatus?.length || 0) +
@@ -79,8 +81,12 @@ const AllSummaries = () => {
         // (filterStartDate && filterEndDate ? 1 : 0) +
         (filter && filter.trim().length > 0 ? 1 : 0);
 
-  // Count incomplete goals (all goals where status is not 'Done')
-  const incompleteGoalsCount = goals.filter(g => g.status !== 'Done').length;
+  // Count incomplete goals (all goals where task completion is not 100%)
+  const incompleteGoalsCount = goals.filter(goal => {
+    const tasks = tasksByGoal[goal.id] || [];
+    const completion = calculateGoalCompletion(tasks);
+    return completion < 100;
+  }).length;
 
  
   const closeModal = () => {
@@ -104,6 +110,39 @@ const AllSummaries = () => {
   useEffect(() => {
     setFilteredSummaries(summaries); // Initialize filteredSummaries with summaries
   }, [summaries]);
+
+  // Fetch tasks for all goals to calculate completion percentages
+  useEffect(() => {
+    const fetchAllTasks = async () => {
+      if (goals.length === 0) return;
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) return;
+
+        const response = await fetch('/.netlify/functions/getAllTasks', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch tasks');
+        
+        const allTasks: Task[] = await response.json();
+        
+        // Group tasks by goal_id
+        const tasksByGoalMap: Record<string, Task[]> = {};
+        goals.forEach(goal => {
+          tasksByGoalMap[goal.id] = allTasks.filter(task => task.goal_id === goal.id);
+        });
+        
+        setTasksByGoal(tasksByGoalMap);
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+      }
+    };
+
+    fetchAllTasks();
+  }, [goals]);
 
   // Removed scope-related state and logic
 
