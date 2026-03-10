@@ -656,12 +656,12 @@ const TaskCard: React.FC<TaskCardProps> = ({
             </div>
           ) : (
             <>
-                <div className="flex items-center gap-2">
+                <div className="flex items-start gap-2">
                     {/* Selection checkbox */}
                     {selectable && (
                     <button
                         onClick={(e) => { e.stopPropagation(); onToggleSelect?.(task.id); }}
-                        className="btn-ghost p-0.5  text-brand-50 dark:text-brand-30 rounded transition-colors"
+                        className="btn-ghost p-0.5 mt-1.5  text-brand-50 dark:text-brand-30 rounded transition-colors"
                         aria-label={isSelected ? 'Deselect task' : 'Select task'}
                     >
                         {isSelected
