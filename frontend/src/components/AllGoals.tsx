@@ -179,6 +179,7 @@ const GoalsComponent = () => {
     const [filterStatus, setFilterStatus] = useState<string[]>([]);
     const [filterCategory, setFilterCategory] = useState<string[]>([]);
     const [filterGoal, setFilterGoal] = useState<string[]>([]);
+    const [filterScope, setFilterScope] = useState<string[]>([]);
     const [filterStartDate, setFilterStartDate] = useState<Dayjs | null>(null);
     const [filterEndDate, setFilterEndDate] = useState<Dayjs | null>(null);
     const [summaryAnchorEl, setSummaryAnchorEl] = useState<HTMLElement | null>(null);
@@ -324,6 +325,7 @@ const GoalsComponent = () => {
         (filterStatus?.length || 0) +
         (filterCategory?.length || 0) +
         (filterGoal?.length || 0) +
+        (filterScope?.length || 0) +
         (filterStartDate && filterEndDate ? 1 : 0);
 
     const theme = useTheme();
@@ -344,9 +346,9 @@ const GoalsComponent = () => {
     const [showAllGoals, setshowAllGoals] = useState<boolean>(() => {
         try {
             const v = localStorage.getItem('kanban_show_all');
-            // Default to false to ensure pagination and scoped views render in tests
-            return v === null ? false : v === 'true';
-        } catch (e) { return false; }
+            // Default to true to show all goals by default
+            return v === null ? true : v === 'true';
+        } catch (e) { return true; }
     });
 
     // Kanban tasks state
@@ -1554,6 +1556,46 @@ const GoalsComponent = () => {
         // category filter (multi-select)
         if (filterCategory && filterCategory.length > 0 && !filterCategory.includes((goal.category || ''))) return false;
 
+        // scope filter (multi-select) - determines if goal falls into week/month/year scope
+        if (filterScope && filterScope.length > 0) {
+            const weekStart = goal.week_start;
+            if (!weekStart) return false;
+            
+            const goalDate = new Date(weekStart);
+            const now = new Date();
+            const currentWeekStart = new Date(getWeekStartDate(now));
+            const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            const currentYearStart = new Date(now.getFullYear(), 0, 1);
+            
+            let matchesScope = false;
+            for (const scopeFilter of filterScope) {
+                if (scopeFilter === 'week') {
+                    // Check if goal falls within current week
+                    const weekEnd = new Date(currentWeekStart);
+                    weekEnd.setDate(weekEnd.getDate() + 7);
+                    if (goalDate >= currentWeekStart && goalDate < weekEnd) {
+                        matchesScope = true;
+                        break;
+                    }
+                } else if (scopeFilter === 'month') {
+                    // Check if goal is in current month
+                    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                    if (goalDate >= currentMonthStart && goalDate <= monthEnd) {
+                        matchesScope = true;
+                        break;
+                    }
+                } else if (scopeFilter === 'year') {
+                    // Check if goal is in current year
+                    const yearEnd = new Date(now.getFullYear(), 11, 31);
+                    if (goalDate >= currentYearStart && goalDate <= yearEnd) {
+                        matchesScope = true;
+                        break;
+                    }
+                }
+            }
+            if (!matchesScope) return false;
+        }
+
         // time range filter - compare week_start (YYYY-MM-DD)
         const compareGoalDate = (dateStr: string | undefined): Date | null => {
             if (!dateStr) return null;
@@ -2105,6 +2147,7 @@ const GoalsComponent = () => {
                                     {[
                                         ...((filterStatus || []).map((s) => ({ key: `status:${s}`, type: 'status' as const, label: `Status: ${s}`, value: s }))),
                                         ...((filterCategory || []).map((c) => ({ key: `category:${c}`, type: 'category' as const, label: `Category: ${c}`, value: c }))),
+                                        ...((filterScope || []).map((s) => ({ key: `scope:${s}`, type: 'scope' as const, label: `Scope: ${s}`, value: s }))),
                                         ...((filterGoal || []).map((id) => {
                                             const allGoals = showAllGoals ? (fullGoals || []) : (indexedGoals[currentPage] || []);
                                             const goal = allGoals.find(g => g.id === id);
@@ -2119,6 +2162,7 @@ const GoalsComponent = () => {
                                                 // deselect individual
                                                 if (item.type === 'status') setFilterStatus((prev) => (prev || []).filter((v) => v !== item.value));
                                                 else if (item.type === 'category') setFilterCategory((prev) => (prev || []).filter((v) => v !== item.value));
+                                                else if (item.type === 'scope') setFilterScope((prev) => (prev || []).filter((v) => v !== item.value));
                                                 else if (item.type === 'goal') setFilterGoal((prev) => (prev || []).filter((v) => v !== item.value));
                                                 else if (item.type === 'range') { setFilterStartDate(null); setFilterEndDate(null); }
                                                 else if (item.type === 'text') { setFilter(''); }
@@ -2139,6 +2183,7 @@ const GoalsComponent = () => {
                                         setFilter('');
                                         setFilterStatus([]);
                                         setFilterCategory([]);
+                                        setFilterScope([]);
                                         setFilterStartDate(null);
                                         setFilterEndDate(null);
                                     }}
@@ -2169,6 +2214,18 @@ const GoalsComponent = () => {
                                             label={`Category: ${c}`}
                                             size="small"
                                             onDelete={() => setFilterCategory((prev) => (prev || []).filter((v) => v !== c))}
+                                            deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
+                                            className="cursor-pointer"
+                                        />
+                                    ))
+                                )}
+                                {filterScope && filterScope.length > 0 && (
+                                    filterScope.map((s) => (
+                                        <Chip
+                                            key={`scope-${s}`}
+                                            label={`Scope: ${s}`}
+                                            size="small"
+                                            onDelete={() => setFilterScope((prev) => (prev || []).filter((v) => v !== s))}
                                             deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
                                             className="cursor-pointer"
                                         />
@@ -2753,6 +2810,31 @@ const GoalsComponent = () => {
                                     </AccordionDetails>
                                 </Accordion>
 
+                                {/* Scope accordion */}
+                                <Accordion defaultExpanded disableGutters elevation={0} sx={{ bgcolor: 'transparent', '&:before': { display: 'none' }, borderBottom: '1px solid', borderColor: 'divider' }}>
+                                    <AccordionSummary expandIcon={<ChevronDown className="w-3.5 h-3.5" />} sx={{ p: 0, minHeight: 'unset', '& .MuiAccordionSummary-content': { my: '6px' } }}>
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-60 dark:text-gray-40">Scope</span>
+                                    </AccordionSummary>
+                                    <AccordionDetails sx={{ p: 0, pb: 1 }}>
+                                        <div className="flex flex-col">
+                                            {['week', 'month', 'year'].map((s) => (
+                                                <label key={s} className="flex items-center gap-2 cursor-pointer text-sm py-0.5 px-1 rounded hover:bg-gray-10 dark:hover:bg-gray-80">
+                                                    <Checkbox
+                                                        size="small"
+                                                        checked={(filterScope || []).indexOf(s) > -1}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) setFilterScope(prev => [...(prev || []), s]);
+                                                            else setFilterScope(prev => (prev || []).filter(v => v !== s));
+                                                        }}
+                                                        sx={{ p: 0 }}
+                                                    />
+                                                    <span className="capitalize">{s}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </AccordionDetails>
+                                </Accordion>
+
                                 {/* Goal accordion — kanban / calendar only */}
                                 {(viewMode === 'kanban' || viewMode === 'tasks-calendar') && (
                                     <Accordion defaultExpanded disableGutters elevation={0} sx={{ bgcolor: 'transparent', '&:before': { display: 'none' }, borderBottom: '1px solid', borderColor: 'divider' }}>
@@ -2821,6 +2903,7 @@ const GoalsComponent = () => {
                                             setFilterStatus([]);
                                             setFilterCategory([]);
                                             setFilterGoal([]);
+                                            setFilterScope([]);
                                             setFilterStartDate(null);
                                             setFilterEndDate(null);
                                         }}

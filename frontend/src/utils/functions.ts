@@ -794,44 +794,30 @@ export const saveSummary = async (
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User is not authenticated');
 
-  const userId = user.id;
   const weekStart = getWeekStartDate(selectedRange);
 
-  // Format the title based on the scope
-  let formattedTitle = summaryTitle;
-  if (scope === 'week') {
-    formattedTitle = `Week of ${new Date(weekStart).toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    })}`;
-  }
+  // Use the backend createSummary function instead of direct insert
+  try {
+    const result = await createSummary({
+      user_id: user,
+      content: summaryContent,
+      summary_type: summaryType,
+      week_start: weekStart,
+      title: summaryTitle,
+    });
 
-  const requestBody = {
-    user_id: userId,
-    // Persist the formatted title so stored summaries match the displayed/logged title
-    title: formattedTitle,
-    week_start: weekStart,
-    content: summaryContent,
-    summary_type: summaryType, // Use actual database column name
-    scope: scope,
-  };
-
-  const { data, error } = await supabase
-    .from('summaries')
-    .insert(requestBody)
-    .select('summary_id') // Use actual database column name
-    .single();
-
-  if (error) {
-    console.error('Supabase error:', error);
+    if (result && result.id) {
+      setLocalSummaryId(result.id);
+      notifySuccess('Summary saved successfully!');
+      return result;
+    } else {
+      throw new Error('No summary ID returned');
+    }
+  } catch (error) {
+    console.error('Error saving summary:', error);
     notifyError('Failed to save summary');
-    throw new Error('Failed to save summary');
+    throw error;
   }
-  console.log('Summary title:', formattedTitle);
-  setLocalSummaryId(data.summary_id); // Use actual database column name
-  notifySuccess('Summary saved successfully!');
-  return data;
 };
 
 // Fetch summaries for a user
@@ -891,28 +877,26 @@ export const deleteSummary = async (summary_id: string) => {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User is not authenticated');
-    const userId = user.id;
-    // const summaryId = summary_id; // Assuming summary_id is passed as a parameter
-    // const weekStart = selectedWeek.toISOString().split('T')[0];
 
-    // Delete the summary for this user and week
-    const { error } = await supabase
-      .from('summaries')
-      .delete()
-      .match({ summary_id, user_id: userId });
+    // Use the backend function to delete summary (respects RLS policies)
+    const response = await fetch(`/.netlify/functions/deleteSummary?summary_id=${summary_id}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+      },
+    });
 
-    if (error) {
-      console.error('Error deleting summary:', error.message);
-      throw new Error('Failed to delete summary');
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to delete summary');
     }
 
-    // setSummary(null); // Remove summary from local state
-    // setIsEditorOpen(false); // Close editor if open
-    // console.log('Summary deleted successfully');
     notifySuccess('Summary deleted successfully!'); 
   } catch (error) {
     console.error('Error deleting summary:', error);
     notifyError('Failed to delete summary');
+    throw error;
   }
 }
 
