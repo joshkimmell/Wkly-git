@@ -7,6 +7,7 @@ import GoalForm from '@components/GoalForm';
 import TasksList from '@components/TasksList';
 import TaskCard from '@components/TaskCard';
 import AllTasksCalendar from '@components/AllTasksCalendar';
+import TasksKanban from '@components/TasksKanban';
 import Modal from 'react-modal';
 import ConfirmModal from './ConfirmModal';
 import AccomplishmentsModal from './AccomplishmentsModal';
@@ -1128,14 +1129,30 @@ const GoalsComponent = () => {
 
     // Task handlers for kanban view
     const handleTaskStatusChange = async (taskId: string, newStatus: Task['status']) => {
-        // Find the goal_id for this task
+        // Find the goal_id and old status for this task
         let goalId: string | undefined;
+        let oldStatus: Task['status'] | undefined;
         for (const gid of Object.keys(kanbanTasks)) {
-            if (kanbanTasks[gid]?.some(t => t.id === taskId)) {
+            const task = kanbanTasks[gid]?.find(t => t.id === taskId);
+            if (task) {
                 goalId = gid;
+                oldStatus = task.status;
                 break;
             }
         }
+        
+        if (!goalId || !oldStatus) return;
+        
+        // Optimistic update: update UI immediately
+        setKanbanTasks((prev) => {
+            const updated = { ...prev };
+            if (updated[goalId]) {
+                updated[goalId] = updated[goalId].map(t => 
+                    t.id === taskId ? { ...t, status: newStatus } : t
+                );
+            }
+            return updated;
+        });
         
         try {
             const { data: { session } } = await supabase.auth.getSession();
@@ -1153,22 +1170,47 @@ const GoalsComponent = () => {
 
             if (!response.ok) throw new Error('Failed to update task status');
             notifySuccess('Task status updated');
-            await fetchKanbanTasks(); // Refresh tasks
         } catch (error) {
             console.error('Error updating task status:', error);
             notifyError('Failed to update task status');
+            // Revert on error
+            setKanbanTasks((prev) => {
+                const updated = { ...prev };
+                if (updated[goalId]) {
+                    updated[goalId] = updated[goalId].map(t => 
+                        t.id === taskId ? { ...t, status: oldStatus } : t
+                    );
+                }
+                return updated;
+            });
         }
     };
 
     const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
-        // Find the goal_id for this task
+        // Find the goal_id and task for this update
         let goalId: string | undefined;
+        let originalTask: Task | undefined;
         for (const gid of Object.keys(kanbanTasks)) {
-            if (kanbanTasks[gid]?.some(t => t.id === taskId)) {
+            const task = kanbanTasks[gid]?.find(t => t.id === taskId);
+            if (task) {
                 goalId = gid;
+                originalTask = { ...task };
                 break;
             }
         }
+        
+        if (!goalId || !originalTask) return;
+        
+        // Optimistic update: update UI immediately
+        setKanbanTasks((prev) => {
+            const updated = { ...prev };
+            if (updated[goalId]) {
+                updated[goalId] = updated[goalId].map(t => 
+                    t.id === taskId ? { ...t, ...updates } : t
+                );
+            }
+            return updated;
+        });
         
         try {
             const { data: { session } } = await supabase.auth.getSession();
@@ -1186,10 +1228,19 @@ const GoalsComponent = () => {
 
             if (!response.ok) throw new Error('Failed to update task');
             notifySuccess('Task updated');
-            await fetchKanbanTasks(); // Refresh tasks
         } catch (error) {
             console.error('Error updating task:', error);
             notifyError('Failed to update task');
+            // Revert on error
+            setKanbanTasks((prev) => {
+                const updated = { ...prev };
+                if (updated[goalId]) {
+                    updated[goalId] = updated[goalId].map(t => 
+                        t.id === taskId ? originalTask : t
+                    );
+                }
+                return updated;
+            });
         }
     };
 
@@ -2825,66 +2876,66 @@ const GoalsComponent = () => {
                                     <TableRow className='bg-background-color border-none'>
                                         <TableCell colSpan={selectedCount > 0 ?  5 : 1} className="px-4 py-2"   >
                                             <div className="flex items-center space-x-4">
-                                            <div className={`floating-bulk${selectedCount > 0 ? '-toolbar flex-row align-start justify-start items-start sm:flex-row' : ''}`} role="toolbar" aria-label="Bulk actions">
-                                <Tooltip title={expandedRowIds.size === sortedAndFilteredGoals.length ? "Collapse all goals" : "Expand all goals"} placement="top" arrow>
-                                    <IconButton
-                                        className="btn-ghost fb-btn"
-                                        size="small"
-                                        aria-label={expandedRowIds.size === sortedAndFilteredGoals.length ? "Collapse all goals" : "Expand all goals"}
-                                        onClick={() => {
-                                            if (expandedRowIds.size === sortedAndFilteredGoals.length) {
-                                                setExpandedRowIds(new Set());
-                                            } else {
-                                                setExpandedRowIds(new Set(sortedAndFilteredGoals.map(g => g.id)));
-                                            }
-                                        }}
-                                    >
-                                        {expandedRowIds.size === sortedAndFilteredGoals.length ? <Shrink className="w-5 h-5" /> : <Expand className="w-5 h-5" />}
-                                    </IconButton>
-                                </Tooltip>
-                                <Tooltip title={selectedCount > 0 ? `Deselect all ${selectionType || ''}` : 'Select all...'} placement="top" arrow>
-                                        <Badge badgeContent={selectedCount} color="primary">
-                                        <span className="sr-only">{selectedCount} selected</span>
-                                        <button
-                                            className={`btn-ghost fb-btn ${selectedCount > 0 ? 'dark:[&>.lucide]:stroke-brand-30 [&>.lucide]:stroke-brand-70' : ''}`}
-                                            onClick={(e) => {
-                                                if (selectedCount > 0) {
-                                                    deselectAll();
-                                                } else {
-                                                    setSelectAllMenuAnchor(e.currentTarget);
-                                                }
-                                            }}
-                                            aria-label={selectedCount > 0 ? `Deselect all ${selectionType || ''}` : 'Select all...'}
-                                        >
-                                            {selectedCount > 0 ? <SquareSlash /> : <CheckSquare2 />}
-                                        </button>
-                                    </Badge>
-                                </Tooltip>
-                                <Menu
-                                    anchorEl={selectAllMenuAnchor}
-                                    open={Boolean(selectAllMenuAnchor)}
-                                    onClose={() => setSelectAllMenuAnchor(null)}
-                                >
-                                    <MenuItem
-                                        onClick={() => {
-                                            selectAllGoals();
-                                            setSelectAllMenuAnchor(null);
-                                        }}
-                                    >
-                                        Select All Goals ({visibleIdsArray.length})
-                                    </MenuItem>
-                                    <MenuItem
-                                        onClick={() => {
-                                            selectAllTasks();
-                                            setSelectAllMenuAnchor(null);
-                                        }}
-                                    >
-                                        Select All Tasks ({visibleTaskIds.length})
-                                    </MenuItem>
-                                </Menu>
+                                                <div className={`gap-1 floating-bulk${selectedCount > 0 ? '-toolbar flex-row align-start justify-start items-start sm:flex-row' : ''}`} role="toolbar" aria-label="Bulk actions">
+                                                    <Tooltip title={expandedRowIds.size === sortedAndFilteredGoals.length ? "Collapse all goals" : "Expand all goals"} placement="top" arrow>
+                                                        <IconButton
+                                                            className="btn-ghost fb-btn p-3"
+                                                            size="small"
+                                                            aria-label={expandedRowIds.size === sortedAndFilteredGoals.length ? "Collapse all goals" : "Expand all goals"}
+                                                            onClick={() => {
+                                                                if (expandedRowIds.size === sortedAndFilteredGoals.length) {
+                                                                    setExpandedRowIds(new Set());
+                                                                } else {
+                                                                    setExpandedRowIds(new Set(sortedAndFilteredGoals.map(g => g.id)));
+                                                                }
+                                                            }}
+                                                        >
+                                                            {expandedRowIds.size === sortedAndFilteredGoals.length ? <Shrink className="w-5 h-5" /> : <Expand className="w-5 h-5" />}
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                    <Tooltip title={selectedCount > 0 ? `Deselect all ${selectionType || ''}` : 'Select all...'} placement="top" arrow>
+                                                            <Badge badgeContent={selectedCount} color="primary">
+                                                            <span className="sr-only">{selectedCount} selected</span>
+                                                            <button
+                                                                className={`btn-ghost fb-btn ${selectedCount > 0 ? 'dark:[&>.lucide]:stroke-brand-30 [&>.lucide]:stroke-brand-70' : ''}`}
+                                                                onClick={(e) => {
+                                                                    if (selectedCount > 0) {
+                                                                        deselectAll();
+                                                                    } else {
+                                                                        setSelectAllMenuAnchor(e.currentTarget);
+                                                                    }
+                                                                }}
+                                                                aria-label={selectedCount > 0 ? `Deselect all ${selectionType || ''}` : 'Select all...'}
+                                                            >
+                                                                {selectedCount > 0 ? <SquareSlash /> : <CheckSquare2 />}
+                                                            </button>
+                                                        </Badge>
+                                                    </Tooltip>
+                                                    <Menu
+                                                        anchorEl={selectAllMenuAnchor}
+                                                        open={Boolean(selectAllMenuAnchor)}
+                                                        onClose={() => setSelectAllMenuAnchor(null)}
+                                                    >
+                                                        <MenuItem
+                                                            onClick={() => {
+                                                                selectAllGoals();
+                                                                setSelectAllMenuAnchor(null);
+                                                            }}
+                                                        >
+                                                            Select All Goals ({visibleIdsArray.length})
+                                                        </MenuItem>
+                                                        <MenuItem
+                                                            onClick={() => {
+                                                                selectAllTasks();
+                                                                setSelectAllMenuAnchor(null);
+                                                            }}
+                                                        >
+                                                            Select All Tasks ({visibleTaskIds.length})
+                                                        </MenuItem>
+                                                    </Menu>
                                 
-                                {selectedCount > 0 && (
-                                    <div className="flex flex-col items-start justify-start sm:flex-row ">
+                                                    {selectedCount > 0 && (
+                                                    <div className="flex flex-col items-start justify-start sm:flex-row ">
                                                         <button className="btn-ghost fb-btn" onClick={() => setIsBulkDeleteConfirmOpen(true)} disabled={bulkActionLoading} title="Delete selected" aria-label="Delete selected">Delete</button>
                                                         <button
                                                             className="btn-ghost fb-btn"
@@ -3097,45 +3148,9 @@ const GoalsComponent = () => {
                                         return (
                                         <React.Fragment key={goal.id}>
                                         <TableRow
-                                            // hover
-                                            // onClick={(e) => {
-                                            //     e.stopPropagation();
-                                            //     toggleRowExpanded(goal.id);
-                                            // }}
-                                            // onClick={() => toggleSelect(goal.id)}
-                                            // onClick={(e) => {
-                                            //     // If the click originated from an interactive element (button, input, link, select, textarea,
-                                            //     // or any element with role="button"), don't treat it as a card-select click. This prevents
-                                            //     // clicks on internal controls (icons, buttons, menus) from toggling selection.
-                                            //     const target = e.target as HTMLElement | null;
-                                            //     if (target && typeof target.closest === 'function') {
-                                            //     const interactive = target.closest('button, a, input, select, textarea, [role="button"]');
-                                            //     if (interactive) return;
-                                            //     }
-                                            //     toggleRowExpanded(goal.id);
-                                            // }}
-                                            // role="checkbox"
-                                            // aria-checked={selectedIds.has(goal.id)}
-                                            // tabIndex={-1}
                                             selected={selectedIds.has(goal.id)}
-                                            // inputProps={{ 'aria-label': `Select goal ${goal.title}` }}
-                                            // sx={{ cursor: 'pointer' }}
                                         >
-                                            {/* <TableCell>
-                                                <Checkbox size="small" onClick={(e) => {
-                                                    // If the click originated from an interactive element (button, input, link, select, textarea,
-                                                    // or any element with role="button"), don't treat it as a card-select click. This prevents
-                                                    // clicks on internal controls (icons, buttons, menus) from toggling selection.
-                                                    // const target = e.target as HTMLElement | null;
-                                                    // if (target && typeof target.closest === 'function') {
-                                                    // const interactive = target.closest('button, a, input, select, textarea, [role="button"]');
-                                                    // if (interactive) return;
-                                                    // }
-                                                    e.stopPropagation();
-                                                    toggleSelect(goal.id, 'goals');
-                                                }} checked={selectedIds.has(goal.id)} onChange={() => {}} inputProps={{ 'aria-label': `Select goal ${goal.title}` }}
-                                                />
-                                            </TableCell> */}
+                                            
                                             <TableCell>
                                                 <div className="flex items-start gap-2">
                                                     <IconButton
@@ -3148,20 +3163,12 @@ const GoalsComponent = () => {
                                                     >
                                                         {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
                                                     </IconButton>
-                                                    <Checkbox size="small" onClick={(e) => {
-                                                    // If the click originated from an interactive element (button, input, link, select, textarea,
-                                                    // or any element with role="button"), don't treat it as a card-select click. This prevents
-                                                    // clicks on internal controls (icons, buttons, menus) from toggling selection.
-                                                    // const target = e.target as HTMLElement | null;
-                                                    // if (target && typeof target.closest === 'function') {
-                                                    // const interactive = target.closest('button, a, input, select, textarea, [role="button"]');
-                                                    // if (interactive) return;
-                                                    // }
-                                                    e.stopPropagation();
-                                                    toggleSelect(goal.id, 'goals');
-                                                }} checked={selectedIds.has(goal.id)} onChange={() => {}} inputProps={{ 'aria-label': `Select goal ${goal.title}` }}
-                                                />
-                                                    <div>
+                                                    <Checkbox size="small" className="!btn-ghost !p-2" onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleSelect(goal.id, 'goals');
+                                                    }} checked={selectedIds.has(goal.id)} onChange={() => {}} inputProps={{ 'aria-label': `Select goal ${goal.title}` }}
+                                                    />
+                                                <div>
                                                         <Typography variant="body1"><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></Typography>
                                                         <Typography variant="body2" className="text-gray-50">
                                                             <span dangerouslySetInnerHTML={renderHTML(((goal.description || '').substring(0, 100) + ((goal.description || '').length > 200 ? '...' : '')))} />
@@ -3304,7 +3311,86 @@ const GoalsComponent = () => {
                                                 </Menu>
                                             </TableCell>
                                         </TableRow>
-                                        
+                                        {/* Add task row */}
+                                        {isExpanded && (
+                                            <TableRow className="bg-gray-90">
+                                                <TableCell colSpan={5} className="pl-16">
+                                                    {addingTaskForGoal === goal.id ? (
+                                                        <div className="p-3 bg-white dark:bg-background-color rounded-lg border-2 border-dashed border-primary space-y-2">
+                                                            <TextField
+                                                                value={newTaskData.title || ''}
+                                                                onChange={(e) => setNewTaskData(prev => ({ ...prev, title: e.target.value }))}
+                                                                size="small"
+                                                                fullWidth
+                                                                placeholder="Enter task title"
+                                                                label="Title *"
+                                                                autoFocus
+                                                            />
+                                                            <TextField
+                                                                value={newTaskData.description || ''}
+                                                                onChange={(e) => setNewTaskData(prev => ({ ...prev, description: e.target.value }))}
+                                                                size="small"
+                                                                fullWidth
+                                                                multiline
+                                                                rows={2}
+                                                                placeholder="Add description (optional)"
+                                                                label="Description"
+                                                            />
+                                                            <div className="flex gap-2">
+                                                                <TextField
+                                                                    type="date"
+                                                                    value={newTaskData.scheduled_date || ''}
+                                                                    onChange={(e) => setNewTaskData(prev => ({ ...prev, scheduled_date: e.target.value }))}
+                                                                    size="small"
+                                                                    label="Scheduled Date"
+                                                                    InputLabelProps={{ shrink: true }}
+                                                                    className="flex-1"
+                                                                />
+                                                                <TextField
+                                                                    type="time"
+                                                                    value={newTaskData.scheduled_time || ''}
+                                                                    onChange={(e) => setNewTaskData(prev => ({ ...prev, scheduled_time: e.target.value }))}
+                                                                    size="small"
+                                                                    label="Scheduled Time"
+                                                                    InputLabelProps={{ shrink: true }}
+                                                                    className="flex-1"
+                                                                />
+                                                            </div>
+                                                            <div className="flex gap-2 justify-end">
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        setAddingTaskForGoal(null);
+                                                                        setNewTaskData({
+                                                                            title: '',
+                                                                            description: '',
+                                                                            scheduled_date: '',
+                                                                            scheduled_time: '',
+                                                                        });
+                                                                    }} 
+                                                                    className="btn-secondary btn-sm"
+                                                                >
+                                                                    Cancel
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => createTaskForGoal(goal.id)} 
+                                                                    className="btn-primary btn-sm"
+                                                                >
+                                                                    Add Task
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => setAddingTaskForGoal(goal.id)}
+                                                            className="w-full p-2 text-sm text-gray-10 hover:bg-gray-10 dark:hover:bg-gray-80 rounded border border-dashed border-gray-30 dark:border-gray-60 hover:border-primary transition-colors flex items-center justify-center gap-2"
+                                                        >
+                                                            <PlusIcon className="w-4 h-4" />
+                                                            Add task
+                                                        </button>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
                                         {/* Task rows when expanded */}
                                         {isExpanded && goalTasks.map((task) => (
                                             <TableRow key={`task-${task.id}`} className="flex w-full bg-background-color pl-24">
@@ -3395,87 +3481,6 @@ const GoalsComponent = () => {
                                                 </TableCell>
                                             </TableRow>
                                         ))}
-                                        
-                                        {/* Add task row */}
-                                        {isExpanded && (
-                                            <TableRow className="bg-gray-5 dark:bg-gray-95">
-                                                <TableCell colSpan={5} className="pl-16">
-                                                    {addingTaskForGoal === goal.id ? (
-                                                        <div className="p-3 bg-white dark:bg-background-color rounded-lg border-2 border-dashed border-primary space-y-2">
-                                                            <TextField
-                                                                value={newTaskData.title || ''}
-                                                                onChange={(e) => setNewTaskData(prev => ({ ...prev, title: e.target.value }))}
-                                                                size="small"
-                                                                fullWidth
-                                                                placeholder="Enter task title"
-                                                                label="Title *"
-                                                                autoFocus
-                                                            />
-                                                            <TextField
-                                                                value={newTaskData.description || ''}
-                                                                onChange={(e) => setNewTaskData(prev => ({ ...prev, description: e.target.value }))}
-                                                                size="small"
-                                                                fullWidth
-                                                                multiline
-                                                                rows={2}
-                                                                placeholder="Add description (optional)"
-                                                                label="Description"
-                                                            />
-                                                            <div className="flex gap-2">
-                                                                <TextField
-                                                                    type="date"
-                                                                    value={newTaskData.scheduled_date || ''}
-                                                                    onChange={(e) => setNewTaskData(prev => ({ ...prev, scheduled_date: e.target.value }))}
-                                                                    size="small"
-                                                                    label="Scheduled Date"
-                                                                    InputLabelProps={{ shrink: true }}
-                                                                    className="flex-1"
-                                                                />
-                                                                <TextField
-                                                                    type="time"
-                                                                    value={newTaskData.scheduled_time || ''}
-                                                                    onChange={(e) => setNewTaskData(prev => ({ ...prev, scheduled_time: e.target.value }))}
-                                                                    size="small"
-                                                                    label="Scheduled Time"
-                                                                    InputLabelProps={{ shrink: true }}
-                                                                    className="flex-1"
-                                                                />
-                                                            </div>
-                                                            <div className="flex gap-2 justify-end">
-                                                                <button 
-                                                                    onClick={() => {
-                                                                        setAddingTaskForGoal(null);
-                                                                        setNewTaskData({
-                                                                            title: '',
-                                                                            description: '',
-                                                                            scheduled_date: '',
-                                                                            scheduled_time: '',
-                                                                        });
-                                                                    }} 
-                                                                    className="btn-secondary btn-sm"
-                                                                >
-                                                                    Cancel
-                                                                </button>
-                                                                <button 
-                                                                    onClick={() => createTaskForGoal(goal.id)} 
-                                                                    className="btn-primary btn-sm"
-                                                                >
-                                                                    Add Task
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <button
-                                                            onClick={() => setAddingTaskForGoal(goal.id)}
-                                                            className="w-full p-2 text-sm text-primary hover:bg-gray-10 dark:hover:bg-gray-80 rounded border border-dashed border-gray-30 dark:border-gray-60 hover:border-primary transition-colors flex items-center justify-center gap-2"
-                                                        >
-                                                            <PlusIcon className="w-4 h-4" />
-                                                            Add task
-                                                        </button>
-                                                    )}
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
                                         </React.Fragment>
                                         );
                                     })}
@@ -3520,7 +3525,7 @@ const GoalsComponent = () => {
                     loading={bulkActionLoading}
                 />
                             {viewMode === 'kanban' && (
-                                <div className="flex flex-col mt-2 md:flex-row gap-4 w-full overflow-auto">
+                                <div className="w-full mt-2">
                                     {isScopeLoading ? (
                                         <div className="w-full flex items-center justify-center p-8">
                                             <div className="flex items-center space-x-3">
@@ -3529,143 +3534,28 @@ const GoalsComponent = () => {
                                             </div>
                                         </div>
                                     ) : (
-                                    ['Not started', 'In progress', 'Blocked', 'On hold', 'Done'].map((status) => {
-                                        // Collect all tasks matching this status AND filters
-                                        const allTasks: Task[] = [];
-                                        Object.keys(kanbanTasks).forEach((goalId) => {
-                                            const goalTasks = kanbanTasks[goalId] || [];
-                                            goalTasks.forEach((task) => {
-                                                if (task.status === status) {
-                                                    // Apply all filters (including text search, category, status, goal, dates)
-                                                    if (taskMatchesFilters(task, goalId)) {
-                                                        allTasks.push(task);
-                                                    }
-                                                }
-                                            });
-                                        });
-                                        
-                                        // Auto-collapse empty columns unless manually expanded by user
-                                        const isCollapsed = (allTasks.length === 0 && !manuallyExpandedEmptyColumns.has(status)) || !!collapsedColumns[status];
-
-                                        return (
-                                            <div
-                                                key={status}
-                                                className={`
-                                                    ${!isCollapsed ? (
-                                                        "flex-1 border border-gray-30 dark:border-gray-70 bg-background-color dark:bg-opacity-30 p-3 rounded-md" 
-                                                    ) : (
-                                                        "flex-0 border border-gray-30 dark:border-gray-70 bg-background-color dark:bg-opacity-30 p-3 rounded-md"
-                                                    )} 
-                                                `}
-                                                onDragOver={(e) => handleDragOver(e, status)}
-                                                onDrop={(e) => handleDrop(e, status)}
-                                            >
-                                                <div className={`flex items-center justify-between w-full ${!isCollapsed && ('mb-3')} `}>
-                                                    
-                                                    {/* Status label with color dot */}
-                                                    {!isCollapsed && (
-                                                        <div className="flex items-center space-x-2">  
-                                                            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 6, background: STATUS_COLORS[status], marginRight: 8 }} />
-                                                            <div className="text-nowrap" style={{color: STATUS_COLORS[status]}}>
-                                                                {status}
-                                                                <span className="ml-2 text-sm text-gray-30 dark:text-gray-70">({allTasks.length})</span>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                    {(isCollapsed) ? (
-                                                        <>
-                                                        {(isSmall) && (
-                                                        <div className="flex items-center space-x-2">
-                                                            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 6, background: STATUS_COLORS[status], marginRight: 8 }} />
-                                                            <div className="text-nowrap" style={{color: STATUS_COLORS[status]}}>{status}
-                                                            </div>
-                                                        </div>
-                                                        )}
-                                                        
-                                                            <Tooltip title={`Show "${status}" column`} placement="top" arrow>
-                                                            <IconButton
-                                                                aria-label={`Show ${status} column`}
-                                                                onClick={() => {
-                                                                    setCollapsedColumns((prev) => ({ ...prev, [status]: false }));
-                                                                    // Track that user manually expanded this empty column
-                                                                    if (allTasks.length === 0) {
-                                                                        setManuallyExpandedEmptyColumns((prev) => new Set(prev).add(status));
-                                                                    }
-                                                                }}
-                                                                className="btn-ghost p-1"
-                                                            >
-                                                                <div className="flex items-center">
-                                                                    <Badge 
-                                                                        badgeContent={allTasks.length} 
-                                                                        color="primary"
-                                                                        anchorOrigin={{
-                                                                            vertical: 'top',
-                                                                            horizontal: 'right',
-                                                                        }}
-                                                                    >
-                                                                        <Eye className="w-4 h-4 text-gray-70 dark:text-gray-20" />
-                                                                    </Badge>
-                                                                </div>
-                                                            </IconButton>
-                                                            </Tooltip>
-                                                        </>
-                                                    ) : (
-                                                            
-                                                        <Tooltip title={`Hide column`} placement="top" arrow>
-                                                            <IconButton
-                                                                aria-label={`Hide ${status} column`}
-                                                                onClick={() => {
-                                                                    setCollapsedColumns((prev) => ({ ...prev, [status]: !prev[status] }));
-                                                                    // Remove from manually expanded if user collapses it
-                                                                    setManuallyExpandedEmptyColumns((prev) => {
-                                                                        const newSet = new Set(prev);
-                                                                        newSet.delete(status);
-                                                                        return newSet;
-                                                                    });
-                                                                }}
-                                                                className="btn-ghost p-1"
-                                                                >
-                                                                <EyeOff className="w-4 h-4 text-gray-50" />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                    
-                                                    )}
-                                                </div>
-
-                                                {!isCollapsed && (
-                                                    <div className="space-y-3">
-                                                        {allTasks.map((task) => (
-                                                           <div
-                                                                key={task.id}
-                                                                draggable
-                                                                onDragStart={(e) => handleTaskDragStart(e, task.id)}
-                                                                onDragEnd={handleTaskDragEnd}
-                                                                className="cursor-move"
-                                                            >
-                                                                <TaskCard
-                                                                    task={task}
-                                                                    filter={filter}
-                                                                    selectable
-                                                                    draggable={true} 
-                                                                    isSelected={selectedIds.has(task.id)}
-                                                                    onToggleSelect={(id) => toggleSelect(id, 'tasks')}
-                                                                    onStatusChange={handleTaskStatusChange}
-                                                                    onUpdate={handleTaskUpdate}
-                                                                    onDelete={handleTaskDelete}
-                                                                    allowInlineEdit
-                                                                    hideStatusChip
-                                                                />
-                                                            </div>
-                                                        ))}
-
-                                                        {dragOverColumn === status && dragOverIndex === allTasks.length && (
-                                                            <div className="p-4 border border-dashed rounded bg-transparent">&nbsp;</div>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })
+                                        <TasksKanban
+                                            tasks={(() => {
+                                                // Flatten all tasks from kanbanTasks and apply filters
+                                                const allTasks: Task[] = [];
+                                                Object.keys(kanbanTasks).forEach((goalId) => {
+                                                    const goalTasks = kanbanTasks[goalId] || [];
+                                                    goalTasks.forEach((task) => {
+                                                        // Apply all filters (including text search, category, status, goal, dates)
+                                                        if (taskMatchesFilters(task, goalId)) {
+                                                            allTasks.push(task);
+                                                        }
+                                                    });
+                                                });
+                                                return allTasks;
+                                            })()}
+                                            filter={filter}
+                                            selectedIds={selectedIds}
+                                            onToggleSelect={toggleSelect}
+                                            onStatusChange={handleTaskStatusChange}
+                                            onUpdate={handleTaskUpdate}
+                                            onDelete={handleTaskDelete}
+                                        />
                                     )}
                                 </div>
                             )}
@@ -3959,7 +3849,7 @@ const GoalsComponent = () => {
                                     </button>
                                 </div>
                                 
-                                <div className="max-h-[70vh] overflow-y-auto">
+                                <div className="max-h-[70vh] overflow-y-auto mt-4">
                                     <TasksList 
                                         goalId={tasksGoalId}
                                         goalTitle={(selectedGoal as any)?.title || ''}

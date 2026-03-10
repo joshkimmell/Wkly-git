@@ -1,3 +1,5 @@
+// Import for potential future SCSS variables/mixins
+// (Color variables now come from appColors.ts → CSS variables)
 @use '../../src/styles/variables';
 
 .summary {
@@ -11,7 +13,7 @@
     }
     &--content {
         font-size: 1rem;
-        color: var(--text-secondary, variables.$gray-30);
+        color: var(--secondary-text);
     }
 
 }
@@ -19,7 +21,7 @@
 svg {
 
     & g .fill-brand {
-        color: var(--brand-60, variables.$brand-60);
+        color: var(--brand-60);
     }
     & g .fill-white {
         color: white;
@@ -39,12 +41,12 @@ svg {
     }
     
     &-brand--bg {
-        background: linear-gradient(180deg, var(--brand-90, variables.$brand-90) 0%, var(--brand-70, variables.$brand-70) 100%);
+        background: linear-gradient(180deg, var(--brand-90) 0%, var(--brand-70) 100%);
     }
 
     &-brand {
-        // Use runtime CSS variables from appColors with SCSS fallbacks
-        background: linear-gradient(180deg, var(--brand-90, variables.$brand-90) 0%, var(--brand-70, variables.$brand-70) 100%);
+        // Use runtime CSS variables from appColors
+        background: linear-gradient(180deg, var(--brand-90) 0%, var(--brand-70) 100%);
         display: flex;
         justify-content: start;
         align-items: center;
@@ -87,7 +89,7 @@ svg {
             }
 
             & .fill-brand {
-                color: var(--brand-30, variables.$brand-30);   
+                color: var(--brand-30);   
             }
 
         }
@@ -156,10 +158,6 @@ svg {
                 padding: 0.4rem 1rem 0rem 1rem;
                 box-shadow: 0px 4px 12px 0px rgba(0, 0, 0, 0.45);
 
-                &--logo-container {
-                    // Keep layout unchanged; only the logo link scales
-                }
-
                 &--logo {
                     // Scale only the logo link; button stays absolute-positioned and static
                     transform: scale(0.75);
@@ -202,7 +200,7 @@ svg {
             flex-direction: column;
             align-items: flex-end;
             gap: 8px;
-            border-bottom: 1px solid var(--color-gray-70, variables.$gray-70);
+            border-bottom: 1px solid var(--gray-70);
             
             &--list {
                 display: flex;
@@ -301,7 +299,7 @@ svg {
 }
 
 .toggle-checkbox:not(:checked) + .toggle-label {
-    background-color: var(--color-gray-70, variables.$gray-70); /* Red when toggled off */
+    background-color: var(--gray-70); /* Gray when toggled off */
 }
 
 .toggle-checkbox {
@@ -344,10 +342,10 @@ svg {
 // runtime CSS variables used by the rest of the app.
 .theme-dark {
     span.MuiSwitch-root > span.MuiSwitch-switchBase > span.MuiSwitch-thumb {
-        background-color: var(--gray-70, variables.$gray-70) !important;
+        background-color: var(--gray-70) !important;
     }
     span.MuiSwitch-root > span.Mui-checked span.MuiSwitch-thumb {
-        background-color: var(--brand-30, variables.$brand-30) !important;
+        background-color: var(--brand-30) !important;
     }
     .MuiTable-root, .MuiTableHead-root {
         background-color: transparent;
@@ -355,17 +353,16 @@ svg {
         box-shadow: none !important;
     }
     .MuiTableCell-root {
-        // background-color: var(--gray-80, variables.$gray-80);
-        border-bottom: 1px solid var(--gray-70, variables.$gray-70);
+        border-bottom: 1px solid var(--gray-70);
         box-shadow: none !important;
 
     }
     .MuiTableRow-root.Mui-selected {
-        border-left-color: var(--brand-30, variables.$brand-30) !important;
+        border-left-color: var(--brand-30) !important;
         border-left-width: 2px;
 
         & .MuiTableCell-root {
-            background-color: var(--brand-90, variables.$brand-90) !important;
+            background-color: var(--brand-90) !important;
         }
 
     }
@@ -376,12 +373,12 @@ svg {
 
 .theme-light {
     // For the light theme, use slightly darker thumb for the off state and
-    // the brand color for the checked state (with fallbacks to SCSS vars).
+    // the brand color for the checked state.
     span.MuiSwitch-root > span.MuiSwitch-switchBase > span.MuiSwitch-thumb {
-        background-color: var(--gray-30, variables.$gray-30) !important;
+        background-color: var(--gray-30) !important;
     }
     span.MuiSwitch-root > span.Mui-checked span.MuiSwitch-thumb {
-        background-color: var(--brand-60, variables.$brand-60) !important;
+        background-color: var(--brand-60) !important;
     }
     .MuiTable-root, .MuiTableHead-root {
         background-color: transparent;
@@ -389,17 +386,16 @@ svg {
         box-shadow: none !important;
     }
     .MuiTableCell-root {
-        // background-color: var(--gray-20, variables.$gray-20);
-        border-bottom: 1px solid var(--gray-30, variables.$gray-30);
+        border-bottom: 1px solid var(--gray-30);
         box-shadow: none !important;
 
     }
     .MuiTableRow-root.Mui-selected {
-        border-left-color: var(--brand-70, variables.$brand-70) !important;
+        border-left-color: var(--brand-70) !important;
         border-left-width: 2px;
 
         & .MuiTableCell-root {
-            background-color: var(--brand-20, variables.$brand-20) !important;
+            background-color: var(--brand-20) !important;
         }
 
     }
@@ -425,12 +421,7 @@ svg {
 .floating-bulk {
     background-color: transparent;
     display: flex;
-    // padding: 1rem;
-    // border-radius: 10px;
-    // box-shadow: 0 0 24px 0 var(--brand-20, variables.$brand-20);
-    // backdrop-filter: blur(24px);
-    // background:var(--gray-0, variables.$gray-0);
-    color: var(--text-primary, variables.$gray-90);
+    color: var(--primary-text);
 
     &-toolbar {
         // position: absolute;
@@ -445,11 +436,11 @@ svg {
         gap: 8px;
         // padding: 2px 8px 4px;
         border-radius: 8px;
-        border: 1px solid var(--gray-70, variables.$gray-70);
-        // box-shadow: 0 0 24px 0 var(--brand-20, variables.$brand-20);
+        border: 1px solid var(--gray-70);
+        // box-shadow: 0 0 24px 0 var(--brand-20);
         // backdrop-filter: blur(24px);
-        background:var(--gray-0, variables.$gray-0);
-        color: var(--text-primary, variables.$gray-90);
+        background: var(--gray-0);
+        color: var(--primary-text);
         /* animation on mount for smooth appearance */
         opacity: 0;
         transform-origin: left center;
@@ -461,8 +452,8 @@ svg {
 }
 
 .theme-dark .floating-bulk-toolbar {
-    background: var(--gray-100, variables.$gray-100);
-    color: var(--text-secondary, variables.$gray-30);
+    background: var(--gray-100);
+    color: var(--secondary-text);
     border: 1px solid primary;
 }
 
@@ -514,8 +505,8 @@ svg {
 }
 
 .Toastify__close-button--theme-dark {
-    color: var(--gray-100, variables.$gray-100) !important;
+    color: var(--gray-10) !important;
 }
 .Toastify__close-button--theme-light {
-    color: var(--gray-30, variables.$gray-30) !important;
+    color: var(--gray-90) !important;
 }   

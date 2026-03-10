@@ -181,8 +181,8 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
   const divider = readCssVar(['--primary-border', '--color-border-primary'], isDark ? brand70 : brand30 , preferBody);
   // const input = readCssVar(['--brand-60', '--color-brand-60'], isDark ? '#FFFFFF' : '#383838', preferBody);
   // link token not used; reading from palette instead
-  const fontFamily = readCssVar(['--font-family'], "'Open Sans', 'Helvetica Neue', Helvetica, sans-serif", preferBody);
-  const fontSize = readCssVar(['--font-size'], '16px', preferBody);
+  const fontFamily = readCssVar(['--font-family'], "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", preferBody);
+  const fontSize = readCssVar(['--font-size-base'], '16px', preferBody);
   const borderRadius = readCssVar(['--border-radius'], '8px', preferBody);
   const boxShadow = readCssVar(['--box-shadow'], '0px 2px 4.9px rgba(0,0,0,0.6)', preferBody);
 
@@ -343,7 +343,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
         styleOverrides: {
           badge: {
             backgroundColor: badge || success,
-            color: textPrimary,
+            color: textOnColor, // Use white text on colored backgrounds for accessibility
           },
         },
       },
@@ -587,13 +587,13 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
       },
       
       MuiPaper: {
-        // styleOverrides: {
-        //   root: {
-        //     backgroundColor: modeTokens[chosenMode].paper,
-        //     backgroundImage: 'none', // suppress MUI dark-mode white overlay
-        //     // color: textPrimary,
-        //   },
-        // },
+        styleOverrides: {
+          root: {
+            backgroundColor: modeTokens[chosenMode].background, // Use --background-color CSS variable
+            backgroundImage: 'none', // suppress MUI dark-mode white overlay
+            color: textPrimary,
+          },
+        },
       },
       MuiMenu: {
         styleOverrides: {

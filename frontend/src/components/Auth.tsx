@@ -6,7 +6,7 @@ import Modal from 'react-modal';
 import { TextField, Button, IconButton, Paper, Checkbox, FormControlLabel } from '@mui/material';
 import { useTheme as useMuiTheme } from '@mui/material/styles';
 import AppMuiThemeProvider from '../mui/muiTheme';
-// import appColors from '@styles/appColors';
+import appColors from '@styles/appColors';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
 import { ArrowRight, Award, CheckSquare, Eye, EyeOff, Sparkles, Target } from 'lucide-react';
@@ -302,6 +302,21 @@ const Login = () => {
     }
     try { localStorage.setItem('theme', theme); } catch {}
   }, [theme]);
+  
+  // Initialize color palette on mount
+  useEffect(() => {
+    try {
+      const stored = appColors.getStoredPalette();
+      if (stored) {
+        appColors.applyPaletteToRoot(stored);
+      } else {
+        // Ensure colors are initialized on auth page
+        appColors.applyPaletteToRoot('purple');
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
   
     return (
     <SessionContextProvider supabaseClient={supabase}>

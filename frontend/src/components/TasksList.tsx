@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import supabase from '@lib/supabase';
 import { Task } from '@utils/goalUtils';
 import { notifySuccess, notifyError, notifyWithUndo } from './ToastyNotification';
-import { TextField, ToggleButtonGroup, ToggleButton, Tooltip, IconButton, Collapse, Badge, Menu, MenuItem } from '@mui/material';
-import { List, LayoutGrid, Calendar as CalendarIcon, Plus, X, CheckSquare2, SquareSlash } from 'lucide-react';
+import { TextField, ToggleButtonGroup, ToggleButton, Tooltip, IconButton, Collapse, Badge, Menu, MenuItem, Button } from '@mui/material';
+import { List, LayoutGrid, Calendar as CalendarIcon, Plus, X, CheckSquare2, SquareSlash, Kanban } from 'lucide-react';
 import TaskCard from './TaskCard';
 import TasksKanban from './TasksKanban';
 import TasksCalendar from './TasksCalendar';
@@ -508,17 +508,19 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
   return (
     <div className="space-y-4">
       {/* View mode toggle and bulk actions */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center p-2">
         <div className="flex items-center gap-2">
-          <Tooltip title="Add task">
-            <IconButton 
-              size="small" 
+          {/* <Tooltip title="Add task"> */}
+            <button 
               onClick={() => setIsAddingTask(!isAddingTask)}
-              className={isAddingTask ? 'text-primary' : ''}
+              className='btn-primary gap-1 cursor-pointer'
+              // className={isAddingTask ? 'btn-primary' : ''}
             >
-              {isAddingTask ? <X className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-            </IconButton>
-          </Tooltip>
+              {isAddingTask ? (<>
+              <X className="w-5 h-5" /> <span>Cancel</span></>) : (<> 
+              <Plus className="w-5 h-5" /> <span>Add Task</span></>)}
+            </button>
+          {/* </Tooltip> */}
           
           {viewMode === 'list' && (
             <>
@@ -563,7 +565,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
             <Tooltip title="List view"><List className="w-4 h-4" /></Tooltip>
           </ToggleButton>
           <ToggleButton value="kanban" aria-label="Kanban view">
-            <Tooltip title="Kanban view"><LayoutGrid className="w-4 h-4" /></Tooltip>
+            <Tooltip title="Kanban view"><Kanban className="w-4 h-4" /></Tooltip>
           </ToggleButton>
           <ToggleButton value="calendar" aria-label="Calendar view">
             <Tooltip title="Calendar view"><CalendarIcon className="w-4 h-4" /></Tooltip>

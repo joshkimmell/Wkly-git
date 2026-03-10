@@ -13,6 +13,7 @@ import { enhanceLinks, applyHighlight } from '@utils/functions';
 import { useTimezone } from '@context/TimezoneContext';
 import { utcToDatetimeLocal, convertToUTC } from '@utils/timezone';
 import { clearNotifiedReminder } from '@hooks/useReminderService';
+import { elevation } from 'happy-dom/lib/PropertySymbol';
 
 interface TaskCardProps {
   task: Task;
@@ -593,7 +594,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   return (
     <div
       ref={cardRef}
-      className={`${compact ? 'p-2' : `${list ? 'px-10 md:px-32' : 'p-3'}`} ${isSelected ? 'border-2 border-brand-50 bg-gray-20 dark:bg-brand-90' : `${!list ? 'border border-gray-20 dark:border-gray-70' : 'border-0'}`} bg-background-color rounded-lg hover:shadow-md transition-all ${
+      className={`${compact ? 'p-2' : `${list ? 'p-4 md:px-32' : 'p-3'}`} ${isSelected ? 'border-2 border-brand-50 bg-gray-20 dark:bg-brand-90' : `${!list ? 'border border-gray-20 dark:border-gray-70' : 'border-0'}`} bg-background-color rounded-lg hover:shadow-md transition-all ${
         displayStatus === 'Done' ? 'opacity-60' : ''
       }`}
       draggable={draggable}
@@ -660,11 +661,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
                     {selectable && (
                     <button
                         onClick={(e) => { e.stopPropagation(); onToggleSelect?.(task.id); }}
-                        className="btn-ghost p-0.5 rounded transition-colors"
+                        className="btn-ghost p-0.5  text-brand-50 dark:text-brand-30 rounded transition-colors"
                         aria-label={isSelected ? 'Deselect task' : 'Select task'}
                     >
                         {isSelected
-                        ? <CheckSquare2 className="w-4 h-4" style={{ color: 'var(--brand-50)' }} />
+                        ? <CheckSquare2 className="w-4 h-4 " />
                         : <Square className="w-4 h-4 text-gray-40 dark:text-gray-60" />}
                     </button>
                     )}
@@ -715,6 +716,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   }
                   className="text-xs"
                   onClick={handleDateClick}
+                  variant="outlined"
                   sx={{ cursor: onUpdate ? 'pointer' : 'default' }}
                 />
               </>
@@ -1017,9 +1019,16 @@ const TaskCard: React.FC<TaskCardProps> = ({
       <Dialog
         open={isFullEditModalOpen}
         onClose={handleCancelFullEdit}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
         fullScreen={isMobile}
+        PaperProps={{
+          elevation: 24,
+          sx: {
+            backgroundColor: 'var(--background-color)',
+            backgroundImage: 'none',
+          }
+        }}
       >
         <DialogTitle>Edit Task</DialogTitle>
         <DialogContent dividers>
@@ -1194,6 +1203,13 @@ const TaskCard: React.FC<TaskCardProps> = ({
         onClose={handleClosingRationaleCancel}
         maxWidth="sm"
         fullWidth
+        PaperProps={{
+          elevation: 24,
+          sx: {
+            backgroundColor: 'var(--background)',
+            backgroundImage: 'none',
+          }
+        }}
       >
         <DialogTitle>Mark Task as Done</DialogTitle>
         <DialogContent>

@@ -11,6 +11,39 @@ module.exports = {
       // Use runtime CSS variables as the single source of truth. The
       // variables are populated by `src/styles/appColors.ts` at runtime and
       // are also defined in `variables.scss` as fallbacks for builds.
+      fontFamily: {
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+      },
+      fontSize: {
+        xs: 'var(--font-size-xs)',      // 12px
+        sm: 'var(--font-size-sm)',      // 14px
+        base: 'var(--font-size-base)',  // 16px
+        lg: 'var(--font-size-lg)',      // 18px
+        xl: 'var(--font-size-xl)',      // 20px
+        '2xl': 'var(--font-size-2xl)',  // 24px
+        '3xl': 'var(--font-size-3xl)',  // 32px
+        '4xl': 'var(--font-size-4xl)',  // 40px
+      },
+      lineHeight: {
+        tight: 'var(--line-height-tight)',     // 1.25
+        base: 'var(--line-height-base)',       // 1.5
+        relaxed: 'var(--line-height-relaxed)', // 1.75
+      },
+      spacing: {
+        0: 'var(--spacing-0)',   // 0
+        1: 'var(--spacing-1)',   // 4px
+        2: 'var(--spacing-2)',   // 8px
+        3: 'var(--spacing-3)',   // 12px
+        4: 'var(--spacing-4)',   // 16px
+        5: 'var(--spacing-5)',   // 20px
+        6: 'var(--spacing-6)',   // 24px
+        8: 'var(--spacing-8)',   // 32px
+        10: 'var(--spacing-10)', // 40px
+        12: 'var(--spacing-12)', // 48px
+        16: 'var(--spacing-16)', // 64px
+        20: 'var(--spacing-20)', // 80px
+        24: 'var(--spacing-24)', // 96px
+      },
       colors: {
         brand: {
           0:  'var(--brand-0)',

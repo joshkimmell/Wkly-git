@@ -114,7 +114,12 @@ const App: React.FC = () => {
         appColors.applyPaletteToRoot(profile.primary_color);
       } else {
         const stored = appColors.getStoredPalette();
-        if (stored) appColors.applyPaletteToRoot(stored);
+        if (stored) {
+          appColors.applyPaletteToRoot(stored);
+        } else {
+          // Ensure colors are always initialized, even on first load
+          appColors.applyPaletteToRoot('purple');
+        }
       }
     } catch (e) {
       // ignore

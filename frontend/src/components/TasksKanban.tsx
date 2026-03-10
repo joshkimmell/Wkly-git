@@ -1,30 +1,42 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Task } from '@utils/goalUtils';
 import TaskCard from './TaskCard';
-import { Plus } from 'lucide-react';
-import { TextField } from '@mui/material';
+import { Plus, Eye, EyeOff } from 'lucide-react';
+import { TextField, IconButton, Tooltip, Badge, useMediaQuery } from '@mui/material';
 import { useTouchDrag } from '@hooks/useTouchDrag';
+import { STATUS_COLORS } from '../constants/statuses';
 
 interface TasksKanbanProps {
   tasks: Task[];
   onStatusChange?: (taskId: string, newStatus: Task['status']) => void;
   onEdit?: (task: Task) => void;
+  onUpdate?: (taskId: string, updates: Partial<Task>) => void;
   onDelete?: (taskId: string) => void;
   onCreate?: (taskData: Partial<Task>) => Promise<void>;
   goalId?: string;
+  filter?: string;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string, type: 'tasks' | 'goals') => void;
 }
 
 const TasksKanban: React.FC<TasksKanbanProps> = ({
   tasks,
   onStatusChange,
   onEdit,
+  onUpdate,
   onDelete,
   onCreate,
+  filter = '',
+  selectedIds = new Set(),
+  onToggleSelect,
 }) => {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<Task['status'] | null>(null);
   const [addingToColumn, setAddingToColumn] = useState<Task['status'] | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [collapsedColumns, setCollapsedColumns] = useState<Record<string, boolean>>({});
+  const [manuallyExpandedEmptyColumns, setManuallyExpandedEmptyColumns] = useState<Set<string>>(new Set());
+  const isSmall = useMediaQuery('(max-width: 640px)');
 
   const columns: Task['status'][] = ['Not started', 'In progress', 'Blocked', 'On hold', 'Done'];
 
@@ -141,53 +153,116 @@ const TasksKanban: React.FC<TasksKanbanProps> = ({
       {columns.map((status) => {
         const columnTasks = tasksByStatus[status] || [];
         const isDragOver = dragOverColumn === status;
+        
+        // Auto-collapse empty columns unless manually expanded by user
+        const isCollapsed = (columnTasks.length === 0 && !manuallyExpandedEmptyColumns.has(status)) || !!collapsedColumns[status];
 
         return (
           <div
             key={status}
             data-drop-status={status}
-            className={`flex-1 min-w-80 flex flex-col rounded-lg border-2 transition-all ${
-              isDragOver ? 'border-blue-500 dark:border-blue-400' : getColumnBorderColor(status)
+            className={`${!isCollapsed ? 'flex-1 min-w-80' : 'flex-0'} flex flex-col rounded-lg border-2 transition-all ${
+              isDragOver ? 'border-blue-50 dark:border-blue-40' : getColumnBorderColor(status)
             } ${getColumnColor(status)}`}
             onDragOver={(e) => handleDragOver(e, status)}
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, status)}
           >
             {/* Column header */}
-            <div className="p-4 border-b border-gray-20 dark:border-gray-70">
-              <h3 className="font-semibold text-lg">
-                {status}
-                <span className="ml-2 text-sm text-gray-50 dark:text-gray-40">
-                  ({columnTasks.length})
-                </span>
-              </h3>
+            <div className={`p-4 ${!isCollapsed ? 'border-b border-gray-20 dark:border-gray-70' : ''} flex items-center justify-between`}>
+              {!isCollapsed && (
+                <div className="flex items-center space-x-2">
+                  <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 6, background: STATUS_COLORS[status], marginRight: 8 }} />
+                  <h3 className="font-semibold text-lg" style={{ color: STATUS_COLORS[status] }}>
+                    {status}
+                    <span className="ml-2 text-sm text-gray-30 dark:text-gray-70">
+                      ({columnTasks.length})
+                    </span>
+                  </h3>
+                </div>
+              )}
+              
+              {isCollapsed ? (
+                <>
+                  {isSmall && (
+                    <div className="flex items-center space-x-2">
+                      <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 6, background: STATUS_COLORS[status], marginRight: 8 }} />
+                      <div className="text-nowrap" style={{ color: STATUS_COLORS[status] }}>{status}</div>
+                    </div>
+                  )}
+                  <Tooltip title={`Show "${status}" column`} placement="top" arrow>
+                    <IconButton
+                      aria-label={`Show ${status} column`}
+                      onClick={() => {
+                        setCollapsedColumns((prev) => ({ ...prev, [status]: false }));
+                        if (columnTasks.length === 0) {
+                          setManuallyExpandedEmptyColumns((prev) => new Set(prev).add(status));
+                        }
+                      }}
+                      className="btn-ghost p-1"
+                    >
+                      <Badge 
+                        badgeContent={columnTasks.length} 
+                        color="primary"
+                        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                      >
+                        <Eye className="w-4 h-4 text-gray-70 dark:text-gray-20" />
+                      </Badge>
+                    </IconButton>
+                  </Tooltip>
+                </>
+              ) : (
+                <Tooltip title="Hide column" placement="top" arrow>
+                  <IconButton
+                    aria-label={`Hide ${status} column`}
+                    onClick={() => {
+                      setCollapsedColumns((prev) => ({ ...prev, [status]: true }));
+                      setManuallyExpandedEmptyColumns((prev) => {
+                        const newSet = new Set(prev);
+                        newSet.delete(status);
+                        return newSet;
+                      });
+                    }}
+                    className="btn-ghost p-1"
+                  >
+                    <EyeOff className="w-4 h-4 text-gray-50" />
+                  </IconButton>
+                </Tooltip>
+              )}
             </div>
 
             {/* Tasks */}
-            <div className="flex-1 p-3 space-y-2 overflow-y-auto">
-              {columnTasks.length === 0 && !addingToColumn ? (
-                <div className="text-center text-gray-40 dark:text-gray-60 py-8">
-                  {draggedTaskId ? 'Drop task here' : 'No tasks'}
-                </div>
-              ) : (
-                columnTasks.map((task) => (
-                  <div key={task.id} {...getTouchProps(task.id)}>
-                    <TaskCard
-                      task={task}
-                      onStatusChange={onStatusChange}
-                      onEdit={onEdit}
-                      onDelete={onDelete}
-                      draggable
-                      onDragStart={handleDragStart}
-                      hideStatusChip
-                    />
+            {!isCollapsed && (
+              <div className="flex-1 p-3 space-y-2 overflow-y-auto">
+                {columnTasks.length === 0 && !addingToColumn ? (
+                  <div className="text-center text-gray-40 dark:text-gray-60 py-8">
+                    {draggedTaskId ? 'Drop task here' : 'No tasks'}
                   </div>
-                ))
-              )}
+                ) : (
+                  columnTasks.map((task) => (
+                    <div key={task.id} {...getTouchProps(task.id)}>
+                      <TaskCard
+                        task={task}
+                        filter={filter}
+                        selectable={!!onToggleSelect}
+                        isSelected={selectedIds.has(task.id)}
+                        onToggleSelect={(id) => onToggleSelect?.(id, 'tasks')}
+                        onStatusChange={onStatusChange}
+                        onUpdate={onUpdate}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
+                        draggable
+                        onDragStart={handleDragStart}
+                        allowInlineEdit
+                        hideStatusChip
+                      />
+                    </div>
+                  ))
+                )}
               
-              {/* Add task form */}
-              {onCreate && (
-                <div className="pt-2">
+                {/* Add task form */}
+                {onCreate && (
+                  <div className="pt-2">
                   {addingToColumn === status ? (
                     <div className="space-y-2">
                       <TextField
@@ -229,10 +304,11 @@ const TasksKanban: React.FC<TasksKanbanProps> = ({
                       <Plus className="w-4 h-4" />
                       Add task
                     </button>
-                  )}
-                </div>
-              )}
-            </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
       })}
