@@ -1548,6 +1548,9 @@ const GoalsComponent = () => {
         );
         if (!textMatch) return false;
 
+        // status filter (multi-select)
+        if (filterStatus && filterStatus.length > 0 && !filterStatus.includes((goal.status || ''))) return false;
+
         // category filter (multi-select)
         if (filterCategory && filterCategory.length > 0 && !filterCategory.includes((goal.category || ''))) return false;
 
