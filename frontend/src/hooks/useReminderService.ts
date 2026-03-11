@@ -25,7 +25,7 @@ export function clearNotifiedReminder(taskId: string) {
       if (notifiedSet.has(taskId)) {
         notifiedSet.delete(taskId);
         localStorage.setItem(NOTIFIED_REMINDERS_KEY, JSON.stringify(Array.from(notifiedSet)));
-        console.log(`[ReminderService] Cleared notified reminder for task ${taskId}`);
+        // console.log(`[ReminderService] Cleared notified reminder for task ${taskId}`);
       }
     }
   } catch (e) {
@@ -100,16 +100,16 @@ export function useReminderService() {
   // Check for due reminders
   const checkReminders = async () => {
     try {
-      console.log('[ReminderService] Checking for due reminders...', new Date().toISOString());
+      // console.log('[ReminderService] Checking for due reminders...', new Date().toISOString());
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user?.id) {
-        console.log('[ReminderService] No session, skipping check');
+        // console.log('[ReminderService] No session, skipping check');
         return;
       }
 
       const token = session.access_token;
       if (!token) {
-        console.log('[ReminderService] No token, skipping check');
+        // console.log('[ReminderService] No token, skipping check');
         return;
       }
 
@@ -125,9 +125,9 @@ export function useReminderService() {
 
       const tasks: Task[] = await res.json();
       const now = new Date();
-      console.log(`[ReminderService] Found ${tasks.length} total tasks`);
+      // console.log(`[ReminderService] Found ${tasks.length} total tasks`);
       const settings = await getNotificationSettings();
-      console.log('[ReminderService] Notification settings:', settings);
+      // console.log('[ReminderService] Notification settings:', settings);
 
       // Filter tasks with due reminders that haven't been notified yet
       const dueReminders = tasks.filter((task) => {
@@ -139,35 +139,35 @@ export function useReminderService() {
         const notAlreadyNotified = !notifiedRemindersRef.current.has(task.id);
         const willNotify = isTimeDue && notAlreadyNotified;
 
-        console.log(`[ReminderService] Task "${task.title}":`, {
-          id: task.id,
-          reminder_enabled: task.reminder_enabled,
-          reminder_datetime: task.reminder_datetime,
-          reminderTime: reminderTime.toISOString(),
-          now: now.toISOString(),
-          isTimeDue,
-          notAlreadyNotified,
-          alreadyNotifiedIds: Array.from(notifiedRemindersRef.current),
-          willNotify,
-          status: task.status
-        });
+        // console.log(`[ReminderService] Task "${task.title}":`, {
+        //   id: task.id,
+        //   reminder_enabled: task.reminder_enabled,
+        //   reminder_datetime: task.reminder_datetime,
+        //   reminderTime: reminderTime.toISOString(),
+        //   now: now.toISOString(),
+        //   isTimeDue,
+        //   notAlreadyNotified,
+        //   alreadyNotifiedIds: Array.from(notifiedRemindersRef.current),
+        //   willNotify,
+        //   status: task.status
+        // });
 
         return willNotify;
       });
 
-      console.log(`[ReminderService] Found ${dueReminders.length} due reminders`);
+      // console.log(`[ReminderService] Found ${dueReminders.length} due reminders`);
 
       // Process each due reminder
       for (const task of dueReminders) {
-        console.log(`[ReminderService] Sending notifications for task "${task.title}"`);
+        // console.log(`[ReminderService] Sending notifications for task "${task.title}"`);
         await sendReminderNotifications(task, settings);
         notifiedRemindersRef.current.add(task.id);
-        console.log(`[ReminderService] Marked task "${task.title}" as notified`);
+        // console.log(`[ReminderService] Marked task "${task.title}" as notified`);
       }
 
       if (dueReminders.length > 0) {
         saveNotifiedReminders();
-        console.log('[ReminderService] Saved notified reminders to localStorage');
+        // console.log('[ReminderService] Saved notified reminders to localStorage');
       }
     } catch (error) {
       console.error('[ReminderService] Error checking reminders:', error);
@@ -176,10 +176,10 @@ export function useReminderService() {
 
   // Send reminder notifications via all enabled channels
   const sendReminderNotifications = async (task: Task, settings: NotificationSettings) => {
-    console.log('[ReminderService] sendReminderNotifications called for:', task.title);
+    // console.log('[ReminderService] sendReminderNotifications called for:', task.title);
     
     // 1. Always show ToastyNotification (no timeout, must manually close)
-    console.log('[ReminderService] Showing toast notification');
+    // console.log('[ReminderService] Showing toast notification');
     notifyReminder(task.title, task.description, () => {
       // Store task ID for auto-opening edit modal
       try {
@@ -193,7 +193,7 @@ export function useReminderService() {
 
     // 2. Send Email if enabled
     if (settings.enableEmail && settings.emailTo) {
-      console.log(`[ReminderService] Sending email to ${settings.emailTo}`);
+      // console.log(`[ReminderService] Sending email to ${settings.emailTo}`);
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
@@ -212,41 +212,41 @@ export function useReminderService() {
           });
           
           if (response.ok) {
-            console.log('[ReminderService] Email sent successfully');
+            // console.log('[ReminderService] Email sent successfully');
           } else {
             const errorText = await response.text();
             console.error('[ReminderService] Email send failed:', response.status, errorText);
           }
         } else {
-          console.warn('[ReminderService] No token available for email send');
+          // console.warn('[ReminderService] No token available for email send');
         }
       } catch (error) {
         console.error('[ReminderService] Failed to send email reminder:', error);
         notifyError('Failed to send email reminder');
       }
     } else {
-      console.log('[ReminderService] Email disabled or no email address:', { enableEmail: settings.enableEmail, emailTo: settings.emailTo });
+      // console.log('[ReminderService] Email disabled or no email address:', { enableEmail: settings.enableEmail, emailTo: settings.emailTo });
     }
 
     // 3. Send OS notification if enabled and permitted
-    console.log('[ReminderService] Checking OS notification eligibility:', {
-      enableOsNotifications: settings.enableOsNotifications,
-      hasNotificationAPI: 'Notification' in window,
-      permission: 'Notification' in window ? Notification.permission : 'N/A'
-    });
+    // console.log('[ReminderService] Checking OS notification eligibility:', {
+    //   enableOsNotifications: settings.enableOsNotifications,
+    //   hasNotificationAPI: 'Notification' in window,
+    //   permission: 'Notification' in window ? Notification.permission : 'N/A'
+    // });
     
     if (settings.enableOsNotifications && 'Notification' in window) {
-      console.log('[ReminderService] OS notifications enabled, permission:', Notification.permission);
+      // console.log('[ReminderService] OS notifications enabled, permission:', Notification.permission);
       if (Notification.permission === 'granted') {
         try {
-          console.log('[ReminderService] Showing OS notification');
+          // console.log('[ReminderService] Showing OS notification');
           const notification = new Notification('Task Reminder: ' + task.title, {
             body: task.description || 'You have a task due',
             icon: '/images/logo-192x192.png',
             tag: `task-reminder-${task.id}`,
             requireInteraction: true, // Notification stays until dismissed
           });
-          console.log('[ReminderService] OS notification created');
+          // console.log('[ReminderService] OS notification created');
 
           notification.onclick = () => {
             window.focus();
@@ -263,11 +263,11 @@ export function useReminderService() {
           console.error('[ReminderService] Failed to show OS notification:', error);
         }
       } else {
-        console.log('[ReminderService] OS notification permission not granted. Current permission:', Notification.permission);
-        console.log('[ReminderService] To enable OS notifications, go to Settings → Notifications and grant permission.');
+        // console.log('[ReminderService] OS notification permission not granted. Current permission:', Notification.permission);
+        // console.log('[ReminderService] To enable OS notifications, go to Settings → Notifications and grant permission.');
       }
     } else {
-      console.log('[ReminderService] OS notifications disabled or not supported:', { enableOsNotifications: settings.enableOsNotifications, hasNotificationAPI: 'Notification' in window });
+      // console.log('[ReminderService] OS notifications disabled or not supported:', { enableOsNotifications: settings.enableOsNotifications, hasNotificationAPI: 'Notification' in window });
     }
   };
 
@@ -277,18 +277,18 @@ export function useReminderService() {
     const checkAndRun = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user?.id) {
-        console.log('[ReminderService] No user session, reminder service not started');
+        // console.log('[ReminderService] No user session, reminder service not started');
         return;
       }
 
-      console.log('[ReminderService] Starting reminder service for user:', session.user.id);
+      // console.log('[ReminderService] Starting reminder service for user:', session.user.id);
       // Check immediately on mount
       checkReminders();
 
       // Then check every minute
       intervalRef.current = setInterval(checkReminders, CHECK_INTERVAL);
       setIsRunning(true);
-      console.log('[ReminderService] Reminder service started, will check every 60 seconds');
+      // console.log('[ReminderService] Reminder service started, will check every 60 seconds');
     };
 
     checkAndRun();

@@ -149,11 +149,15 @@ const toggleThemeInternal = (): void => {
                                 <Moon className="w-5 h-5 stroke-gray-10 hover:stroke-gray-30 focus:outline-none" />
                             )}
                         </IconButton>
-                        <Avatar
-                            isEdit={false}
-                            onClick={handleMenuOpen}
-                            size='sm'
-                        />
+                        <Tooltip title="Profile" placement="bottom" arrow>
+                            <span>
+                                <Avatar
+                                    isEdit={false}
+                                    onClick={handleMenuOpen}
+                                    size='sm'
+                                />
+                            </span>
+                        </Tooltip>
                         <Menu
                             anchorEl={menuAnchor}
                             open={Boolean(menuAnchor)}

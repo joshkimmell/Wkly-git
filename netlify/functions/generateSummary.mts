@@ -174,7 +174,7 @@ export const handler: Handler = async (event) => {
 
     // Build the prompt using summaryTitle
     const prompt = `
-      Summarize the following goals with their accomplishments into a concise self-reflection defaulting to ${lengthInstruction}. Format for use with ReactQuill.
+      Summarize the following goals with their associated tasks and accomplishments into a concise self-reflection defaulting to ${lengthInstruction}. Format for use with the RichTextEditor component in this project.
       Do not include the goals or accomplishments list in the summary. Instead, focus on the overall progress and impact of the goals and accomplishments.${contextSection}
       Title: ${summaryTitle}
       ${goalsWithAccomplishments

@@ -165,6 +165,11 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
 
       if (error) throw error;
 
+      // Dispatch event to notify all Avatar components to update
+      if (avatarPublicUrl) {
+        window.dispatchEvent(new CustomEvent('avatar:updated', { detail: { avatarUrl: avatarPublicUrl } }));
+      }
+
       // notifySuccess('Profile updated successfully!');
 
       // Optionally close the modal

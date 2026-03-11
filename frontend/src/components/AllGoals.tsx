@@ -342,38 +342,12 @@ const GoalsComponent = () => {
         return 'cards';
     });
 
-    // Whether Kanban should show all goals (true) or only current scope (false).
-    const [showAllGoals, setshowAllGoals] = useState<boolean>(() => {
-        try {
-            const v = localStorage.getItem('kanban_show_all');
-            // Default to true to show all goals by default
-            return v === null ? true : v === 'true';
-        } catch (e) { return true; }
-    });
-
     // Kanban tasks state
     const [kanbanTasks, setKanbanTasks] = useState<Record<string, Task[]>>({});
     
     // Notification-triggered task edit modal state
     const [notificationTaskModalOpen, setNotificationTaskModalOpen] = useState(false);
     const [notificationTask, setNotificationTask] = useState<Task | null>(null);
-
-    useEffect(() => {
-        try {
-            console.debug('[AllGoals] showAllGoals persisted ->', showAllGoals);
-            localStorage.setItem('kanban_show_all', showAllGoals ? 'true' : 'false');
-        } catch {}
-    }, [showAllGoals]);
-
-    // When user turns OFF 'Show all' ensure we drop the unscoped cache so the
-    // UI and effects only operate on scoped `indexedGoals`. This avoids any
-    // accidental usage of stale `fullGoals` when the toggle is disabled.
-    useEffect(() => {
-        if (!showAllGoals) {
-            console.debug('[AllGoals] showAllGoals disabled — clearing fullGoals cache');
-            setFullGoals(null);
-        }
-    }, [showAllGoals]);
 
     const handleChangeView = (_: React.MouseEvent<HTMLElement>, value: 'cards' | 'table' | 'kanban' | 'tasks-calendar' | null) => {
         if (!value) return;
@@ -423,13 +397,11 @@ const GoalsComponent = () => {
 
     // Keep kanbanColumns in sync when indexedGoals change
     useEffect(() => {
-    // Choose whether to use the unscoped fullGoals collection depending on the
-    // global 'Show all' toggle. This now applies to all views.
-    const useFull = showAllGoals && !!fullGoals && fullGoals.length > 0;
-    console.debug('[AllGoals] kanbanColumns effect running. useFull=', useFull, { viewMode, showAllGoals, fullGoalsCount: fullGoals ? fullGoals.length : 0, indexedPages: Object.keys(indexedGoals).length, isScopeLoading });
-    // If we're loading a new scope, and the user hasn't requested "All", clear columns
-    // to avoid rendering stale IDs from the previous scope.
-    if (isScopeLoading && viewMode === 'kanban' && !showAllGoals) {
+    // Always show all goals (ignoring scope toggle)
+    const useFull = !!fullGoals && fullGoals.length > 0;
+    console.debug('[AllGoals] kanbanColumns effect running. useFull=', useFull, { viewMode, fullGoalsCount: fullGoals ? fullGoals.length : 0, indexedPages: Object.keys(indexedGoals).length, isScopeLoading });
+    // If we're loading a new scope clear columns to avoid rendering stale IDs
+    if (isScopeLoading && viewMode === 'kanban') {
     setKanbanColumns((_prev) => {
             const statuses = ['Not started', 'In progress', 'Blocked', 'On hold', 'Done'];
             const empty: Record<string, string[]> = {} as Record<string, string[]>;
@@ -438,7 +410,7 @@ const GoalsComponent = () => {
         });
         return;
     }
-    const sourceGoals = showAllGoals ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || []);
+    const sourceGoals = fullGoals || Object.values(indexedGoals).flat();
         const statuses = ['Not started', 'In progress', 'Blocked', 'On hold', 'Done'];
         const cols: Record<string, string[]> = {} as Record<string, string[]>;
         for (const s of statuses) cols[s] = [];
@@ -448,7 +420,7 @@ const GoalsComponent = () => {
             cols[st].push(g.id);
         }
         setKanbanColumns(cols);
-    }, [indexedGoals, viewMode, showAllGoals, fullGoals, currentPage, filter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection]);
+    }, [indexedGoals, viewMode, fullGoals, currentPage, filter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection]);
 
     // Keep kanban columns updated when fullGoals or filters change
     useEffect(() => {
@@ -465,12 +437,11 @@ const GoalsComponent = () => {
         setKanbanColumns(cols);
     }, [fullGoals, filter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection, viewMode]);
 
-    // Fetch the full (unscoped) goals list when entering Kanban view AND the user
-    // requested "Show all" so the board shows all goals by default only when needed.
+    // Fetch the full (unscoped) goals list when entering Kanban view
     useEffect(() => {
         let mounted = true;
         const load = async () => {
-            if (viewMode !== 'kanban' || !showAllGoals) return;
+            if (viewMode !== 'kanban') return;
             try {
                 const all = await fetchAllGoals();
                 if (mounted) setFullGoals(all);
@@ -480,7 +451,7 @@ const GoalsComponent = () => {
         };
         load();
         return () => { mounted = false; };
-    }, [viewMode, showAllGoals]);
+    }, [viewMode]);
 
     // HTML5 Drag & Drop Kanban handlers (visual feedback + reorder)
     const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
@@ -1316,16 +1287,15 @@ const GoalsComponent = () => {
     const { refreshGoals: ctxRefresh, removeGoalFromCache, lastUpdated, lastAddedIds, setLastAddedIds, goals: ctxGoals } = useGoalsContext();
 
     // Periodic refresh of fullGoals and refresh on background signals while Kanban is active
-    // Only refresh the unscoped list when the user has chosen to show all goals.
     useEffect(() => {
         let mounted = true;
         const reload = async () => {
-            if (viewMode !== 'kanban' || !showAllGoals) {
-                console.debug('[AllGoals] reload skipped, viewMode or toggle not set', { viewMode, showAllGoals });
+            if (viewMode !== 'kanban') {
+                console.debug('[AllGoals] reload skipped, not in kanban view', { viewMode });
                 return;
             }
             try {
-                console.debug('[AllGoals] reload: fetching fullGoals (showAllGoals=true)');
+                console.debug('[AllGoals] reload: fetching fullGoals');
                 const all = await fetchAllGoals();
                 if (mounted) setFullGoals(all);
             } catch (err) {
@@ -1341,7 +1311,7 @@ const GoalsComponent = () => {
         }, 60_000); // refresh every 60 seconds
 
         return () => { mounted = false; clearInterval(handle); };
-    }, [viewMode, showAllGoals, lastUpdated, lastAddedIds]);
+    }, [viewMode, lastUpdated, lastAddedIds]);
 
     // When the global goals cache is updated (via context), ensure this component refreshes
     useEffect(() => {
@@ -1518,21 +1488,13 @@ const GoalsComponent = () => {
     useEffect(() => {
         try {
             if (!isScopeLoading) return;
-            // If we're not in scoped kanban mode, there's nothing to wait for
-            if (viewMode !== 'kanban' || showAllGoals) {
-                setIsScopeLoading(false);
-                return;
-            }
-            // If pages are populated and the current page is available, stop loading
-            if (pages && pages.length > 0 && currentPage && pages.includes(currentPage)) {
-                setIsScopeLoading(false);
-                return;
-            }
+            // Always showing all goals, so clear the loading state
+            setIsScopeLoading(false);
         } catch (err) {
             // best-effort only
             try { setIsScopeLoading(false); } catch {}
         }
-    }, [currentPage, pages, viewMode, showAllGoals, isScopeLoading]);
+    }, [isScopeLoading]);
 
     
 
@@ -1703,12 +1665,10 @@ const GoalsComponent = () => {
     });
 
     // Filtered & sorted list for the current page (cards/table)
-    // If the global "Show all" toggle is enabled, present the unscoped fullGoals
-    // list instead of the current page's indexed goals so the toggle applies
-    // consistently across all views.
+    // Always show all goals from all pages (ignoring scope pagination)
     const allIndexedFlattened = Object.values(indexedGoals).flat();
     const sortedAndFilteredGoals = useMemo(() => {
-        const source = showAllGoals ? (fullGoals || allIndexedFlattened) : (indexedGoals[currentPage] || []);
+        const source = allIndexedFlattened;
         return source.filter(goalMatchesFilters).sort((a, b) => {
             const dir = sortDirection === 'asc' ? 1 : -1;
             if (sortBy === 'date') {
@@ -1733,7 +1693,7 @@ const GoalsComponent = () => {
             const pb = calculateGoalCompletion(tableTasksByGoal[b.id] || []);
             return dir * (pa - pb);
         });
-    }, [showAllGoals, fullGoals, indexedGoals, currentPage, debouncedFilter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection, tableTasksByGoal]);
+    }, [indexedGoals, debouncedFilter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection, tableTasksByGoal]);
     
 
     // Proactively fetch counts for visible goals on page load (batched in chunks)
@@ -1826,22 +1786,16 @@ const GoalsComponent = () => {
         return dir * (pa - pb);
     });
 
-    // Compute visible IDs depending on viewMode (kanban wants all-goals filtering)
+    // Compute visible IDs depending on viewMode (kanban uses fullGoals if available)
     const visibleGoalIds = useMemo(() => {
         let list: Goal[];
         if (viewMode === 'kanban') {
-            if (showAllGoals) {
-                list = sortedAndFilteredFullGoals;
-            } else {
-                // When not showing all in kanban, respect the current page/scope
-                // so the board displays only goals in the selected page.
-                list = sortedAndFilteredGoals;
-            }
+            list = sortedAndFilteredFullGoals;
         } else {
             list = sortedAndFilteredGoals;
         }
         return new Set(list.map((g) => g.id));
-    }, [viewMode, showAllGoals, sortedAndFilteredFullGoals, sortedAndFilteredAllGoals, sortedAndFilteredGoals]);
+    }, [viewMode, sortedAndFilteredFullGoals, sortedAndFilteredGoals]);
 
     // Add a function to highlight filtered words
 //   const applyHighlight = (text: string, filter: string) => {
@@ -2149,7 +2103,7 @@ const GoalsComponent = () => {
                                         ...((filterCategory || []).map((c) => ({ key: `category:${c}`, type: 'category' as const, label: `Category: ${c}`, value: c }))),
                                         ...((filterScope || []).map((s) => ({ key: `scope:${s}`, type: 'scope' as const, label: `Scope: ${s}`, value: s }))),
                                         ...((filterGoal || []).map((id) => {
-                                            const allGoals = showAllGoals ? (fullGoals || []) : (indexedGoals[currentPage] || []);
+                                            const allGoals = Object.values(indexedGoals).flat();
                                             const goal = allGoals.find(g => g.id === id);
                                             return { key: `goal:${id}`, type: 'goal' as const, label: `Goal: ${goal?.title || id}`, value: id };
                                         })),
@@ -2233,7 +2187,7 @@ const GoalsComponent = () => {
                                 )}
                                 {filterGoal && filterGoal.length > 0 && (
                                     filterGoal.map((id) => {
-                                        const allGoals = showAllGoals ? (fullGoals || []) : (indexedGoals[currentPage] || []);
+                                        const allGoals = Object.values(indexedGoals).flat();
                                         const goal = allGoals.find(g => g.id === id);
                                         return (
                                             <Chip
@@ -2844,7 +2798,7 @@ const GoalsComponent = () => {
                                         <AccordionDetails sx={{ p: 0, pb: 1 }}>
                                             <div className="flex flex-col">
                                                 {(() => {
-                                                    const allGoals = showAllGoals ? (fullGoals || []) : (indexedGoals[currentPage] || []);
+                                                    const allGoals = Object.values(indexedGoals).flat();
                                                     return allGoals.map((goal) => (
                                                         <label key={goal.id} className="flex items-center gap-2 cursor-pointer text-sm py-0.5 px-1 rounded hover:bg-gray-10 dark:hover:bg-gray-80">
                                                             <Checkbox
@@ -2866,35 +2820,33 @@ const GoalsComponent = () => {
                                 )}
 
                                 {/* Date range accordion */}
-                                {(showAllGoals || scope === 'year') && (
-                                    <Accordion defaultExpanded disableGutters elevation={0} sx={{ bgcolor: 'transparent', '&:before': { display: 'none' }, borderBottom: '1px solid', borderColor: 'divider' }}>
-                                        <AccordionSummary expandIcon={<ChevronDown className="w-3.5 h-3.5" />} sx={{ p: 0, minHeight: 'unset', '& .MuiAccordionSummary-content': { my: '6px' } }}>
-                                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-60 dark:text-gray-40">Date Range</span>
-                                        </AccordionSummary>
-                                        <AccordionDetails sx={{ p: 0, pb: 1 }}>
-                                            <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                                <div>
-                                                    <label className="block text-xs text-gray-60 mb-1">Start</label>
-                                                    <DatePicker
-                                                        value={filterStartDate}
-                                                        onChange={(v: Dayjs | null) => setFilterStartDate(v)}
-                                                        slotProps={{ textField: { size: 'small', fullWidth: true } }}
-                                                        maxDate={filterEndDate || undefined}
-                                                    />
-                                                </div>
-                                                <div className="mt-2">
-                                                    <label className="block text-xs text-gray-60 mb-1">End</label>
-                                                    <DatePicker
-                                                        value={filterEndDate}
-                                                        onChange={(v: Dayjs | null) => setFilterEndDate(v)}
-                                                        slotProps={{ textField: { size: 'small', fullWidth: true } }}
-                                                        minDate={filterStartDate || undefined}
-                                                    />
-                                                </div>
-                                            </LocalizationProvider>
-                                        </AccordionDetails>
-                                    </Accordion>
-                                )}
+                                <Accordion defaultExpanded disableGutters elevation={0} sx={{ bgcolor: 'transparent', '&:before': { display: 'none' }, borderBottom: '1px solid', borderColor: 'divider' }}>
+                                    <AccordionSummary expandIcon={<ChevronDown className="w-3.5 h-3.5" />} sx={{ p: 0, minHeight: 'unset', '& .MuiAccordionSummary-content': { my: '6px' } }}>
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-60 dark:text-gray-40">Date Range</span>
+                                    </AccordionSummary>
+                                    <AccordionDetails sx={{ p: 0, pb: 1 }}>
+                                        <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                            <div>
+                                                <label className="block text-xs text-gray-60 mb-1">Start</label>
+                                                <DatePicker
+                                                    value={filterStartDate}
+                                                    onChange={(v: Dayjs | null) => setFilterStartDate(v)}
+                                                    slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                                                    maxDate={filterEndDate || undefined}
+                                                />
+                                            </div>
+                                            <div className="mt-2">
+                                                <label className="block text-xs text-gray-60 mb-1">End</label>
+                                                <DatePicker
+                                                    value={filterEndDate}
+                                                    onChange={(v: Dayjs | null) => setFilterEndDate(v)}
+                                                    slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                                                    minDate={filterStartDate || undefined}
+                                                />
+                                            </div>
+                                        </LocalizationProvider>
+                                    </AccordionDetails>
+                                </Accordion>
                                 <div className="flex justify-between items-center pt-2">
                                     <button
                                         type="button"
@@ -2932,10 +2884,10 @@ const GoalsComponent = () => {
                             <GoalCard
                                 key={goal.id}
                                 goal={goal}
-                                showAllGoals={showAllGoals}
+                                showAllGoals={true}
                                 handleDelete={(goalId) => handleDeleteGoal(goalId)}
                                 handleEdit={(goalId) => {
-                                    const goalSourceForEdit = showAllGoals ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || []);
+                                    const goalSourceForEdit = Object.values(indexedGoals).flat();
                                     const goalToEdit = goalSourceForEdit.find((g) => g.id === goalId);
                                     if (goalToEdit) {
                                         setSelectedGoal(goalToEdit);

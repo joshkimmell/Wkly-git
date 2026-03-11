@@ -8,7 +8,7 @@ import { classTabItem } from '@styles/classes';
 // import { classMenuItem } from '@styles/classes';
 // supabase client not needed here; use useAuth hook's session instead
 import useAuth from '@hooks/useAuth';
-import { Menu, MenuItem, Tooltip } from '@mui/material';
+import { Menu, MenuItem, Tooltip, useMediaQuery } from '@mui/material';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP, useOverlayDebug } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
@@ -84,6 +84,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
     const [scrolled, setScrolled] = useState(false);
     const { session, profile } = useAuth();
+    const isLarge = useMediaQuery('(min-width: 1024px)');
     // use the module-level `isMenuHidden` exported above
 
     // const handleLogoutInternal = async (): Promise<void> => {
@@ -264,7 +265,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                     <nav className="tabs hidden sm:flex items-end self-end ml-6 h-full">
                         <ul className="flex -mb-px text-sm font-medium">
                             <li>
-                                <Tooltip title="Home" placement="top" arrow className=''>
+                                <Tooltip title="Home" placement="bottom" arrow className='' disableHoverListener={isLarge}>
                                 <Link
                                     to="/"
                                     className={`${classTabItem}${location.pathname === '/' ? ' active' : ''}`}
@@ -275,7 +276,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                                     </Tooltip>
                             </li>
                             <li>
-                                <Tooltip title="Goals & Tasks" placement="top" arrow className=''>
+                                <Tooltip title="Goals & Tasks" placement="bottom" arrow className='' disableHoverListener={isLarge}>
                                 <Link
                                     to="/goals"
                                     className={`${classTabItem}${location.pathname === '/goals' ? ' active' : ''}`}
@@ -286,7 +287,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                                     </Tooltip>
                             </li>
                             <li>
-                                <Tooltip title="Summaries" placement="top" arrow className=''>
+                                <Tooltip title="Summaries" placement="bottom" arrow className='' disableHoverListener={isLarge}>
                                 <Link
                                     to="/summaries"
                                     className={`${classTabItem}${location.pathname === '/summaries' ? ' active' : ''}`}
@@ -318,11 +319,15 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                         <div className='header-brand--avatar-wrapper absolute top-8 sm:top-10 right-3 sm:right-10'>
                             {!drawerVisible && (
                                 <>
-                                    <Avatar
-                                        isEdit={false}
-                                        onClick={handleMenuOpen}
-                                        size={drawerVisible ? 'sm' : 'md'}
-                                    />
+                                    <Tooltip title="Profile" placement="bottom" arrow>
+                                        <span>
+                                            <Avatar
+                                                isEdit={false}
+                                                onClick={handleMenuOpen}
+                                                size={drawerVisible ? 'sm' : 'md'}
+                                            />
+                                        </span>
+                                    </Tooltip>
                                     <Menu
                                         anchorEl={menuAnchor}
                                         open={Boolean(menuAnchor)}

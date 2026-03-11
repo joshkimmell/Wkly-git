@@ -22,6 +22,8 @@ interface SummaryGeneratorProps {
   content?: string | null;
   // summaryType: 'AI' | 'User';
   scope: 'week' | 'month' | 'year'; // Add scope to the props
+  className?: string; // Optional className for styling
+  onSummaryCreated?: () => void; // Optional callback for when a summary is created/updated
 }
 
 const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
@@ -31,6 +33,8 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
   selectedRange,
   filteredGoals,
   scope,
+  className,
+  onSummaryCreated,
 }) => {
   const [summary, setSummary] = useState<string | null>(initialContent || null);
   const [localSummaryId, setLocalSummaryId] = useState<string | null>(summaryId || null);
@@ -134,6 +138,10 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
         scope
       );
       setSummaryType('AI');
+      // Notify parent component that a summary was created
+      if (onSummaryCreated) {
+        onSummaryCreated();
+      }
     } catch (error) {
       console.error('Error generating summary:', error);
     }
@@ -197,6 +205,10 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
         selectedScope,  // Use selectedScope instead of scope
       );
       setSummaryType('AI');
+      // Notify parent component that a summary was created
+      if (onSummaryCreated) {
+        onSummaryCreated();
+      }
       // closeGenerateModal();
       console.log('Response Length:', responseLength);
       console.log('Additional Context:', additionalContext);
@@ -226,6 +238,10 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
       );
       setSummary(updatedContent); // Update the summary state
       setSummaryTitle(updatedTitle); // Update the title state
+      // Notify parent component that a summary was saved
+      if (onSummaryCreated) {
+        onSummaryCreated();
+      }
       // console.log('formatted range:', formattedRange);
       // console.log('Summary saved successfully');
     } catch (error) {
@@ -255,7 +271,7 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
   };
 
   return (
-    <div>
+    <div className={`${className || ''}`}>
       
 
       <Modal
@@ -296,12 +312,12 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
 
               {/* Goal Selection */}
               <Accordion defaultExpanded disableGutters elevation={0} sx={{ bgcolor: 'transparent', '&:before': { display: 'none' }, borderBottom: '1px solid', borderColor: 'divider' }}>
-                <AccordionSummary expandIcon={<ChevronDown className="w-3.5 h-3.5" />} sx={{ p: 0, minHeight: 'unset', '& .MuiAccordionSummary-content': { my: '6px' } }}>
+                <AccordionSummary expandIcon={<ChevronDown className="w-3.5 h-3.5" />} sx={{ p: 0, px: 2, minHeight: 'unset', '& .MuiAccordionSummary-content': { my: '6px' } }}>
                   <span className="text-sm font-semibold">
                     Goals ({selectedGoalIds.size} of {filteredGoals.length} selected)
                   </span>
                 </AccordionSummary>
-                <AccordionDetails sx={{ p: 0, pb: 1, maxHeight: '200px', overflow: 'auto' }}>
+                <AccordionDetails sx={{ p: 2, maxHeight: '200px', overflow: 'auto' }}>
                   <div className="flex flex-col">
                     <FormControlLabel
                       control={
@@ -450,8 +466,9 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
       </Modal>
 
       <Tooltip title="Generate Summary" placement="top" arrow>
-        <button onClick={openGenerateModal} className="btn-primary gap-2 flex ml-auto sm:mt-0 md:pr-2 sm:pr-2 xs:pr-0">
+        <button onClick={openGenerateModal} className="btn-primary gap-2 flex w-auto">
           <SparklesIcon className="w-5 h-5" /> 
+          <span className="hidden md:inline">Generate Summary</span>
         </button>
       </Tooltip>
 

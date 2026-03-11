@@ -105,7 +105,7 @@ const TasksKanban: React.FC<TasksKanbanProps> = ({
   const getColumnColor = (status: Task['status']) => {
     switch (status) {
       case 'Not started':
-        return 'bg-gray-100 dark:bg-gray-80';
+        return 'bg-gray-5 dark:bg-gray-90/40';
       case 'In progress':
         return 'bg-blue-50 dark:bg-blue-900/20';
       case 'Blocked':
@@ -115,7 +115,7 @@ const TasksKanban: React.FC<TasksKanbanProps> = ({
       case 'Done':
         return 'bg-green-50 dark:bg-green-900/20';
       default:
-        return 'bg-gray-100 dark:bg-gray-80';
+        return 'bg-gray-5 dark:bg-gray-90/40';
     }
   };
 
@@ -187,7 +187,7 @@ const TasksKanban: React.FC<TasksKanbanProps> = ({
                   {isSmall && (
                     <div className="flex items-center space-x-2">
                       <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 6, background: STATUS_COLORS[status], marginRight: 8 }} />
-                      <div className="text-nowrap" style={{ color: STATUS_COLORS[status] }}>{status}</div>
+                      {/* <div className="text-nowrap" style={{ color: STATUS_COLORS[status] }}>{status}</div> */}
                     </div>
                   )}
                   <Tooltip title={`Show "${status}" column`} placement="top" arrow>

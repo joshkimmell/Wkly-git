@@ -10,11 +10,11 @@ import SummaryCard from '@components/SummaryCard';
 import SummaryEditor from '@components/SummaryEditor';
 import GoalForm from '@components/GoalForm';
 import { useGoalsContext } from '@context/GoalsContext';
-// import SummaryGenerator from '@components/SummaryGenerator';
+import SummaryGenerator from '@components/SummaryGenerator';
 import { modalClasses, overlayClasses } from '@styles/classes'; // Adjust the import path as necessary
 import ReactQuill from 'react-quill';
 import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
-import { CheckSquare2, Filter, SquareSlash, X as CloseButton, Target, ChevronDown, XCircle, Search } from 'lucide-react';
+import { CheckSquare2, Filter, SquareSlash, X as CloseButton, Target, ChevronDown, XCircle, Search, Sparkles } from 'lucide-react';
 import { useTheme } from '@mui/material/styles';
 import RichTextEditor from './RichTextEditor';
 // import Editor from '@components/Editor';
@@ -36,20 +36,6 @@ const AllSummaries = () => {
     created_at: '',
     status: 'Not started',
     status_notes: '',
-  });
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  // Removed unused summaryType state
-  const [newSummary, setNewSummary] = useState<Summary>({
-    id: '',
-    scope: 'week', // Default scope
-    title: '',
-    description: '',
-    content: '',
-    type: '', 
-    // format: '',
-    week_start: '',
-    user_id: '',
-    created_at: ''
   });
   const [localSummaryId, setLocalSummaryId] = useState<string | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -93,10 +79,6 @@ const AllSummaries = () => {
   }).length;
 
  
-  const closeModal = () => {
-    setIsModalOpen(false);
-  };
-
   const openGoalModal = () => {
     if (!isGoalModalOpen) {
       setNewGoal((prev) => ({
@@ -228,48 +210,6 @@ const AllSummaries = () => {
         }
       },
     );
-  };
-
-  const handleAddSummary = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-
-    const title = formData.get('title') as string;
-    const content = formData.get('content') as string;
-    const week_start = formData.get('week_start') as string;
-    // const summary_type = formData.get('summary_type') as string;
-
-    // Get user_id from your auth/session context
-    const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error('User is not authenticated');
-        return;
-      }
-    const user_id = user; // Ensure user_id is defined
-      await createSummary({
-        user_id,        
-        content,        // string, not undefined
-        summary_type: 'User',   
-        week_start,     // string, e.g. '2025-06-02'
-        title,
-      });
-      setNewSummary({
-        id: '',
-        scope: 'week', // Default scope
-        title: '',
-        description: '',
-        content: '',
-        type: 'User',
-        week_start: '',
-        user_id: user.id,
-        created_at: new Date().toISOString(), // Set created_at to current time
-      });
-      closeModal; // Close the modal after adding
-      handleFetchSummaries(); // Refresh summaries after adding
-      notifySuccess('Summary added successfully');
-    // Reset the form fields
-    form.reset();
   };
 
   // Updated handleFilterChange to include filtering by content
@@ -630,20 +570,20 @@ const AllSummaries = () => {
       <div className="text-center text-gray-50 mt-16 space-y-4">
         {incompleteGoalsCount !== 0 ? (
           <>
-            <p>You have {incompleteGoalsCount} goal{incompleteGoalsCount !== 1 ? 's' : ''}. Create a summary when you're ready!</p>
-            <Button
-              onClick={openGoalModal}
-              variant='contained'
-              className="btn-primary gap-3 flex mx-auto w-fit"
-              aria-label="Add a new goal"
-            >
-              <span className="block flex text-nowrap">Add a Goal</span>
-              <Target className="w-5 h-5" />
-            </Button>
+            <p>You have {incompleteGoalsCount} goal{incompleteGoalsCount !== 1 ? 's' : ''}. <br />Create a summary when you're ready!</p>
+            <SummaryGenerator
+              summaryId={selectedSummary?.id || ''}
+              summaryTitle={selectedSummary?.title || `Summary: ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}
+              selectedRange={new Date()}
+              filteredGoals={goals}
+              scope='week'
+              className="flex w-auto mx-auto justify-center"
+              onSummaryCreated={fetchSummariesData}
+            />
           </>
         ) : (
           <>
-            <p>You don't have any goals yet. Create a goal to start generating summaries!</p>
+            <p>You don't have any goals yet. Create a goal to start generating summaries.</p>
             <Button
               onClick={openGoalModal}
               variant='contained'
@@ -691,77 +631,6 @@ const AllSummaries = () => {
               }
             }}
           />
-        )}
-      </Modal>
-        
-
-      {/* Add Summary Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onRequestClose={() => closeModal()}
-        shouldCloseOnOverlayClick={true}
-        className="fixed inset-0 flex items-center justify-center z-50"
-        overlayClassName={`${overlayClasses}`}
-        ariaHideApp={ARIA_HIDE_APP}
-      >
-        {isModalOpen && (
-          <form id="summaryForm" onSubmit={handleAddSummary} className={`${modalClasses}`}>
-            <h3 className="text-lg font-medium text-gray-90 mb-4">Add Summary</h3>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="summary-title" className="block text-sm font-medium text-gray-70">Title</label>
-                <TextField
-                  id="summary-title"
-                  name="title"
-                  value={newSummary.title}
-                  onChange={(e) => setNewSummary({ ...newSummary, title: e.target.value })}
-                  fullWidth
-                />
-              </div>
-              <div>
-                <label htmlFor="summary-week-start" className="block text-sm font-medium text-gray-70">Select timeframe</label>
-                <TextField
-                  id="summary-week-start"
-                  name="week_start"
-                  type="date"
-                  value={newSummary.week_start}
-                  onChange={(e) => setNewSummary({ ...newSummary, week_start: e.target.value })}
-                  fullWidth
-                />
-              </div>
-              <div>
-                <label htmlFor="summary-content" className="block text-sm font-medium text-gray-70">Content</label>
-                <RichTextEditor
-                  id="summary-content"
-                  value={newSummary.content}
-                  onChange={(value) =>
-                    setNewSummary({ ...newSummary, content: value })
-                  }
-                />
-                <input
-                  type="hidden"
-                  name="content"
-                  value={newSummary.content}
-                  readOnly
-                />
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end space-x-4">
-              <button
-                onClick={() => closeModal()}
-                className="btn-secondary"
-                aria-label="Cancel"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn-primary"
-              >
-                Add
-              </button>
-            </div>
-          </form>
         )}
       </Modal>
       

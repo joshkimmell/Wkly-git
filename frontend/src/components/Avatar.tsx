@@ -146,6 +146,10 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
         const ce = e as CustomEvent;
         const avatarUrl = ce?.detail?.avatarUrl;
         if (avatarUrl) {
+          // Update the cache with the new avatar URL
+          if (profileCache) {
+            profileCache.avatar_url = avatarUrl;
+          }
           setStoredAvatarUrl(avatarUrl);
           // Only update the shown avatarSrc when there isn't an active preview prop
           if (!src) setAvatarSrc(avatarUrl);
@@ -158,7 +162,7 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
 
     window.addEventListener('avatar:updated', handler as EventListener);
     return () => window.removeEventListener('avatar:updated', handler as EventListener);
-  }, []);
+  }, [src]);
 
   // Prefer preview `src` prop if provided; otherwise use persisted avatar_url from profile as the default,
   // finally fall back to any internal avatarSrc (e.g., a data URL from the internal handler)
@@ -179,12 +183,14 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
         },
         ...buttonSx,
       }}
+      className='group'
       onClick={onClick} // Updated to use the correct type
     >
       <Avatar
         alt={avatarAlt}
         src={displayedSrc}
         imgProps={{ loading: 'lazy', decoding: 'async' }}
+        className={showLabel && avatarAlt ? 'group-hover:blur-lg group-hover:opacity-50 transition-all duration-200' : undefined}
         sx={{
           opacity: uploading ? 0.45 : 1,
           width: { xs: sizeValues.xs, md: sizeValues.md },
@@ -220,7 +226,7 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
       )}
 
       {showLabel && avatarAlt && (
-        <span className='none hover:block'
+        <span className='opacity-0 group-hover:opacity-100 transition-opacity duration-200' // fade in on hover
           style={{
             // display: 'block',
             position: 'absolute',
