@@ -41,7 +41,7 @@ CREATE POLICY "Users can view own and default categories"
   FOR SELECT
   TO authenticated
   USING (
-    auth.uid() = user_id OR is_default = true
+    (user_id IS NOT NULL AND auth.uid() = user_id) OR (is_default = true)
   );
 
 -- Policy: Users can insert their own categories
