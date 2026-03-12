@@ -311,27 +311,16 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
 
                             const userId = user.id;
 
-                            const { data: existingCategory, error: fetchError } = await supabase
+                            // Try to insert the category - database will handle duplicates
+                            const { error: insertError } = await supabase
                               .from('categories')
-                              .select('name')
-                              .eq('name', searchTerm.trim())
-                              .single();
+                              .insert({ name: searchTerm.trim(), user_id: userId });
 
-                            if (fetchError && fetchError.code !== 'PGRST116') {
-                              console.error('Error checking category existence:', fetchError.message);
+                            // Ignore duplicate key errors (23505 is PostgreSQL unique violation)
+                            if (insertError && !insertError.message?.includes('duplicate') && insertError.code !== '23505') {
+                              console.error('Error adding category:', insertError.message);
                               return;
-                            }
-
-                            if (!existingCategory) {
-                              const { error: insertError } = await supabase
-                                .from('categories')
-                                .insert({ name: searchTerm.trim(), user_id: userId });
-
-                              if (insertError) {
-                                console.error('Error adding category:', insertError.message);
-                                return;
-                              }
-
+                            } else if (!insertError) {
                               console.log('Category added successfully.');
                             } else {
                               console.log('Category already exists.');

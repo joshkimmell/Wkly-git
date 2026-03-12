@@ -1162,27 +1162,16 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
 
                               const userId = user.id;
 
-                              const { data: existingCategory, error: fetchError } = await supabase
+                              // Try to insert the category - database will handle duplicates
+                              const { error: insertError } = await supabase
                                 .from('categories')
-                                .select('name')
-                                .eq('name', searchTerm.trim())
-                                .single();
+                                .insert({ name: searchTerm.trim(), user_id: userId });
 
-                              if (fetchError && fetchError.code !== 'PGRST116') {
-                                console.error('Error checking category existence:', fetchError.message);
+                              // Ignore duplicate key errors (23505 is PostgreSQL unique violation)
+                              if (insertError && !insertError.message?.includes('duplicate') && insertError.code !== '23505') {
+                                console.error('Error adding category:', insertError.message);
                                 return;
-                              }
-
-                              if (!existingCategory) {
-                                const { error: insertError } = await supabase
-                                  .from('categories')
-                                  .insert({ name: searchTerm.trim(), user_id: userId });
-
-                                if (insertError) {
-                                  console.error('Error adding category:', insertError.message);
-                                  return;
-                                }
-
+                              } else if (!insertError) {
                                 console.log('Category added successfully.');
                               } else {
                                 console.log('Category already exists.');
@@ -1389,27 +1378,16 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
 
                             const userId = user.id;
 
-                            const { data: existingCategory, error: fetchError } = await supabase
+                            // Try to insert the category - database will handle duplicates
+                            const { error: insertError } = await supabase
                               .from('categories')
-                              .select('name')
-                              .eq('name', searchTerm.trim())
-                              .single();
+                              .insert({ name: searchTerm.trim(), user_id: userId });
 
-                            if (fetchError && fetchError.code !== 'PGRST116') {
-                              console.error('Error checking category existence:', fetchError.message);
+                            // Ignore duplicate key errors (23505 is PostgreSQL unique violation)
+                            if (insertError && !insertError.message?.includes('duplicate') && insertError.code !== '23505') {
+                              console.error('Error adding category:', insertError.message);
                               return;
-                            }
-
-                            if (!existingCategory) {
-                              const { error: insertError } = await supabase
-                                .from('categories')
-                                .insert({ name: searchTerm.trim(), user_id: userId });
-
-                              if (insertError) {
-                                console.error('Error adding category:', insertError.message);
-                                return;
-                              }
-
+                            } else if (!insertError) {
                               console.log('Category added successfully.');
                             } else {
                               console.log('Category already exists.');
@@ -1583,41 +1561,31 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                       const userId = user.id;
                       const categoryName = searchTerm.trim();
 
-                      // Check if category already exists
-                      const { data: existingCategory, error: fetchError } = await supabase
+                      // Try to insert the category - database will handle duplicates
+                      const { error: insertError } = await supabase
                         .from('categories')
-                        .select('name')
-                        .eq('name', categoryName)
-                        .single();
+                        .insert({ name: categoryName, user_id: userId });
 
-                      if (fetchError && fetchError.code !== 'PGRST116') {
-                        console.error('Error checking category existence:', fetchError.message);
-                        notifyError('Failed to check category existence');
+                      // Ignore duplicate key errors (23505 is PostgreSQL unique violation)
+                      if (insertError && !insertError.message?.includes('duplicate') && insertError.code !== '23505') {
+                        console.error('Error adding category:', insertError.message);
+                        notifyError('Failed to create category');
                         return;
                       }
 
-                      if (!existingCategory) {
-                        // Create the category
-                        const { error: insertError } = await supabase
-                          .from('categories')
-                          .insert({ name: categoryName, user_id: userId });
-
-                        if (insertError) {
-                          console.error('Error adding category:', insertError.message);
-                          notifyError('Failed to create category');
-                          return;
-                        }
-
+                      if (!insertError) {
                         notifySuccess(`Category "${categoryName}" created successfully`);
-                        
-                        // Refresh categories list
-                        const { UserCategories } = await fetchCategories(); 
-                        setCategories(
-                          UserCategories && Array.isArray(UserCategories)
-                            ? UserCategories.map((category) => ({ id: category.id, name: category.name }))
-                            : []
-                        );
+                      } else {
+                        console.log('Category already exists.');
                       }
+                      
+                      // Refresh categories list
+                      const { UserCategories } = await fetchCategories(); 
+                      setCategories(
+                        UserCategories && Array.isArray(UserCategories)
+                          ? UserCategories.map((category) => ({ id: category.id, name: category.name }))
+                          : []
+                      );
 
                       setNewGoal(prev => ({ ...prev, category: categoryName }));
                       setIsCategoryModalOpen(false);
