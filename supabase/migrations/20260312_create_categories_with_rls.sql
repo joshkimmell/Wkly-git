@@ -27,6 +27,11 @@ CREATE TABLE IF NOT EXISTS categories (
   CONSTRAINT unique_category_per_user UNIQUE (name, user_id)
 );
 
+-- Create unique index for default categories (where user_id is NULL)
+CREATE UNIQUE INDEX unique_default_category_name 
+  ON categories (name) 
+  WHERE user_id IS NULL;
+
 -- Enable RLS
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 
@@ -72,4 +77,4 @@ VALUES
   ('Eminence', true),
   ('Concepts', true),
   ('Community', true)
-ON CONFLICT (name, user_id) DO NOTHING;
+ON CONFLICT (name) WHERE user_id IS NULL DO NOTHING;
