@@ -272,6 +272,27 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         setGeneratedPlan([]);
     };
 
+  // Helper function to ensure category exists in database
+  const ensureCategoryExists = async (categoryName: string, userId: string) => {
+    try {
+      // Try to insert the category - database will handle duplicates
+      const { error: insertError } = await supabase
+        .from('categories')
+        .insert({ name: categoryName, user_id: userId });
+
+      // Ignore duplicate key errors (23505 is PostgreSQL unique violation)
+      if (insertError && !insertError.message?.includes('duplicate') && insertError.code !== '23505') {
+        console.error('Error creating category:', insertError.message);
+        // Don't throw - allow goal creation to continue even if category creation fails
+      } else if (!insertError) {
+        console.log('Category created successfully:', categoryName);
+      }
+    } catch (error) {
+      console.error('Unexpected error in ensureCategoryExists:', error);
+      // Don't throw - allow goal creation to continue
+    }
+  };
+
   // NEW: Create goal with tasks
   const createGoalWithTasks = async () => {
     try {
@@ -284,11 +305,17 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       // Ensure week_start is properly formatted
       const weekStart = newGoal.week_start ? newGoal.week_start.split('T')[0] : getWeekStartDate();
       
+      // Default category to 'General' if not provided
+      const category = newGoal.category?.trim() || 'General';
+      
+      // Ensure category exists in database
+      await ensureCategoryExists(category, user.id);
+      
       // Create the goal first
       const goalPayload = {
         title: newGoal.title,
         description: newGoal.description,
-        category: newGoal.category,
+        category: category,
         week_start: weekStart,
         user_id: user.id,
         status: 'Not started' as const,
@@ -384,39 +411,13 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       // Add the user_id to the goal object
       goal.user_id = user.id;
 
-      // Validate that the category exists in the database
-      const { error: categoryError } = await supabase
-        .from('categories')
-        .select('name')
-        .eq('name', goal.category)
-        .single();
-
-      if (categoryError && categoryError.code === 'PGRST116') {
-        console.warn('Category does not exist:', goal.category);
-
-        // Prompt the user to create the category or go back
-        const userConfirmed = window.confirm(
-          `The category "${goal.category}" does not exist. Would you like to create it?`
-        );
-
-        if (!userConfirmed) {
-          console.warn('User chose to go back and select an existing category.');
-          return;
-        }
-
-        // Create the category if the user confirms
-        const { error: insertCategoryError } = await supabase
-          .from('categories')
-          .insert({ name: goal.category });
-
-        if (insertCategoryError) {
-          throw new Error(`Error creating category: ${insertCategoryError.message}`);
-        }
-
-        console.log('Category successfully created:', goal.category);
-      } else if (categoryError) {
-        throw new Error('Error fetching category: ' + categoryError.message);
+      // Default category to 'General' if not provided
+      if (!goal.category || !goal.category.trim()) {
+        goal.category = 'General';
       }
+
+      // Ensure category exists in database (auto-create if needed)
+      await ensureCategoryExists(goal.category, user.id);
 
       // Remove fields that should not be sent to the database
   const { created_at: _created_at, id: _id, ...goalToInsert } = goal as unknown as Record<string, unknown>;
@@ -506,6 +507,12 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
     try {
       // Ensure week_start is formatted as YYYY-MM-DD
       const formattedWeekStart = weekStart.split('T')[0];
+      
+      // Default category to 'General' if not provided
+      const category = parentCategory?.trim() || 'General';
+      
+      // Ensure category exists in database
+      await ensureCategoryExists(category, userId);
 
       console.log('Bulk adding goals with default week_start:', formattedWeekStart); // Log default week_start value
 
@@ -516,7 +523,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         const goal = {
           ...step,
           user_id: userId,
-          category: parentCategory,
+          category: category,
           week_start: step.week_start ? step.week_start.split('T')[0] : formattedWeekStart,
           id,
           created_at: new Date().toISOString(),
@@ -531,7 +538,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         const payload = {
           ...step,
           user_id: userId,
-          category: parentCategory,
+          category: category,
           week_start: step.week_start ? step.week_start.split('T')[0] : formattedWeekStart,
         };
         return supabase.from('goals').insert(payload).select();
@@ -612,13 +619,6 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
   const handleAddGoal = async (event: React.FormEvent) => {
     event.preventDefault(); // Prevent default form submission
 
-    // Ensure a category is selected
-    if (!newGoal.category) {
-      console.warn('No category selected. Please select a category before adding the goal.');
-      setIsCategoryModalOpen(true); // Reopen the category modal if no category is selected
-      return;
-    }
-
     // Check if the current step is the final step in the wizard
     if (showWizard && currentStep !== 3) {
       console.warn('Add Goal(s) button must be clicked to add the goal.');
@@ -637,11 +637,6 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
     event.preventDefault(); // Prevent default form submission
     if (selectedSteps.length === 0) {
       console.warn('No steps selected. Please select at least one step to add goals.');
-      return;
-    }
-    if (!newGoal.category) {
-      console.warn('No category selected. Please select a category before adding the goals.');
-      setIsCategoryModalOpen(true); // Reopen the category modal if no category is selected
       return;
     }
     try {
@@ -744,7 +739,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
 
             <div className="mt-4">
               <label className="block text-sm font-medium text-gray-70 dark:text-gray-30 mb-2">
-                Category *
+                Category <span className="text-gray-50 font-normal">(optional, defaults to General)</span>
               </label>
               <button
                 type="button"
@@ -755,7 +750,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                 }}
                 className="btn-ghost w-full text-left justify-between"
               >
-                {newGoal.category || '-- Select or create a category --'}
+                {newGoal.category || 'General (default)'}
                 <SearchIcon className="w-5 h-5 inline-block ml-2" />
               </button>
             </div>
@@ -779,7 +774,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
               <button 
                 type="button" 
                 onClick={handleGenerateTasks}
-                disabled={!newGoal.title || !newGoal.category || isGenerating}
+                disabled={!newGoal.title || isGenerating}
                 className="btn-primary"
               >
                 {isGenerating ? 'Generating Tasks...' : 'Generate Tasks'}
@@ -1087,7 +1082,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
 
             <div className="mt-4">
               <label htmlFor="category-wizard" className="block text-sm font-medium text-gray-70">
-                Category
+                Category <span className="text-gray-50 font-normal">(optional, defaults to General)</span>
               </label>
               <div className="mt-2 mb-4">
                 <button
@@ -1099,7 +1094,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                   }}
                   className="btn-ghost w-full text-left justify-between text-xl sm:text-lg md:text-xl lg:text-2xl"
                 >
-                  {newGoal.category || '-- Select a category --'}
+                  {newGoal.category || 'General (default)'}
                   <SearchIcon className="w-5 h-5 inline-block ml-2" />
                 </button>
 
@@ -1325,7 +1320,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                 }}
                 className="btn-ghost hover:background-gray-80 w-full text-left justify-between text-xl sm:text-lg md:text-xl lg:text-2xl"
               >
-                {newGoal.category || '-- Select a category --'}
+                {newGoal.category || 'General (default)'}
                 <SearchIcon className="w-5 h-5 inline-block ml-2" />
               </button>
 
@@ -1528,7 +1523,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
             },
           }}
         >
-          <div className="p-4 bg-gray-10 dark:bg-gray-80 rounded-lg shadow-lg w-full max-w-md">
+          <div className="p-4 bg-background-color rounded-lg shadow-lg w-full max-w-md">
             <h2 className="text-lg font-bold mb-4">Select or Create a Category</h2>
             <TextField
               id="category-search-shared"
