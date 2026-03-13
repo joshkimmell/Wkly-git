@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS categories (
 );
 
 -- Create unique index for default categories (where user_id is NULL)
+DROP INDEX IF EXISTS unique_default_category_name;
 CREATE UNIQUE INDEX unique_default_category_name 
   ON categories (name) 
   WHERE user_id IS NULL;
@@ -36,6 +37,7 @@ CREATE UNIQUE INDEX unique_default_category_name
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Users can view their own categories and default categories
+DROP POLICY IF EXISTS "Users can view own and default categories" ON categories;
 CREATE POLICY "Users can view own and default categories"
   ON categories
   FOR SELECT
@@ -45,6 +47,7 @@ CREATE POLICY "Users can view own and default categories"
   );
 
 -- Policy: Users can insert their own categories
+DROP POLICY IF EXISTS "Users can insert own categories" ON categories;
 CREATE POLICY "Users can insert own categories"
   ON categories
   FOR INSERT
@@ -54,6 +57,7 @@ CREATE POLICY "Users can insert own categories"
   );
 
 -- Policy: Users can update their own categories (not default ones)
+DROP POLICY IF EXISTS "Users can update own categories" ON categories;
 CREATE POLICY "Users can update own categories"
   ON categories
   FOR UPDATE
@@ -62,6 +66,7 @@ CREATE POLICY "Users can update own categories"
   WITH CHECK (auth.uid() = user_id AND is_default = false);
 
 -- Policy: Users can delete their own categories (not default ones)
+DROP POLICY IF EXISTS "Users can delete own categories" ON categories;
 CREATE POLICY "Users can delete own categories"
   ON categories
   FOR DELETE
