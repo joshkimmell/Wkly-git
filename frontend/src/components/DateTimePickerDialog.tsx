@@ -205,7 +205,7 @@ const DateTimePickerDialog: React.FC<DateTimePickerDialogProps> = ({
                             </div>
 
                             {reminderEnabled && (
-                                <div className="space-y-2">
+                                <div className="space-y-2 gap-2">
                                     {selectedDate && selectedTime ? (
                                         <FormControl fullWidth size="small">
                                             <InputLabel>Alert time</InputLabel>

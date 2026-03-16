@@ -333,6 +333,12 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       // Create tasks for the goal
       const tasksToCreate = generatedTasks.filter((_, index) => selectedTasks.includes(index));
 
+      // If no tasks have a scheduled date, default the first task to today (no time)
+      const noneScheduled = tasksToCreate.length > 0 && tasksToCreate.every(t => !t.scheduled_date);
+      if (noneScheduled) {
+        tasksToCreate[0] = { ...tasksToCreate[0], scheduled_date: dayjs().format('YYYY-MM-DD') };
+      }
+
       if (tasksToCreate.length > 0) {
         await Promise.all(
           tasksToCreate.map((task) =>
@@ -873,9 +879,9 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                       type="button" 
                       onClick={() => setCurrentStep(4)}
                       disabled={selectedTasks.length === 0}
-                      className="btn-ghost hover:underline text-brand"
+                      className="btn-secondary !text-primary-link hover:underline text-brand"
                     >
-                      Schedule first
+                      Schedule Tasks
                     </button>
                     <button
                       type="button"
@@ -1010,7 +1016,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
             {isGenerating && (
               <div className="w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center my-4">
                 <div className="loader"><LoadingSpinner variant='mui' /></div>
-                <span className="ml-2">Generating plan...</span>
+                <span className="ml-2">Generating tasks...</span>
               </div>
             )}
             {error && (

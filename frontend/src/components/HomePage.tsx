@@ -955,7 +955,7 @@ export default function HomePage() {
                   </div>
 
                   {standaloneReminderEnabled && (
-                    <div className="space-y-2">
+                    <div className="space-y-2 gap-2">
                       {standaloneSelectedDate && standaloneSelectedTime ? (
                         <FormControl fullWidth size="small">
                           <InputLabel>Alert time</InputLabel>

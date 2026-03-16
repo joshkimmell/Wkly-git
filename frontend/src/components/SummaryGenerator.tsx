@@ -468,7 +468,7 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
       <Tooltip title="Generate Summary" placement="top" arrow>
         <button onClick={openGenerateModal} className="btn-primary gap-2 flex w-auto">
           <SparklesIcon className="w-5 h-5" /> 
-          <span className="hidden md:inline">Generate Summary</span>
+          <span className="hidden md:inline text-nowrap">Generate Summary</span>
         </button>
       </Tooltip>
 

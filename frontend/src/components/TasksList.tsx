@@ -620,7 +620,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
 
       {/* Add Task Form */}
       <Collapse in={isAddingTask}>
-        <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-80 rounded-lg border-2 border-dashed border-gray-30 dark:border-gray-60">
+        <div className="mb-4 p-4 bg-gray-20 dark:bg-gray-80 rounded-lg border-2 border-dashed border-gray-30 dark:border-gray-60">
           <div className="space-y-3">
             <TextField
               value={newTask.title || ''}
@@ -678,7 +678,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
                   </div>
 
                   {reminderEnabled && (
-                    <div className="space-y-2">
+                    <div className="space-y-2 gap-2">
                       {selectedDate && selectedTime ? (
                         <FormControl fullWidth size="small">
                           <InputLabel>Alert time</InputLabel>
@@ -758,7 +758,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
             const isEditing = editingTaskId === task.id;
 
             return isEditing ? (
-              <div key={task.id} className="p-3 bg-gray-50 dark:bg-gray-80 rounded-lg space-y-2">
+              <div key={task.id} className="p-3 bg-gray-20/60 dark:bg-gray-100/30 border border border-dashed border-brand-50 rounded-lg space-y-2">
                 <TextField
                   value={editingTask.title || ''}
                   onChange={(e) => setEditingTask(prev => ({ ...prev, title: e.target.value }))}

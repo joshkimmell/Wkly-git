@@ -643,7 +643,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
         </div>
 
         {/* Task content */}
-        <div className="flex-1 w-full">
+        <div className="flex-1 w-full space-y-2">
           {isEditing ? (
             <div className="space-y-2">
               <TextField
@@ -673,7 +673,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                     {selectable && (
                     <button
                         onClick={(e) => { e.stopPropagation(); onToggleSelect?.(task.id); }}
-                        className="btn-ghost p-0.5 mt-1.5  text-brand-50 dark:text-brand-30 rounded transition-colors"
+                        className="btn-ghost p-0.5 text-brand-50 dark:text-brand-30 rounded transition-colors"
                         aria-label={isSelected ? 'Deselect task' : 'Select task'}
                     >
                         {isSelected
@@ -699,34 +699,37 @@ const TaskCard: React.FC<TaskCardProps> = ({
           )}
 
           {/* Metadata */}
-          <div className="flex flex-wrap h-auto gap-2 mt-2 min-h-7" onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-wrap h-auto gap-2" onClick={(e) => e.stopPropagation()}>
             {!task.scheduled_date && onUpdate && (
-              <Button
-                size="small"
+              <Chip
+                size="medium"
                 variant="outlined"
-                startIcon={<Calendar className="w-3 h-3" />}
+                label={
+                  <span className="flex items-center text-primary-link gap-2 px-2 py-1">
+                    Set Date & Time
+                  </span>
+                }
+                icon={<Calendar className="w-3 h-3 text-primary-text" />}
                 onClick={() => setIsDateTimeDialogOpen(true)}
-                sx={{ 
-                  fontSize: '0.75rem', 
-                  padding: '2px 8px',
-                  textTransform: 'none'
-                }}
-              >
-                Set Date & Time
-              </Button>
+                className="!text-primary-icon"
+              />
+                
+              
             )}
             {task.scheduled_date && !hideCategory && (
               <>
                 <Chip
-                  size="small"
+                  size="medium"
                   icon={<Calendar className="w-3 h-3" />}
                   label={
-                    <span className="flex items-center text-primary-icon gap-2">
-                      {formattedDate}{task.scheduled_time ? ` ${task.scheduled_time}` : ''}
-                      {task.reminder_enabled ? <Bell className="w-3 h-3 text-primary-icon" /> : null}
+                    <span className="flex items-center">
+                      <span className="flex items-center text-primary-icon gap-2 pl-2 py-1">
+                        {formattedDate}{task.scheduled_time ? ` ${task.scheduled_time}` : ''}
+                        {task.reminder_enabled ? <><span className='min-w-3 h-auto'></span><span className='absolute right-0 bg-background rounded-full p-1'><Bell className="w-3 h-3 text-secondary-icon" /></span></> : null}
+                      </span>
                     </span>
                   }
-                  className="text-xs"
+                  className="relative flex text-xs max-h-7"
                   onClick={handleDateClick}
                   variant="outlined"
                   sx={{ cursor: onUpdate ? 'pointer' : 'default' }}
@@ -736,15 +739,17 @@ const TaskCard: React.FC<TaskCardProps> = ({
             {task.scheduled_date && hideCategory && task.scheduled_time && (
               <>
                 <Chip
-                  size="small"
+                  size="medium"
                   icon={<Clock className="w-3 h-3" />}
                   label={
-                    <span className="flex items-center text-secondary-icon gap-2">
+                    <>
+                    <span className="flex flex-row items-center text-secondary-icon gap-2 pl-2 py-1">
                       {task.scheduled_time}
-                      {task.reminder_enabled ? <Bell className="w-3 h-3 text-secondary-icon" /> : null}
+                      {task.reminder_enabled ? <><span className='min-w-3 h-auto'></span><span className='absolute right-0 bg-background rounded-full p-1'><Bell className="w-3 h-3 text-secondary-icon" /></span></> : null}
                     </span>
+                    </>
                   }
-                  className="text-xs"
+                  className="relative text-xs min-h-7 max-h-7"
                   variant='outlined'
                   onClick={handleTimeClick}
                   sx={{ cursor: onUpdate ? 'pointer' : 'default' }}
@@ -754,40 +759,46 @@ const TaskCard: React.FC<TaskCardProps> = ({
             {task.scheduled_time && !task.scheduled_date && (
               <>
                 <Chip
-                  size="small"
+                  size="medium"
                   icon={<Clock className="w-3 h-3" />}
                   label={
-                    <span className="flex items-center text-primary-icon gap-2">
+                    <span className="flex flex-row items-center text-primary-icon gap-2 px-2 py-1">
                       {task.scheduled_time}
                       {task.reminder_enabled ? <Bell className="w-3 h-3 text-primary-icon" /> : null}
                     </span>
                   }
-                  className="text-xs"
+                  className="text-xs h-auto"
                   onClick={handleTimeClick}
+                  variant='outlined'
                   sx={{ cursor: onUpdate ? 'pointer' : 'default' }}
                 />
               </>
             )}
             {!hideCategory && task.goal?.category && (
               <Chip
-                size="small"
+                size="medium"
                 icon={<Tag className="w-3 h-3" />}
-                label={task.goal.category}
-                className="text-xs"
+                label={
+                  <span className="flex items-center text-secondary-text gap-2 px-2 py-1">
+                    {task.goal.category}
+                  </span>
+                }
+                className="text-xs h-auto"
                 variant="outlined"
               />
             )}
             {!hideStatusChip && (
               <Chip
-                size="small"
+                size="medium"
                 label={
-                    <span className="flex items-center gap-2">
+                    <span className="flex items-center gap-2 px-2 py-1">
                       {displayStatus} {!statusMenuAnchor ?<ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
                     </span>
                 }
+                // icon={<Circle className="w-3 h-3" />}
                 color={getStatusColor(displayStatus)}
                 onClick={handleStatusChipClick}
-                className="text-xs"
+                className="text-xs h-7"
                 sx={{ cursor: 'pointer' }}
               />
             )}
@@ -1136,7 +1147,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
               </div>
 
               {modalEditReminderEnabled && (
-                <div className="space-y-2">
+                <div className="space-y-2 gap-2">
                   {modalEditDate && modalEditTime ? (
                     <FormControl fullWidth size="small">
                       <InputLabel>Alert time</InputLabel>
