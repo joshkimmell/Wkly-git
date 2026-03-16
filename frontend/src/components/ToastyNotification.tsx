@@ -22,7 +22,7 @@ const ToastNotification: React.FC<ToastNotificationProps> = ({ theme }) => {
         theme={theme}
         className="z-[200]"
         style={{ top: 'calc(var(--header-height, 7rem) + 1rem)', right: '1rem' }}
-        toastClassName="bg-gray-100 text-gray-10 dark:bg-gray-10 dark:text-gray-100 rounded-lg shadow-lg"
+        toastClassName="items-start bg-gray-100 text-gray-10 dark:bg-gray-10 dark:text-gray-100 rounded-lg shadow-lg"
       />
     </div>
   );

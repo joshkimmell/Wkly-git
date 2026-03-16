@@ -4,7 +4,7 @@ import { useGoalsContext } from '@context/GoalsContext';
 import { useTimezone } from '@context/TimezoneContext';
 import useAuth from '@hooks/useAuth';
 import { getSessionToken, getWeekStartDate } from '@utils/functions';
-import { getTodayInTimezone, formatDateInTimezone } from '@utils/timezone';
+import { getTodayInTimezone, formatDateInTimezone, convertToUTC } from '@utils/timezone';
 import { Task, Goal, calculateGoalCompletion } from '@utils/goalUtils';
 import LoadingSpinner from '@components/LoadingSpinner';
 import GoalForm from '@components/GoalForm';
@@ -31,8 +31,13 @@ import {
   ChevronDown as ChevronDownIcon,
   ListTodo,
   PlusIcon,
+  Bell,
 } from 'lucide-react';
-import { CircularProgress, Menu, MenuItem, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, IconButton } from '@mui/material';
+import { CircularProgress, Menu, MenuItem, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, IconButton, FormControlLabel, Switch } from '@mui/material';
+import { DatePicker, TimePicker, DateTimePicker } from '@mui/x-date-pickers';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import type { Dayjs } from 'dayjs';
 import GoalCompletionDonut from './GoalCompletionDonut';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -365,10 +370,17 @@ export default function HomePage() {
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
-  const [standaloneNewTask, setStandaloneNewTask] = useState<Partial<Task>>({ title: '', description: '', scheduled_date: '', scheduled_time: '' });
+  const [standaloneNewTask, setStandaloneNewTask] = useState<Partial<Task>>({ title: '', description: '' });
   const [standaloneTaskGoalId, setStandaloneTaskGoalId] = useState('');
   const [standaloneCreateNewGoal, setStandaloneCreateNewGoal] = useState(false);
   const [standaloneNewGoalTitle, setStandaloneNewGoalTitle] = useState('');
+  // Date/time picker + reminder state for standalone Add Task modal
+  const [standaloneSelectedDate, setStandaloneSelectedDate] = useState<Dayjs | null>(null);
+  const [standaloneSelectedTime, setStandaloneSelectedTime] = useState<Dayjs | null>(null);
+  const [standaloneReminderEnabled, setStandaloneReminderEnabled] = useState(false);
+  const [standaloneReminderOffset, setStandaloneReminderOffset] = useState('30');
+  const [standaloneReminderDatetime, setStandaloneReminderDatetime] = useState('');
+  const [standaloneSelectedReminderDatetime, setStandaloneSelectedReminderDatetime] = useState<Dayjs | null>(null);
 
   // ── first-login: auto-open profile modal once per session ─────────────────
   useEffect(() => {
@@ -459,10 +471,16 @@ export default function HomePage() {
 
   const closeAddTaskModal = () => {
     setIsAddTaskModalOpen(false);
-    setStandaloneNewTask({ title: '', description: '', scheduled_date: '', scheduled_time: '' });
+    setStandaloneNewTask({ title: '', description: '' });
     setStandaloneTaskGoalId('');
     setStandaloneCreateNewGoal(false);
     setStandaloneNewGoalTitle('');
+    setStandaloneSelectedDate(null);
+    setStandaloneSelectedTime(null);
+    setStandaloneReminderEnabled(false);
+    setStandaloneReminderOffset('30');
+    setStandaloneReminderDatetime('');
+    setStandaloneSelectedReminderDatetime(null);
   };
 
   const createStandaloneTask = async () => {
@@ -503,6 +521,28 @@ export default function HomePage() {
         await refreshGoals();
       }
       
+      const dateStr = standaloneSelectedDate ? standaloneSelectedDate.format('YYYY-MM-DD') : null;
+      const timeStr = standaloneSelectedTime ? standaloneSelectedTime.format('HH:mm') : null;
+      // Compute reminder datetime in UTC
+      let computedReminderDatetime: string | null = null;
+      let finalReminderEnabled = standaloneReminderEnabled;
+      if (standaloneReminderEnabled) {
+        try {
+          if (standaloneReminderOffset === 'custom') {
+            computedReminderDatetime = standaloneReminderDatetime ? new Date(standaloneReminderDatetime).toISOString() : null;
+          } else if (dateStr && timeStr) {
+            const scheduledUTC = convertToUTC(dateStr, timeStr, timezone);
+            const scheduledDate = new Date(scheduledUTC);
+            scheduledDate.setMinutes(scheduledDate.getMinutes() - Number(standaloneReminderOffset));
+            computedReminderDatetime = scheduledDate.toISOString();
+          } else if (standaloneReminderDatetime) {
+            computedReminderDatetime = new Date(standaloneReminderDatetime).toISOString();
+          }
+        } catch (e) {
+          computedReminderDatetime = null;
+        }
+        if (!computedReminderDatetime) finalReminderEnabled = false;
+      }
       const response = await fetch('/.netlify/functions/createTask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -511,8 +551,10 @@ export default function HomePage() {
           title: standaloneNewTask.title!.trim(),
           description: standaloneNewTask.description || null,
           status: 'Not started',
-          scheduled_date: standaloneNewTask.scheduled_date || null,
-          scheduled_time: standaloneNewTask.scheduled_time || null,
+          scheduled_date: dateStr,
+          scheduled_time: timeStr,
+          reminder_enabled: finalReminderEnabled,
+          reminder_datetime: computedReminderDatetime,
           order_index: 0,
         }),
       });
@@ -876,26 +918,99 @@ export default function HomePage() {
               rows={2}
               placeholder="Optional details"
             />
-            <div className="flex gap-3">
-              <TextField
-                type="date"
-                label="Scheduled date"
-                value={standaloneNewTask.scheduled_date || ''}
-                onChange={(e) => setStandaloneNewTask((p) => ({ ...p, scheduled_date: e.target.value }))}
-                size="small"
-                InputLabelProps={{ shrink: true }}
-                className="flex-1"
-              />
-              <TextField
-                type="time"
-                label="Scheduled time"
-                value={standaloneNewTask.scheduled_time || ''}
-                onChange={(e) => setStandaloneNewTask((p) => ({ ...p, scheduled_time: e.target.value }))}
-                size="small"
-                InputLabelProps={{ shrink: true }}
-                className="flex-1"
-              />
-            </div>
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <div className="flex flex-col space-y-4 mt-2">
+                <DatePicker
+                  label="Date"
+                  value={standaloneSelectedDate}
+                  onChange={(newValue) => setStandaloneSelectedDate(newValue)}
+                  slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                />
+                <TimePicker
+                  label="Time (optional)"
+                  value={standaloneSelectedTime}
+                  onChange={(newValue) => setStandaloneSelectedTime(newValue)}
+                  slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                />
+
+                {/* Alert / Reminder */}
+                <div className="border border-gray-20 dark:border-gray-70 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Bell className="w-4 h-4" />
+                      <label className="text-sm font-semibold">Alert</label>
+                    </div>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={standaloneReminderEnabled}
+                          onChange={(e) => setStandaloneReminderEnabled(e.target.checked)}
+                          size="small"
+                        />
+                      }
+                      label={standaloneReminderEnabled ? 'On' : 'Off'}
+                      labelPlacement="start"
+                      sx={{ marginLeft: 0 }}
+                    />
+                  </div>
+
+                  {standaloneReminderEnabled && (
+                    <div className="space-y-2">
+                      {standaloneSelectedDate && standaloneSelectedTime ? (
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Alert time</InputLabel>
+                          <Select
+                            value={standaloneReminderOffset}
+                            onChange={(e) => setStandaloneReminderOffset(e.target.value)}
+                            label="Alert time"
+                          >
+                            <MenuItem value="0">At time of task</MenuItem>
+                            <MenuItem value="15">15 minutes before</MenuItem>
+                            <MenuItem value="30">30 minutes before</MenuItem>
+                            <MenuItem value="60">1 hour before</MenuItem>
+                            <MenuItem value="1440">1 day before</MenuItem>
+                            <MenuItem value="custom">Custom time</MenuItem>
+                          </Select>
+                        </FormControl>
+                      ) : (
+                        <p className="text-xs text-secondary-text">Set a scheduled date &amp; time above to use relative alerts, or pick a custom time.</p>
+                      )}
+
+                      {(standaloneReminderOffset === 'custom' || !standaloneSelectedDate || !standaloneSelectedTime) && (
+                        <DateTimePicker
+                          label="Custom alert date &amp; time"
+                          value={standaloneSelectedReminderDatetime}
+                          onChange={(newValue) => {
+                            setStandaloneSelectedReminderDatetime(newValue);
+                            setStandaloneReminderDatetime(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '');
+                          }}
+                          slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                        />
+                      )}
+
+                      {(() => {
+                        const dateStr = standaloneSelectedDate?.format('YYYY-MM-DD');
+                        const timeStr = standaloneSelectedTime?.format('HH:mm');
+                        if (standaloneReminderOffset === 'custom' || !dateStr || !timeStr) {
+                          if (!standaloneReminderDatetime) return null;
+                          try {
+                            const preview = new Date(standaloneReminderDatetime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+                            return <p className="text-xs text-brand-60 dark:text-brand-30">Alert at: {preview}</p>;
+                          } catch { return null; }
+                        }
+                        try {
+                          const scheduledUTC = convertToUTC(dateStr, timeStr, timezone);
+                          const scheduledDate = new Date(scheduledUTC);
+                          scheduledDate.setMinutes(scheduledDate.getMinutes() - Number(standaloneReminderOffset));
+                          const preview = scheduledDate.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+                          return <p className="text-xs text-brand-60 dark:text-brand-30">Alert at: {preview}</p>;
+                        } catch { return null; }
+                      })()}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </LocalizationProvider>
           </div>
 
           <div className="flex justify-end gap-3 mt-6">

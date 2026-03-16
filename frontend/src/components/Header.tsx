@@ -126,20 +126,26 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
         setIsAuthenticated(!!session);
     }, [session]);
 
-    // Sticky header scroll-shrink: set `scrolled` once the page scrolls past a
-    // small threshold so CSS transitions can kick in.
-    // RAF debounce + hysteresis (32px in / 16px out) prevent the class from
-    // toggling rapidly near the boundary which cuts transitions off mid-flight.
+    // Sticky header scroll-shrink: toggle `scrolled` when crossing the scroll
+    // threshold, then lock the handler for the transition duration so layout
+    // changes from the animation cannot re-trigger it mid-flight.
     useEffect(() => {
         let rafId: number | null = null;
+        // Timestamp (ms) before which scroll events are ignored.
+        // Set to Date.now() + transition duration whenever scrolled changes.
+        const TRANSITION_MS = 420; // slightly over the 0.35s CSS transition
+        let lockedUntil = 0;
+
         const onScroll = () => {
             if (rafId !== null) return;
             rafId = requestAnimationFrame(() => {
                 rafId = null;
+                // Ignore events fired while a transition is still running
+                if (Date.now() < lockedUntil) return;
                 setScrolled((prev) => {
-                    if (!prev && window.scrollY > 32) return true;
-                    if (prev && window.scrollY < 16) return false;
-                    return prev;
+                    const next = window.scrollY > 32 ? true : window.scrollY < 16 ? false : prev;
+                    if (next !== prev) lockedUntil = Date.now() + TRANSITION_MS;
+                    return next;
                 });
             });
         };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, FormControlLabel, Switch, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
-import { DatePicker, TimePicker } from '@mui/x-date-pickers';
+import { DatePicker, TimePicker, DateTimePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs, { Dayjs } from 'dayjs';
@@ -35,6 +35,7 @@ const DateTimePickerDialog: React.FC<DateTimePickerDialogProps> = ({
     const [reminderEnabled, setReminderEnabled] = useState(false);
     const [reminderOffset, setReminderOffset] = useState<string>('30');
     const [reminderDatetime, setReminderDatetime] = useState<string>('');
+    const [selectedReminderDatetime, setSelectedReminderDatetime] = useState<Dayjs | null>(null);
 
     // Initialize with existing values when dialog opens
     useEffect(() => {
@@ -62,18 +63,24 @@ const DateTimePickerDialog: React.FC<DateTimePickerDialogProps> = ({
                 if (match !== undefined) {
                     setReminderOffset(String(match));
                     setReminderDatetime('');
+                    setSelectedReminderDatetime(null);
                 } else {
                     setReminderOffset('custom');
                     // Convert UTC to user's timezone for display
-                    setReminderDatetime(utcToDatetimeLocal(initialReminderDatetime, timezone));
+                    const localStr = utcToDatetimeLocal(initialReminderDatetime, timezone);
+                    setReminderDatetime(localStr);
+                    setSelectedReminderDatetime(dayjs(localStr));
                 }
             } else if (initialReminderDatetime) {
                 setReminderOffset('custom');
                 // Convert UTC to user's timezone for display
-                setReminderDatetime(utcToDatetimeLocal(initialReminderDatetime, timezone));
+                const localStr = utcToDatetimeLocal(initialReminderDatetime, timezone);
+                setReminderDatetime(localStr);
+                setSelectedReminderDatetime(dayjs(localStr));
             } else {
                 setReminderOffset('30');
                 setReminderDatetime('');
+                setSelectedReminderDatetime(null);
             }
         }
     }, [open, initialDate, initialTime, initialReminderEnabled, initialReminderDatetime, timezone]);
@@ -220,15 +227,15 @@ const DateTimePickerDialog: React.FC<DateTimePickerDialogProps> = ({
                                     )}
 
                                     {(reminderOffset === 'custom' || !selectedDate || !selectedTime) && (
-                                        <div>
-                                            <label className="text-xs text-secondary-text block mb-1">Custom alert date &amp; time</label>
-                                            <input
-                                                type="datetime-local"
-                                                className="w-full px-3 py-2 border border-gray-30 dark:border-gray-70 rounded bg-background-color text-primary-text text-sm"
-                                                value={reminderDatetime}
-                                                onChange={(e) => setReminderDatetime(e.target.value)}
-                                            />
-                                        </div>
+                                        <DateTimePicker
+                                            label="Custom alert date &amp; time"
+                                            value={selectedReminderDatetime}
+                                            onChange={(newValue) => {
+                                                setSelectedReminderDatetime(newValue);
+                                                setReminderDatetime(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '');
+                                            }}
+                                            slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                                        />
                                     )}
 
                                     {computedAlertPreview && (

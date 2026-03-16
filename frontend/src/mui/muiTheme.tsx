@@ -616,6 +616,15 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
           },
         },
       },
+      MuiDialog: {
+        styleOverrides: {
+          paper: {
+            backgroundColor: modeTokens[chosenMode].paper,
+            backgroundImage: 'none',
+            color: textPrimary,
+          },
+        },
+      },
       MuiSelect: {
         styleOverrides: {
           // The dropdown list uses a Paper; ensure it's opaque too

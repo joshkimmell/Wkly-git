@@ -225,13 +225,18 @@ export default function useGoalExtras() {
   }, []);
 
   const deleteAccomplishment = useCallback(async (id: string, goalId?: string) => {
+    // Skip DB call for optimistic temp records that never persisted
+    if (id.startsWith('temp-')) {
+      setAccomplishments((s) => s.filter((a) => a.id !== id));
+      return;
+    }
     try {
       setIsAccomplishmentLoading(true);
       const { error } = await supabase.from('accomplishments').delete().eq('id', id);
       if (error) throw error;
       if (goalId) {
-        // Use centralized refresh helper to keep behavior consistent
-        await refreshAccomplishmentsAndCount(goalId);
+        // Use centralized refresh helper to keep behavior consistent (fire-and-forget)
+        void refreshAccomplishmentsAndCount(goalId);
         // decrement count (update cache/state only if changed) -- helpers already attempt to set accurate count,
         // but keep this conservative decrement to preserve optimistic UX in case the server removes immediately
         setAccomplishmentCountMap((s) => {
@@ -265,8 +270,8 @@ export default function useGoalExtras() {
         user_id: user.id,
       }).select();
       if (error) throw error;
-      // Refresh list and counts via centralized helper
-      await refreshAccomplishmentsAndCount(goalId);
+      // Refresh list and counts asynchronously via centralized helper
+      void refreshAccomplishmentsAndCount(goalId);
       // bump count optimistically
       setAccomplishmentCountMap((s) => {
         const next = (s[goalId] ?? 0) + 1;
@@ -293,7 +298,7 @@ export default function useGoalExtras() {
         })
         .eq('id', accomplishmentId);
       if (error) throw error;
-      if (goalId) await fetchAccomplishments(goalId);
+      if (goalId) void refreshAccomplishmentsAndCount(goalId);
       notifySuccess('Accomplishment updated successfully.');
     } catch (err) {
       console.error('useGoalExtras.saveEditedAccomplishment error', err);

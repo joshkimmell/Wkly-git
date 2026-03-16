@@ -339,7 +339,7 @@ const AllSummaries = () => {
                   onClose={() => setSummaryAnchorEl(null)}
                   anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                   transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                  PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1 } }}
+                  PaperProps={{ sx: { bgcolor: 'var(--background-paper)', p: 1 } }}
                 >
                   {[
                     ...((filterType || []).map((t) => ({ key: `type:${t}`, type: 'type' as const, label: `Type: ${t}`, value: t }))),

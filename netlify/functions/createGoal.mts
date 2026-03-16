@@ -28,7 +28,9 @@ export const handler: Handler = async (event) => {
 
     const { data, error } = await supabase
       .from('goals')
-      .insert([insertPayload]);
+      .insert([insertPayload])
+      .select()
+      .single();
 
     if (error) {
       console.error('Supabase error:', error);

@@ -22,8 +22,10 @@ import { mapPageForScope, loadPageByScope, savePageByScope } from '@utils/pagina
 import 'react-datepicker/dist/react-datepicker.css';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
-import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, CalendarDays, Eye, Edit, Trash, EyeOff, ChevronRight, ChevronDown, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash, ListTodo, Clock, CircleEllipsis, MoreVertical, Expand, Minimize, Maximize, Shrink, CircleOff, XCircle, XCircleIcon, Target } from 'lucide-react';
+import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, CalendarDays, Eye, Edit, Trash, EyeOff, ChevronRight, ChevronDown, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash, ListTodo, Clock, CircleEllipsis, MoreVertical, Expand, Minimize, Maximize, Shrink, CircleOff, XCircle, XCircleIcon, Target, Bell } from 'lucide-react';
 import { useGoalsContext } from '@context/GoalsContext';
+import { useTimezone } from '@context/TimezoneContext';
+import { convertToUTC } from '@utils/timezone';
 import useGoalExtras from '@hooks/useGoalExtras';
 // notify helpers imported where needed below
 import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, FormGroup, FormLabel, InputLabel, Select, MenuItem, Tooltip, Menu, Chip, Badge, Checkbox, ListItemText, ToggleButtonGroup, ToggleButton, Table, TableHead, TableBody, TableRow, TableCell, Paper, Typography, Switch, FormControlLabel, useMediaQuery, Button, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
@@ -32,7 +34,7 @@ import { useTheme } from '@mui/material/styles';
 import supabase from '@lib/supabase';
 import { STATUS_COLORS, STATUSES } from '../constants/statuses';
 import { notifyError, notifySuccess, notifyWithUndo } from '@components/ToastyNotification';
-import { ClearIcon, DatePicker, LocalizationProvider, TimeClock } from '@mui/x-date-pickers';
+import { ClearIcon, DatePicker, DateTimePicker, LocalizationProvider, TimeClock, TimePicker } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type { Dayjs } from 'dayjs';
 import type { ChangeEvent } from 'react';
@@ -88,10 +90,17 @@ const GoalsComponent = () => {
     const [addMenuAnchorEl, setAddMenuAnchorEl] = useState<HTMLElement | null>(null);
     // Standalone "Add a task" modal state
     const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
-    const [standaloneNewTask, setStandaloneNewTask] = useState<Partial<Task>>({ title: '', description: '', scheduled_date: '', scheduled_time: '' });
+    const [standaloneNewTask, setStandaloneNewTask] = useState<Partial<Task>>({ title: '', description: '' });
     const [standaloneTaskGoalId, setStandaloneTaskGoalId] = useState<string>('');
     const [standaloneCreateNewGoal, setStandaloneCreateNewGoal] = useState(false);
     const [standaloneNewGoalTitle, setStandaloneNewGoalTitle] = useState('');
+    // Date/time picker + reminder state for standalone Add Task modal
+    const [standaloneSelectedDate, setStandaloneSelectedDate] = useState<Dayjs | null>(null);
+    const [standaloneSelectedTime, setStandaloneSelectedTime] = useState<Dayjs | null>(null);
+    const [standaloneReminderEnabled, setStandaloneReminderEnabled] = useState(false);
+    const [standaloneReminderOffset, setStandaloneReminderOffset] = useState('30');
+    const [standaloneReminderDatetime, setStandaloneReminderDatetime] = useState('');
+    const [standaloneSelectedReminderDatetime, setStandaloneSelectedReminderDatetime] = useState<Dayjs | null>(null);
     const [newGoal, setNewGoal] = useState<Goal>({
         id: '',
         title: '',
@@ -130,6 +139,7 @@ const GoalsComponent = () => {
     const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
     // shared accomplishments/notes hook
     const goalExtras = useGoalExtras();
+    const { timezone } = useTimezone();
     const {
     accomplishments,
     accomplishmentCountMap,
@@ -925,10 +935,16 @@ const GoalsComponent = () => {
 
     const closeAddTaskModal = () => {
         setIsAddTaskModalOpen(false);
-        setStandaloneNewTask({ title: '', description: '', scheduled_date: '', scheduled_time: '' });
+        setStandaloneNewTask({ title: '', description: '' });
         setStandaloneTaskGoalId('');
         setStandaloneCreateNewGoal(false);
         setStandaloneNewGoalTitle('');
+        setStandaloneSelectedDate(null);
+        setStandaloneSelectedTime(null);
+        setStandaloneReminderEnabled(false);
+        setStandaloneReminderOffset('30');
+        setStandaloneReminderDatetime('');
+        setStandaloneSelectedReminderDatetime(null);
     };
 
     const createStandaloneTask = async () => {
@@ -958,6 +974,28 @@ const GoalsComponent = () => {
                 goalId = createdGoal.id;
                 await refreshGoals();
             }
+            const dateStr = standaloneSelectedDate ? standaloneSelectedDate.format('YYYY-MM-DD') : null;
+            const timeStr = standaloneSelectedTime ? standaloneSelectedTime.format('HH:mm') : null;
+            // Compute reminder datetime in UTC
+            let computedReminderDatetime: string | null = null;
+            let finalReminderEnabled = standaloneReminderEnabled;
+            if (standaloneReminderEnabled) {
+                try {
+                    if (standaloneReminderOffset === 'custom') {
+                        computedReminderDatetime = standaloneReminderDatetime ? new Date(standaloneReminderDatetime).toISOString() : null;
+                    } else if (dateStr && timeStr) {
+                        const scheduledUTC = convertToUTC(dateStr, timeStr, timezone);
+                        const scheduledDate = new Date(scheduledUTC);
+                        scheduledDate.setMinutes(scheduledDate.getMinutes() - Number(standaloneReminderOffset));
+                        computedReminderDatetime = scheduledDate.toISOString();
+                    } else if (standaloneReminderDatetime) {
+                        computedReminderDatetime = new Date(standaloneReminderDatetime).toISOString();
+                    }
+                } catch (e) {
+                    computedReminderDatetime = null;
+                }
+                if (!computedReminderDatetime) finalReminderEnabled = false;
+            }
             const response = await fetch('/.netlify/functions/createTask', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -966,8 +1004,10 @@ const GoalsComponent = () => {
                     title: standaloneNewTask.title!.trim(),
                     description: standaloneNewTask.description || null,
                     status: 'Not started',
-                    scheduled_date: standaloneNewTask.scheduled_date || null,
-                    scheduled_time: standaloneNewTask.scheduled_time || null,
+                    scheduled_date: dateStr,
+                    scheduled_time: timeStr,
+                    reminder_enabled: finalReminderEnabled,
+                    reminder_datetime: computedReminderDatetime,
                     order_index: 0,
                 }),
             });
@@ -1660,9 +1700,11 @@ const GoalsComponent = () => {
     const [newTaskData, setNewTaskData] = useState<Partial<Task>>({
         title: '',
         description: '',
-        scheduled_date: '',
-        scheduled_time: '',
+        reminder_enabled: false,
     });
+    const [tableSelectedDate, setTableSelectedDate] = useState<Dayjs | null>(null);
+    const [tableSelectedTime, setTableSelectedTime] = useState<Dayjs | null>(null);
+    const [tableReminderDatetime, setTableReminderDatetime] = useState<Dayjs | null>(null);
 
     // Filtered & sorted list for the current page (cards/table)
     // Always show all goals from all pages (ignoring scope pagination)
@@ -1990,8 +2032,10 @@ const GoalsComponent = () => {
                     title: newTaskData.title,
                     description: newTaskData.description || null,
                     status: 'Not started',
-                    scheduled_date: newTaskData.scheduled_date || null,
-                    scheduled_time: newTaskData.scheduled_time || null,
+                    scheduled_date: tableSelectedDate ? tableSelectedDate.format('YYYY-MM-DD') : null,
+                    scheduled_time: tableSelectedTime ? tableSelectedTime.format('HH:mm') : null,
+                    reminder_enabled: newTaskData.reminder_enabled || false,
+                    reminder_datetime: tableReminderDatetime ? tableReminderDatetime.toISOString() : null,
                     order_index: (tableTasksByGoal[goalId]?.length || 0),
                 }),
             });
@@ -2002,16 +2046,18 @@ const GoalsComponent = () => {
             setNewTaskData({
                 title: '',
                 description: '',
-                scheduled_date: '',
-                scheduled_time: '',
+                reminder_enabled: false,
             });
+            setTableSelectedDate(null);
+            setTableSelectedTime(null);
+            setTableReminderDatetime(null);
             setAddingTaskForGoal(null);
             await fetchTasksForGoal(goalId);
         } catch (error) {
             console.error('Error creating task:', error);
             notifyError('Failed to create task');
         }
-    }, [newTaskData, tableTasksByGoal]);
+    }, [newTaskData, tableSelectedDate, tableSelectedTime, tableReminderDatetime, tableTasksByGoal]);
 
     // Fetch tasks when switching to table view
     useEffect(() => {
@@ -2095,7 +2141,7 @@ const GoalsComponent = () => {
                                     onClose={() => setSummaryAnchorEl(null)}
                                     anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                                     transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                                    PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1 } }}
+                                    PaperProps={{ sx: { bgcolor: 'var(--background-paper)', p: 1 } }}
                                 >
                                     {/* build combined list of filters */}
                                     {[
@@ -2299,7 +2345,7 @@ const GoalsComponent = () => {
                                 anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                                 anchorReference={bulkStatusAnchorPos ? 'anchorPosition' : 'anchorEl'}
                                 anchorPosition={bulkStatusAnchorPos ? { top: Math.round(bulkStatusAnchorPos.top), left: Math.round(bulkStatusAnchorPos.left) } : undefined}
-                                PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1 } }}
+                                PaperProps={{ sx: { bgcolor: 'var(--background-paper)', p: 1 } }}
                             >
                                 {statusOptions.map((s) => (
                                     <MenuItem
@@ -2326,7 +2372,7 @@ const GoalsComponent = () => {
                                 anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                                 anchorReference={bulkCategoryAnchorPos ? 'anchorPosition' : 'anchorEl'}
                                 anchorPosition={bulkCategoryAnchorPos ? { top: Math.round(bulkCategoryAnchorPos.top), left: Math.round(bulkCategoryAnchorPos.left) } : undefined}
-                                PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1, maxHeight: '300px', } }}
+                                PaperProps={{ sx: { bgcolor: 'var(--background-paper)', p: 1, maxHeight: '300px', } }}
                             >
                                 {categoryOptions.map((c) => (
                                     c === categoryOptions[0] ? (
@@ -2661,6 +2707,7 @@ const GoalsComponent = () => {
                                 aria-haspopup="menu"
                             >
                                 <PlusIcon className="w-5 h-5" />
+                                <span className="hidden md:inline">Add</span>
                             </button>
                         </Tooltip>
                         <Menu
@@ -3033,7 +3080,7 @@ const GoalsComponent = () => {
                                                     anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                                                     anchorReference={bulkStatusAnchorPos ? 'anchorPosition' : 'anchorEl'}
                                                     anchorPosition={bulkStatusAnchorPos ? { top: Math.round(bulkStatusAnchorPos.top), left: Math.round(bulkStatusAnchorPos.left) } : undefined}
-                                                    PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1 } }}
+                                                    PaperProps={{ sx: { bgcolor: 'var(--background-paper)', p: 1 } }}
                                                 >
                                                     {statusOptions.map((s) => (
                                                         <MenuItem
@@ -3060,7 +3107,7 @@ const GoalsComponent = () => {
                                                     anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                                                     anchorReference={bulkCategoryAnchorPos ? 'anchorPosition' : 'anchorEl'}
                                                     anchorPosition={bulkCategoryAnchorPos ? { top: Math.round(bulkCategoryAnchorPos.top), left: Math.round(bulkCategoryAnchorPos.left) } : undefined}
-                                                    PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1, height: '500px', } }}
+                                                    PaperProps={{ sx: { bgcolor: 'var(--background-paper)', p: 1, height: '500px', } }}
                                                 >
                                                     {categoryOptions.map((c) => (
                                                         c === categoryOptions[0] ? (
@@ -3351,8 +3398,8 @@ const GoalsComponent = () => {
                                         </TableRow>
                                         {/* Add task row */}
                                         {isExpanded && (
-                                            <TableRow className="bg-gray-90">
-                                                <TableCell colSpan={5} className="pl-16">
+                                            <TableRow className="bg-gray-10/60 dark:bg-gray-100/30 border-0" key={`add-task-${goal.id}`}>
+                                                <TableCell colSpan={5} className="pl-16 border-0">
                                                     {addingTaskForGoal === goal.id ? (
                                                         <div className="p-3 bg-white dark:bg-background-color rounded-lg border-2 border-dashed border-primary space-y-2">
                                                             <TextField
@@ -3374,36 +3421,65 @@ const GoalsComponent = () => {
                                                                 placeholder="Add description (optional)"
                                                                 label="Description"
                                                             />
-                                                            <div className="flex gap-2">
-                                                                <TextField
-                                                                    type="date"
-                                                                    value={newTaskData.scheduled_date || ''}
-                                                                    onChange={(e) => setNewTaskData(prev => ({ ...prev, scheduled_date: e.target.value }))}
-                                                                    size="small"
-                                                                    label="Scheduled Date"
-                                                                    InputLabelProps={{ shrink: true }}
-                                                                    className="flex-1"
+                                                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                                            <div className="flex gap-2 items-end space-y-2">
+                                                                <DatePicker
+                                                                    label="Date"
+                                                                    value={tableSelectedDate}
+                                                                    onChange={(newValue) => setTableSelectedDate(newValue)}
+                                                                    slotProps={{ textField: { fullWidth: true, size: 'small' } }}
                                                                 />
-                                                                <TextField
-                                                                    type="time"
-                                                                    value={newTaskData.scheduled_time || ''}
-                                                                    onChange={(e) => setNewTaskData(prev => ({ ...prev, scheduled_time: e.target.value }))}
-                                                                    size="small"
-                                                                    label="Scheduled Time"
-                                                                    InputLabelProps={{ shrink: true }}
-                                                                    className="flex-1"
+                                                                <TimePicker
+                                                                    label="Time (optional)"
+                                                                    value={tableSelectedTime}
+                                                                    onChange={(newValue) => setTableSelectedTime(newValue)}
+                                                                    slotProps={{ textField: { fullWidth: true, size: 'small' } }}
                                                                 />
+                                                                <div className="flex flex-row flex-1 px-4 h-full items-end justify-start">
+                                                                    <Tooltip title="Enable reminders" placement="top" arrow>
+                                                                        <FormControlLabel
+                                                                            label={<span className="flex flex-col"><Bell className="inline w-4 h-4 mr-2" /></span>}
+                                                                            control={
+                                                                                <Switch
+                                                                                    checked={newTaskData.reminder_enabled || false}
+                                                                                    onChange={(e) => setNewTaskData(prev => ({ ...prev, reminder_enabled: e.target.checked }))}
+                                                                                    size="small"
+                                                                                />
+                                                                            }
+                                                                        />
+                                                                    </Tooltip>
+                                                                    {newTaskData.reminder_enabled && (
+                                                                        // <TextField
+                                                                        //     type="datetime-local"
+                                                                        //     value={newTaskData.reminder_datetime || ''}
+                                                                        //     onChange={(e) => setNewTaskData(prev => ({ ...prev, reminder_datetime: e.target.value }))}
+                                                                        //     size="small"
+                                                                        //     label="Reminder Date & Time"
+                                                                        //     InputLabelProps={{ shrink: true }}
+                                                                        //     fullWidth
+                                                                        // />
+                                                                        <DateTimePicker
+                                                                            label="Reminder Date & Time"
+                                                                            value={tableReminderDatetime}
+                                                                            onChange={(newValue) => setTableReminderDatetime(newValue)}
+                                                                            slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                                                                        />
+                                                                    )}
+                                                                </div>
                                                             </div>
-                                                            <div className="flex gap-2 justify-end">
+                                                            </LocalizationProvider>
+                                                            <div className="pt-4 flex gap-2 justify-end">
                                                                 <button 
                                                                     onClick={() => {
                                                                         setAddingTaskForGoal(null);
                                                                         setNewTaskData({
                                                                             title: '',
                                                                             description: '',
-                                                                            scheduled_date: '',
-                                                                            scheduled_time: '',
+                                                                            reminder_enabled: false,
                                                                         });
+                                                                        setTableSelectedDate(null);
+                                                                        setTableSelectedTime(null);
+                                                                        setTableReminderDatetime(null);
                                                                     }} 
                                                                     className="btn-secondary btn-sm"
                                                                 >
@@ -3420,7 +3496,7 @@ const GoalsComponent = () => {
                                                     ) : (
                                                         <button
                                                             onClick={() => setAddingTaskForGoal(goal.id)}
-                                                            className="w-full p-2 text-sm text-gray-10 hover:bg-gray-10 dark:hover:bg-gray-80 rounded border border-dashed border-gray-30 dark:border-gray-60 hover:border-primary transition-colors flex items-center justify-center gap-2"
+                                                            className="btn-ghost w-full p-2 text-sm text-brand-60 dark:text-brand-30 hover:underline hover:bg-background-color rounded border border-dashed border-gray-30 dark:border-gray-60 hover:border-primary transition-colors flex items-center justify-start w-auto gap-2"
                                                         >
                                                             <PlusIcon className="w-4 h-4" />
                                                             Add task
@@ -3431,11 +3507,12 @@ const GoalsComponent = () => {
                                         )}
                                         {/* Task rows when expanded */}
                                         {isExpanded && goalTasks.map((task) => (
-                                            <TableRow key={`task-${task.id}`} className="flex w-full bg-background-color pl-24">
+                                            <TableRow key={`task-${task.id}`} className="flex w-full bg-gray-10/60 dark:bg-gray-100/30 pl-24">
                                                 <TableCell colSpan={5} className="pl-16">
                                                     <TaskCard 
                                                         task={task}
                                                         filter={filter}
+                                                        className="bg-transparent border-0 shadow-none p-0"
                                                         selectable
                                                         list
                                                         isSelected={selectedIds.has(task.id)}
@@ -4004,26 +4081,99 @@ const GoalsComponent = () => {
                                 rows={2}
                                 placeholder="Optional details"
                             />
-                            <div className="flex gap-3">
-                                <TextField
-                                    type="date"
-                                    label="Scheduled date"
-                                    value={standaloneNewTask.scheduled_date || ''}
-                                    onChange={(e) => setStandaloneNewTask((p) => ({ ...p, scheduled_date: e.target.value }))}
-                                    size="small"
-                                    InputLabelProps={{ shrink: true }}
-                                    className="flex-1"
-                                />
-                                <TextField
-                                    type="time"
-                                    label="Scheduled time"
-                                    value={standaloneNewTask.scheduled_time || ''}
-                                    onChange={(e) => setStandaloneNewTask((p) => ({ ...p, scheduled_time: e.target.value }))}
-                                    size="small"
-                                    InputLabelProps={{ shrink: true }}
-                                    className="flex-1"
-                                />
-                            </div>
+                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                <div className="flex flex-col space-y-4 mt-2">
+                                    <DatePicker
+                                        label="Date"
+                                        value={standaloneSelectedDate}
+                                        onChange={(newValue) => setStandaloneSelectedDate(newValue)}
+                                        slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                                    />
+                                    <TimePicker
+                                        label="Time (optional)"
+                                        value={standaloneSelectedTime}
+                                        onChange={(newValue) => setStandaloneSelectedTime(newValue)}
+                                        slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                                    />
+
+                                    {/* Alert / Reminder */}
+                                    <div className="border border-gray-20 dark:border-gray-70 rounded-lg p-3 space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Bell className="w-4 h-4" />
+                                                <label className="text-sm font-semibold">Alert</label>
+                                            </div>
+                                            <FormControlLabel
+                                                control={
+                                                    <Switch
+                                                        checked={standaloneReminderEnabled}
+                                                        onChange={(e) => setStandaloneReminderEnabled(e.target.checked)}
+                                                        size="small"
+                                                    />
+                                                }
+                                                label={standaloneReminderEnabled ? 'On' : 'Off'}
+                                                labelPlacement="start"
+                                                sx={{ marginLeft: 0 }}
+                                            />
+                                        </div>
+
+                                        {standaloneReminderEnabled && (
+                                            <div className="space-y-2">
+                                                {standaloneSelectedDate && standaloneSelectedTime ? (
+                                                    <FormControl fullWidth size="small">
+                                                        <InputLabel>Alert time</InputLabel>
+                                                        <Select
+                                                            value={standaloneReminderOffset}
+                                                            onChange={(e) => setStandaloneReminderOffset(e.target.value)}
+                                                            label="Alert time"
+                                                        >
+                                                            <MenuItem value="0">At time of task</MenuItem>
+                                                            <MenuItem value="15">15 minutes before</MenuItem>
+                                                            <MenuItem value="30">30 minutes before</MenuItem>
+                                                            <MenuItem value="60">1 hour before</MenuItem>
+                                                            <MenuItem value="1440">1 day before</MenuItem>
+                                                            <MenuItem value="custom">Custom time</MenuItem>
+                                                        </Select>
+                                                    </FormControl>
+                                                ) : (
+                                                    <p className="text-xs text-secondary-text">Set a scheduled date &amp; time above to use relative alerts, or pick a custom time.</p>
+                                                )}
+
+                                                {(standaloneReminderOffset === 'custom' || !standaloneSelectedDate || !standaloneSelectedTime) && (
+                                                    <DateTimePicker
+                                                        label="Custom alert date &amp; time"
+                                                        value={standaloneSelectedReminderDatetime}
+                                                        onChange={(newValue) => {
+                                                            setStandaloneSelectedReminderDatetime(newValue);
+                                                            setStandaloneReminderDatetime(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '');
+                                                        }}
+                                                        slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                                                    />
+                                                )}
+
+                                                {(() => {
+                                                    const dateStr = standaloneSelectedDate?.format('YYYY-MM-DD');
+                                                    const timeStr = standaloneSelectedTime?.format('HH:mm');
+                                                    if (standaloneReminderOffset === 'custom' || !dateStr || !timeStr) {
+                                                        if (!standaloneReminderDatetime) return null;
+                                                        try {
+                                                            const preview = new Date(standaloneReminderDatetime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+                                                            return <p className="text-xs text-brand-60 dark:text-brand-30">Alert at: {preview}</p>;
+                                                        } catch { return null; }
+                                                    }
+                                                    try {
+                                                        const scheduledUTC = convertToUTC(dateStr, timeStr, timezone);
+                                                        const scheduledDate = new Date(scheduledUTC);
+                                                        scheduledDate.setMinutes(scheduledDate.getMinutes() - Number(standaloneReminderOffset));
+                                                        const preview = scheduledDate.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+                                                        return <p className="text-xs text-brand-60 dark:text-brand-30">Alert at: {preview}</p>;
+                                                    } catch { return null; }
+                                                })()}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </LocalizationProvider>
                         </div>
 
                         <div className="flex justify-end gap-3 mt-6">

@@ -3,6 +3,10 @@ import { Task } from '@utils/goalUtils';
 import { CheckCircle, Circle, Calendar, Bell, Trash, Edit, Clock, GripVertical, ChevronUp, ChevronDown, FileText, Tag, Square, CheckSquare2 } from 'lucide-react';
 import { Edit2, Save, X as CloseButton, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
 import { IconButton, Tooltip, Chip, TextField, Button, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, FormControlLabel, Switch, Select, FormControl, InputLabel, useMediaQuery } from '@mui/material';
+import { DatePicker, TimePicker, DateTimePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import DateTimePickerDialog from './DateTimePickerDialog';
 import ConfirmModal from './ConfirmModal';
 import RichTextEditor from './RichTextEditor';
@@ -40,6 +44,7 @@ interface TaskCardProps {
   isSelected?: boolean;
   onToggleSelect?: (id: string) => void;
   autoOpenEditModal?: boolean; // Auto-open edit modal on mount (for reminder navigation)
+  className?: string; // Allow passing additional class names
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({
@@ -67,6 +72,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   isSelected = false,
   onToggleSelect,
   autoOpenEditModal = false,
+  className = '',
 }) => {
   const { timezone } = useTimezone();
   const [isEditing, setIsEditing] = useState(false);
@@ -78,6 +84,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const [modalEditStatus, setModalEditStatus] = useState<Task['status']>(task.status);
   const [modalEditDate, setModalEditDate] = useState(task.scheduled_date || '');
   const [modalEditTime, setModalEditTime] = useState(task.scheduled_time || '');
+  const [modalSelectedDate, setModalSelectedDate] = useState<Dayjs | null>(task.scheduled_date ? dayjs(task.scheduled_date) : null);
+  const [modalSelectedTime, setModalSelectedTime] = useState<Dayjs | null>(task.scheduled_time ? dayjs(`2000-01-01T${task.scheduled_time}`) : null);
+  const [modalSelectedReminderDatetime, setModalSelectedReminderDatetime] = useState<Dayjs | null>(null);
   const [modalEditReminderEnabled, setModalEditReminderEnabled] = useState(task.reminder_enabled || false);
   const [modalEditReminderOffset, setModalEditReminderOffset] = useState<string>('30');
   const [modalEditReminderDatetime, setModalEditReminderDatetime] = useState<string>('');
@@ -404,6 +413,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
       setModalEditReminderOffset('30');
       setModalEditReminderDatetime('');
     }
+    setModalSelectedDate(task.scheduled_date ? dayjs(task.scheduled_date) : null);
+    setModalSelectedTime(task.scheduled_time ? dayjs(`2000-01-01T${task.scheduled_time}`) : null);
+    setModalSelectedReminderDatetime(task.reminder_datetime ? dayjs(utcToDatetimeLocal(task.reminder_datetime, timezone)) : null);
     setIsFullEditModalOpen(true);
   }, [task, timezone]);
 
@@ -596,7 +608,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
       ref={cardRef}
       className={`${compact ? 'p-2' : `${list ? 'p-4 md:px-32' : 'p-3'}`} ${isSelected ? 'border-2 border-brand-50 bg-gray-20 dark:bg-brand-90' : `${!list ? 'border border-gray-20 dark:border-gray-70' : 'border-0'}`} bg-background-color rounded-lg hover:shadow-md transition-all ${
         displayStatus === 'Done' ? 'opacity-60' : ''
-      }`}
+      } ${className}`}
       draggable={draggable}
       onDragStart={(e) => onDragStart?.(e, task.id)}
       onDragOver={onDragOver}
@@ -727,12 +739,13 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   size="small"
                   icon={<Clock className="w-3 h-3" />}
                   label={
-                    <span className="flex items-center text-primary-icon gap-2">
+                    <span className="flex items-center text-secondary-icon gap-2">
                       {task.scheduled_time}
-                      {task.reminder_enabled ? <Bell className="w-3 h-3 text-primary-icon" /> : null}
+                      {task.reminder_enabled ? <Bell className="w-3 h-3 text-secondary-icon" /> : null}
                     </span>
                   }
                   className="text-xs"
+                  variant='outlined'
                   onClick={handleTimeClick}
                   sx={{ cursor: onUpdate ? 'pointer' : 'default' }}
                 />
@@ -1075,28 +1088,31 @@ const TaskCard: React.FC<TaskCardProps> = ({
               </select>
             </div>
             
-            {/* Date */}
-            <div>
-              <label className="text-sm font-semibold block mb-1">Scheduled Date</label>
-              <input
-                type="date"
-                className="w-full px-3 py-2 border border-gray-30 dark:border-gray-70 rounded bg-background-color text-primary-text"
-                value={modalEditDate}
-                onChange={(e) => setModalEditDate(e.target.value)}
-              />
-            </div>
-            
-            {/* Time */}
-            <div>
-              <label className="text-sm font-semibold block mb-1">Scheduled Time</label>
-              <input
-                type="time"
-                className="w-full px-3 py-2 border border-gray-30 dark:border-gray-70 rounded bg-background-color text-primary-text"
-                value={modalEditTime}
-                onChange={(e) => setModalEditTime(e.target.value)}
-                disabled={!modalEditDate}
-              />
-            </div>
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <div className="grid grid-cols-2 gap-4">
+                {/* Date */}
+                <DatePicker
+                  label="Scheduled Date"
+                  value={modalSelectedDate}
+                  onChange={(newValue) => {
+                    setModalSelectedDate(newValue);
+                    setModalEditDate(newValue ? newValue.format('YYYY-MM-DD') : '');
+                  }}
+                  slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                />
+                {/* Time */}
+                <TimePicker
+                  label="Scheduled Time"
+                  value={modalSelectedTime}
+                  onChange={(newValue) => {
+                    setModalSelectedTime(newValue);
+                    setModalEditTime(newValue ? newValue.format('HH:mm') : '');
+                  }}
+                  disabled={!modalEditDate}
+                  slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                />
+              </div>
+            </LocalizationProvider>
 
             {/* Alert / Reminder */}
             <div className="border border-gray-20 dark:border-gray-70 rounded-lg p-3 space-y-2">
@@ -1142,15 +1158,17 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   )}
 
                   {(modalEditReminderOffset === 'custom' || !modalEditDate || !modalEditTime) && (
-                    <div>
-                      <label className="text-xs text-secondary-text block mb-1">Custom alert date &amp; time</label>
-                      <input
-                        type="datetime-local"
-                        className="w-full px-3 py-2 border border-gray-30 dark:border-gray-70 rounded bg-background-color text-primary-text text-sm"
-                        value={modalEditReminderDatetime}
-                        onChange={(e) => setModalEditReminderDatetime(e.target.value)}
+                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                      <DateTimePicker
+                        label="Custom alert date &amp; time"
+                        value={modalSelectedReminderDatetime}
+                        onChange={(newValue) => {
+                          setModalSelectedReminderDatetime(newValue);
+                          setModalEditReminderDatetime(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '');
+                        }}
+                        slotProps={{ textField: { size: 'small', fullWidth: true } }}
                       />
-                    </div>
+                    </LocalizationProvider>
                   )}
 
                   {computedAlertPreview && (

@@ -11,6 +11,9 @@ import { modalClasses, overlayClasses } from '@styles/classes';
 import RichTextEditor from '@components/RichTextEditor';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
 import { TextField, MenuItem, Checkbox, FormControlLabel, Switch, Select, InputLabel, FormControl } from '@mui/material';
+import { DatePicker, TimePicker, DateTimePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
 
 export interface AddGoalProps {
   newGoal: Goal; // Updated to use the full Goal type
@@ -297,68 +300,60 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
   const createGoalWithTasks = async () => {
     try {
       setIsGenerating(true);
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        throw new Error('User not authenticated');
-      }
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Not authenticated');
 
       // Ensure week_start is properly formatted
       const weekStart = newGoal.week_start ? newGoal.week_start.split('T')[0] : getWeekStartDate();
-      
+
       // Default category to 'General' if not provided
       const category = newGoal.category?.trim() || 'General';
-      
-      // Ensure category exists in database
-      await ensureCategoryExists(category, user.id);
-      
-      // Create the goal first
-      const goalPayload = {
-        title: newGoal.title,
-        description: newGoal.description,
-        category: category,
-        week_start: weekStart,
-        user_id: user.id,
-        status: 'Not started' as const,
-      };
 
-      const { data: createdGoal, error: goalError } = await supabase
-        .from('goals')
-        .insert(goalPayload)
-        .select()
-        .single();
+      // Create the goal via Netlify function (uses service-role to bypass RLS)
+      const goalRes = await fetch('/.netlify/functions/createGoal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          title: newGoal.title,
+          description: newGoal.description,
+          category,
+          week_start: weekStart,
+          status: 'Not started',
+        }),
+      });
 
-      if (goalError) {
-        throw new Error(`Failed to create goal: ${goalError.message}`);
+      if (!goalRes.ok) {
+        const errBody = await goalRes.json().catch(() => ({}));
+        throw new Error(`Failed to create goal: ${(errBody as { error?: string }).error || goalRes.statusText}`);
       }
 
+      const createdGoal = await goalRes.json() as { id: string };
+
       // Create tasks for the goal
-      const tasksToCreate = generatedTasks
-        .filter((_, index) => selectedTasks.includes(index))
-        .map((task) => ({
-          goal_id: createdGoal.id,
-          user_id: user.id,
-          title: task.title,
-          description: task.description,
-          status: task.status,
-          scheduled_date: task.scheduled_date || null,
-          scheduled_time: task.scheduled_time || null,
-          reminder_enabled: task.reminder_enabled,
-          reminder_datetime: task.reminder_datetime || null,
-          order_index: task.order_index,
-        }));
+      const tasksToCreate = generatedTasks.filter((_, index) => selectedTasks.includes(index));
 
       if (tasksToCreate.length > 0) {
-        const { error: tasksError } = await supabase
-          .from('tasks')
-          .insert(tasksToCreate);
-
-        if (tasksError) {
-          console.error('Error creating tasks:', tasksError);
-          // Goal was created, but tasks failed - notify user
-          notifyError('Goal created, but some tasks failed to save');
-        } else {
-          notifySuccess(`Goal created with ${tasksToCreate.length} task(s)!`);
-        }
+        await Promise.all(
+          tasksToCreate.map((task) =>
+            fetch('/.netlify/functions/createTask', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({
+                goal_id: createdGoal.id,
+                title: task.title,
+                description: task.description,
+                status: task.status,
+                scheduled_date: task.scheduled_date || null,
+                scheduled_time: task.scheduled_time || null,
+                reminder_enabled: task.reminder_enabled,
+                reminder_datetime: task.reminder_datetime || null,
+                order_index: task.order_index,
+              }),
+            })
+          )
+        );
+        notifySuccess(`Goal created with ${tasksToCreate.length} task${tasksToCreate.length !== 1 ? 's' : ''}!`);
       } else {
         notifySuccess('Goal created!');
       }
@@ -755,7 +750,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
               </button>
             </div>
 
-            <div className="mt-4">
+            {/* <div className="mt-4">
               <TextField
                 type="date"
                 label="Week Start Date"
@@ -765,11 +760,14 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                 required
                 InputLabelProps={{ shrink: true }}
               />
-            </div>
+            </div> */}
 
             <div className="mt-4 space-x-4 flex justify-end">
               <button type="button" onClick={goToPreviousStep} className="btn-secondary">
                 Back
+              </button>
+              <button type="button" onClick={createGoalWithTasks} disabled={isGenerating} className="btn-secondary">
+                {isGenerating ? 'Creating...' : 'Add goal'}
               </button>
               <button 
                 type="button" 
@@ -830,11 +828,11 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                   </button>
                 </div>
 
-                <ul className="max-h-96 overflow-y-auto border rounded-lg">
+                <ul className="max-h-96 overflow-y-auto border border-gray-30 dark:border-gray-70 rounded-md">
                   {generatedTasks.map((task, index) => (
                     <li
                       key={task.id}
-                      className="flex gap-4 bg-gray-10 hover:bg-gray-30 dark:bg-gray-90 dark:hover:bg-gray-80 p-4 items-start border-b last:border-b-0"
+                      className="flex gap-4 bg-gray-10 bg-transparent hover:bg-background p-4 items-start border-gray-30 dark:border-gray-70 border-b last:border-b-0"
                       onClick={() => {
                         setSelectedTasks(prev =>
                           prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]
@@ -866,18 +864,28 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                   ))}
                 </ul>
 
-                <div className="mt-4 space-x-4 flex justify-end">
+                <div className="mt-4 flex justify-between items-center">
                   <button type="button" onClick={goToPreviousStep} className="btn-secondary">
                     Back
                   </button>
-                  <button 
-                    type="button" 
-                    onClick={() => setCurrentStep(4)}
-                    disabled={selectedTasks.length === 0}
-                    className="btn-primary"
-                  >
-                    Schedule Tasks ({selectedTasks.length})
-                  </button>
+                  <div className="flex gap-3 items-center">
+                    <button 
+                      type="button" 
+                      onClick={() => setCurrentStep(4)}
+                      disabled={selectedTasks.length === 0}
+                      className="btn-ghost hover:underline text-brand"
+                    >
+                      Schedule first
+                    </button>
+                    <button
+                      type="button"
+                      onClick={createGoalWithTasks}
+                      disabled={isGenerating}
+                      className="btn-primary"
+                    >
+                      {isGenerating ? 'Creating...' : `Create Goal${selectedTasks.length > 0 ? ` & ${selectedTasks.length} Task${selectedTasks.length !== 1 ? 's' : ''}` : ''}`}
+                    </button>
+                  </div>
                 </div>
               </>
             )}
@@ -898,33 +906,30 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                     <div key={task.id} className="p-4 border rounded-lg bg-gray-10 dark:bg-gray-90">
                       <h4 className="font-medium mb-3">{task.title}</h4>
                       
-                      <div className="grid grid-cols-2 gap-4">
-                        <TextField
-                          type="date"
-                          label="Scheduled Date"
-                          value={task.scheduled_date || ''}
-                          onChange={(e) => {
-                            const updated = [...generatedTasks];
-                            updated[originalIndex] = { ...updated[originalIndex], scheduled_date: e.target.value };
-                            setGeneratedTasks(updated);
-                          }}
-                          InputLabelProps={{ shrink: true }}
-                          size="small"
-                        />
-                        
-                        <TextField
-                          type="time"
-                          label="Scheduled Time"
-                          value={task.scheduled_time || ''}
-                          onChange={(e) => {
-                            const updated = [...generatedTasks];
-                            updated[originalIndex] = { ...updated[originalIndex], scheduled_time: e.target.value };
-                            setGeneratedTasks(updated);
-                          }}
-                          InputLabelProps={{ shrink: true }}
-                          size="small"
-                        />
-                      </div>
+                      <LocalizationProvider dateAdapter={AdapterDayjs}>
+                        <div className="grid grid-cols-2 gap-4">
+                          <DatePicker
+                            label="Scheduled Date"
+                            value={task.scheduled_date ? dayjs(task.scheduled_date) : null}
+                            onChange={(newValue) => {
+                              const updated = [...generatedTasks];
+                              updated[originalIndex] = { ...updated[originalIndex], scheduled_date: newValue ? newValue.format('YYYY-MM-DD') : '' };
+                              setGeneratedTasks(updated);
+                            }}
+                            slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                          />
+                          <TimePicker
+                            label="Scheduled Time"
+                            value={task.scheduled_time ? dayjs(`2000-01-01T${task.scheduled_time}`) : null}
+                            onChange={(newValue) => {
+                              const updated = [...generatedTasks];
+                              updated[originalIndex] = { ...updated[originalIndex], scheduled_time: newValue ? newValue.format('HH:mm') : '' };
+                              setGeneratedTasks(updated);
+                            }}
+                            slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                          />
+                        </div>
+                      </LocalizationProvider>
 
                       <div className="mt-3">
                         <FormControlLabel
@@ -943,19 +948,15 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                       </div>
 
                       {task.reminder_enabled && (
-                        <TextField
-                          type="datetime-local"
+                        <DateTimePicker
                           label="Reminder Date & Time"
-                          value={task.reminder_datetime || ''}
-                          onChange={(e) => {
+                          value={task.reminder_datetime ? dayjs(task.reminder_datetime) : null}
+                          onChange={(newValue) => {
                             const updated = [...generatedTasks];
-                            updated[originalIndex] = { ...updated[originalIndex], reminder_datetime: e.target.value };
+                            updated[originalIndex] = { ...updated[originalIndex], reminder_datetime: newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '' };
                             setGeneratedTasks(updated);
                           }}
-                          fullWidth
-                          size="small"
-                          className="mt-2"
-                          InputLabelProps={{ shrink: true }}
+                          slotProps={{ textField: { size: 'small', fullWidth: true, className: 'mt-2' } }}
                         />
                       )}
                     </div>
@@ -1242,9 +1243,9 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
           </div>
         )}
 
-        {currentStep === 3 && (
+        {currentStep === 3 && generatedPlan.length > 0 && (
           <div>
-            <h3 className="text-lg font-medium">Review Selected Steps</h3>
+            <h3 className="text-lg font-medium">Review Selected Tasks</h3>
             <ul className="list-disc pl-5 text-xl text-gray-90 dark:text-gray-20">
                       {generatedPlan.filter((_, index) => selectedSteps.includes(index)).map((step, index) => (
                 <li className='mt-4' key={`${step.title ?? 'step'}-${index}`}>
@@ -1256,7 +1257,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
             <div className="mt-4 space-x-2">
               <button
                 onClick={handleClose}
-                className="btn-secondary"
+                className="btn-ghost"
               >
                 Cancel
               </button>

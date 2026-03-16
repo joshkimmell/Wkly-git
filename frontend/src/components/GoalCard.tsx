@@ -108,6 +108,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
 
   const openModal = () => {
     if (!isAccomplishmentModalOpen) {
+      // Fetch fresh accomplishments scoped to this goal whenever the modal opens
+      void fetchAccomplishments(goal.id);
       setIsAccomplishmentModalOpen(true);
     }
   };
@@ -275,6 +277,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
     // optimistic delete
     const prior = accomplishments;
     setAccomplishments((s) => s.filter((a) => a.id !== accomplishmentId));
+    // If this is a temp (optimistic) record that never persisted, just drop it from state
+    if (accomplishmentId.startsWith('temp-')) return;
     notifyWithUndo(
       'Accomplishment deleted',
       async () => {
@@ -283,6 +287,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
           .delete()
           .eq('id', accomplishmentId);
         if (error) throw new Error(error.message);
+        // async refresh list using GoalCard's own fetch so the correct state is updated
+        void fetchAccomplishments(goal.id);
       },
       () => {
         setAccomplishments(prior);
@@ -315,8 +321,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
         return;
       }
 
-      // Refresh the accomplishments list after saving
-      fetchAccomplishments();
+      // Refresh GoalCard's own accomplishments list after saving
+      void fetchAccomplishments(goal.id);
       notifySuccess('Accomplishment updated successfully.');
       closeEditAccomplishmentModal();
     } catch (err) {
@@ -575,8 +581,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
             week_start: goal.week_start,
           }).select();
           if (error) throw error;
-          // refresh from server to replace temp with real rows
-          await fetchAccomplishments();
+          // refresh GoalCard's own list to replace the temp record with the real row
+          void fetchAccomplishments(goal.id);
         } catch (err) {
           console.error('Error creating accomplishment:', err);
           // rollback

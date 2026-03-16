@@ -2,8 +2,15 @@ import React, { useState, useEffect } from 'react';
 import supabase from '@lib/supabase';
 import { Task } from '@utils/goalUtils';
 import { notifySuccess, notifyError, notifyWithUndo } from './ToastyNotification';
-import { TextField, ToggleButtonGroup, ToggleButton, Tooltip, IconButton, Collapse, Badge, Menu, MenuItem, Button } from '@mui/material';
-import { List, LayoutGrid, Calendar as CalendarIcon, Plus, X, CheckSquare2, SquareSlash, Kanban } from 'lucide-react';
+import { TextField, ToggleButtonGroup, ToggleButton, Tooltip, IconButton, Collapse, Badge, Menu, MenuItem, Button, FormControl, InputLabel, Select, FormControlLabel, Switch } from '@mui/material';
+import { List, LayoutGrid, Calendar as CalendarIcon, Plus, X, CheckSquare2, SquareSlash, Kanban, Bell } from 'lucide-react';
+import { DatePicker, TimePicker, DateTimePicker } from '@mui/x-date-pickers';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
+import { useTimezone } from '@context/TimezoneContext';
+import { convertToUTC } from '@utils/timezone';
 import TaskCard from './TaskCard';
 import TasksKanban from './TasksKanban';
 import TasksCalendar from './TasksCalendar';
@@ -20,6 +27,7 @@ interface TasksListProps {
 type ViewMode = 'list' | 'kanban' | 'calendar';
 
 const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescription, onTaskCountChange }) => {
+  const { timezone } = useTimezone();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -35,9 +43,17 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
     title: '',
     description: '',
     status: 'Not started',
-    scheduled_date: '',
-    scheduled_time: '',
   });
+  // Date/time picker + reminder state for Add Task form
+  const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
+  const [selectedTime, setSelectedTime] = useState<Dayjs | null>(null);
+  // Date/time picker state for Edit Task form
+  const [editingSelectedDate, setEditingSelectedDate] = useState<Dayjs | null>(null);
+  const [editingSelectedTime, setEditingSelectedTime] = useState<Dayjs | null>(null);
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderOffset, setReminderOffset] = useState('30');
+  const [reminderDatetime, setReminderDatetime] = useState('');
+  const [selectedReminderDatetime, setSelectedReminderDatetime] = useState<Dayjs | null>(null);
 
   // Selection state for bulk actions
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -143,6 +159,29 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
       const token = session?.access_token;
       if (!token) throw new Error('User not authenticated');
 
+      // For form submissions (no taskData), use Dayjs date/time state + compute reminder
+      const dateStr = !taskData && selectedDate ? selectedDate.format('YYYY-MM-DD') : (dataToUse.scheduled_date || null);
+      const timeStr = !taskData && selectedTime ? selectedTime.format('HH:mm') : (dataToUse.scheduled_time || null);
+      let computedReminderDatetime: string | null = null;
+      let finalReminderEnabled = !taskData ? reminderEnabled : false;
+      if (finalReminderEnabled) {
+        try {
+          if (reminderOffset === 'custom') {
+            computedReminderDatetime = reminderDatetime ? new Date(reminderDatetime).toISOString() : null;
+          } else if (dateStr && timeStr) {
+            const scheduledUTC = convertToUTC(dateStr, timeStr, timezone);
+            const scheduledDate = new Date(scheduledUTC);
+            scheduledDate.setMinutes(scheduledDate.getMinutes() - Number(reminderOffset));
+            computedReminderDatetime = scheduledDate.toISOString();
+          } else if (reminderDatetime) {
+            computedReminderDatetime = new Date(reminderDatetime).toISOString();
+          }
+        } catch (e) {
+          computedReminderDatetime = null;
+        }
+        if (!computedReminderDatetime) finalReminderEnabled = false;
+      }
+
       const response = await fetch('/.netlify/functions/createTask', {
         method: 'POST',
         headers: {
@@ -154,8 +193,10 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
           title: dataToUse.title,
           description: dataToUse.description || null,
           status: dataToUse.status || 'Not started',
-          scheduled_date: dataToUse.scheduled_date || null,
-          scheduled_time: dataToUse.scheduled_time || null,
+          scheduled_date: dateStr,
+          scheduled_time: timeStr,
+          reminder_enabled: finalReminderEnabled,
+          reminder_datetime: computedReminderDatetime,
           order_index: tasks.length,
         }),
       });
@@ -167,13 +208,13 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
       notifySuccess('Task created');
       if (!taskData) {
         // Only reset the form if not called from kanban
-        setNewTask({
-          title: '',
-          description: '',
-          status: 'Not started',
-          scheduled_date: '',
-          scheduled_time: '',
-        });
+        setNewTask({ title: '', description: '', status: 'Not started' });
+        setSelectedDate(null);
+        setSelectedTime(null);
+        setReminderEnabled(false);
+        setReminderOffset('30');
+        setReminderDatetime('');
+        setSelectedReminderDatetime(null);
         setIsAddingTask(false);
       }
       await fetchTasks();
@@ -245,11 +286,15 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
   const startEdit = (task: Task) => {
     setEditingTaskId(task.id);
     setEditingTask(task);
+    setEditingSelectedDate(task.scheduled_date ? dayjs(task.scheduled_date) : null);
+    setEditingSelectedTime(task.scheduled_time ? dayjs(`2000-01-01T${task.scheduled_time}`) : null);
   };
 
   const cancelEdit = () => {
     setEditingTaskId(null);
     setEditingTask({});
+    setEditingSelectedDate(null);
+    setEditingSelectedTime(null);
   };
 
   const saveEdit = async () => {
@@ -596,36 +641,109 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
               placeholder="Add description (optional)"
               label="Description"
             />
-            <div className="flex gap-2">
-              <TextField
-                type="date"
-                value={newTask.scheduled_date || ''}
-                onChange={(e) => setNewTask(prev => ({ ...prev, scheduled_date: e.target.value }))}
-                size="small"
-                label="Scheduled Date"
-                InputLabelProps={{ shrink: true }}
-                className="flex-1"
-              />
-              <TextField
-                type="time"
-                value={newTask.scheduled_time || ''}
-                onChange={(e) => setNewTask(prev => ({ ...prev, scheduled_time: e.target.value }))}
-                size="small"
-                label="Scheduled Time"
-                InputLabelProps={{ shrink: true }}
-                className="flex-1"
-              />
-            </div>
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <div className="flex flex-col space-y-3">
+                <DatePicker
+                  label="Date"
+                  value={selectedDate}
+                  onChange={(newValue) => setSelectedDate(newValue)}
+                  slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                />
+                <TimePicker
+                  label="Time (optional)"
+                  value={selectedTime}
+                  onChange={(newValue) => setSelectedTime(newValue)}
+                  slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                />
+
+                {/* Alert / Reminder */}
+                <div className="border border-gray-20 dark:border-gray-70 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Bell className="w-4 h-4" />
+                      <label className="text-sm font-semibold">Alert</label>
+                    </div>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={reminderEnabled}
+                          onChange={(e) => setReminderEnabled(e.target.checked)}
+                          size="small"
+                        />
+                      }
+                      label={reminderEnabled ? 'On' : 'Off'}
+                      labelPlacement="start"
+                      sx={{ marginLeft: 0 }}
+                    />
+                  </div>
+
+                  {reminderEnabled && (
+                    <div className="space-y-2">
+                      {selectedDate && selectedTime ? (
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Alert time</InputLabel>
+                          <Select
+                            value={reminderOffset}
+                            onChange={(e) => setReminderOffset(e.target.value)}
+                            label="Alert time"
+                          >
+                            <MenuItem value="0">At time of task</MenuItem>
+                            <MenuItem value="15">15 minutes before</MenuItem>
+                            <MenuItem value="30">30 minutes before</MenuItem>
+                            <MenuItem value="60">1 hour before</MenuItem>
+                            <MenuItem value="1440">1 day before</MenuItem>
+                            <MenuItem value="custom">Custom time</MenuItem>
+                          </Select>
+                        </FormControl>
+                      ) : (
+                        <p className="text-xs text-secondary-text">Set a scheduled date &amp; time above to use relative alerts, or pick a custom time.</p>
+                      )}
+
+                      {(reminderOffset === 'custom' || !selectedDate || !selectedTime) && (
+                        <DateTimePicker
+                          label="Custom alert date &amp; time"
+                          value={selectedReminderDatetime}
+                          onChange={(newValue) => {
+                            setSelectedReminderDatetime(newValue);
+                            setReminderDatetime(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '');
+                          }}
+                          slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                        />
+                      )}
+
+                      {(() => {
+                        const dateStr = selectedDate?.format('YYYY-MM-DD');
+                        const timeStr = selectedTime?.format('HH:mm');
+                        if (reminderOffset === 'custom' || !dateStr || !timeStr) {
+                          if (!reminderDatetime) return null;
+                          try {
+                            const preview = new Date(reminderDatetime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+                            return <p className="text-xs text-brand-60 dark:text-brand-30">Alert at: {preview}</p>;
+                          } catch { return null; }
+                        }
+                        try {
+                          const scheduledUTC = convertToUTC(dateStr, timeStr, timezone);
+                          const scheduledDate = new Date(scheduledUTC);
+                          scheduledDate.setMinutes(scheduledDate.getMinutes() - Number(reminderOffset));
+                          const preview = scheduledDate.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+                          return <p className="text-xs text-brand-60 dark:text-brand-30">Alert at: {preview}</p>;
+                        } catch { return null; }
+                      })()}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </LocalizationProvider>
             <div className="flex gap-2 justify-end">
               <button onClick={() => {
                 setIsAddingTask(false);
-                setNewTask({
-                  title: '',
-                  description: '',
-                  status: 'Not started',
-                  scheduled_date: '',
-                  scheduled_time: '',
-                });
+                setNewTask({ title: '', description: '', status: 'Not started' });
+                setSelectedDate(null);
+                setSelectedTime(null);
+                setReminderEnabled(false);
+                setReminderOffset('30');
+                setReminderDatetime('');
+                setSelectedReminderDatetime(null);
               }} className="btn-secondary btn-sm">Cancel</button>
               <button onClick={() => createTask()} className="btn-primary btn-sm">Add Task</button>
             </div>
@@ -659,24 +777,28 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
                   placeholder="Task description"
                   label="Description"
                 />
-                <div className="flex gap-2">
-                  <TextField
-                    type="date"
-                    value={editingTask.scheduled_date || ''}
-                    onChange={(e) => setEditingTask(prev => ({ ...prev, scheduled_date: e.target.value }))}
-                    size="small"
-                    label="Scheduled Date"
-                    InputLabelProps={{ shrink: true }}
-                  />
-                  <TextField
-                    type="time"
-                    value={editingTask.scheduled_time || ''}
-                    onChange={(e) => setEditingTask(prev => ({ ...prev, scheduled_time: e.target.value }))}
-                    size="small"
-                    label="Scheduled Time"
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </div>
+                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <div className="flex gap-2">
+                    <DatePicker
+                      label="Scheduled Date"
+                      value={editingSelectedDate}
+                      onChange={(newValue) => {
+                        setEditingSelectedDate(newValue);
+                        setEditingTask(prev => ({ ...prev, scheduled_date: newValue ? newValue.format('YYYY-MM-DD') : '' }));
+                      }}
+                      slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                    />
+                    <TimePicker
+                      label="Scheduled Time"
+                      value={editingSelectedTime}
+                      onChange={(newValue) => {
+                        setEditingSelectedTime(newValue);
+                        setEditingTask(prev => ({ ...prev, scheduled_time: newValue ? newValue.format('HH:mm') : '' }));
+                      }}
+                      slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                    />
+                  </div>
+                </LocalizationProvider>
                 <div className="flex gap-2">
                   <button onClick={saveEdit} className="btn-primary btn-sm">Save</button>
                   <button onClick={cancelEdit} className="btn-secondary btn-sm">Cancel</button>
