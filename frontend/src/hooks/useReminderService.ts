@@ -41,6 +41,7 @@ export function clearNotifiedReminder(taskId: string) {
 export function useReminderService() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [pendingReminderTask, setPendingReminderTask] = useState<Task | null>(null);
   const notifiedRemindersRef = useRef<Set<string>>(new Set());
 
   // Load already-notified reminders from localStorage on mount
@@ -181,14 +182,7 @@ export function useReminderService() {
     // 1. Always show ToastyNotification (no timeout, must manually close)
     // console.log('[ReminderService] Showing toast notification');
     notifyReminder(task.title, task.description, () => {
-      // Store task ID for auto-opening edit modal
-      try {
-        sessionStorage.setItem('wkly_edit_task_id', task.id);
-      } catch (e) {
-        console.warn('Failed to store task ID for editing', e);
-      }
-      // Navigate to goals page where AllTasksCalendar will pick it up
-      window.location.href = '/goals';
+      setPendingReminderTask(task);
     });
 
     // 2. Send Email if enabled
@@ -250,13 +244,7 @@ export function useReminderService() {
 
           notification.onclick = () => {
             window.focus();
-            // Store task ID for auto-opening edit modal
-            try {
-              sessionStorage.setItem('wkly_edit_task_id', task.id);
-            } catch (e) {
-              console.warn('Failed to store task ID for editing', e);
-            }
-            window.location.href = '/goals';
+            setPendingReminderTask(task);
             notification.close();
           };
         } catch (error) {
@@ -317,5 +305,9 @@ export function useReminderService() {
     return () => clearInterval(cleanupInterval);
   }, []);
 
-  return { isRunning };
+  return {
+    isRunning,
+    pendingReminderTask,
+    dismissReminderTask: () => setPendingReminderTask(null),
+  };
 }

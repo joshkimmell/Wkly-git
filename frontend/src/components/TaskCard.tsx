@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { Task } from '@utils/goalUtils';
 import { CheckCircle, Circle, Calendar, Bell, Trash, Edit, Clock, GripVertical, ChevronUp, ChevronDown, FileText, Tag, Square, CheckSquare2 } from 'lucide-react';
 import { Edit2, Save, X as CloseButton, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
@@ -44,6 +44,7 @@ interface TaskCardProps {
   isSelected?: boolean;
   onToggleSelect?: (id: string) => void;
   autoOpenEditModal?: boolean; // Auto-open edit modal on mount (for reminder navigation)
+  onModalClose?: () => void;   // Called when the full edit modal closes (save or cancel)
   className?: string; // Allow passing additional class names
 }
 
@@ -72,13 +73,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
   isSelected = false,
   onToggleSelect,
   autoOpenEditModal = false,
+  onModalClose,
   className = '',
 }) => {
   const { timezone } = useTimezone();
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editDescription, setEditDescription] = useState(task.description || '');
-  const [isFullEditModalOpen, setIsFullEditModalOpen] = useState(false);
+  const [isFullEditModalOpen, setIsFullEditModalOpen] = useState(autoOpenEditModal && allowInlineEdit);
   const [modalEditTitle, setModalEditTitle] = useState(task.title);
   const [modalEditDescription, setModalEditDescription] = useState(task.description || '');
   const [modalEditStatus, setModalEditStatus] = useState<Task['status']>(task.status);
@@ -420,15 +422,15 @@ const TaskCard: React.FC<TaskCardProps> = ({
   }, [task, timezone]);
 
   // Auto-open edit modal if requested (for reminder navigation)
-  useEffect(() => {
+  // isFullEditModalOpen is already initialised to true from the prop; this
+  // useLayoutEffect runs once on mount to properly populate reminder-related
+  // state (offset/datetime) that can't be derived from simple useState init.
+  useLayoutEffect(() => {
     if (autoOpenEditModal && allowInlineEdit) {
-      // Small delay to ensure component is fully mounted
-      const timer = setTimeout(() => {
-        handleOpenFullEditModal();
-      }, 300);
-      return () => clearTimeout(timer);
+      handleOpenFullEditModal();
     }
-  }, [autoOpenEditModal, allowInlineEdit, handleOpenFullEditModal]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSaveFullEdit = () => {
     if (onUpdate) {
@@ -471,12 +473,15 @@ const TaskCard: React.FC<TaskCardProps> = ({
         reminder_datetime: computedReminderDatetime ?? undefined,
       };
       onUpdate(task.id, updates);
+      notifySuccess('Task updated successfully');
     }
     setIsFullEditModalOpen(false);
+    onModalClose?.();
   };
 
   const handleCancelFullEdit = () => {
     setIsFullEditModalOpen(false);
+    onModalClose?.();
   };
 
   const handleDateClick = () => {
@@ -1084,21 +1089,22 @@ const TaskCard: React.FC<TaskCardProps> = ({
             </div>
             
             {/* Status */}
-            <div>
-              <label className="text-sm font-semibold block mb-1">Status</label>
-              <select 
-                className="w-full px-3 py-2 border border-gray-30 dark:border-gray-70 rounded bg-background-color text-primary-text"
+            <div className='py-2'>
+            <FormControl fullWidth size="small">
+              <InputLabel>Status</InputLabel>
+              <Select
                 value={modalEditStatus}
                 onChange={(e) => setModalEditStatus(e.target.value as Task['status'])}
+                label="Status"
               >
-                <option value="Not started">Not started</option>
-                <option value="In progress">In progress</option>
-                <option value="Blocked">Blocked</option>
-                <option value="On hold">On hold</option>
-                <option value="Done">Done</option>
-              </select>
+                <MenuItem value="Not started">Not started</MenuItem>
+                <MenuItem value="In progress">In progress</MenuItem>
+                <MenuItem value="Blocked">Blocked</MenuItem>
+                <MenuItem value="On hold">On hold</MenuItem>
+                <MenuItem value="Done">Done</MenuItem>
+              </Select>
+            </FormControl>
             </div>
-            
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <div className="grid grid-cols-2 gap-4">
                 {/* Date */}
@@ -1127,7 +1133,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
             {/* Alert / Reminder */}
             <div className="border border-gray-20 dark:border-gray-70 rounded-lg p-3 space-y-2">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between space-y-2">
                 <div className="flex items-center gap-2">
                   <Bell className="w-4 h-4" />
                   <label className="text-sm font-semibold">Alert</label>
@@ -1142,14 +1148,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   }
                   label={modalEditReminderEnabled ? 'On' : 'Off'}
                   labelPlacement="start"
-                  sx={{ marginLeft: 0 }}
+                  sx={{ marginLeft: 0, paddingY: 1 }}
                 />
               </div>
 
               {modalEditReminderEnabled && (
                 <div className="space-y-2 gap-2">
                   {modalEditDate && modalEditTime ? (
-                    <FormControl fullWidth size="small">
+                    <FormControl fullWidth size="small" sx={{paddingY: 2}}>
                       <InputLabel>Alert time</InputLabel>
                       <Select
                         value={modalEditReminderOffset}

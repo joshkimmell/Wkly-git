@@ -299,7 +299,7 @@ const TasksKanban: React.FC<TasksKanbanProps> = ({
                   ) : (
                     <button
                       onClick={() => setAddingToColumn(status)}
-                      className="w-full p-2 text-sm text-gray-50 dark:text-gray-40 hover:text-primary dark:hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-70 rounded border border-dashed border-gray-30 dark:border-gray-60 transition-colors flex items-center justify-center gap-1"
+                      className="w-full btn-primary rounded border border-dashed border-gray-30 dark:border-gray-60 transition-colors flex items-center justify-center gap-1"
                     >
                       <Plus className="w-4 h-4" />
                       Add task

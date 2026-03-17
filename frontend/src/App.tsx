@@ -21,6 +21,8 @@ import AppMuiThemeProvider from './mui/muiTheme';
 import appColors from '@styles/appColors';
 import MuiCompareDemo from '@components/MuiCompareDemo';
 import AdminAccessRequests from '@components/AdminAccessRequests';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Chip } from '@mui/material';
+import { Bell, Calendar, FileText } from 'lucide-react';
 
 
 const App: React.FC = () => {
@@ -127,7 +129,14 @@ const App: React.FC = () => {
   }, [profile]);
 
   // Start reminder service when user is authenticated
-  useReminderService();
+  const { pendingReminderTask, dismissReminderTask } = useReminderService();
+
+  const handleEditReminderTask = () => {
+    if (!pendingReminderTask) return;
+    try { sessionStorage.setItem('wkly_edit_task_id', pendingReminderTask.id); } catch { /* ignore */ }
+    dismissReminderTask();
+    navigate('/goals');
+  };
 
 
   
@@ -190,6 +199,42 @@ const App: React.FC = () => {
       </div>
     </div>
     </TimezoneProvider>
+
+      {/* ── Task Reminder Dialog ───────────────────────────────────────── */}
+      <Dialog open={!!pendingReminderTask} onClose={dismissReminderTask} maxWidth="sm" fullWidth>
+        <div className={`${current}`}>
+        <DialogTitle className="flex items-center gap-2">
+          <Bell className="w-5 h-5 text-primary" />
+          Task Reminder
+        </DialogTitle>
+        <DialogContent className="space-y-3">
+          {pendingReminderTask && (
+            <>
+              <p className="font-semibold text-primary-text text-base">{pendingReminderTask.title}</p>
+              {pendingReminderTask.description && (
+                <p className="text-sm text-secondary-text">{pendingReminderTask.description}</p>
+              )}
+              <div className="flex flex-wrap gap-2 pt-1">
+                {pendingReminderTask.scheduled_date && (
+                  <Chip icon={<Calendar className="w-3 h-3" />} label={pendingReminderTask.scheduled_date} size="small" variant="outlined" />
+                )}
+                {pendingReminderTask.scheduled_time && (
+                  <Chip icon={<FileText className="w-3 h-3" />} label={pendingReminderTask.scheduled_time} size="small" variant="outlined" />
+                )}
+                {pendingReminderTask.status && (
+                  <Chip label={pendingReminderTask.status} size="small" variant="outlined" />
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button className='!normal-case btn-secondary' onClick={dismissReminderTask} color="inherit">Cancel</Button>
+          <Button className='!normal-case btn-primary' onClick={handleEditReminderTask} variant="contained">Edit Task</Button>
+        </DialogActions>
+        </div>
+      </Dialog>
+
     </AppMuiThemeProvider>
         <ToastNotification theme={theme} />
     </SessionContextProvider>

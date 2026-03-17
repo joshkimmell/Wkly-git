@@ -39,6 +39,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type { Dayjs } from 'dayjs';
 import GoalCompletionDonut from './GoalCompletionDonut';
+import TaskCard from './TaskCard';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -75,9 +76,11 @@ const ALL_STATUSES: Task['status'][] = ['Not started', 'In progress', 'On hold',
 function TodayTaskRow({
   task,
   onStatusChange,
+  onRowClick,
 }: {
   task: Task;
   onStatusChange: (taskId: string, newStatus: Task['status'], closingRationale?: string) => void;
+  onRowClick?: () => void;
 }) {
   const [displayStatus, setDisplayStatus] = useState<Task['status']>(task.status);
   const [prevStatus, setPrevStatus]       = useState<Task['status']>('Not started');
@@ -124,7 +127,10 @@ function TodayTaskRow({
   };
 
   return (
-    <li className={`flex items-center gap-3 px-4 py-3 ${displayStatus === 'Done' ? 'opacity-50' : ''}`}>
+    <li
+      className={`flex items-center gap-3 px-4 py-3 ${displayStatus === 'Done' ? 'opacity-50' : ''} ${onRowClick ? 'cursor-pointer hover:bg-gray-10 dark:hover:bg-gray-80 transition-colors' : ''}`}
+      onClick={onRowClick}
+    >
       {/* Cycle button */}
       <Tooltip title={displayStatus === 'Done' ? 'Reopen task' : 'Mark as done'}>
         <button
@@ -198,10 +204,14 @@ function TodayTaskRow({
 
 // ─── mini goal card ──────────────────────────────────────────────────────────
 
-function MiniGoalCard({ goal, onClick }: { goal: Goal; onClick: () => void }) {
-  const [tasks, setTasks] = useState<Task[]>([]);
+function MiniGoalCard({ goal, tasks: propTasks, onClick }: { goal: Goal; tasks?: Task[]; onClick: () => void }) {
+  const [tasks, setTasks] = useState<Task[]>(propTasks ?? []);
 
   useEffect(() => {
+    if (propTasks !== undefined) {
+      setTasks(propTasks);
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -216,7 +226,7 @@ function MiniGoalCard({ goal, onClick }: { goal: Goal; onClick: () => void }) {
       } catch { /* silent */ }
     })();
     return () => { cancelled = true; };
-  }, [goal.id]);
+  }, [goal.id, propTasks]);
 
   return (
     <button
@@ -360,7 +370,10 @@ export default function HomePage() {
   const username: string | undefined = profile?.username || undefined;
 
   const [todayTasks, setTodayTasks]     = useState<Task[]>([]);
+  const [allGoalTasks, setAllGoalTasks] = useState<Task[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
+  const [selectedTodayTask, setSelectedTodayTask] = useState<Task | null>(null);
+  const [selectedTodayTaskKey, setSelectedTodayTaskKey] = useState(0);
 
   // ── modal state ───────────────────────────────────────────────────────────
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -393,10 +406,22 @@ export default function HomePage() {
 
   const today = getTodayInTimezone(timezone);
 
-  // Sort goals newest-first
-  const sortedGoals = [...goals].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
+  // Build per-goal task map from the all-tasks fetch
+  const tasksByGoal = allGoalTasks.reduce<Record<string, Task[]>>((acc, t) => {
+    if (t.goal_id) {
+      (acc[t.goal_id] ??= []).push(t);
+    }
+    return acc;
+  }, {});
+
+  // Filter out 100%-complete goals; sort by completion % ascending (in-progress first)
+  const sortedGoals = [...goals]
+    .filter(goal => calculateGoalCompletion(tasksByGoal[goal.id] ?? []) < 100)
+    .sort((a, b) => {
+      const pa = calculateGoalCompletion(tasksByGoal[a.id] ?? []);
+      const pb = calculateGoalCompletion(tasksByGoal[b.id] ?? []);
+      return pb - pa;
+    });
   const latestGoals   = sortedGoals.slice(0, goalsExpanded ? 10 : 3);
   const hasGoals      = goals.length > 0;
 
@@ -414,6 +439,7 @@ export default function HomePage() {
       if (!res.ok) throw new Error(await res.text());
 
       const data: Task[] = await res.json();
+      setAllGoalTasks(data);
       const forToday = data.filter(t => t.scheduled_date === today);
       // Sort: not-done first, then done
       forToday.sort((a, b) => {
@@ -446,6 +472,19 @@ export default function HomePage() {
     } catch (err) {
       console.error('[HomePage] handleTaskStatusChange error', err);
     }
+  };
+
+  // ── today task detail handlers ────────────────────────────────────────────
+  const handleTodayTaskUpdate = (taskId: string, updates: Partial<Task>) => {
+    setTodayTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+    setAllGoalTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+    setSelectedTodayTask(prev => prev?.id === taskId ? { ...prev, ...updates } : prev);
+  };
+
+  const handleTodayTaskDelete = (taskId: string) => {
+    setTodayTasks(prev => prev.filter(t => t.id !== taskId));
+    setAllGoalTasks(prev => prev.filter(t => t.id !== taskId));
+    setSelectedTodayTask(null);
   };
 
   // ── handlers ──────────────────────────────────────────────────────────────
@@ -694,9 +733,9 @@ export default function HomePage() {
             <h2 className="font-normal text-primary-text flex items-center gap-2">
               <Target className="w-4 h-4 text-primary" />
               Latest goals
-              {goalsExpanded && goals.length > 3 && (
+              {goalsExpanded && sortedGoals.length > 3 && (
                 <span className="text-xs font-normal text-gray-50 dark:text-gray-40">
-                  showing {latestGoals.length} of {goals.length}
+                  showing {latestGoals.length} of {sortedGoals.length}
                 </span>
               )}
             </h2>
@@ -710,14 +749,14 @@ export default function HomePage() {
 
           <div className="space-y-3">
             {latestGoals.map(goal => (
-              <MiniGoalCard key={goal.id} goal={goal} onClick={() => openTasksModal(goal)} />
+              <MiniGoalCard key={goal.id} goal={goal} tasks={tasksByGoal[goal.id] ?? []} onClick={() => openTasksModal(goal)} />
             ))}
-            {goals.length > 3 && (
+            {sortedGoals.length > 3 && (
               <button
                 onClick={() => setGoalsExpanded(e => !e)}
                 className="btn-ghost w-full text-xs text-primary-link underline text-center pt-1"
               >
-                {goalsExpanded ? 'View less' : `+${goals.length - 3} more`}
+                {goalsExpanded ? 'View less' : `+${sortedGoals.length - 3} more`}
               </button>
             )}
           </div>
@@ -762,7 +801,15 @@ export default function HomePage() {
             ) : (
               <ul className="divide-y divide-gray-20 dark:divide-gray-70">
                 {todayTasks.map(task => (
-                  <TodayTaskRow key={task.id} task={task} onStatusChange={handleTaskStatusChange} />
+                  <TodayTaskRow
+                    key={task.id}
+                    task={task}
+                    onStatusChange={handleTaskStatusChange}
+                    onRowClick={() => {
+                      setSelectedTodayTask(task);
+                      setSelectedTodayTaskKey(k => k + 1);
+                    }}
+                  />
                 ))}
               </ul>
             )}
@@ -807,6 +854,22 @@ export default function HomePage() {
               />
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Today task detail modal — card is hidden; MUI Dialog portals to body */}
+      {selectedTodayTask && (
+        <div className="hidden" aria-hidden="true">
+          <TaskCard
+            key={`today-task-${selectedTodayTask.id}-${selectedTodayTaskKey}`}
+            task={selectedTodayTask}
+            allowInlineEdit
+            autoOpenEditModal
+            onUpdate={handleTodayTaskUpdate}
+            onDelete={handleTodayTaskDelete}
+            onStatusChange={(id, status) => handleTaskStatusChange(id, status)}
+            onModalClose={() => setSelectedTodayTask(null)}
+          />
         </div>
       )}
 
