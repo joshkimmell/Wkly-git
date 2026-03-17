@@ -741,6 +741,7 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
               goalId={goal.id}
               goalTitle={goal.title}
               goalDescription={goal.description}
+              goalCategory={goal.category}
             />
           </div>
         </div>

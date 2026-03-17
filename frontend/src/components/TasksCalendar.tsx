@@ -9,6 +9,7 @@ import { useTimezone } from '@context/TimezoneContext';
 interface TasksCalendarProps {
   tasks: Task[];
   onStatusChange?: (taskId: string, newStatus: Task['status']) => void;
+  onUpdate?: (taskId: string, updates: Partial<Task>) => void;
   onEdit?: (task: Task) => void;
   onDelete?: (taskId: string) => void;
   onReschedule?: (taskId: string, newDate: string) => void;
@@ -17,6 +18,7 @@ interface TasksCalendarProps {
 const TasksCalendar: React.FC<TasksCalendarProps> = ({
   tasks,
   onStatusChange,
+  onUpdate,
   onEdit,
   onDelete,
   onReschedule,
@@ -195,11 +197,13 @@ const TasksCalendar: React.FC<TasksCalendarProps> = ({
                     <TaskCard
                       task={task}
                       onStatusChange={onStatusChange}
+                      onUpdate={onUpdate}
                       onEdit={onEdit}
                       onDelete={onDelete}
                       draggable
                       onDragStart={handleDragStart}
                       compact
+                      allowInlineEdit
                     />
                   </div>
                 ))}
@@ -221,11 +225,13 @@ const TasksCalendar: React.FC<TasksCalendarProps> = ({
                 <TaskCard
                   task={task}
                   onStatusChange={onStatusChange}
+                  onUpdate={onUpdate}
                   onEdit={onEdit}
                   onDelete={onDelete}
                   draggable
                   onDragStart={handleDragStart}
                   compact
+                  allowInlineEdit
                 />
               </div>
             ))}

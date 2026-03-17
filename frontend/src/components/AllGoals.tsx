@@ -1729,8 +1729,9 @@ const GoalsComponent = () => {
                 return 0;
             }
             // status sorts by completion percentage (% of tasks done)
-            const pa = calculateGoalCompletion(tableTasksByGoal[a.id] || []);
-            const pb = calculateGoalCompletion(tableTasksByGoal[b.id] || []);
+            // Fall back to kanbanTasks when tableTasksByGoal is empty (e.g. cards view)
+            const pa = calculateGoalCompletion(tableTasksByGoal[a.id] || kanbanTasks[a.id] || []);
+            const pb = calculateGoalCompletion(tableTasksByGoal[b.id] || kanbanTasks[b.id] || []);
             return dir * (pa - pb);
         });
     }, [indexedGoals, debouncedFilter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection, tableTasksByGoal, kanbanTasks]);
@@ -2057,13 +2058,13 @@ const GoalsComponent = () => {
         }
     }, [newTaskData, tableSelectedDate, tableSelectedTime, tableReminderDatetime, tableTasksByGoal]);
 
-    // Fetch tasks when switching to table view
+    // Fetch tasks when switching to table view, or when sorting by status in cards view
     useEffect(() => {
-        if (viewMode === 'table' && sortedAndFilteredGoals.length > 0) {
+        if ((viewMode === 'table' || (viewMode === 'cards' && sortBy === 'status')) && sortedAndFilteredGoals.length > 0) {
             const goalIds = sortedAndFilteredGoals.map(g => g.id);
             fetchTasksForAllGoals(goalIds);
         }
-    }, [viewMode, sortedAndFilteredGoals, fetchTasksForAllGoals]);
+    }, [viewMode, sortBy, sortedAndFilteredGoals, fetchTasksForAllGoals]);
 
     
 
@@ -3513,6 +3514,7 @@ const GoalsComponent = () => {
                                                         filter={filter}
                                                         className="bg-transparent border-0 shadow-none p-0"
                                                         selectable
+                                                        hideGoalChip
                                                         list
                                                         isSelected={selectedIds.has(task.id)}
                                                         onToggleSelect={(id) => toggleSelect(id, 'tasks')}
@@ -3968,6 +3970,7 @@ const GoalsComponent = () => {
                                         goalId={tasksGoalId}
                                         goalTitle={(selectedGoal as any)?.title || ''}
                                         goalDescription={(selectedGoal as any)?.description || ''}
+                                        goalCategory={(selectedGoal as any)?.category}
                                         onTaskCountChange={(count) => setTasksCount(count)}
                                     />
                                 </div>

@@ -33,7 +33,7 @@ import {
   PlusIcon,
   Bell,
 } from 'lucide-react';
-import { CircularProgress, Menu, MenuItem, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, IconButton, FormControlLabel, Switch } from '@mui/material';
+import { CircularProgress, Menu, MenuItem, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, IconButton, FormControlLabel, Switch, Chip } from '@mui/material';
 import { DatePicker, TimePicker, DateTimePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -157,6 +157,20 @@ function TodayTaskRow({
       </div>
 
       {/* Status chip */}
+      {task.goal && (
+        <Chip
+          size="small"
+          icon={<Target className="w-3 h-3 min-w-3" />}
+          label={
+            <span className="truncate flex items-center py-1 text-secondary-text w-auto min-w-[140px]">
+              {task.goal.title}
+              </span>
+          }
+          title={task.goal.title}
+          className="w-auto text-xs px-2 py-1 max-h-6"
+          variant="outlined"
+          />
+      )}
       <button
         onClick={(e) => { e.stopPropagation(); setMenuAnchor(e.currentTarget); }}
         className={`shrink-0 flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-gray-20 dark:border-gray-70 bg-background-color hover:border-primary transition-colors ${STATUS_TEXT[displayStatus] ?? ''}`}
@@ -168,7 +182,7 @@ function TodayTaskRow({
 
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
         {ALL_STATUSES.map(s => (
-          <MenuItem key={s} onClick={() => select(s)} selected={displayStatus === s}>
+          <MenuItem key={s} onClick={(e) => { e.stopPropagation(); select(s); }} selected={displayStatus === s}>
             {s}
           </MenuItem>
         ))}
@@ -686,7 +700,7 @@ export default function HomePage() {
           <Calendar className="w-3.5 h-3.5" />
           {formatDisplayDate(today, timezone)}
         </p>
-        <h1 className="text-2xl font-bold text-primary-text">{getGreeting()}{username ? `, ${username}` : ''}</h1>
+        <h1 className="text-4xl font-normal text-primary-text tracking-normal">{getGreeting()}{username ? `, ${username}` : ''}</h1>
       </div>
 
       {/* ── quick actions ─────────────────────────────────────────────────── */}

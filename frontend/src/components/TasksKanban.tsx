@@ -259,54 +259,6 @@ const TasksKanban: React.FC<TasksKanbanProps> = ({
                     </div>
                   ))
                 )}
-              
-                {/* Add task form */}
-                {/* {onCreate && (
-                  <div className="pt-2">
-                  {addingToColumn === status ? (
-                    <div className="space-y-2">
-                      <TextField
-                        size="small"
-                        fullWidth
-                        placeholder="Task title"
-                        value={newTaskTitle}
-                        onChange={(e) => setNewTaskTitle(e.target.value)}
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter' && newTaskTitle.trim()) {
-                            handleCreateTask(status);
-                          }
-                        }}
-                        autoFocus
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleCreateTask(status)}
-                          className="btn-primary btn-sm flex-1"
-                        >
-                          Add
-                        </button>
-                        <button
-                          onClick={() => {
-                            setAddingToColumn(null);
-                            setNewTaskTitle('');
-                          }}
-                          className="btn-secondary btn-sm flex-1"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setAddingToColumn(status)}
-                      className="w-full btn-primary rounded border border-dashed border-gray-30 dark:border-gray-60 transition-colors flex items-center justify-center gap-1"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add task
-                    </button>
-                    )}
-                  </div>
-                )} */}
               </div>
             )}
           </div>

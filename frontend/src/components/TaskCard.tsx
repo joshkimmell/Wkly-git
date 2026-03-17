@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { Task } from '@utils/goalUtils';
-import { CheckCircle, Circle, Calendar, Bell, Trash, Edit, Clock, GripVertical, ChevronUp, ChevronDown, FileText, Tag, Square, CheckSquare2 } from 'lucide-react';
-import { Edit2, Save, X as CloseButton, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
+import { CheckCircle, Circle, Calendar, Bell, Trash, Edit, Clock, GripVertical, ChevronUp, ChevronDown, FileText, Tag, Square, CheckSquare2, Target } from 'lucide-react';
+import { Save, X as CloseButton, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
 import { IconButton, Tooltip, Chip, TextField, Button, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, FormControlLabel, Switch, Select, FormControl, InputLabel, useMediaQuery } from '@mui/material';
 import { DatePicker, TimePicker, DateTimePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -17,7 +17,6 @@ import { enhanceLinks, applyHighlight } from '@utils/functions';
 import { useTimezone } from '@context/TimezoneContext';
 import { utcToDatetimeLocal, convertToUTC } from '@utils/timezone';
 import { clearNotifiedReminder } from '@hooks/useReminderService';
-import { elevation } from 'happy-dom/lib/PropertySymbol';
 
 interface TaskCardProps {
   task: Task;
@@ -38,6 +37,7 @@ interface TaskCardProps {
   list?: boolean;
   allowInlineEdit?: boolean;
   hideStatusChip?: boolean;
+  hideGoalChip?: boolean;
   hideCategory?: boolean;
   filter?: string; // For highlighting matching text
   selectable?: boolean;
@@ -67,6 +67,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   compact = false,
   allowInlineEdit = false,
   hideStatusChip = false,
+  hideGoalChip = false,
   hideCategory = false,
   filter = '',
   selectable = false,
@@ -791,6 +792,21 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 className="text-xs h-auto"
                 variant="outlined"
               />
+              
+            )}
+            {!hideGoalChip && task.goal?.title && (
+                <Chip
+                  size="medium"
+                  icon={<Target className="w-3 h-3 min-w-3" />}
+                  label={
+                    <span className="truncate flex items-center py-1 text-secondary-text w-auto min-w-[140px]">
+                      {task.goal.title}
+                    </span>
+                  }
+                  title={task.goal.title}
+                  className="w-auto text-xs px-2 py-1 max-h-7"
+                  variant="outlined"
+                />
             )}
             {!hideStatusChip && (
               <Chip
@@ -837,7 +853,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                         onClick={() => onMoveUp?.(task.id)}
                         disabled={isFirst}
                       >
-                        <ChevronUp className="w-4 h-4" />
+                        <ChevronUp className="w-5 h-5" />
                       </IconButton>
                     </span>
                   </Tooltip>
@@ -858,7 +874,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
               {onEdit && !allowInlineEdit && (
                 <Tooltip title="Edit task" placement="top" arrow>
                   <IconButton size="small" className='btn-ghost' onClick={() => onEdit(task)}>
-                    <Edit2 className="w-5 h-5" />
+                    <Edit className="w-5 h-5" />
                   </IconButton>
                 </Tooltip>
               )}

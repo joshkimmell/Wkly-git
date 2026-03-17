@@ -95,6 +95,7 @@ export interface Task {
   goal?: { // Optional goal data for filtering
     id: string;
     category?: string;
+    title?: string;
   };
 };
 

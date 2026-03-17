@@ -717,6 +717,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
               goalId={goal.id}
               goalTitle={goal.title}
               goalDescription={goal.description || ''}
+              goalCategory={goal.category}
             />
           </div>
         </div>
