@@ -619,6 +619,16 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
           },
         },
       },
+      MuiListItemButton: {
+        styleOverrides: {
+          root: {
+            width: '90%',
+            '&:hover': {
+              backgroundColor: actionHover ? `${actionHover}22` : undefined,
+            },
+          },
+        },
+      },
       MuiPopover: {
         styleOverrides: {
           paper: {
