@@ -430,7 +430,7 @@ const GoalsComponent = () => {
             cols[st].push(g.id);
         }
         setKanbanColumns(cols);
-    }, [indexedGoals, viewMode, fullGoals, currentPage, filter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection]);
+    }, [indexedGoals, viewMode, fullGoals, currentPage, filter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection, kanbanTasks]);
 
     // Keep kanban columns updated when fullGoals or filters change
     useEffect(() => {
@@ -445,7 +445,7 @@ const GoalsComponent = () => {
             cols[st].push(g.id);
         }
         setKanbanColumns(cols);
-    }, [fullGoals, filter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection, viewMode]);
+    }, [fullGoals, filter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection, viewMode, kanbanTasks]);
 
     // Fetch the full (unscoped) goals list when entering Kanban view
     useEffect(() => {
@@ -1598,40 +1598,38 @@ const GoalsComponent = () => {
             if (!matchesScope) return false;
         }
 
-        // time range filter - compare week_start (YYYY-MM-DD)
-        const compareGoalDate = (dateStr: string | undefined): Date | null => {
-            if (!dateStr) return null;
-            const d = new Date(dateStr);
-            if (isNaN(d.getTime())) return null;
-            return d;
-        };
-
-        const isDayjsLike = (v: unknown): v is { toDate: () => Date } => {
-            return typeof v === 'object' && v !== null && 'toDate' in v && typeof (v as { toDate?: unknown }).toDate === 'function';
-        };
-
-        if (filterStartDate) {
+        // Date range filter — a goal passes if any of its tasks falls within [filterStartDate, filterEndDate].
+        // The goal's effective date range is derived from its tasks, not week_start.
+        if (filterStartDate || filterEndDate) {
             try {
-                const goalDate = compareGoalDate(goal.week_start);
-                let start: Date | undefined;
-                if (isDayjsLike(filterStartDate)) {
-                    start = filterStartDate.toDate();
-                } else {
-                    start = filterStartDate as unknown as Date;
+                const isDayjsLike = (v: unknown): v is { toDate: () => Date } =>
+                    typeof v === 'object' && v !== null && 'toDate' in v &&
+                    typeof (v as { toDate?: unknown }).toDate === 'function';
+
+                const start: Date | null = filterStartDate
+                    ? (isDayjsLike(filterStartDate) ? filterStartDate.toDate() : filterStartDate as unknown as Date)
+                    : null;
+                const end: Date | null = filterEndDate
+                    ? (isDayjsLike(filterEndDate) ? filterEndDate.toDate() : filterEndDate as unknown as Date)
+                    : null;
+
+                // Gather tasks for this goal from whichever cache is populated
+                const goalTasks: Task[] = tableTasksByGoal[goal.id] || kanbanTasks[goal.id] || [];
+
+                // If no tasks are loaded yet, let the goal through (don't exclude it)
+                if (goalTasks.length > 0) {
+                    const hasMatchingTask = goalTasks.some((t) => {
+                        if (!t.scheduled_date) return false;
+                        try {
+                            const taskDate = new Date(t.scheduled_date);
+                            if (isNaN(taskDate.getTime())) return false;
+                            if (start && taskDate < start) return false;
+                            if (end && taskDate > end) return false;
+                            return true;
+                        } catch { return false; }
+                    });
+                    if (!hasMatchingTask) return false;
                 }
-                if (goalDate && start && goalDate < start) return false;
-            } catch { /* ignore parse errors */ }
-        }
-        if (filterEndDate) {
-            try {
-                const goalDate = compareGoalDate(goal.week_start);
-                let end: Date | undefined;
-                if (isDayjsLike(filterEndDate)) {
-                    end = filterEndDate.toDate();
-                } else {
-                    end = filterEndDate as unknown as Date;
-                }
-                if (goalDate && end && goalDate > end) return false;
             } catch { /* ignore parse errors */ }
         }
 
@@ -1735,7 +1733,7 @@ const GoalsComponent = () => {
             const pb = calculateGoalCompletion(tableTasksByGoal[b.id] || []);
             return dir * (pa - pb);
         });
-    }, [indexedGoals, debouncedFilter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection, tableTasksByGoal]);
+    }, [indexedGoals, debouncedFilter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection, tableTasksByGoal, kanbanTasks]);
     
 
     // Proactively fetch counts for visible goals on page load (batched in chunks)
@@ -2748,10 +2746,13 @@ const GoalsComponent = () => {
                             overflow: 'hidden',
                             flexShrink: 0,
                             transition: 'width 0.25s ease',
+                            position: 'sticky',
+                            top: '8rem',
+                            zIndex: 1,
                         }}
                     >
                         <div className="pr-4" style={{ width: '252px', minWidth: '252px' }}>
-                            <div className="rounded-lg border border-gray-20 dark:border-gray-70 bg-background-color p-3 flex flex-col gap-3">
+                            <div className="rounded-md border border-gray-20 dark:border-gray-70 bg-background-color p-3 flex flex-col gap-3">
                                 <div className="flex items-center justify-between">
                                     <span className="text-sm font-semibold text-primary">Filters</span>
                                     <IconButton size="small" className="btn-ghost" onClick={() => setFilterPanelOpen(false)} aria-label="Close filters">
@@ -2812,7 +2813,7 @@ const GoalsComponent = () => {
                                 </Accordion>
 
                                 {/* Scope accordion */}
-                                <Accordion defaultExpanded disableGutters elevation={0} sx={{ bgcolor: 'transparent', '&:before': { display: 'none' }, borderBottom: '1px solid', borderColor: 'divider' }}>
+                                {/* <Accordion defaultExpanded disableGutters elevation={0} sx={{ bgcolor: 'transparent', '&:before': { display: 'none' }, borderBottom: '1px solid', borderColor: 'divider' }}>
                                     <AccordionSummary expandIcon={<ChevronDown className="w-3.5 h-3.5" />} sx={{ p: 0, minHeight: 'unset', '& .MuiAccordionSummary-content': { my: '6px' } }}>
                                         <span className="text-xs font-semibold uppercase tracking-wide text-gray-60 dark:text-gray-40">Scope</span>
                                     </AccordionSummary>
@@ -2834,7 +2835,7 @@ const GoalsComponent = () => {
                                             ))}
                                         </div>
                                     </AccordionDetails>
-                                </Accordion>
+                                </Accordion> */}
 
                                 {/* Goal accordion — kanban / calendar only */}
                                 {(viewMode === 'kanban' || viewMode === 'tasks-calendar') && (
@@ -2873,22 +2874,20 @@ const GoalsComponent = () => {
                                     </AccordionSummary>
                                     <AccordionDetails sx={{ p: 0, pb: 1 }}>
                                         <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                            <div>
-                                                <label className="block text-xs text-gray-60 mb-1">Start</label>
+                                            <div className="flex flex-col gap-2">
                                                 <DatePicker
+                                                    label="Start"
                                                     value={filterStartDate}
                                                     onChange={(v: Dayjs | null) => setFilterStartDate(v)}
                                                     slotProps={{ textField: { size: 'small', fullWidth: true } }}
-                                                    maxDate={filterEndDate || undefined}
+                                                    maxDate={filterEndDate ?? undefined}
                                                 />
-                                            </div>
-                                            <div className="mt-2">
-                                                <label className="block text-xs text-gray-60 mb-1">End</label>
                                                 <DatePicker
+                                                    label="End"
                                                     value={filterEndDate}
                                                     onChange={(v: Dayjs | null) => setFilterEndDate(v)}
                                                     slotProps={{ textField: { size: 'small', fullWidth: true } }}
-                                                    minDate={filterStartDate || undefined}
+                                                    minDate={filterStartDate ?? undefined}
                                                 />
                                             </div>
                                         </LocalizationProvider>
@@ -3422,7 +3421,7 @@ const GoalsComponent = () => {
                                                                 label="Description"
                                                             />
                                                             <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                                            <div className="flex gap-2 items-end space-y-2">
+                                                            <div className="flex gap-2 items-end space-y-4">
                                                                 <DatePicker
                                                                     label="Date"
                                                                     value={tableSelectedDate}

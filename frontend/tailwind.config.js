@@ -105,6 +105,17 @@ module.exports = {
         'tertiary-link': 'var(--tertiary-link)',
       },
     },
+    // components: {
+    //   MuiMultiInputDateRangeField: {
+    //     styleOverrides: {
+    //       root: {
+    //         '& MuiPickersSectionList-section .MuiPickersInputBase-sectionsContent': {
+    //           fontSize: '0.75em',
+    //         },
+    //       },
+    //     },
+    //   },
+    // },
   },
   plugins: [],
 };
