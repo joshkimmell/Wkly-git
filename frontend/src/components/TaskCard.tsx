@@ -799,8 +799,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   size="medium"
                   icon={<Target className="w-3 h-3 min-w-3" />}
                   label={
-                    <span className="truncate flex items-center py-1 text-secondary-text w-auto min-w-[140px]">
-                      {task.goal.title}
+                    <span className="flex items-center py-1 text-secondary-text w-auto min-w-[140px]">
+                      <span className='truncate'>{task.goal.title}</span>
                     </span>
                   }
                   title={task.goal.title}

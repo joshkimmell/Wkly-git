@@ -155,39 +155,39 @@ function TodayTaskRow({
           </p>
         )}
       </div>
+      <div className="flex flex-wrap w-1/3 items-center gap-2">
+        {/* Status chip */}
+        {task.goal && (
+          <Chip
+            size="small"
+            icon={<Target className="w-3 h-3 min-w-3" />}
+            label={
+              <span className="truncate flex items-center py-1 text-secondary-text w-auto max-w-[140px]">
+                <span className='truncate'>{task.goal.title}</span>
+                </span>
+            }
+            title={task.goal.title}
+            className="w-auto text-xs px-2 gap-1 py-1 max-w-[140px] max-h-6"
+            variant="outlined"
+            />
+        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); setMenuAnchor(e.currentTarget); }}
+          className={`shrink-0 flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-gray-20 dark:border-gray-70 bg-background-color hover:border-primary transition-colors ${STATUS_TEXT[displayStatus] ?? ''}`}
+        >
+          <span className={`inline-block w-1.5 h-1.5 rounded-full ${STATUS_DOT[displayStatus] ?? ''}`} />
+          {displayStatus}
+          {menuAnchor ? <ChevronUp className="w-3 h-3" /> : <ChevronDownIcon className="w-3 h-3" />}
+        </button>
 
-      {/* Status chip */}
-      {task.goal && (
-        <Chip
-          size="small"
-          icon={<Target className="w-3 h-3 min-w-3" />}
-          label={
-            <span className="truncate flex items-center py-1 text-secondary-text w-auto min-w-[140px]">
-              {task.goal.title}
-              </span>
-          }
-          title={task.goal.title}
-          className="w-auto text-xs px-2 py-1 max-h-6"
-          variant="outlined"
-          />
-      )}
-      <button
-        onClick={(e) => { e.stopPropagation(); setMenuAnchor(e.currentTarget); }}
-        className={`shrink-0 flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-gray-20 dark:border-gray-70 bg-background-color hover:border-primary transition-colors ${STATUS_TEXT[displayStatus] ?? ''}`}
-      >
-        <span className={`inline-block w-1.5 h-1.5 rounded-full ${STATUS_DOT[displayStatus] ?? ''}`} />
-        {displayStatus}
-        {menuAnchor ? <ChevronUp className="w-3 h-3" /> : <ChevronDownIcon className="w-3 h-3" />}
-      </button>
-
-      <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
-        {ALL_STATUSES.map(s => (
-          <MenuItem key={s} onClick={(e) => { e.stopPropagation(); select(s); }} selected={displayStatus === s}>
-            {s}
-          </MenuItem>
-        ))}
-      </Menu>
-
+        <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
+          {ALL_STATUSES.map(s => (
+            <MenuItem key={s} onClick={(e) => { e.stopPropagation(); select(s); }} selected={displayStatus === s}>
+              {s}
+            </MenuItem>
+          ))}
+        </Menu>
+      </div>
       {/* Closing rationale dialog */}
       <Dialog open={isClosingDialogOpen} onClose={handleDoneCancel} maxWidth="sm" fullWidth>
         <DialogTitle>Mark Task as Done</DialogTitle>
@@ -700,7 +700,7 @@ export default function HomePage() {
           <Calendar className="w-3.5 h-3.5" />
           {formatDisplayDate(today, timezone)}
         </p>
-        <h1 className="text-4xl font-normal text-primary-text tracking-normal">{getGreeting()}{username ? `, ${username}` : ''}</h1>
+        <h1 className="text-2xl font-medium md:text-4xl md:font-normal text-primary-text tracking-normal">{getGreeting()}{username ? `, ${username}` : ''}</h1>
       </div>
 
       {/* ── quick actions ─────────────────────────────────────────────────── */}
