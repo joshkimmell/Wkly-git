@@ -178,7 +178,9 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
   const linkPrimary = readCssVar(['--link-text', '--color-link-text'], isDark ? brand30 : brand60, preferBody);
   const iconPrimary = readCssVar(['--link-text', '--color-link-text'], isDark ? brand30 : brand60, preferBody);
   const textOnColor = readCssVar(['--on-color-text', '--color-on-color-text'],  '#FFFFFF', preferBody);
-  const divider = readCssVar(['--primary-border', '--color-border-primary'], isDark ? brand70 : brand30 , preferBody);
+  const divider = readCssVar(['--primary-border', '--color-border-primary'], isDark ? '#383838' : '#b3b3b3' , preferBody);
+  // const divider = readCssVar(['--primary-border', '--color-border-primary'], isDark ? brand70 : brand30 , preferBody);
+  const borderPrimary = readCssVar(['--primary-border', '--color-border-primary'], isDark ? '#383838' : brand30 , preferBody);
   // const input = readCssVar(['--brand-60', '--color-brand-60'], isDark ? '#FFFFFF' : '#383838', preferBody);
   // link token not used; reading from palette instead
   const fontFamily = readCssVar(['--font-family'], "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", preferBody);
@@ -196,7 +198,9 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
       paper: readCssVar(['--gray-20', '--background-paper'], PALETTES.gray[20], preferBody),
       textPrimary: readCssVar(['--primary-text', '--color-text-primary'], '#111827', preferBody),
       textSecondary: readCssVar(['--secondary-text', '--color-text-secondary'], '#4D4D4D', preferBody),
-      divider: readCssVar(['--primary-border', '--color-border-primary'], brand30, preferBody),
+      divider: readCssVar(['--primary-border', '--color-border-primary'], '#B3B3B3', preferBody),
+      // divider: readCssVar(['--primary-border', '--color-border-primary'], brand30, preferBody),
+      borderPrimary: readCssVar(['--primary-border', '--color-border-primary'], '#B3B3B3', preferBody),
       // input: readCssVar(['--brand-60', '--primary-brand-60'], PALETTES.purple[60], preferBody),  
     },
     dark: {
@@ -206,7 +210,9 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
       paper: readCssVar(['--gray-90', '--background-paper'], PALETTES.gray[90], preferBody),
       textPrimary: readCssVar(['--primary-text', '--color-text-primary'], '#E6E6E6', preferBody),
       textSecondary: readCssVar(['--secondary-text', '--color-text-secondary'], '#B3B3B3', preferBody),
-      divider: readCssVar(['--primary-border', '--color-border-primary'], '#e5e7eb', preferBody),
+      divider: readCssVar(['--primary-border', '--color-border-primary'], '#B3B3B3', preferBody),
+      // divider: readCssVar(['--primary-border', '--color-border-primary'], brand70, preferBody),
+      borderPrimary: readCssVar(['--primary-border', '--color-border-primary'], '#383838', preferBody),
       // input: readCssVar(['--brand-20', '--primary-brand-20'], PALETTES.purple[20], preferBody),    
     },
   } as const;
@@ -218,7 +224,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
   const actionHover = textSecondary;
   // Use brand accents and green palette for success semantics
   const success = PALETTES.green ? PALETTES.green[60] : '#22c55e';
-  const primaryBorder = brand20 || divider;
+  const primaryBorder = borderPrimary || divider;
   // const tertiaryButton = brand30;
   const primaryIcon = iconPrimary;
   const inverseIcon = brand100;
@@ -410,6 +416,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
             '&:hover': {
               filter: 'brightness(0.85)',
               borderColor: linkPrimary,
+              textTransform: 'underline',
             },
           },
           contained: {
@@ -423,6 +430,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
             color: linkPrimary,
             '&:hover': {
               filter: 'brightness(0.85)',
+              textDecoration: 'underline',
             },
           },
         },
@@ -522,6 +530,10 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
             // remove default MUI underline emphasis and align with Tailwind styles
             '& .MuiInputBase-root': {
               backgroundColor: 'transparent',
+              borderColor: divider,
+              '&:before, &:after': {
+                borderColor: borderPrimary,
+              },
             },
           },
         },
@@ -532,7 +544,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
             borderRadius: borderRadius,
             backgroundColor: 'transparent',
             '& .MuiOutlinedInput-notchedOutline': {
-              borderColor: primaryBorder || divider,
+              borderColor: borderPrimary,
             },
             '&:hover .MuiOutlinedInput-notchedOutline': {
               borderColor: linkPrimary,
@@ -622,6 +634,22 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
             backgroundColor: modeTokens[chosenMode].paper,
             backgroundImage: 'none',
             color: textPrimary,
+          },
+        },
+      },
+      MuiDialogTitle: {
+        styleOverrides: {
+          root: {
+            fontWeight: 300,
+            color: textPrimary,
+            borderColor: borderPrimary,
+          },
+        },
+      },
+      MuiDialogContent: {
+        styleOverrides: {
+          root: {
+            backgroundColor: 'color-mix(in srgb, var(--background) 30%, transparent)',
           },
         },
       },

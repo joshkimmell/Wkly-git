@@ -210,7 +210,7 @@ const App: React.FC = () => {
         <DialogContent className="space-y-3">
           {pendingReminderTask && (
             <>
-              <p className="font-semibold text-primary-text text-base">{pendingReminderTask.title}</p>
+              <h3 className="font-semibold text-primary-text text-base pt-3">{pendingReminderTask.title}</h3>
               {pendingReminderTask.description && (
                 <p className="text-sm text-secondary-text">{pendingReminderTask.description}</p>
               )}

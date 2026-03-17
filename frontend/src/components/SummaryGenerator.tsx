@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { TextField, Tooltip, ToggleButtonGroup, ToggleButton, Checkbox, FormControlLabel, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 import { saveSummary, deleteSummary, getWeekStartDate, generateSummary } from '@utils/functions';
+import { notifyWithUndo } from '@components/ToastyNotification';
 import supabase from '@lib/supabase';
 import SummaryEditor from '@components/SummaryEditor';
 import LoadingSpinner from '@components/LoadingSpinner';
@@ -82,6 +83,11 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
   const [error, setError] = useState<string | null>(null); // State to track errors
   const [selectedScope, setSelectedScope] = useState<'week' | 'month' | 'year'>(scope); // Scope selector
   const [selectedGoalIds, setSelectedGoalIds] = useState<Set<string>>(new Set(filteredGoals.map((_, idx) => idx.toString()))); // All goals selected by default
+
+  // Keep summaryTitle in sync when the user changes scope inside the modal
+  useEffect(() => {
+    setSummaryTitle(generateSummaryTitle(selectedScope, selectedRange));
+  }, [selectedScope, selectedRange]);
 
   const openGenerateModal = () => {
     setIsGenerateModalOpen(true);
@@ -232,12 +238,13 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
         setLocalSummaryId,
         updatedTitle, // Save the updated title
         updatedContent, // Save the updated content
-        summaryType, // Use the current summary type
+        'User', // User-edited summaries are always tagged as 'User'
         selectedRange, // Pass the selected range as a string
         scope // Pass the scope as the sixth argument
       );
       setSummary(updatedContent); // Update the summary state
       setSummaryTitle(updatedTitle); // Update the title state
+      setSummaryType('User'); // Mark as user-edited
       // Notify parent component that a summary was saved
       if (onSummaryCreated) {
         onSummaryCreated();
@@ -253,21 +260,32 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
     setIsEditorOpen(false);
   };
 
-  const handleDeleteSummary = async () => {
-    try {
-      if (!localSummaryId) {
-        console.error('No summary ID to delete');
-        return;
-      }
-      // console.log('Deleting summary with ID:', localSummaryId);
-      await deleteSummary(localSummaryId); // Pass the ID, not the content!
-      setSummary(null);
-      setLocalSummaryId(null);
-      setIsEditorOpen(false);
-      // console.log('Summary deleted successfully');
-    } catch (error) {
-      console.error('Error deleting summary:', error);
+  const handleDeleteSummary = () => {
+    if (!localSummaryId) {
+      console.error('No summary ID to delete');
+      return;
     }
+
+    // Snapshot current state so it can be restored on undo
+    const savedId = localSummaryId;
+    const savedSummary = summary;
+    const savedTitle = summaryTitle;
+
+    // Optimistically remove from UI immediately
+    setSummary(null);
+    setLocalSummaryId(null);
+    setIsEditorOpen(false);
+
+    notifyWithUndo(
+      'Summary deleted',
+      () => deleteSummary(savedId),
+      () => {
+        // Restore UI state if user clicks Undo
+        setSummary(savedSummary);
+        setLocalSummaryId(savedId);
+        setSummaryTitle(savedTitle);
+      },
+    );
   };
 
   return (
@@ -411,8 +429,8 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
           <SummaryCard
             id={summaryId}
             className="bg-transparent dark:bg-transparent" // Pass className prop
-            scope={scope}
-            title={generateSummaryTitle(scope, selectedRange)}
+            scope={selectedScope}
+            title={generateSummaryTitle(selectedScope, selectedRange)}
             content={summary}
             type={summaryType || ''}
             format={'content'}
