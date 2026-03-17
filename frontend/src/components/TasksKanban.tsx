@@ -261,7 +261,7 @@ const TasksKanban: React.FC<TasksKanbanProps> = ({
                 )}
               
                 {/* Add task form */}
-                {onCreate && (
+                {/* {onCreate && (
                   <div className="pt-2">
                   {addingToColumn === status ? (
                     <div className="space-y-2">
@@ -306,7 +306,7 @@ const TasksKanban: React.FC<TasksKanbanProps> = ({
                     </button>
                     )}
                   </div>
-                )}
+                )} */}
               </div>
             )}
           </div>

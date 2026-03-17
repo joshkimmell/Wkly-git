@@ -3400,7 +3400,7 @@ const GoalsComponent = () => {
                                             <TableRow className="bg-gray-10/60 dark:bg-gray-100/30 border-0" key={`add-task-${goal.id}`}>
                                                 <TableCell colSpan={5} className="pl-16 border-0">
                                                     {addingTaskForGoal === goal.id ? (
-                                                        <div className="p-3 bg-white dark:bg-background-color rounded-lg border-2 border-dashed border-primary space-y-2">
+                                                        <div className="p-3 bg-gray-10/60 dark:bg-gray-100/30 rounded-md border-2 border-dashed border-primary space-y-2">
                                                             <TextField
                                                                 value={newTaskData.title || ''}
                                                                 onChange={(e) => setNewTaskData(prev => ({ ...prev, title: e.target.value }))}

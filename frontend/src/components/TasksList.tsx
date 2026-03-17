@@ -620,7 +620,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
 
       {/* Add Task Form */}
       <Collapse in={isAddingTask}>
-        <div className="mb-4 p-4 bg-gray-20 dark:bg-gray-80 rounded-lg border-2 border-dashed border-gray-30 dark:border-gray-60">
+        <div className="mb-4 p-4 bg-background dark:bg-gray-100/30 rounded-md border-2 border-dashed border-gray-30 dark:border-gray-70">
           <div className="space-y-3">
             <TextField
               value={newTask.title || ''}
