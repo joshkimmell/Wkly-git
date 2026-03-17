@@ -325,14 +325,14 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                         <div className='header-brand--avatar-wrapper absolute top-8 sm:top-10 right-3 sm:right-10'>
                             {!drawerVisible && (
                                 <>
-                                    <Tooltip title="Profile" placement="bottom" arrow>
-                                        <span>
+                                    <Tooltip title="Profile" placement="bottom" arrow className='pb-4'>
+                                        <span className="w-full h-full">
                                             <Avatar
                                                 isEdit={false}
                                                 onClick={handleMenuOpen}
                                                 size={drawerVisible ? 'sm' : 'md'}
                                             />
-                                        </span>
+                                         </span>
                                     </Tooltip>
                                     <Menu
                                         anchorEl={menuAnchor}
