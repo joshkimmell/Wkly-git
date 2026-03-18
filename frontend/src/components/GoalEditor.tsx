@@ -349,36 +349,7 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
             </div>
           </div>
             
-          <div className='flex flex-col'>
-              <label htmlFor="week_start" className="block text-sm font-medium text-gray-70">
-                  Week Start
-              </label>
-              <TextField
-                  type="date"
-                  id="week_start"
-                  value={updatedGoal.week_start}
-                  onChange={(e) => handleFieldChange('week_start', e.target.value)}
-                  className="mt-1"
-                  fullWidth
-                  required
-              />
-          </div>
-          <div>
-            <TextField
-              id="status"
-              select
-              label="Status"
-              value={updatedGoal.status || 'Not started'}
-              onChange={(e) => setUpdatedGoal((prev) => ({ ...prev, status: e.target.value as any }))}
-              fullWidth
-              className="mt-1"
-            >
-              <MenuItem value="Not started">Not started</MenuItem>
-              <MenuItem value="In progress">In progress</MenuItem>
-              <MenuItem value="Blocked">Blocked</MenuItem>
-              <MenuItem value="Done">Done</MenuItem>
-            </TextField>
-          </div>
+
           {/* <div>
             <TextField
               id="status_notes"

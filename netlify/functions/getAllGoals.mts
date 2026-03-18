@@ -12,11 +12,19 @@ export const handler: Handler = async (event) => {
   const page = event.queryStringParameters?.page; // legacy: YYYY-MM or YYYY or YYYY-MM-DD
   const start = event.queryStringParameters?.start; // ISO date string inclusive
   const end = event.queryStringParameters?.end; // ISO date string exclusive
+  const goal_id = event.queryStringParameters?.goal_id; // fetch a single goal by id
 
   try {
     // Build the Supabase query - select only needed fields to reduce payload
     const selectFields = 'id,title,description,category,week_start,user_id,created_at,status,status_notes';
     let query = supabase.from('goals').select(selectFields).eq('user_id', userId);
+
+    // Single goal by ID shortcut
+    if (goal_id) {
+      const { data, error } = await query.eq('id', goal_id).single();
+      if (error) return { statusCode: 404, headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Goal not found.' }) };
+      return { statusCode: 200, headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }, body: JSON.stringify(data) };
+    }
 
     // If caller passed explicit week_start, keep that behavior
     if (week_start) {

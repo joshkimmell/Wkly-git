@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
-import { Task } from '@utils/goalUtils';
+import { Task, Goal } from '@utils/goalUtils';
+import GoalCard from '@components/GoalCard';
 import { CheckCircle, Circle, Calendar, Bell, Trash, Edit, Clock, GripVertical, ChevronUp, ChevronDown, FileText, Tag, Square, CheckSquare2, Target } from 'lucide-react';
 import { Save, X as CloseButton, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
 import { IconButton, Tooltip, Chip, TextField, Button, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, FormControlLabel, Switch, Select, FormControl, InputLabel, useMediaQuery } from '@mui/material';
@@ -109,6 +110,34 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const [editingNoteContent, setEditingNoteContent] = useState('');
   const [noteDeleteTarget, setNoteDeleteTarget] = useState<string | null>(null);
   const [deleteTaskConfirmOpen, setDeleteTaskConfirmOpen] = useState(false);
+
+  // Goal details dialog
+  const [isGoalDetailsOpen, setIsGoalDetailsOpen] = useState(false);
+  const [goalDetails, setGoalDetails] = useState<Goal | null>(null);
+  const [goalDetailsLoading, setGoalDetailsLoading] = useState(false);
+
+  const handleOpenGoalDetails = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!task.goal?.id) return;
+    setIsGoalDetailsOpen(true);
+    if (goalDetails?.id === task.goal.id) return; // already loaded
+    setGoalDetailsLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('User not authenticated');
+      const res = await fetch(`/api/getAllGoals?goal_id=${task.goal.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed to fetch goal');
+      const data = await res.json();
+      if (data) setGoalDetails(data);
+    } catch (err) {
+      console.error('Failed to fetch goal details', err);
+    } finally {
+      setGoalDetailsLoading(false);
+    }
+  };
   
   // Ref for click-outside detection
   const cardRef = useRef<HTMLDivElement>(null);
@@ -795,18 +824,19 @@ const TaskCard: React.FC<TaskCardProps> = ({
               
             )}
             {!hideGoalChip && task.goal?.title && (
-                <Chip
-                  size="medium"
-                  icon={<Target className="w-3 h-3 min-w-3" />}
-                  label={
-                    <span className="flex items-center py-1 text-secondary-text w-auto min-w-[140px]">
-                      <span className='truncate'>{task.goal.title}</span>
-                    </span>
-                  }
-                  title={task.goal.title}
-                  className="w-auto text-xs px-2 py-1 max-h-7"
-                  variant="outlined"
-                />
+                  <Chip
+                    size="medium"
+                    icon={<Target className="w-3 h-3 min-w-3" />}
+                    label={
+                      <span className="flex items-center py-1 text-secondary-text">
+                        <span className='truncate'>{task.goal.title}</span>
+                      </span>
+                    }
+                    title={task.goal.title}
+                    className="w-auto text-xs px-2 py-1 min-w-[100px] max-h-7 cursor-pointer"
+                    variant="outlined"
+                    onClick={handleOpenGoalDetails}
+                  />
             )}
             {!hideStatusChip && (
               <Chip
@@ -1247,6 +1277,48 @@ const TaskCard: React.FC<TaskCardProps> = ({
         confirmLabel="Delete"
         cancelLabel="Cancel"
       />
+
+      {/* Goal Details Dialog */}
+      <Dialog
+        open={isGoalDetailsOpen}
+        onClose={() => setIsGoalDetailsOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          elevation: 24,
+          sx: {
+            backgroundColor: 'var(--background-color)',
+            backgroundImage: 'none',
+          }
+        }}
+      >
+        <DialogContent sx={{ p: 0 }}>
+          {goalDetailsLoading ? (
+            <div className="py-8 text-center">
+              <p className="text-sm text-secondary-text">Loading…</p>
+            </div>
+          ) : goalDetails ? (
+            <GoalCard
+              goal={goalDetails}
+              handleDelete={() => {
+                setIsGoalDetailsOpen(false);
+                setGoalDetails(null);
+              }}
+              handleEdit={() => { /* handled inline via inlineEdit prop */ }}
+              filter=""
+              hideTasks={true}
+              inlineEdit={true}
+            />
+          ) : (
+            <div className="p-6">
+              <p className="text-sm text-secondary-text py-4 text-center">Could not load goal details.</p>
+              <div className="flex justify-end">
+                <Button onClick={() => setIsGoalDetailsOpen(false)} color="inherit">Close</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Closing Rationale Dialog */}
       <Dialog

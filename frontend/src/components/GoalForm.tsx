@@ -1255,7 +1255,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
             <ul className="list-disc pl-5 text-xl text-gray-90 dark:text-gray-20">
                       {generatedPlan.filter((_, index) => selectedSteps.includes(index)).map((step, index) => (
                 <li className='mt-4' key={`${step.title ?? 'step'}-${index}`}>
-                  <h4>{step.title}</h4> <span className='block text-md text-gray-60'>{step.description}</span> <span className='text-sm'>Category: {newGoal.category} | Week Start: {newGoal.week_start}</span>
+                  <h4>{step.title}</h4> <span className='block text-md text-gray-60'>{step.description}</span> <span className='text-sm'>Category: {newGoal.category}</span>
                 </li>
               ))}
             </ul>
@@ -1423,54 +1423,6 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
             </div>
           </div>
 
-          <div>
-            <TextField
-              id="status"
-              select
-              label="Status"
-              value={newGoal.status || 'Not started'}
-              onChange={(e) => {
-                const val = e.target.value;
-                // Narrow to allowed statuses when possible
-                const allowed = ['Not started', 'In progress', 'Blocked', 'Done', 'On hold'] as const;
-                if (typeof val === 'string' && (allowed as readonly string[]).includes(val)) {
-                  setNewGoal(prev => ({ ...prev, status: val as Goal['status'] }));
-                } else {
-                  setNewGoal(prev => ({ ...prev, status: prev.status }));
-                }
-              }}
-              className="mt-2 w-full"
-              fullWidth
-              
-            >
-              <MenuItem key="not-started" value="Not started">Not started</MenuItem>
-              <MenuItem key="in-progress" value="In progress">In progress</MenuItem>
-              <MenuItem key="blocked" value="Blocked">Blocked</MenuItem>
-              <MenuItem key="done" value="Done">Done</MenuItem>
-            </TextField>
-          </div>
-          <div>
-            <TextField
-              id="week_start"
-              label="Week Start"
-              type="date"
-              value={newGoal.week_start}
-              onChange={(e) => {
-                const selectedDate = new Date(e.target.value);
-                if (selectedDate.getDay() === 0) {
-                  setNewGoal(prev => ({ ...prev, week_start: selectedDate.toISOString().split('T')[0] }));
-                } else {
-                  const calculatedMonday = getWeekStartDate(selectedDate);
-                  setNewGoal(prev => ({ ...prev, week_start: calculatedMonday }));
-                }
-              }}
-              className="mt-2 w-full"
-              required
-              fullWidth
-              InputLabelProps={{ shrink: true }}
-              
-            />
-          </div>
 
           <div className="mt-6 flex justify-end space-x-4">
             <button

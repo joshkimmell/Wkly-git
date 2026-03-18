@@ -3,6 +3,8 @@ import { useGoalsContext } from '@context/GoalsContext';
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 // import { handleDeleteGoal } from '@utils/functions';
 import { Goal, Accomplishment, Task, calculateGoalCompletion } from '@utils/goalUtils'; // Adjust the import path as necessary
+import GoalEditor from '@components/GoalEditor';
+import { updateGoal, addCategory } from '@utils/functions';
 import { Trash, Edit, Award, X as CloseButton, ListTodo } from 'lucide-react';
 import { FileText as NotesIcon, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
 import { Tooltip, IconButton } from '@mui/material';
@@ -31,6 +33,8 @@ interface GoalCardProps {
   selectable?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (id: string) => void;
+  hideTasks?: boolean; // Hide the Tasks action button (e.g. when viewed from a single task)
+  inlineEdit?: boolean; // Open GoalEditor inline instead of calling handleEdit callback
 }
 
 // const GoalCard: React.FC<GoalCardProps> = ({ goal }) => {
@@ -43,6 +47,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
   selectable = false,
   isSelected = false,
   onToggleSelect,
+  hideTasks = false,
+  inlineEdit = false,
 }) => {
   // // const handleDeleteGoal = (goalId: string) => {
   //   // Implement the delete logic here
@@ -75,7 +81,11 @@ const GoalCard: React.FC<GoalCardProps> = ({
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState('');
   // Local status state for optimistic UI updates when changing status inline
-  const { refreshGoals } = useGoalsContext();
+  const { refreshGoals, updateGoalInCache } = useGoalsContext();
+
+  // Inline edit state (used when inlineEdit prop is true)
+  const [isInlineEditOpen, setIsInlineEditOpen] = useState(false);
+  const [inlineEditGoal, setInlineEditGoal] = useState<Goal>(goal);
 
   // Cache the current authenticated user's id to avoid repeated supabase.auth.getUser() calls
   const userIdRef = React.useRef<string | null>(null);
@@ -528,6 +538,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
               </span>
             </Tooltip>
 
+            {!hideTasks && (
             <Tooltip title="Tasks" placement="top" arrow>
               <span>
                 <IconButton aria-label="Tasks" onClick={(e) => { e.stopPropagation(); openTasksModal(); }} size="small" className="btn-ghost">
@@ -538,6 +549,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
                 </IconButton>
               </span>
             </Tooltip>
+            )}
 
             <Tooltip title="Delete Goal" placement="top" arrow>
               <span>
@@ -549,7 +561,20 @@ const GoalCard: React.FC<GoalCardProps> = ({
 
             <Tooltip title="Edit Goal" placement="top" arrow>
               <span>
-                <IconButton aria-label="Edit Goal" onClick={(e) => { e.stopPropagation(); handleEdit(goal.id); }} size="small" className="btn-ghost">
+                <IconButton
+                  aria-label="Edit Goal"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (inlineEdit) {
+                      setInlineEditGoal(goal);
+                      setIsInlineEditOpen(true);
+                    } else {
+                      handleEdit(goal.id);
+                    }
+                  }}
+                  size="small"
+                  className="btn-ghost"
+                >
                   <Edit className="w-5 h-5" />
                 </IconButton>
               </span>
@@ -766,26 +791,63 @@ const GoalCard: React.FC<GoalCardProps> = ({
         </div>
       </div>
     )}
+
+    {/* Inline Goal Editor (used when inlineEdit prop is true) */}
+    {inlineEdit && isInlineEditOpen && (
+      <div 
+        className={`${overlayClasses} flex items-center justify-center`}
+        onMouseDown={(e) => {
+          // close when clicking the backdrop (only when clicking the overlay itself)
+          if (e.target === e.currentTarget) setIsInlineEditOpen(false);
+        }}
+      >
+      <GoalEditor
+        title={inlineEditGoal.title}
+        description={inlineEditGoal.description || ''}
+        category={inlineEditGoal.category || ''}
+        week_start={inlineEditGoal.week_start || ''}
+        onAddCategory={async (newCat: string) => {
+          try {
+            await addCategory(newCat);
+            setInlineEditGoal((prev) => ({ ...prev, category: newCat }));
+          } catch (err) {
+            console.error('Error adding category:', err);
+          }
+        }}
+        onRequestClose={() => setIsInlineEditOpen(false)}
+        onSave={async (updatedDescription, updatedTitle, updatedCategory, updatedWeekStart, status, status_notes) => {
+          try {
+            const allowedStatuses = ['Not started', 'In progress', 'Blocked', 'Done', 'On hold'] as const;
+            let finalStatus: Goal['status'] | undefined;
+            if (typeof status === 'string' && (allowedStatuses as readonly string[]).includes(status)) {
+              finalStatus = status as Goal['status'];
+            } else if (typeof goal.status === 'string' && (allowedStatuses as readonly string[]).includes(goal.status)) {
+              finalStatus = goal.status as Goal['status'];
+            }
+            const updated: Goal = {
+              ...goal,
+              title: updatedTitle,
+              description: updatedDescription,
+              category: updatedCategory,
+              week_start: updatedWeekStart,
+              status: finalStatus,
+              status_notes: status_notes ?? goal.status_notes,
+            };
+            await updateGoal(goal.id, updated);
+            updateGoalInCache(updated);
+            await refreshGoals();
+            setIsInlineEditOpen(false);
+          } catch (err) {
+            console.error('Error saving goal inline:', err);
+            notifyError('Failed to save goal.');
+          }
+        }}
+      />
+      </div>
+    )}
   </div>
 </>
   );
 };
       
 export default GoalCard;
-
-      // <div key={goal.id} className="bg-white shadow-sm border rounded-lg p-4">
-      //   <h4 className="text-lg font-medium text-gray-90">{goal.title}</h4>
-      //   <p className="text-gray-60 mt-1">{goal.description}</p>
-      //   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 mt-2">
-      //     {goal.category}
-      //   </span>
-      //   {/* <p className="text-sm text-gray-50 mt-2">{goal.impact}</p> */}
-      //   <div className="mt-4 flex justify-end space-x-2">
-      //     <button
-      //       onClick={() => handleDeleteGoal(goal.id)}
-      //       className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-      //     >
-      //       Delete
-      //     </button>
-      //   </div>
-      // </div>

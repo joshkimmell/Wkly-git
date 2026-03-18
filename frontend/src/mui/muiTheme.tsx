@@ -178,9 +178,9 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
   const linkPrimary = readCssVar(['--link-text', '--color-link-text'], isDark ? brand30 : brand60, preferBody);
   const iconPrimary = readCssVar(['--link-text', '--color-link-text'], isDark ? brand30 : brand60, preferBody);
   const textOnColor = readCssVar(['--on-color-text', '--color-on-color-text'],  '#FFFFFF', preferBody);
-  const divider = readCssVar(['--primary-border', '--color-border-primary'], isDark ? '#383838' : '#b3b3b3' , preferBody);
+  const divider = readCssVar(['--divider', '--color-divider'], isDark ? PALETTES.gray[70] : PALETTES.gray[30], preferBody);
   // const divider = readCssVar(['--primary-border', '--color-border-primary'], isDark ? brand70 : brand30 , preferBody);
-  const borderPrimary = readCssVar(['--primary-border', '--color-border-primary'], isDark ? '#383838' : brand30 , preferBody);
+  const borderPrimary = readCssVar(['--primary-border', '--color-border-primary'], isDark ? brand70 : brand30 , preferBody);
   // const input = readCssVar(['--brand-60', '--color-brand-60'], isDark ? '#FFFFFF' : '#383838', preferBody);
   // link token not used; reading from palette instead
   const fontFamily = readCssVar(['--font-family'], "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", preferBody);
@@ -198,7 +198,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
       paper: readCssVar(['--gray-20', '--background-paper'], PALETTES.gray[20], preferBody),
       textPrimary: readCssVar(['--primary-text', '--color-text-primary'], '#111827', preferBody),
       textSecondary: readCssVar(['--secondary-text', '--color-text-secondary'], '#4D4D4D', preferBody),
-      divider: readCssVar(['--primary-border', '--color-border-primary'], '#B3B3B3', preferBody),
+      divider: readCssVar(['--primary-border', '--color-primary-border'], '#B3B3B3', preferBody),
       // divider: readCssVar(['--primary-border', '--color-border-primary'], brand30, preferBody),
       borderPrimary: readCssVar(['--primary-border', '--color-border-primary'], '#B3B3B3', preferBody),
       // input: readCssVar(['--brand-60', '--primary-brand-60'], PALETTES.purple[60], preferBody),  
@@ -210,7 +210,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
       paper: readCssVar(['--gray-90', '--background-paper'], PALETTES.gray[90], preferBody),
       textPrimary: readCssVar(['--primary-text', '--color-text-primary'], '#E6E6E6', preferBody),
       textSecondary: readCssVar(['--secondary-text', '--color-text-secondary'], '#B3B3B3', preferBody),
-      divider: readCssVar(['--primary-border', '--color-border-primary'], '#B3B3B3', preferBody),
+      divider: readCssVar(['--primary-border', '--color-border-primary'], '#383838', preferBody),
       // divider: readCssVar(['--primary-border', '--color-border-primary'], brand70, preferBody),
       borderPrimary: readCssVar(['--primary-border', '--color-border-primary'], '#383838', preferBody),
       // input: readCssVar(['--brand-20', '--primary-brand-20'], PALETTES.purple[20], preferBody),    
