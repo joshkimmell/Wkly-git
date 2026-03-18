@@ -69,6 +69,7 @@ const GoalsComponent = () => {
     };
 
     const [indexedGoals, setIndexedGoals] = useState<Record<string, Goal[]>>({});
+    const indexedGoalsRef = useRef<Record<string, Goal[]>>({});
     const [pages, setPages] = useState<string[]>([]);
     const [currentPage, setCurrentPage] = useState<string>('');
     const currentPageRef = useRef<string>(currentPage);
@@ -1552,8 +1553,15 @@ const GoalsComponent = () => {
         );
         if (!textMatch) return false;
 
-        // status filter (multi-select)
-        if (filterStatus && filterStatus.length > 0 && !filterStatus.includes((goal.status || ''))) return false;
+        // task status filter — show goals that have at least one task with a matching status
+        if (filterStatus && filterStatus.length > 0) {
+            const goalTasks: Task[] = tableTasksByGoal[goal.id] || kanbanTasks[goal.id] || [];
+            // If tasks are loaded, require at least one to match; if not yet loaded, let the goal through
+            if (goalTasks.length > 0) {
+                const hasMatchingTask = goalTasks.some((t) => filterStatus.includes(t.status || ''));
+                if (!hasMatchingTask) return false;
+            }
+        }
 
         // category filter (multi-select)
         if (filterCategory && filterCategory.length > 0 && !filterCategory.includes((goal.category || ''))) return false;
@@ -2058,13 +2066,31 @@ const GoalsComponent = () => {
         }
     }, [newTaskData, tableSelectedDate, tableSelectedTime, tableReminderDatetime, tableTasksByGoal]);
 
-    // Fetch tasks when switching to table view, or when sorting by status in cards view
+    // Fetch tasks when switching to table view or sorting by status in cards view.
+    // indexedGoals (not sortedAndFilteredGoals) is used as the source so that
+    // setTableTasksByGoal → sortedAndFilteredGoals changes never re-trigger this effect.
     useEffect(() => {
-        if ((viewMode === 'table' || (viewMode === 'cards' && sortBy === 'status')) && sortedAndFilteredGoals.length > 0) {
-            const goalIds = sortedAndFilteredGoals.map(g => g.id);
-            fetchTasksForAllGoals(goalIds);
+        const needsTasks = viewMode === 'table' || (viewMode === 'cards' && sortBy === 'status');
+        if (!needsTasks) return;
+        const allGoalIds = Object.values(indexedGoals).flat().map((g) => g.id);
+        if (allGoalIds.length > 0) {
+            fetchTasksForAllGoals(allGoalIds);
         }
-    }, [viewMode, sortBy, sortedAndFilteredGoals, fetchTasksForAllGoals]);
+    }, [viewMode, sortBy, indexedGoals, fetchTasksForAllGoals]);
+
+    // Keep indexedGoalsRef in sync so effects can read current goals without subscribing
+    useEffect(() => { indexedGoalsRef.current = indexedGoals; }, [indexedGoals]);
+
+    // Pre-load tasks for all goals when a task-status filter becomes active so
+    // goalMatchesFilters can evaluate them. Uses a ref snapshot of indexedGoals
+    // to avoid subscribing to indexedGoals and causing a re-fetch loop.
+    useEffect(() => {
+        if (!filterStatus || filterStatus.length === 0) return;
+        const allGoalIds = Object.values(indexedGoalsRef.current).flat().map((g) => g.id);
+        if (allGoalIds.length > 0) {
+            fetchTasksForAllGoals(allGoalIds);
+        }
+    }, [filterStatus, fetchTasksForAllGoals]);
 
     
 
