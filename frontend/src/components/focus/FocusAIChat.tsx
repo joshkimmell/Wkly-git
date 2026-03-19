@@ -28,6 +28,14 @@ interface Props {
   initialMessages?: ChatMessage[];
   /** Called whenever the message list changes so parent can persist it */
   onMessagesChange?: (messages: ChatMessage[]) => void;
+  /** Restore pending AI-suggested tasks from last response */
+  initialPendingTasks?: SuggestedTask[];
+  /** Restore pending AI-suggested resource links from last response */
+  initialPendingLinks?: SuggestedLink[];
+  /** Called whenever pending suggested tasks change so parent can persist them */
+  onPendingTasksChange?: (tasks: SuggestedTask[]) => void;
+  /** Called whenever pending suggested links change so parent can persist them */
+  onPendingLinksChange?: (links: SuggestedLink[]) => void;
 }
 
 const STARTER_PROMPTS = [
@@ -37,7 +45,7 @@ const STARTER_PROMPTS = [
   'What resources would help?',
 ];
 
-const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, onAddSuggestedTask, initialMessages, onMessagesChange }) => {
+const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, onAddSuggestedTask, initialMessages, onMessagesChange, initialPendingTasks, initialPendingLinks, onPendingTasksChange, onPendingLinksChange }) => {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages ?? []);
 
   // If the parent loads a session after mount and passes non-empty initialMessages, sync once
@@ -51,8 +59,30 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
   }, [initialMessages]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [pendingTasks, setPendingTasks] = useState<SuggestedTask[]>([]);
-  const [pendingLinks, setPendingLinks] = useState<SuggestedLink[]>([]);
+  const [pendingTasks, setPendingTasks] = useState<SuggestedTask[]>(initialPendingTasks ?? []);
+  const [pendingLinks, setPendingLinks] = useState<SuggestedLink[]>(initialPendingLinks ?? []);
+
+  // Sync pending tasks/links from restored session (once, after parent load effect settles)
+  const didSyncPendingTasksRef = useRef(false);
+  useEffect(() => {
+    if (!didSyncPendingTasksRef.current && initialPendingTasks && initialPendingTasks.length > 0) {
+      didSyncPendingTasksRef.current = true;
+      setPendingTasks(initialPendingTasks);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPendingTasks]);
+  const didSyncPendingLinksRef = useRef(false);
+  useEffect(() => {
+    if (!didSyncPendingLinksRef.current && initialPendingLinks && initialPendingLinks.length > 0) {
+      didSyncPendingLinksRef.current = true;
+      setPendingLinks(initialPendingLinks);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPendingLinks]);
+
+  // Notify parent whenever pending state changes (for persistence)
+  useEffect(() => { onPendingTasksChange?.(pendingTasks); }, [pendingTasks]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { onPendingLinksChange?.(pendingLinks); }, [pendingLinks]); // eslint-disable-line react-hooks/exhaustive-deps
   const [addedTaskIds, setAddedTaskIds] = useState<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, CheckCircle, ChevronRight, Bot, Clock, FileText, Zap, AlertCircle, CalendarClock, Timer } from 'lucide-react';
 import FocusTimer, { TimerState, formatTime } from './FocusTimer';
-import FocusAIChat, { SuggestedTask, ChatMessage } from './FocusAIChat';
+import FocusAIChat, { SuggestedTask, SuggestedLink, ChatMessage } from './FocusAIChat';
 import FocusNotes, { FocusNote } from './FocusNotes';
 import FocusFireworks from './FocusFireworks';
 import { Task } from '@utils/goalUtils';
@@ -37,6 +37,10 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
   const [addingTaskId, setAddingTaskId] = useState<string | null>(null);
   const [addedTaskTitles, setAddedTaskTitles] = useState<Set<string>>(new Set());
 
+  // Last AI-response pending suggestions (lifted from FocusAIChat for persistence)
+  const [pendingChatTasks, setPendingChatTasks] = useState<SuggestedTask[]>([]);
+  const [pendingChatLinks, setPendingChatLinks] = useState<SuggestedLink[]>([]);
+
   // Inactivity
   const inactivityTimerRef = useRef<number | null>(null);
   const [showInactivityPrompt, setShowInactivityPrompt] = useState(false);
@@ -69,6 +73,10 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
         setNotes(stored.notes ?? []);
         setChatMessages(stored.chatMessages ?? []);
         setSavedNoteIds(new Set(stored.savedNoteIds ?? []));
+        setSuggestedTasks(stored.suggestedTasks ?? []);
+        setAddedTaskTitles(new Set(stored.addedTaskTitles ?? []));
+        setPendingChatTasks(stored.pendingChatTasks ?? []);
+        setPendingChatLinks(stored.pendingChatLinks ?? []);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -85,6 +93,10 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
       setNotes(stored.notes ?? []);
       setChatMessages(stored.chatMessages ?? []);
       setSavedNoteIds(new Set(stored.savedNoteIds ?? []));
+      setSuggestedTasks(stored.suggestedTasks ?? []);
+      setAddedTaskTitles(new Set(stored.addedTaskTitles ?? []));
+      setPendingChatTasks(stored.pendingChatTasks ?? []);
+      setPendingChatLinks(stored.pendingChatLinks ?? []);
     }
     setShowExpiryPrompt(false);
   };
@@ -103,10 +115,14 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
       notes,
       chatMessages,
       savedNoteIds: Array.from(savedNoteIds),
+      suggestedTasks,
+      addedTaskTitles: Array.from(addedTaskTitles),
+      pendingChatTasks,
+      pendingChatLinks,
       createdAt: createdAtRef.current,
       updatedAt: Date.now(),
     });
-  }, [task.id, elapsed, timerState, notes, chatMessages, savedNoteIds]);
+  }, [task.id, elapsed, timerState, notes, chatMessages, savedNoteIds, suggestedTasks, addedTaskTitles, pendingChatTasks, pendingChatLinks]);
 
   // ── Save note as real task note ──────────────────────────────────
   const handleNoteAdded = useCallback(async (note: FocusNote) => {
@@ -148,7 +164,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
   // ── Close prompt handlers ────────────────────────────────────────
   const handleCloseRequest = useCallback(() => {
     // If nothing worth saving, just exit
-    if (elapsed === 0 && notes.length === 0 && chatMessages.length === 0) {
+    if (elapsed === 0 && notes.length === 0 && chatMessages.length === 0 && suggestedTasks.length === 0) {
       clearSession(task.id);
       onClose();
       return;
@@ -281,9 +297,9 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
       {/* Session expiry prompt */}
       {showExpiryPrompt && (
         <div className="fixed inset-0 z-[10003] bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+          <div className="bg-gray-90 border border-gray-70 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
-              <CalendarClock className="w-6 h-6 text-violet-400 shrink-0" />
+              <CalendarClock className="w-6 h-6 text-brand-40 shrink-0" />
               <h3 className="text-base font-semibold text-primary-text">Previous session found</h3>
             </div>
             <p className="text-sm text-secondary-text mb-5">
@@ -292,13 +308,13 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
             <div className="flex gap-3">
               <button
                 onClick={handleClearStaleSession}
-                className="flex-1 px-4 py-2 rounded-xl border border-gray-600 text-secondary-text hover:border-gray-500 text-sm transition-colors"
+                className="flex-1 px-4 py-2 rounded-xl border border-gray-60 text-secondary-text hover:border-gray-50 text-sm transition-colors"
               >
                 Start fresh
               </button>
               <button
                 onClick={handleExtendSession}
-                className="flex-1 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium transition-colors"
+                className="flex-1 px-4 py-2 rounded-xl bg-brand-60 hover:bg-brand-70 text-white text-sm font-medium transition-colors"
               >
                 Resume session
               </button>
@@ -310,9 +326,9 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
       {/* Close / Preserve Prompt */}
       {showClosePrompt && (
         <div className="fixed inset-0 z-[10003] bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+          <div className="bg-gray-90 border border-gray-70 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
-              <Zap className="w-6 h-6 text-violet-400 shrink-0" />
+              <Zap className="w-6 h-6 text-brand-40 shrink-0" />
               <h3 className="text-base font-semibold text-primary-text">Save your progress?</h3>
             </div>
             <p className="text-sm text-secondary-text mb-5">
@@ -321,13 +337,13 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
             <div className="flex gap-3">
               <button
                 onClick={handleDiscardAndExit}
-                className="flex-1 px-4 py-2 rounded-xl border border-gray-600 text-secondary-text hover:border-gray-500 text-sm transition-colors"
+                className="btn-secondary"
               >
                 Discard &amp; exit
               </button>
               <button
                 onClick={handleSaveAndExit}
-                className="flex-1 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium transition-colors"
+                className="btn-primary"
               >
                 Save &amp; exit
               </button>
@@ -339,7 +355,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
       {/* Inactivity Prompt */}
       {showInactivityPrompt && (
         <div className="fixed inset-0 z-[10002] bg-black/70 flex items-center justify-center p-4">
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+          <div className="bg-gray-90 border border-gray-70 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <AlertCircle className="w-6 h-6 text-yellow-400 shrink-0" />
               <h3 className="text-base font-semibold text-primary-text">Still working?</h3>
@@ -350,13 +366,13 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
             <div className="flex gap-3">
               <button
                 onClick={handleInactivityNo}
-                className="flex-1 px-4 py-2 rounded-xl border border-gray-600 text-secondary-text hover:border-gray-500 text-sm transition-colors"
+                className="btn-secondary"
               >
                 No, pause & exit
               </button>
               <button
                 onClick={handleInactivityYes}
-                className="flex-1 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium transition-colors"
+                className="btn-primary"
               >
                 Yes, I'm on it!
               </button>
@@ -518,6 +534,10 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
                 onAddSuggestedTask={handleAddSuggestedTask}
                 initialMessages={chatMessages}
                 onMessagesChange={setChatMessages}
+                initialPendingTasks={pendingChatTasks}
+                initialPendingLinks={pendingChatLinks}
+                onPendingTasksChange={setPendingChatTasks}
+                onPendingLinksChange={setPendingChatLinks}
               />
             </div>
           </main>
@@ -528,7 +548,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
             ${activePanel === 'notes' ? 'flex flex-col w-full' : 'hidden'}
             bg-gray-90/40 overflow-hidden
           `}>
-            <div className="px-4 pt-4 pb-2 shrink-0 border-b border-gray-800">
+            <div className="px-4 pt-4 pb-2 shrink-0 border-b border-gray-80">
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-brand-40" />
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-secondary-text">Session Notes</h2>

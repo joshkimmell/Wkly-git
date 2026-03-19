@@ -1,5 +1,5 @@
 import type { FocusNote } from './FocusNotes';
-import type { ChatMessage } from './FocusAIChat';
+import type { ChatMessage, SuggestedTask, SuggestedLink } from './FocusAIChat';
 import type { TimerState } from './FocusTimer';
 
 const STORAGE_PREFIX = 'wkly_focus_';
@@ -14,6 +14,14 @@ export interface FocusSessionData {
   chatMessages: ChatMessage[];
   /** IDs of FocusNotes that have already been persisted as task notes */
   savedNoteIds: string[];
+  /** Captured AI-suggested tasks queued in the sidebar */
+  suggestedTasks: SuggestedTask[];
+  /** Titles of suggested tasks already saved to the goal in DB */
+  addedTaskTitles: string[];
+  /** Last AI-response task suggestions still showing in the chat panel */
+  pendingChatTasks: SuggestedTask[];
+  /** Last AI-response resource links still showing in the chat panel */
+  pendingChatLinks: SuggestedLink[];
   createdAt: number;
   updatedAt: number;
 }
