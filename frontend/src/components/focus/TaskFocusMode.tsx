@@ -308,13 +308,13 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
             <div className="flex gap-3">
               <button
                 onClick={handleClearStaleSession}
-                className="flex-1 px-4 py-2 rounded-xl border border-gray-60 text-secondary-text hover:border-gray-50 text-sm transition-colors"
+                className="btn-secondary flex-1"
               >
                 Start fresh
               </button>
               <button
                 onClick={handleExtendSession}
-                className="flex-1 px-4 py-2 rounded-xl bg-brand-60 hover:bg-brand-70 text-white text-sm font-medium transition-colors"
+                className="btn-primary flex-1"
               >
                 Resume session
               </button>

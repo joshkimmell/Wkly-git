@@ -33,7 +33,7 @@ const FocusTimer: React.FC<Props> = ({ elapsed, state, onStart, onPause, onResum
       <div className="relative w-36 h-36">
         <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
           {/* Track */}
-          <circle cx="60" cy="60" r="54" fill="none" stroke="currentColor" strokeWidth="6" className="text-gray-700 dark:text-gray-800" />
+          <circle cx="60" cy="60" r="54" fill="none" stroke="currentColor" strokeWidth="6" className="text-gray-70 dark:text-gray-80" />
           {/* Progress */}
           <circle
             cx="60" cy="60" r="54"
@@ -43,7 +43,7 @@ const FocusTimer: React.FC<Props> = ({ elapsed, state, onStart, onPause, onResum
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={dashOffset}
-            className="text-violet-500 transition-all duration-1000"
+            className="text-brand-50 transition-all duration-1000"
           />
         </svg>
         {/* Time display */}
@@ -60,7 +60,7 @@ const FocusTimer: React.FC<Props> = ({ elapsed, state, onStart, onPause, onResum
         {state === 'idle' && (
           <button
             onClick={onStart}
-            className="flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-full text-sm font-medium transition-colors"
+            className="btn-primary flex items-center gap-1.5 rounded-full"
           >
             <Play className="w-4 h-4" /> Start
           </button>
@@ -68,7 +68,7 @@ const FocusTimer: React.FC<Props> = ({ elapsed, state, onStart, onPause, onResum
         {state === 'running' && (
           <button
             onClick={onPause}
-            className="flex items-center gap-1.5 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-full text-sm font-medium transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 bg-yellow-700 hover:!bg-yellow-800 text-white rounded-full text-sm font-medium transition-colors"
           >
             <Pause className="w-4 h-4" /> Pause
           </button>
@@ -76,7 +76,7 @@ const FocusTimer: React.FC<Props> = ({ elapsed, state, onStart, onPause, onResum
         {state === 'paused' && (
           <button
             onClick={onResume}
-            className="flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-full text-sm font-medium transition-colors"
+            className="btn-primary flex items-center gap-1.5 rounded-full"
           >
             <Play className="w-4 h-4" /> Resume
           </button>
@@ -85,7 +85,7 @@ const FocusTimer: React.FC<Props> = ({ elapsed, state, onStart, onPause, onResum
           <button
             onClick={onReset}
             title="Reset timer"
-            className="p-2 rounded-full hover:bg-gray-700 text-secondary-text transition-colors"
+            className="p-2 rounded-full hover:bg-gray-70 text-secondary-text transition-colors"
           >
             <RotateCcw className="w-4 h-4" />
           </button>
