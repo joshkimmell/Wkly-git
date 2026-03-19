@@ -308,9 +308,9 @@ function EmptyState({ onAddGoal, username }: { onAddGoal: () => void; username?:
                     key={label}
                     className="flex flex-col items-start gap-1 rounded-md bg-background-color border border-brand-20 dark:border-brand-70 p-3 sm:p-8 text-left"
                     >
-                    <div className="flex items-start gap-3 text-brand-50 font-normal text-lg md:text-2xl">
+                    <div className="flex items-start gap-3 text-brand-50 dark:text-brand-70 font-normal text-lg md:text-2xl">
                         {icon}
-                        <div className="flex flex-col">
+                        <div className="flex flex-col text-brand-70 dark:text-brand-40">
                             {label}
                             <p className="text-sm text-gray-50 dark:text-gray-40">{desc}</p>
                         </div>

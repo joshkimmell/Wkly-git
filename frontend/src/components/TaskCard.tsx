@@ -931,7 +931,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 </>
               )}
 
-              <Tooltip title="Focus Mode" placement="top" arrow>
+              <Tooltip title={` ${hasFocusSession ? "Resume Task" : "Start Task"}`} placement="top" arrow>
                 <span>
                   <IconButton
                     aria-label="Focus Mode"
@@ -939,7 +939,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                     onClick={() => setIsFocusModeOpen(true)}
                     className="btn-ghost"
                   >
-                    <Zap className={`w-5 h-5 ${hasFocusSession ? 'text-violet-400 fill-violet-400/30' : ''}`} />
+                    <Zap className={`w-5 h-5 ${hasFocusSession ? 'text-brand-30 shadow-lg transition-all animate-pulse duration-300' : ''}`} />
                   </IconButton>
                 </span>
               </Tooltip>

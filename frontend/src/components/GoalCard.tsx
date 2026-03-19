@@ -517,7 +517,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
           {tasks && tasks.length > 0 && (
             <GoalCompletionDonut percentage={calculateGoalCompletion(tasks)} size={70} strokeWidth={6} />
           )}          {goal.is_archived && (
-            <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 flex items-center gap-1">
+            <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-70 text-gray-50 dark:text-gray-40 flex items-center gap-1">
               <Archive className="w-3 h-3" /> Archived
             </span>
           )}        </div>

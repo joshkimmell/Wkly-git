@@ -375,7 +375,7 @@ const Login = () => {
                         key={label}
                         className="relative flex flex-col items-start gap-1 rounded-md bg-background-color border border-brand-20 dark:border-brand-70 p-3 sm:p-8 text-left min-h-[6rem] overflow-hidden"
                       >
-                        <div className="flex items-start pl-3 text-brand-20 dark:text-brand-80 font-normal text-lg md:text-2xl ">
+                        <div className="flex items-start pl-3 text-brand-20 dark:text-brand-70 font-normal text-lg md:text-2xl ">
                           <div className='absolute bottom-[6rem] md:bottom-[8rem] -left-2 md:-left-8 w-full h-1 '>
                             {icon}
                           </div>
