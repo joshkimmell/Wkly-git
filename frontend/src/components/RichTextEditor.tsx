@@ -62,6 +62,7 @@ const ContentEditableInput = React.forwardRef<HTMLDivElement, any>(function Cont
       className={(className || '') + ' richtext-contenteditable'}
       role="textbox"
       aria-multiline="true"
+      data-placeholder={placeholder}
       onInput={(e) => {
         const html = (e.currentTarget as HTMLElement).innerHTML || '';
         if (onChange) onChange({ target: { value: html } });
