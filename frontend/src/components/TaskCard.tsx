@@ -2,6 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from
 import { Task, Goal } from '@utils/goalUtils';
 import GoalCard from '@components/GoalCard';
 import TaskFocusMode from './focus/TaskFocusMode';
+import { hasSession } from './focus/useFocusSession';
 import { CheckCircle, Circle, Calendar, Bell, Trash, Edit, Clock, GripVertical, ChevronUp, ChevronDown, FileText, Tag, Square, CheckSquare2, Target, Zap } from 'lucide-react';
 import { Save, X as CloseButton, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
 import { IconButton, Tooltip, Chip, TextField, Button, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, FormControlLabel, Switch, Select, FormControl, InputLabel, useMediaQuery } from '@mui/material';
@@ -116,6 +117,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   // Goal details dialog
   const [isGoalDetailsOpen, setIsGoalDetailsOpen] = useState(false);
   const [isFocusModeOpen, setIsFocusModeOpen] = useState(false);
+  const [hasFocusSession, setHasFocusSession] = useState(() => hasSession(task.id));
 
   const handleFocusDone = async (taskId: string) => {
     // Mark task done via status change callback + update
@@ -937,7 +939,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                     onClick={() => setIsFocusModeOpen(true)}
                     className="btn-ghost"
                   >
-                    <Zap className="w-5 h-5" />
+                    <Zap className={`w-5 h-5 ${hasFocusSession ? 'text-violet-400 fill-violet-400/30' : ''}`} />
                   </IconButton>
                 </span>
               </Tooltip>
@@ -1390,7 +1392,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
         <TaskFocusMode
           task={task}
           goalTitle={(task as any).goal?.title}
-          onClose={() => setIsFocusModeOpen(false)}
+          onClose={() => { setIsFocusModeOpen(false); setHasFocusSession(hasSession(task.id)); }}
           onMarkDone={handleFocusDone}
         />
       )}

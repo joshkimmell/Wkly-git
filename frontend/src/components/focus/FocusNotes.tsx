@@ -10,18 +10,19 @@ export interface FocusNote {
 interface Props {
   notes: FocusNote[];
   onChange: (notes: FocusNote[]) => void;
+  /** Called immediately when a new note is added so the parent can persist it */
+  onNoteAdded?: (note: FocusNote) => void;
 }
 
-const FocusNotes: React.FC<Props> = ({ notes, onChange }) => {
+const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded }) => {
   const [draft, setDraft] = useState('');
 
   const addNote = () => {
     const trimmed = draft.trim();
     if (!trimmed) return;
-    onChange([
-      { id: `fn-${Date.now()}`, content: trimmed, createdAt: Date.now() },
-      ...notes,
-    ]);
+    const newNote: FocusNote = { id: `fn-${Date.now()}`, content: trimmed, createdAt: Date.now() };
+    onChange([newNote, ...notes]);
+    onNoteAdded?.(newNote);
     setDraft('');
   };
 
@@ -77,7 +78,7 @@ const FocusNotes: React.FC<Props> = ({ notes, onChange }) => {
       )}
 
       {notes.length === 0 && (
-        <p className="text-xs text-secondary-text text-center py-4">Notes you add here are session-only.</p>
+        <p className="text-xs text-secondary-text text-center py-4">Notes sync to this task automatically.</p>
       )}
     </div>
   );

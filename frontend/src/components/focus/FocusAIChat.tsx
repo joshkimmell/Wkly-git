@@ -24,6 +24,10 @@ interface Props {
   taskDescription?: string;
   goalTitle?: string;
   onAddSuggestedTask: (task: SuggestedTask) => void;
+  /** Restore prior conversation on re-open */
+  initialMessages?: ChatMessage[];
+  /** Called whenever the message list changes so parent can persist it */
+  onMessagesChange?: (messages: ChatMessage[]) => void;
 }
 
 const STARTER_PROMPTS = [
@@ -33,8 +37,8 @@ const STARTER_PROMPTS = [
   'What resources would help?',
 ];
 
-const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, onAddSuggestedTask }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, onAddSuggestedTask, initialMessages, onMessagesChange }) => {
+  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages ?? []);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [pendingTasks, setPendingTasks] = useState<SuggestedTask[]>([]);
@@ -54,6 +58,7 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
     const userMessage: ChatMessage = { role: 'user', content };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
+    onMessagesChange?.(newMessages);
     setInput('');
     setLoading(true);
     setPendingTasks([]);
@@ -77,14 +82,19 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
       if (!res.ok) throw new Error('Request failed');
       const data = await res.json();
 
-      setMessages((prev) => [...prev, { role: 'assistant', content: data.message }]);
+      setMessages((prev) => {
+        const updated = [...prev, { role: 'assistant' as const, content: data.message }];
+        onMessagesChange?.(updated);
+        return updated;
+      });
       if (data.suggestedTasks?.length) setPendingTasks(data.suggestedTasks);
       if (data.suggestedLinks?.length) setPendingLinks(data.suggestedLinks);
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: "Sorry, I couldn't connect. Please try again." },
-      ]);
+      setMessages((prev) => {
+        const updated = [...prev, { role: 'assistant' as const, content: "Sorry, I couldn't connect. Please try again." }];
+        onMessagesChange?.(updated);
+        return updated;
+      });
     } finally {
       setLoading(false);
     }

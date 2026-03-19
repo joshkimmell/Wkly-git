@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, CheckCircle, ChevronRight, Bot, Clock, FileText, Zap, AlertCircle } from 'lucide-react';
+import { X, CheckCircle, ChevronRight, Bot, Clock, FileText, Zap, AlertCircle, CalendarClock } from 'lucide-react';
 import FocusTimer, { TimerState, formatTime } from './FocusTimer';
-import FocusAIChat, { SuggestedTask } from './FocusAIChat';
+import FocusAIChat, { SuggestedTask, ChatMessage } from './FocusAIChat';
 import FocusNotes, { FocusNote } from './FocusNotes';
 import FocusFireworks from './FocusFireworks';
 import { Task } from '@utils/goalUtils';
 import supabase from '@lib/supabase';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
+import { loadSession, saveSession, clearSession, isSessionStale, extendSession } from './useFocusSession';
 
 interface Props {
   task: Task;
@@ -24,8 +25,12 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
   const [timerState, setTimerState] = useState<TimerState>('idle');
   const intervalRef = useRef<number | null>(null);
 
-  // Notes (session-only)
+  // Notes (synced to task notes)
   const [notes, setNotes] = useState<FocusNote[]>([]);
+  const [savedNoteIds, setSavedNoteIds] = useState<Set<string>>(new Set());
+
+  // AI chat messages
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
   // Suggested tangential tasks queue (from AI)
   const [suggestedTasks, setSuggestedTasks] = useState<SuggestedTask[]>([]);
@@ -42,6 +47,86 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
 
   // Mobile tab panel
   const [activePanel, setActivePanel] = useState<Panel>('ai');
+
+  // Session persistence
+  const sessionLoaded = useRef(false);
+  const [showExpiryPrompt, setShowExpiryPrompt] = useState(false);
+  const staleSessionRef = useRef<ReturnType<typeof loadSession>>(null);
+
+  // ── Load session on mount ────────────────────────────────────────
+  useEffect(() => {
+    const stored = loadSession(task.id);
+    if (stored) {
+      if (isSessionStale(stored)) {
+        staleSessionRef.current = stored;
+        setShowExpiryPrompt(true);
+        // don't set sessionLoaded until user decides
+      } else {
+        setElapsed(stored.elapsed);
+        setNotes(stored.notes ?? []);
+        setChatMessages(stored.chatMessages ?? []);
+        setSavedNoteIds(new Set(stored.savedNoteIds ?? []));
+        sessionLoaded.current = true;
+      }
+    } else {
+      sessionLoaded.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Expiry decisions ────────────────────────────────────────────
+  const handleExtendSession = () => {
+    const stored = staleSessionRef.current;
+    if (stored) {
+      extendSession(task.id);
+      setElapsed(stored.elapsed);
+      setNotes(stored.notes ?? []);
+      setChatMessages(stored.chatMessages ?? []);
+      setSavedNoteIds(new Set(stored.savedNoteIds ?? []));
+    }
+    sessionLoaded.current = true;
+    setShowExpiryPrompt(false);
+  };
+
+  const handleClearStaleSession = () => {
+    clearSession(task.id);
+    sessionLoaded.current = true;
+    setShowExpiryPrompt(false);
+  };
+
+  // ── Persist session on changes ───────────────────────────────────
+  useEffect(() => {
+    if (!sessionLoaded.current) return;
+    saveSession({
+      taskId: task.id,
+      elapsed,
+      notes,
+      chatMessages,
+      savedNoteIds: Array.from(savedNoteIds),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+  }, [elapsed, notes, chatMessages, savedNoteIds, task.id]);
+
+  // ── Save note as real task note ──────────────────────────────────
+  const handleNoteAdded = useCallback(async (note: FocusNote) => {
+    if (savedNoteIds.has(note.id)) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Not authenticated');
+
+      const res = await fetch('/.netlify/functions/createTaskNote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ task_id: task.id, content: note.content }),
+      });
+      if (!res.ok) throw new Error('Failed to save note');
+      setSavedNoteIds((prev) => new Set([...prev, note.id]));
+    } catch {
+      // Non-critical — silently skip, will retry on next save cycle isn't needed
+    }
+  }, [savedNoteIds, task.id]);
 
   // ── Timer controls ────────────────────────────────────────────────
   const startTick = useCallback(() => {
@@ -135,6 +220,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
       await onMarkDone(task.id);
       stopTick();
       setTimerState('paused');
+      clearSession(task.id);
       setShowFireworks(true);
     } catch {
       notifyError('Failed to mark task as done');
@@ -151,11 +237,11 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
   // ── Keyboard close ────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !showFireworks && !showInactivityPrompt) onClose();
+      if (e.key === 'Escape' && !showFireworks && !showInactivityPrompt && !showExpiryPrompt) onClose();
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [showFireworks, showInactivityPrompt, onClose]);
+  }, [showFireworks, showInactivityPrompt, showExpiryPrompt, onClose]);
 
   const panelTabs: { id: Panel; label: string; icon: React.ReactNode }[] = [
     { id: 'timer', label: 'Timer', icon: <Clock className="w-4 h-4" /> },
@@ -166,6 +252,35 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
   return (
     <>
       {showFireworks && <FocusFireworks onDone={handleFireworksDone} />}
+
+      {/* Session expiry prompt */}
+      {showExpiryPrompt && (
+        <div className="fixed inset-0 z-[10003] bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <CalendarClock className="w-6 h-6 text-violet-400 shrink-0" />
+              <h3 className="text-base font-semibold text-primary-text">Previous session found</h3>
+            </div>
+            <p className="text-sm text-secondary-text mb-5">
+              You have a saved focus session for <strong className="text-primary-text">"{task.title}"</strong> that is over 7 days old. Would you like to continue where you left off, or start fresh?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleClearStaleSession}
+                className="flex-1 px-4 py-2 rounded-xl border border-gray-600 text-secondary-text hover:border-gray-500 text-sm transition-colors"
+              >
+                Start fresh
+              </button>
+              <button
+                onClick={handleExtendSession}
+                className="flex-1 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium transition-colors"
+              >
+                Resume session
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Inactivity Prompt */}
       {showInactivityPrompt && (
@@ -344,6 +459,8 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
                 taskDescription={task.description}
                 goalTitle={goalTitle}
                 onAddSuggestedTask={handleAddSuggestedTask}
+                initialMessages={chatMessages}
+                onMessagesChange={setChatMessages}
               />
             </div>
           </main>
@@ -359,7 +476,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
                 <FileText className="w-4 h-4 text-violet-400" />
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-secondary-text">Session Notes</h2>
               </div>
-            </div>
+            </div>onNoteAdded={handleNoteAdded} 
             <div className="flex-1 min-h-0 p-4 overflow-hidden">
               <FocusNotes notes={notes} onChange={setNotes} />
             </div>
