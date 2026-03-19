@@ -195,12 +195,33 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
       const { data: { session: authSess } } = await supabase.auth.getSession();
       const token = authSess?.access_token;
       if (!token) return;
-      await fetch('/.netlify/functions/updateTaskNote', {
+      const res = await fetch('/.netlify/functions/updateTaskNote', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ id: note.id, content: note.content }),
       });
-    } catch { /* non-critical */ }
+      if (!res.ok) throw new Error('Failed to update');
+    } catch {
+      notifyError('Failed to save note edit');
+    }
+  }, []);
+
+  // ── Delete a note from DB and local state ──────────────────────────
+  const handleNoteRemoved = useCallback(async (note: FocusNote) => {
+    setSavedNoteIds((prev) => { const next = new Set(prev); next.delete(note.id); return next; });
+    if (note.id.startsWith('fn-')) return; // Never saved to DB, nothing to delete
+    try {
+      const { data: { session: authSess } } = await supabase.auth.getSession();
+      const token = authSess?.access_token;
+      if (!token) return;
+      const res = await fetch(`/.netlify/functions/deleteTaskNote?note_id=${note.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed to delete');
+    } catch {
+      notifyError('Failed to delete note');
+    }
   }, []);
 
   // ── Save note as real task note ──────────────────────────────────
@@ -219,7 +240,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
       if (!res.ok) throw new Error('Failed to save note');
       setSavedNoteIds((prev) => new Set([...prev, note.id]));
     } catch {
-      // Non-critical — silently skip, will retry on next save cycle isn't needed
+      notifyError('Failed to save note');
     }
   }, [savedNoteIds, task.id]);
 
@@ -260,12 +281,14 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
 
   const handleSaveAndExit = async () => {
     await persistCurrentSession();
+    notifySuccess('Session saved');
     setShowClosePrompt(false);
     onClose();
   };
 
   const handleDiscardAndExit = () => {
-    clearSession(task.id);
+    // Do NOT clear the session — any previously saved localStorage state is preserved.
+    // Only unsaved in-memory changes since the last Save are discarded.
     setShowClosePrompt(false);
     onClose();
   };
@@ -546,9 +569,9 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
             <button
               key={tab.id}
               onClick={() => setActivePanel(tab.id)}
-              className={`bg-transparent border-l-0 border-y-1 border-r-1 last:border-r-0 rounded-none flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm transition-colors focus:outline-none ${
+              className={`bg-brand-90 border-l-0 border-t-1 border-r-1 last:border-r-0 rounded-none flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm transition-colors focus:outline-none focus:shadow-none focus:ring-0 focus:ring-offset-0 ${
                 activePanel === tab.id
-                  ? 'text-brand-40 border-b border-2 border-brand-30'
+                  ? '!text-brand-30 !border-b !border-b-2 !border-b-primary-icon !bg-brand-80'
                   : 'text-secondary-text hover:text-primary-text'
               }`}
             >
@@ -667,7 +690,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
               </div>
             </div>
             <div className="flex-1 min-h-0 p-4 overflow-hidden">
-              <FocusNotes notes={notes} onChange={setNotes} onNoteAdded={handleNoteAdded} onNoteEdited={handleNoteEdited} />
+              <FocusNotes notes={notes} onChange={setNotes} onNoteAdded={handleNoteAdded} onNoteEdited={handleNoteEdited} onNoteRemoved={handleNoteRemoved} />
             </div>
           </aside>
         </div>

@@ -18,9 +18,11 @@ interface Props {
   onNoteAdded?: (note: FocusNote) => void;
   /** Called when an existing note's content is edited inline */
   onNoteEdited?: (note: FocusNote) => void;
+  /** Called when a note is removed so the parent can delete it from DB */
+  onNoteRemoved?: (note: FocusNote) => void;
 }
 
-const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded, onNoteEdited }) => {
+const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded, onNoteEdited, onNoteRemoved }) => {
   const [draft, setDraft] = useState('');
   const [rteKey, setRteKey] = useState(0); // bump to reset the add-note RTE
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -58,7 +60,9 @@ const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded, onNoteEdite
   };
 
   const removeNote = (id: string) => {
+    const note = notes.find((n) => n.id === id);
     onChange(notes.filter((n) => n.id !== id));
+    if (note) onNoteRemoved?.(note);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
