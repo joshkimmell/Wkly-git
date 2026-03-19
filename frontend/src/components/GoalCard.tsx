@@ -35,6 +35,7 @@ interface GoalCardProps {
   onToggleSelect?: (id: string) => void;
   hideTasks?: boolean; // Hide the Tasks action button (e.g. when viewed from a single task)
   inlineEdit?: boolean; // Open GoalEditor inline instead of calling handleEdit callback
+  onRefresh?: () => Promise<unknown>; // Called after archive/unarchive so parent can refresh its local indexed goals
 }
 
 // const GoalCard: React.FC<GoalCardProps> = ({ goal }) => {
@@ -49,6 +50,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
   onToggleSelect,
   hideTasks = false,
   inlineEdit = false,
+  onRefresh,
 }) => {
   // // const handleDeleteGoal = (goalId: string) => {
   //   // Implement the delete logic here
@@ -357,6 +359,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
       const updated = { ...goal, is_archived: newArchived };
       updateGoalInCache(updated);
       await refreshGoals();
+      // Also refresh the parent's local indexedGoals so the card disappears immediately
+      try { await onRefresh?.(); } catch { /* ignore */ }
       notifySuccess(`Goal ${action}.`);
     } catch (err) {
       console.error('Error toggling archive:', err);

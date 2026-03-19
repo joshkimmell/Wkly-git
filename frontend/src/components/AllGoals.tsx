@@ -3043,6 +3043,7 @@ const GoalsComponent = () => {
                                 selectable={true}
                                 isSelected={selectedIds.has(goal.id)}
                                 onToggleSelect={(id) => toggleSelect(id, 'goals')}
+                                onRefresh={refreshGoals}
                             />
                             ))}
                         </div>
