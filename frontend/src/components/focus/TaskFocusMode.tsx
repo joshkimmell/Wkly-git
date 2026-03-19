@@ -404,7 +404,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
   }, [showFireworks, showInactivityPrompt, showExpiryPrompt, showClosePrompt, handleCloseRequest]);
 
   const panelTabs: { id: Panel; label: string; icon: React.ReactNode }[] = [
-    { id: 'timer', label: 'Timer', icon: <Clock className="w-4 h-4" /> },
+    { id: 'timer', label: 'Timer', icon: <Timer className="w-4 h-4" /> },
     { id: 'ai', label: 'Assistant', icon: <Bot className="w-4 h-4" /> },
     { id: 'notes', label: 'Notes', icon: <FileText className="w-4 h-4" /> },
   ];
@@ -516,7 +516,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
             <div className="min-w-0">
               {goalTitle && (
                 <div className="flex items-center gap-1 text-xs text-secondary-text truncate">
-                  <span className="truncate max-w-[120px]">{goalTitle}</span>
+                  <span className="truncate max-w-1/2">{goalTitle}</span>
                   <ChevronRight className="w-3 h-3 shrink-0" />
                 </div>
               )}
