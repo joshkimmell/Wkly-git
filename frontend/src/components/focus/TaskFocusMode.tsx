@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, CheckCircle, ChevronRight, Bot, Clock, FileText, Zap, AlertCircle, CalendarClock } from 'lucide-react';
+import { X, CheckCircle, ChevronRight, Bot, Clock, FileText, Zap, AlertCircle, CalendarClock, Timer } from 'lucide-react';
 import FocusTimer, { TimerState, formatTime } from './FocusTimer';
 import FocusAIChat, { SuggestedTask, ChatMessage } from './FocusAIChat';
 import FocusNotes, { FocusNote } from './FocusNotes';
@@ -49,8 +49,9 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
   const [activePanel, setActivePanel] = useState<Panel>('ai');
 
   // Session persistence
-  const sessionLoaded = useRef(false);
+  const createdAtRef = useRef<number>(Date.now());
   const [showExpiryPrompt, setShowExpiryPrompt] = useState(false);
+  const [showClosePrompt, setShowClosePrompt] = useState(false);
   const staleSessionRef = useRef<ReturnType<typeof loadSession>>(null);
 
   // ── Load session on mount ────────────────────────────────────────
@@ -60,16 +61,15 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
       if (isSessionStale(stored)) {
         staleSessionRef.current = stored;
         setShowExpiryPrompt(true);
-        // don't set sessionLoaded until user decides
       } else {
+        createdAtRef.current = stored.createdAt;
         setElapsed(stored.elapsed);
+        // Restore timer as paused (never auto-resume) so user deliberately restarts
+        setTimerState(stored.elapsed > 0 ? 'paused' : 'idle');
         setNotes(stored.notes ?? []);
         setChatMessages(stored.chatMessages ?? []);
         setSavedNoteIds(new Set(stored.savedNoteIds ?? []));
-        sessionLoaded.current = true;
       }
-    } else {
-      sessionLoaded.current = true;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -78,35 +78,35 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
   const handleExtendSession = () => {
     const stored = staleSessionRef.current;
     if (stored) {
+      createdAtRef.current = stored.createdAt;
       extendSession(task.id);
       setElapsed(stored.elapsed);
+      setTimerState(stored.elapsed > 0 ? 'paused' : 'idle');
       setNotes(stored.notes ?? []);
       setChatMessages(stored.chatMessages ?? []);
       setSavedNoteIds(new Set(stored.savedNoteIds ?? []));
     }
-    sessionLoaded.current = true;
     setShowExpiryPrompt(false);
   };
 
   const handleClearStaleSession = () => {
     clearSession(task.id);
-    sessionLoaded.current = true;
     setShowExpiryPrompt(false);
   };
 
-  // ── Persist session on changes ───────────────────────────────────
-  useEffect(() => {
-    if (!sessionLoaded.current) return;
+  // ── Explicit session save (called on "Save & Exit") ──────────────
+  const persistCurrentSession = useCallback(() => {
     saveSession({
       taskId: task.id,
       elapsed,
+      timerState: timerState === 'running' ? 'paused' : timerState,
       notes,
       chatMessages,
       savedNoteIds: Array.from(savedNoteIds),
-      createdAt: Date.now(),
+      createdAt: createdAtRef.current,
       updatedAt: Date.now(),
     });
-  }, [elapsed, notes, chatMessages, savedNoteIds, task.id]);
+  }, [task.id, elapsed, timerState, notes, chatMessages, savedNoteIds]);
 
   // ── Save note as real task note ──────────────────────────────────
   const handleNoteAdded = useCallback(async (note: FocusNote) => {
@@ -145,6 +145,31 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
 
   useEffect(() => () => stopTick(), [stopTick]);
 
+  // ── Close prompt handlers ────────────────────────────────────────
+  const handleCloseRequest = useCallback(() => {
+    // If nothing worth saving, just exit
+    if (elapsed === 0 && notes.length === 0 && chatMessages.length === 0) {
+      clearSession(task.id);
+      onClose();
+      return;
+    }
+    stopTick();
+    setTimerState((s) => (s === 'running' ? 'paused' : s));
+    setShowClosePrompt(true);
+  }, [elapsed, notes.length, chatMessages.length, task.id, stopTick, onClose]);
+
+  const handleSaveAndExit = () => {
+    persistCurrentSession();
+    setShowClosePrompt(false);
+    onClose();
+  };
+
+  const handleDiscardAndExit = () => {
+    clearSession(task.id);
+    setShowClosePrompt(false);
+    onClose();
+  };
+
   // ── Inactivity tracking ───────────────────────────────────────────
   const resetInactivity = useCallback(() => {
     if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
@@ -172,7 +197,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
   const handleInactivityNo = () => {
     setShowInactivityPrompt(false);
     handlePause();
-    onClose();
+    handleCloseRequest();
   };
 
   // ── Suggested task → save to DB ───────────────────────────────────
@@ -237,11 +262,11 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
   // ── Keyboard close ────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !showFireworks && !showInactivityPrompt && !showExpiryPrompt) onClose();
+      if (e.key === 'Escape' && !showFireworks && !showInactivityPrompt && !showExpiryPrompt && !showClosePrompt) handleCloseRequest();
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [showFireworks, showInactivityPrompt, showExpiryPrompt, onClose]);
+  }, [showFireworks, showInactivityPrompt, showExpiryPrompt, showClosePrompt, handleCloseRequest]);
 
   const panelTabs: { id: Panel; label: string; icon: React.ReactNode }[] = [
     { id: 'timer', label: 'Timer', icon: <Clock className="w-4 h-4" /> },
@@ -282,6 +307,35 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
         </div>
       )}
 
+      {/* Close / Preserve Prompt */}
+      {showClosePrompt && (
+        <div className="fixed inset-0 z-[10003] bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <Zap className="w-6 h-6 text-violet-400 shrink-0" />
+              <h3 className="text-base font-semibold text-primary-text">Save your progress?</h3>
+            </div>
+            <p className="text-sm text-secondary-text mb-5">
+              Do you want to save your focus session for <strong className="text-primary-text">"{task.title}"</strong>? Next time you open focus mode, you'll pick up right where you left off — timer, notes, and chat included.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleDiscardAndExit}
+                className="flex-1 px-4 py-2 rounded-xl border border-gray-600 text-secondary-text hover:border-gray-500 text-sm transition-colors"
+              >
+                Discard &amp; exit
+              </button>
+              <button
+                onClick={handleSaveAndExit}
+                className="flex-1 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium transition-colors"
+              >
+                Save &amp; exit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Inactivity Prompt */}
       {showInactivityPrompt && (
         <div className="fixed inset-0 z-[10002] bg-black/70 flex items-center justify-center p-4">
@@ -312,12 +366,12 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
       )}
 
       {/* Main overlay */}
-      <div className="fixed inset-0 z-[9999] bg-gray-950 flex flex-col overflow-hidden">
+      <div className="fixed inset-0 z-[9999] bg-background flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="shrink-0 flex items-center gap-3 px-4 md:px-6 py-3 border-b border-gray-800 bg-gray-950/90 backdrop-blur">
+        <header className="shrink-0 flex items-center gap-3 px-4 md:px-6 py-3 border-b border-gray-80 bg-gray-95/90 backdrop-blur">
           {/* Breadcrumb */}
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
-            <Zap className="w-5 h-5 text-violet-400 shrink-0" />
+            <Zap className="w-5 h-5 text-primary-icon shrink-0" />
             <div className="min-w-0">
               {goalTitle && (
                 <div className="flex items-center gap-1 text-xs text-secondary-text truncate">
@@ -332,17 +386,17 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
           </div>
 
           {/* Timer compact pill (visible on md+) */}
-          <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-800 border border-gray-700 text-sm font-mono text-primary-text">
-            <Clock className="w-3.5 h-3.5 text-violet-400" />
+          <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-80 border border-gray-70 text-sm font-mono text-primary-text">
+            <Clock className="w-3.5 h-3.5 text-primary-icon" />
             <span className="tabular-nums">{formatTime(elapsed)}</span>
-            <span className={`w-2 h-2 rounded-full ${timerState === 'running' ? 'bg-green-400 animate-pulse' : timerState === 'paused' ? 'bg-yellow-400' : 'bg-gray-600'}`} />
+            <span className={`w-2 h-2 rounded-full ${timerState === 'running' ? 'bg-green-400 animate-pulse' : timerState === 'paused' ? 'bg-yellow-400' : 'bg-gray-60'}`} />
           </div>
 
           {/* Mark Done */}
           <button
             onClick={handleMarkDone}
             disabled={markingDone}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-medium rounded-xl transition-colors shrink-0"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-60 hover:bg-green-70 disabled:opacity-50 text-white text-sm font-medium transition-colors shrink-0"
           >
             <CheckCircle className="w-4 h-4" />
             <span className="hidden sm:inline">{markingDone ? 'Completing…' : 'Mark Done'}</span>
@@ -350,8 +404,8 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
 
           {/* Close */}
           <button
-            onClick={onClose}
-            className="p-2 rounded-xl hover:bg-gray-800 text-secondary-text transition-colors shrink-0"
+            onClick={handleCloseRequest}
+            className="btn-ghost p-2 rounded-xl hover:bg-gray-80 text-secondary-text transition-colors shrink-0"
             title="Exit focus mode (Esc)"
           >
             <X className="w-5 h-5" />
@@ -359,14 +413,14 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
         </header>
 
         {/* Mobile tab bar */}
-        <div className="md:hidden flex border-b border-gray-800 shrink-0">
+        <div className="md:hidden flex border-b border-gray-80 shrink-0">
           {panelTabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActivePanel(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm transition-colors ${
+              className={`bg-transparent border-l-none border-r-1 last:border-r-0 rounded-none flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm transition-colors ${
                 activePanel === tab.id
-                  ? 'text-violet-400 border-b-2 border-violet-500'
+                  ? 'text-brand-40 border-b-2 border-brand-50'
                   : 'text-secondary-text hover:text-primary-text'
               }`}
             >
@@ -381,12 +435,15 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
 
           {/* ── Left: Timer panel (desktop always visible; mobile tab) */}
           <aside className={`
-            md:flex md:flex-col md:w-[220px] lg:w-[260px] md:border-r md:border-gray-800 md:shrink-0
+            md:flex md:flex-col md:w-[220px] lg:w-[260px] md:border-r md:border-gray-80 md:shrink-0
             ${activePanel === 'timer' ? 'flex flex-col w-full' : 'hidden'}
-            bg-gray-950 overflow-y-auto
+            bg-gray-90/40 overflow-y-auto
           `}>
             <div className="p-4 flex flex-col gap-4">
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-secondary-text">Focus Timer</h2>
+            <div className="flex items-center gap-2 border-b border-gray-80 pb-2">
+                <Timer className="w-4 h-4 text-brand-30" />
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-secondary-text">Focus Timer</h2>
+            </div>
               <FocusTimer
                 elapsed={elapsed}
                 state={timerState}
@@ -398,7 +455,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
 
               {/* Task info */}
               {(task.description || task.scheduled_date) && (
-                <div className="rounded-xl bg-gray-900 border border-gray-800 p-3 space-y-2">
+                <div className="rounded-xl bg-gray-90 border border-gray-80 p-3 space-y-2">
                   {task.scheduled_date && (
                     <p className="text-xs text-secondary-text">
                       📅 <span className="text-primary-text">{new Date(task.scheduled_date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
@@ -419,14 +476,14 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
                       const added = addedTaskTitles.has(st.title);
                       const saving = addingTaskId === st.title;
                       return (
-                        <li key={i} className="rounded-lg bg-gray-900 border border-gray-800 p-2.5 space-y-1">
+                        <li key={i} className="rounded-lg bg-gray-90 border border-gray-80 p-2.5 space-y-1">
                           <p className="text-xs font-medium text-primary-text leading-snug">{st.title}</p>
                           {st.description && <p className="text-[11px] text-secondary-text line-clamp-2">{st.description}</p>}
                           <button
                             onClick={() => saveTaskToGoal(st)}
                             disabled={added || saving}
                             className={`text-[11px] px-2 py-1 rounded-md font-medium transition-colors ${
-                              added ? 'bg-gray-700 text-gray-500' : 'bg-emerald-700 hover:bg-emerald-600 text-white'
+                              added ? 'bg-gray-70 text-gray-50' : 'bg-green-70 hover:bg-green-60 text-white'
                             }`}
                           >
                             {saving ? 'Adding…' : added ? '✓ Added' : '+ Add to goal'}
@@ -445,11 +502,11 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
             flex-1 min-w-0 flex flex-col
             md:flex
             ${activePanel === 'ai' ? 'flex' : 'hidden md:flex'}
-            border-r border-gray-800 bg-gray-950
+            border-r border-gray-80 bg-gradient-to-tl from-brand-90 to-background backdrop-blur
           `}>
-            <div className="px-4 pt-4 pb-2 shrink-0 border-b border-gray-800">
+            <div className="px-4 pt-4 pb-2 shrink-0 border-b border-gray-80 bg-gray-90/40">
               <div className="flex items-center gap-2">
-                <Bot className="w-4 h-4 text-violet-400" />
+                <Bot className="w-4 h-4 text-brand-40" />
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-secondary-text">Focus Assistant</h2>
               </div>
             </div>
@@ -469,16 +526,16 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
           <aside className={`
             md:flex md:flex-col md:w-[240px] lg:w-[280px] md:shrink-0
             ${activePanel === 'notes' ? 'flex flex-col w-full' : 'hidden'}
-            bg-gray-950 overflow-hidden
+            bg-gray-90/40 overflow-hidden
           `}>
             <div className="px-4 pt-4 pb-2 shrink-0 border-b border-gray-800">
               <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-violet-400" />
+                <FileText className="w-4 h-4 text-brand-40" />
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-secondary-text">Session Notes</h2>
               </div>
-            </div>onNoteAdded={handleNoteAdded} 
+            </div>
             <div className="flex-1 min-h-0 p-4 overflow-hidden">
-              <FocusNotes notes={notes} onChange={setNotes} />
+              <FocusNotes notes={notes} onChange={setNotes} onNoteAdded={handleNoteAdded} />
             </div>
           </aside>
         </div>

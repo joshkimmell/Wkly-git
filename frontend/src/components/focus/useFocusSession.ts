@@ -1,5 +1,6 @@
 import type { FocusNote } from './FocusNotes';
 import type { ChatMessage } from './FocusAIChat';
+import type { TimerState } from './FocusTimer';
 
 const STORAGE_PREFIX = 'wkly_focus_';
 export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -7,6 +8,8 @@ export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 export interface FocusSessionData {
   taskId: string;
   elapsed: number;
+  /** Saved as 'paused' when running; restored as 'paused' so user resumes manually */
+  timerState: Exclude<TimerState, 'running'>;
   notes: FocusNote[];
   chatMessages: ChatMessage[];
   /** IDs of FocusNotes that have already been persisted as task notes */
