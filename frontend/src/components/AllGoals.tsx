@@ -1554,6 +1554,11 @@ const GoalsComponent = () => {
     // indexedGoals entries whose is_archived flag hasn't been updated yet.
     const ctxGoalIds = useMemo(() => new Set(ctxGoals.map(g => g.id)), [ctxGoals]);
 
+    // Set of goal IDs that the context explicitly knows are archived (is_archived: true).
+    // Catches the case where updateGoalInCache marks a goal archived in context but
+    // indexedGoals still carries the stale is_archived: false (e.g. due to CDN caching).
+    const ctxArchivedIds = useMemo(() => new Set(ctxGoals.filter(g => g.is_archived).map(g => g.id)), [ctxGoals]);
+
     const goalMatchesFilters = (goal: Goal) => {
         // A goal is considered archived if:
         //   (a) the flag on the object is explicitly true, OR
@@ -1562,6 +1567,7 @@ const GoalsComponent = () => {
         //       local indexedGoals entry still carries the old flag value.
         const isArchived =
             goal.is_archived === true ||
+            ctxArchivedIds.has(goal.id) ||
             (!String(goal.id).startsWith('temp-') && ctxGoals.length > 0 && !ctxGoalIds.has(goal.id));
 
         // By default hide archived goals. When showArchived is on, include them in the view
@@ -3022,7 +3028,7 @@ const GoalsComponent = () => {
                             {sortedAndFilteredGoals.map((goal) => (
                             <GoalCard
                                 key={goal.id}
-                                goal={goal}
+                                goal={ctxArchivedIds.has(goal.id) ? { ...goal, is_archived: true } : goal}
                                 showAllGoals={true}
                                 handleDelete={(goalId) => handleDeleteGoal(goalId)}
                                 handleEdit={(goalId) => {
