@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Edit, Plus, Trash2 } from 'lucide-react';
 
 export interface FocusNote {
   id: string;
@@ -16,6 +16,8 @@ interface Props {
 
 const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded }) => {
   const [draft, setDraft] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState('');
 
   const addNote = () => {
     const trimmed = draft.trim();
@@ -26,6 +28,24 @@ const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded }) => {
     setDraft('');
   };
 
+  const startEdit = (note: FocusNote) => {
+    setEditingId(note.id);
+    setEditDraft(note.content);
+  };
+
+  const commitEdit = () => {
+    const trimmed = editDraft.trim();
+    if (!trimmed) return;
+    onChange(notes.map((n) => (n.id === editingId ? { ...n, content: trimmed } : n)));
+    setEditingId(null);
+    setEditDraft('');
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditDraft('');
+  };
+
   const removeNote = (id: string) => {
     onChange(notes.filter((n) => n.id !== id));
   };
@@ -34,6 +54,17 @@ const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded }) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
       addNote();
+    }
+  };
+
+  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      commitEdit();
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelEdit();
     }
   };
 
@@ -64,14 +95,51 @@ const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded }) => {
               key={note.id}
               className="group flex items-start gap-2 rounded-lg p-3 bg-gray-800 dark:bg-gray-900 border border-gray-700 text-sm text-primary-text"
             >
-              <span className="flex-1 whitespace-pre-wrap break-words">{note.content}</span>
-              <button
-                onClick={() => removeNote(note.id)}
-                className="opacity-0 group-hover:opacity-100 text-secondary-text hover:text-red-400 transition-opacity mt-0.5"
-                title="Remove note"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              {editingId === note.id ? (
+                <div className="flex flex-col gap-2 flex-1 min-w-0">
+                  <textarea
+                    autoFocus
+                    value={editDraft}
+                    onChange={(e) => setEditDraft(e.target.value)}
+                    onKeyDown={handleEditKeyDown}
+                    rows={3}
+                    className="w-full rounded-lg border border-violet-500 bg-gray-800 dark:bg-gray-900 text-primary-text text-sm p-2 resize-none focus:outline-none transition-colors"
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={cancelEdit}
+                      className="px-2.5 py-1 rounded-lg border border-gray-600 text-secondary-text text-xs hover:border-gray-500 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={commitEdit}
+                      disabled={!editDraft.trim()}
+                      className="px-2.5 py-1 rounded-lg bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white text-xs font-medium transition-colors"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <span className="flex-1 whitespace-pre-wrap break-words">{note.content}</span>
+                  <button
+                    onClick={() => startEdit(note)}
+                    className="opacity-0 group-hover:opacity-100 text-secondary-text hover:text-violet-400 transition-opacity mt-0.5"
+                    title="Edit note"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => removeNote(note.id)}
+                    className="opacity-0 group-hover:opacity-100 text-secondary-text hover:text-red-400 transition-opacity mt-0.5"
+                    title="Remove note"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              )}
             </li>
           ))}
         </ul>
