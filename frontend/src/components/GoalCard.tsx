@@ -5,7 +5,7 @@ import supabase from '@lib/supabase'; // Ensure this is the correct path to your
 import { Goal, Accomplishment, Task, calculateGoalCompletion } from '@utils/goalUtils'; // Adjust the import path as necessary
 import GoalEditor from '@components/GoalEditor';
 import { updateGoal, addCategory } from '@utils/functions';
-import { Trash, Edit, Award, X as CloseButton, ListTodo } from 'lucide-react';
+import { Trash, Edit, Award, X as CloseButton, ListTodo, Archive, ArchiveRestore } from 'lucide-react';
 import { FileText as NotesIcon, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
 import { Tooltip, IconButton } from '@mui/material';
 // import { Chip, Menu, MenuItem, TextField, Tooltip, IconButton, Checkbox } from '@mui/material';
@@ -73,6 +73,10 @@ const GoalCard: React.FC<GoalCardProps> = ({
   // Tasks state
   const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
+  // Archive confirmation
+  const [isArchiveConfirmOpen, setIsArchiveConfirmOpen] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
+
   // Delete confirmation
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [noteDeleteTarget, setNoteDeleteTarget] = useState<string | null>(null);
@@ -343,6 +347,26 @@ const GoalCard: React.FC<GoalCardProps> = ({
     }
   };
 
+  // Archive / unarchive handler
+  const handleArchiveToggle = async () => {
+    const newArchived = !goal.is_archived;
+    const action = newArchived ? 'archived' : 'restored';
+    setIsArchiving(true);
+    try {
+      await updateGoal(goal.id, { is_archived: newArchived });
+      const updated = { ...goal, is_archived: newArchived };
+      updateGoalInCache(updated);
+      await refreshGoals();
+      notifySuccess(`Goal ${action}.`);
+    } catch (err) {
+      console.error('Error toggling archive:', err);
+      notifyError(`Failed to ${newArchived ? 'archive' : 'restore'} goal.`);
+    } finally {
+      setIsArchiving(false);
+      setIsArchiveConfirmOpen(false);
+    }
+  };
+
   // Fetch accomplishments when the component mounts
   useEffect(() => {
     fetchAccomplishments();
@@ -482,12 +506,15 @@ const GoalCard: React.FC<GoalCardProps> = ({
             </div>
           )} */}
       
-      <div className="goal-header flex flex-row w-full justify-between items-center">
-        <div className="flex items-center gap-2">
+      <div className="goal-header flex flex-row w-full justify-between items-start">
+        <div className="flex items-center gap-2 mb-4">
           {tasks && tasks.length > 0 && (
-            <GoalCompletionDonut percentage={calculateGoalCompletion(tasks)} size={40} strokeWidth={4} />
-          )}
-        </div>
+            <GoalCompletionDonut percentage={calculateGoalCompletion(tasks)} size={70} strokeWidth={6} />
+          )}          {goal.is_archived && (
+            <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <Archive className="w-3 h-3" /> Archived
+            </span>
+          )}        </div>
         <div className="tabs flex flex-row items-center justify-end w-full">
           <span className="card-category" dangerouslySetInnerHTML={{ __html: applyHighlight(goal.category, filter) || 'No category provided.' }}>
           </span>
@@ -501,13 +528,13 @@ const GoalCard: React.FC<GoalCardProps> = ({
       </div>
       {/* Footer with accomplishments and actions */}
       <footer className="mt-2 text-sm text-gray-50 dark:text-gray-30 flex flex-col items-left justify-between">
-          
-          <div className='flex flex-row w-full justify-end items-end gap-2'>
-            {showAllGoals && (
-          <div className="text-xs pb-2 w-full text-tertiary-text">
+        <div className='flex flex-row w-full justify-between items-end gap-2'>
+          {showAllGoals && (
+          <div className="hidden text-xs pb-2 w-full text-tertiary-text">
             {goal.week_start}
           </div>
-        )}
+          )}
+          <div className="flex flex-row items-center gap-1">
             <Tooltip title="Accomplishments" placement="top" arrow>
               <span>
                 <IconButton aria-label="Accomplishments" onClick={(e) => { e.stopPropagation(); openModal(); }} size="small" className="btn-ghost">
@@ -550,15 +577,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
               </span>
             </Tooltip>
             )}
-
-            <Tooltip title="Delete Goal" placement="top" arrow>
-              <span>
-                <IconButton aria-label="Delete Goal" onClick={(e) => { e.stopPropagation(); setIsDeleteConfirmOpen(true); }} size="small" className="btn-ghost">
-                  <Trash className="w-5 h-5" />
-                </IconButton>
-              </span>
-            </Tooltip>
-
+          </div>
+          <div className="flex flex-row items-center gap-1">
             <Tooltip title="Edit Goal" placement="top" arrow>
               <span>
                 <IconButton
@@ -579,8 +599,32 @@ const GoalCard: React.FC<GoalCardProps> = ({
                 </IconButton>
               </span>
             </Tooltip>
+          
+
+            <Tooltip title={goal.is_archived ? 'Restore Goal' : 'Archive Goal'} placement="top" arrow>
+              <span>
+                <IconButton
+                  aria-label={goal.is_archived ? 'Restore Goal' : 'Archive Goal'}
+                  onClick={(e) => { e.stopPropagation(); setIsArchiveConfirmOpen(true); }}
+                  size="small"
+                  className="btn-ghost"
+                  disabled={isArchiving}
+                >
+                  {goal.is_archived ? <ArchiveRestore className="w-5 h-5" /> : <Archive className="w-5 h-5" />}
+                </IconButton>
+              </span>
+            </Tooltip>
+
+            <Tooltip title="Delete Goal" placement="top" arrow>
+              <span>
+                <IconButton aria-label="Delete Goal" onClick={(e) => { e.stopPropagation(); setIsDeleteConfirmOpen(true); }} size="small" className="btn-ghost">
+                  <Trash className="w-5 h-5" />
+                </IconButton>
+              </span>
+            </Tooltip>
           </div>
-      </footer>
+        </div>
+    </footer>
         
     {/* Accomplishments modal (extracted component) */}
     <AccomplishmentsModal
@@ -768,6 +812,20 @@ const GoalCard: React.FC<GoalCardProps> = ({
       confirmLabel="Delete"
       cancelLabel="Cancel"
       loading={isDeleting}
+    />
+    <ConfirmModal
+      isOpen={isArchiveConfirmOpen}
+      title={goal.is_archived ? 'Restore goal?' : 'Archive goal?'}
+      message={
+        goal.is_archived
+          ? `Restore "${goal.title}"? It will reappear in all views.`
+          : `Archive "${goal.title}"? It will be hidden from all views but included in summaries for its time range.`
+      }
+      onCancel={() => setIsArchiveConfirmOpen(false)}
+      onConfirm={handleArchiveToggle}
+      confirmLabel={goal.is_archived ? 'Restore' : 'Archive'}
+      cancelLabel="Cancel"
+      loading={isArchiving}
     />
     {/* Render children if provided */}
     {/* {children && <div className="goal-children">{children}</div>} */}

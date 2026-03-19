@@ -8,18 +8,24 @@ export const handler: Handler = async (event) => {
   const { userId } = auth;
 
   const week_start = event.queryStringParameters?.week_start;
+  const include_archived = event.queryStringParameters?.include_archived === 'true';
 
   if (!week_start) {
     return { statusCode: 400, body: JSON.stringify({ error: 'week_start is required.' }) };
   }
 
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('goals')
       .select('*')
       .eq('user_id', userId)
-      .eq('week_start', week_start)
-      .order('created_at', { ascending: true });
+      .eq('week_start', week_start);
+
+    if (!include_archived) {
+      query = query.eq('is_archived', false);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: true });
 
     if (error) {
       return { statusCode: 500, body: JSON.stringify({ error: 'Failed to fetch goals.' }) };

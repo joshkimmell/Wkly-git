@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { TextField, Tooltip, ToggleButtonGroup, ToggleButton, Checkbox, FormControlLabel, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
-import { saveSummary, deleteSummary, getWeekStartDate, generateSummary } from '@utils/functions';
+import { saveSummary, deleteSummary, getWeekStartDate, generateSummary, fetchGoalsForRange } from '@utils/functions';
 import { notifyWithUndo } from '@components/ToastyNotification';
 import supabase from '@lib/supabase';
 import SummaryEditor from '@components/SummaryEditor';
@@ -123,6 +123,22 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
       }));
 
       const weekStart = getWeekStartDate(selectedRange);
+
+      // Also include archived goals that fall within the summary's scope
+      try {
+        const scopeEnd = new Date(weekStart);
+        scopeEnd.setDate(scopeEnd.getDate() + 7);
+        const archivedGoals = await fetchGoalsForRange(weekStart, scopeEnd.toISOString().split('T')[0], true);
+        const archived = archivedGoals.filter(g => g.is_archived);
+        archived.forEach(g => {
+          if (!goalsWithAccomplishments.some(x => x.title === g.title && x.description === g.description)) {
+            goalsWithAccomplishments.push({ title: g.title, description: g.description, category: g.category || 'Technical skills', accomplishments: [] });
+          }
+        });
+      } catch (e) {
+        console.warn('[SummaryGenerator] Could not fetch archived goals for scope:', e);
+      }
+
       const correctTitle = generateSummaryTitle(scope, selectedRange); // Ensure correct title is used
 
       const generatedSummary = await generateSummary(
@@ -188,6 +204,31 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
           : selectedScope === 'year'
           ? new Date(selectedRange.getFullYear(), 0, 1).toISOString().split('T')[0]
           : '';
+
+      // Also include archived goals that fall within this summary's scope
+      if (weekStart) {
+        try {
+          let scopeEnd: string;
+          if (selectedScope === 'week') {
+            const d = new Date(weekStart); d.setDate(d.getDate() + 7);
+            scopeEnd = d.toISOString().split('T')[0];
+          } else if (selectedScope === 'month') {
+            const base = new Date(weekStart);
+            scopeEnd = new Date(base.getFullYear(), base.getMonth() + 1, 1).toISOString().split('T')[0];
+          } else {
+            scopeEnd = `${new Date(weekStart).getFullYear() + 1}-01-01`;
+          }
+          const archivedGoals = await fetchGoalsForRange(weekStart, scopeEnd, true);
+          const archived = archivedGoals.filter(g => g.is_archived);
+          archived.forEach(g => {
+            if (!goalsWithAccomplishments.some(x => x.title === g.title && x.description === g.description)) {
+              goalsWithAccomplishments.push({ title: g.title, description: g.description, category: g.category || 'Technical skills', accomplishments: [] });
+            }
+          });
+        } catch (e) {
+          console.warn('[SummaryGenerator] Could not fetch archived goals for scope:', e);
+        }
+      }
 
       const generatedSummary = await generateSummary(
         localSummaryId || '',

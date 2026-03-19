@@ -64,10 +64,11 @@ export const handleSignOut = async (setError: React.Dispatch<React.SetStateActio
 };
 
 
-export const fetchAllGoals = async (): Promise<Goal[]> => {
+export const fetchAllGoals = async (includeArchived = false): Promise<Goal[]> => {
   const token = await getSessionToken();
+  const params = includeArchived ? '?include_archived=true' : '';
 
-  const response = await fetch(`/api/getAllGoals`, {
+  const response = await fetch(`/api/getAllGoals${params}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -89,6 +90,40 @@ export const fetchAllGoals = async (): Promise<Goal[]> => {
   // console.log('Fetched all goals:', goals);
   // // console.log('Request Query Parameters:', response.body);
   // // console.log('User ID:', userId);
+  return goals;
+};
+
+/**
+ * Fetch goals for a specific date range, optionally including archived goals.
+ * Used by summary generation to include archived goals that fall within the scope.
+ */
+export const fetchGoalsForRange = async (
+  start: string,
+  end: string,
+  includeArchived = false,
+): Promise<Goal[]> => {
+  const token = await getSessionToken();
+  const params = new URLSearchParams({ start, end });
+  if (includeArchived) params.set('include_archived', 'true');
+
+  const response = await fetch(`/api/getAllGoals?${params.toString()}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Error fetching goals for range:', errorText);
+    throw new Error('Failed to fetch goals for range');
+  }
+
+  const goals: Goal[] = await response.json();
+  goals.sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
   return goals;
 };
 
@@ -172,7 +207,8 @@ export const fetchAllGoalsIndexed = async (
     scope: 'week' | 'month' | 'year',
     page?: string, // optional page param: legacy YYYY-MM for month, YYYY for year, or exact week_start
     start?: string, // optional ISO start date inclusive
-    end?: string // optional ISO end date exclusive
+    end?: string, // optional ISO end date exclusive
+    includeArchived = false, // include archived goals
 ): Promise<{ indexedGoals: Record<string, Goal[]>; pages: string[] }> =>
   {
     const token = await getSessionToken();
@@ -183,6 +219,7 @@ export const fetchAllGoalsIndexed = async (
       if (page) params.set('page', page);
       if (start) params.set('start', start);
       if (end) params.set('end', end);
+      if (includeArchived) params.set('include_archived', 'true');
       const url = `/api/getAllGoals?${params.toString()}`;
       const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!response.ok) {

@@ -255,14 +255,9 @@ function MiniGoalCard({ goal, tasks: propTasks, onClick }: { goal: Goal; tasks?:
           <p className="font-semibold text-sm text-primary-text truncate" title={goal.title}>{goal.title}</p>
         </div>
         <div className="mt-3 mx-8 flex items-center gap-1.5">
-            {/* <span
-            className="inline-block w-2 h-2 rounded-full shrink-0"
-            style={{ backgroundColor: color }}
-            />
-            <span className="text-xs text-gray-50 dark:text-gray-40">{status}</span> */}
             <div className="flex items-center gap-2">
               {tasks.length > 0 && (
-                <GoalCompletionDonut percentage={calculateGoalCompletion(tasks)} size={40} strokeWidth={4} />
+                <GoalCompletionDonut percentage={calculateGoalCompletion(tasks)} size={60} strokeWidth={4} />
               )}
             </div>
         </div>
@@ -716,25 +711,6 @@ export default function HomePage() {
             description="Plan your next objective"
             onClick={openGoalModal}
           />
-          {/* <ActionCard
-            icon={<FileText className="w-4 h-4" />}
-            label="Add a note"
-            description="Capture thoughts on a goal"
-            onClick={goToGoals}
-          />
-          <ActionCard
-            icon={<Trophy className="w-4 h-4" />}
-            label="Log an accomplishment"
-            description="Record something you achieved"
-            onClick={goToGoals}
-          />
-          <ActionCard
-            icon={<Sparkles className="w-4 h-4" />}
-            label="Generate summary"
-            description="AI recap of your progress"
-            onClick={goToSummaries}
-            variant="primary"
-          /> */}
         </div>
       </section>
 

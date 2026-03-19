@@ -29,6 +29,9 @@ export const handler: Handler = async (event) => {
     if (typeof status_notes !== 'undefined') {
       updatePayload.status_notes = status_notes;
     }
+    if (typeof is_archived !== 'undefined') {
+      updatePayload.is_archived = is_archived;
+    }
 
     // .eq('user_id', userId) ensures only the owner can update their goal
     const { data, error } = await supabase

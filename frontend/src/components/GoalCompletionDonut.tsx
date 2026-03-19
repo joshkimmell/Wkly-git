@@ -8,8 +8,8 @@ interface GoalCompletionDonutProps {
 
 const GoalCompletionDonut: React.FC<GoalCompletionDonutProps> = ({ 
   percentage, 
-  size = 50, 
-  strokeWidth = 5 
+  size = 100, 
+  strokeWidth = 2 
 }) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
@@ -54,7 +54,7 @@ const GoalCompletionDonut: React.FC<GoalCompletionDonutProps> = ({
       {/* Percentage text */}
       <div 
         className="absolute text-xs font-semibold text-secondary-text"
-        style={{ fontSize: size / 3 }}
+        style={{ fontSize: size / 3.75 }}
       >
         {percentage}<span className='text-[.55em]'>%</span>
       </div>

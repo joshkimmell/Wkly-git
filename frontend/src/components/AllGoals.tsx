@@ -22,7 +22,7 @@ import { mapPageForScope, loadPageByScope, savePageByScope } from '@utils/pagina
 import 'react-datepicker/dist/react-datepicker.css';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
-import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, CalendarDays, Eye, Edit, Trash, EyeOff, ChevronRight, ChevronDown, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash, ListTodo, Clock, CircleEllipsis, MoreVertical, Expand, Minimize, Maximize, Shrink, CircleOff, XCircle, XCircleIcon, Target, Bell } from 'lucide-react';
+import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, CalendarDays, Eye, Edit, Trash, EyeOff, ChevronRight, ChevronDown, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash, ListTodo, Clock, CircleEllipsis, MoreVertical, Expand, Minimize, Maximize, Shrink, CircleOff, XCircle, XCircleIcon, Target, Bell, Archive } from 'lucide-react';
 import { useGoalsContext } from '@context/GoalsContext';
 import { useTimezone } from '@context/TimezoneContext';
 import { convertToUTC } from '@utils/timezone';
@@ -51,7 +51,7 @@ const InlineStatus: React.FC<{ tasks?: Task[] }> = ({ tasks = [] }) => {
     return (
         <div className="flex items-center justify-center">
             {tasks && tasks.length > 0 && (
-                <GoalCompletionDonut percentage={completion} size={40} strokeWidth={4} />
+                <GoalCompletionDonut percentage={completion} size={50} strokeWidth={4} />
             )}
         </div>
     );
@@ -189,6 +189,7 @@ const GoalsComponent = () => {
     const [filterPanelOpen, setFilterPanelOpen] = useState(false);
     const [filterStatus, setFilterStatus] = useState<string[]>([]);
     const [filterCategory, setFilterCategory] = useState<string[]>([]);
+    const [showArchived, setShowArchived] = useState(false);
     const [filterGoal, setFilterGoal] = useState<string[]>([]);
     const [filterScope, setFilterScope] = useState<string[]>([]);
     const [filterStartDate, setFilterStartDate] = useState<Dayjs | null>(null);
@@ -337,7 +338,8 @@ const GoalsComponent = () => {
         (filterCategory?.length || 0) +
         (filterGoal?.length || 0) +
         (filterScope?.length || 0) +
-        (filterStartDate && filterEndDate ? 1 : 0);
+        (filterStartDate && filterEndDate ? 1 : 0) +
+        (showArchived ? 1 : 0);
 
     const theme = useTheme();
     const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
@@ -1039,7 +1041,7 @@ const GoalsComponent = () => {
     // Function to refresh goals (keeps current selection where possible)
     const refreshGoals = useCallback(async () : Promise<{indexedGoals: Record<string, Goal[]>, pages: string[]}> => {
         try {
-        const { indexedGoals, pages } = await fetchAllGoalsIndexed(scope);
+        const { indexedGoals, pages } = await fetchAllGoalsIndexed(scope, undefined, undefined, undefined, showArchived);
         setIndexedGoals(indexedGoals);
         setPages(pages);
         // Keep the latest currentPage in a ref to avoid stale closures from async callers
@@ -1058,7 +1060,14 @@ const GoalsComponent = () => {
     setIsScopeLoading(false);
         return { indexedGoals: {}, pages: [] };
         }
-    }, [scope]);
+    }, [scope, showArchived]);
+
+    // Re-fetch goals whenever the showArchived toggle changes so the list reflects the new mode.
+    // refreshGoals already passes showArchived to fetchAllGoalsIndexed.
+    useEffect(() => {
+        refreshGoals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [showArchived]);
 
     // Check for notification-triggered task edit on mount
     useEffect(() => {
@@ -1541,6 +1550,10 @@ const GoalsComponent = () => {
 
   // Filtering predicate to be shared across views
     const goalMatchesFilters = (goal: Goal) => {
+        // archived filter — by default exclude archived; if showArchived is on, only show archived
+        if (!showArchived && goal.is_archived) return false;
+        if (showArchived && !goal.is_archived) return false;
+
         // text filter (defensive) — uses debouncedFilter to avoid recomputing on every keystroke
         const q = (debouncedFilter || '').toString().trim();
         const qLower = q ? q.toLowerCase() : '';
@@ -2180,6 +2193,7 @@ const GoalsComponent = () => {
                                         })),
                                         ...(filterStartDate && filterEndDate ? [{ key: 'range', type: 'range' as const, label: `Range: ${filterStartDate.format('YYYY-MM-DD')} → ${filterEndDate.format('YYYY-MM-DD')}`, value: `${filterStartDate.format('YYYY-MM-DD')}|${filterEndDate.format('YYYY-MM-DD')}` }] : []),
                                         ...(filter && filter.trim() ? [{ key: 'text', type: 'text' as const, label: `Search: ${filter}`, value: filter }] : []),
+                                        ...(showArchived ? [{ key: 'archived', type: 'archived' as const, label: 'Showing: Archived', value: 'archived' }] : []),
                                     ].map((item) => (
                                         <MenuItem
                                             key={item.key}
@@ -2191,6 +2205,7 @@ const GoalsComponent = () => {
                                                 else if (item.type === 'goal') setFilterGoal((prev) => (prev || []).filter((v) => v !== item.value));
                                                 else if (item.type === 'range') { setFilterStartDate(null); setFilterEndDate(null); }
                                                 else if (item.type === 'text') { setFilter(''); }
+                                                else if (item.type === 'archived') { setShowArchived(false); }
                                             }}
                                         >
                                             <Checkbox size="small" checked={true} />
@@ -2211,6 +2226,7 @@ const GoalsComponent = () => {
                                         setFilterScope([]);
                                         setFilterStartDate(null);
                                         setFilterEndDate(null);
+                                        setShowArchived(false);
                                     }}
                                 >
                                     <Tooltip title="Clear all filters" placement="top" arrow>
@@ -2277,6 +2293,16 @@ const GoalsComponent = () => {
                                         label={`Range: ${filterStartDate?.format('YYYY-MM-DD')} → ${filterEndDate?.format('YYYY-MM-DD')}`}
                                         size="small"
                                         onDelete={() => { setFilterStartDate(null); setFilterEndDate(null); }}
+                                        deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
+                                        className="cursor-pointer"
+                                    />
+                                )}
+                                {showArchived && (
+                                    <Chip
+                                        label="Showing: Archived"
+                                        size="small"
+                                        icon={<Archive className="w-3 h-3 ml-1" />}
+                                        onDelete={() => setShowArchived(false)}
                                         deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
                                         className="cursor-pointer"
                                     />
@@ -2920,6 +2946,24 @@ const GoalsComponent = () => {
                                         </LocalizationProvider>
                                     </AccordionDetails>
                                 </Accordion>
+
+                                {/* Archived toggle */}
+                                <div className="flex items-center justify-between py-2 border-b border-divider">
+                                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-60 dark:text-gray-40 flex items-center gap-1">
+                                        <Archive className="w-3.5 h-3.5" /> Archived
+                                    </span>
+                                    <label className="flex items-center gap-2 cursor-pointer text-sm">
+                                        <input
+                                            type="checkbox"
+                                            checked={showArchived}
+                                            onChange={(e) => setShowArchived(e.target.checked)}
+                                            className="rounded"
+                                            aria-label="Show archived goals"
+                                        />
+                                        <span>Show archived</span>
+                                    </label>
+                                </div>
+
                                 <div className="flex justify-between items-center pt-2">
                                     <button
                                         type="button"
@@ -2931,6 +2975,7 @@ const GoalsComponent = () => {
                                             setFilterScope([]);
                                             setFilterStartDate(null);
                                             setFilterEndDate(null);
+                                            setShowArchived(false);
                                         }}
                                     >
                                         Clear all
