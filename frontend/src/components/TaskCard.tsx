@@ -106,6 +106,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const [notes, setNotes] = useState<Array<{ id: string; content: string; created_at: string; updated_at: string }>>([]);
   const [isNotesLoading, setIsNotesLoading] = useState(false);
   const [newNoteContent, setNewNoteContent] = useState('');
+  const [noteRteResetKey, setNoteRteResetKey] = useState(0);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState('');
   const [noteDeleteTarget, setNoteDeleteTarget] = useState<string | null>(null);
@@ -227,6 +228,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
     };
     setNotes((s) => [tempNote, ...s]);
     setNewNoteContent('');
+    setNoteRteResetKey((k) => k + 1);
     setIsNotesLoading(true);
     
     try {
@@ -1020,6 +1022,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
             <div className="space-y-4 max-h-[60vh] overflow-y-auto">
               <div className="mt-4">
                 <RichTextEditor
+                  key={`new-task-note-rte-${task.id}-${noteRteResetKey}`}
                   id={`new-task-note-${task.id}`}
                   value={newNoteContent}
                   onChange={setNewNoteContent}
@@ -1027,7 +1030,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   label="Add a new note"
                 />
                 <div className="mt-2 flex justify-end gap-2">
-                  <button className="btn-primary" onClick={createNote} disabled={isNotesLoading}>
+                  <button className="btn-primary" onClick={createNote} disabled={isNotesLoading || !newNoteContent.replace(/<[^>]*>/g, '').trim()}>
                     <PlusIcon className="w-4 h-4 inline mr-1" />Add note
                   </button>
                   {isNotesLoading && <div className="ml-2 text-sm text-secondary-text">Saving...</div>}
