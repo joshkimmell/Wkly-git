@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, CheckCircle, ChevronRight, Bot, Clock, FileText, Zap, AlertCircle, CalendarClock, Timer } from 'lucide-react';
+import { X, CheckCircle, ChevronRight, Bot, Clock, FileText, Zap, AlertCircle, CalendarClock, Timer, Save, Loader2 } from 'lucide-react';
 import FocusTimer, { TimerState, formatTime } from './FocusTimer';
 import FocusAIChat, { SuggestedTask, SuggestedLink, ChatMessage } from './FocusAIChat';
 import FocusNotes, { FocusNote } from './FocusNotes';
@@ -57,28 +57,70 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
   const [showExpiryPrompt, setShowExpiryPrompt] = useState(false);
   const [showClosePrompt, setShowClosePrompt] = useState(false);
   const staleSessionRef = useRef<ReturnType<typeof loadSession>>(null);
+  const dbNotesRef = useRef<FocusNote[]>([]);
 
-  // ── Load session on mount ────────────────────────────────────────
+  // Header save state
+  const [isSaving, setIsSaving] = useState(false);
+
+  // ── Load session + DB notes on mount ────────────────────────────
   useEffect(() => {
-    const stored = loadSession(task.id);
-    if (stored) {
-      if (isSessionStale(stored)) {
+    let isMounted = true;
+    const init = async () => {
+      // 1. Fetch existing task notes from DB
+      let dbNotes: FocusNote[] = [];
+      try {
+        const { data: { session: authSess } } = await supabase.auth.getSession();
+        const token = authSess?.access_token;
+        if (token) {
+          const res = await fetch(`/.netlify/functions/getTaskNotes?task_id=${task.id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const raw: Array<{ id: string; content: string; created_at: string }> = await res.json();
+            dbNotes = raw.map((n) => ({
+              id: n.id,
+              content: n.content,
+              createdAt: new Date(n.created_at).getTime(),
+            }));
+          }
+        }
+      } catch { /* non-critical */ }
+
+      if (!isMounted) return;
+      dbNotesRef.current = dbNotes;
+      const dbNoteIds = new Set(dbNotes.map((n) => n.id));
+
+      // 2. Merge with localStorage session
+      const stored = loadSession(task.id);
+      if (stored && isSessionStale(stored)) {
         staleSessionRef.current = stored;
         setShowExpiryPrompt(true);
-      } else {
+        // Show DB notes while user decides
+        setNotes(dbNotes);
+        setSavedNoteIds(dbNoteIds);
+      } else if (stored) {
         createdAtRef.current = stored.createdAt;
         setElapsed(stored.elapsed);
-        // Restore timer as paused (never auto-resume) so user deliberately restarts
         setTimerState(stored.elapsed > 0 ? 'paused' : 'idle');
-        setNotes(stored.notes ?? []);
+        // Unsaved session notes (fn-xxx not yet in DB) stay; fn-xxx that were saved are
+        // already in dbNotes with their UUID, so we drop them to avoid duplicates.
+        const sessionSavedIds = new Set(stored.savedNoteIds ?? []);
+        const unsavedSessionNotes = (stored.notes ?? []).filter((n) => !sessionSavedIds.has(n.id));
+        setNotes([...unsavedSessionNotes, ...dbNotes]);
+        setSavedNoteIds(new Set([...Array.from(sessionSavedIds), ...Array.from(dbNoteIds)]));
         setChatMessages(stored.chatMessages ?? []);
-        setSavedNoteIds(new Set(stored.savedNoteIds ?? []));
         setSuggestedTasks(stored.suggestedTasks ?? []);
         setAddedTaskTitles(new Set(stored.addedTaskTitles ?? []));
         setPendingChatTasks(stored.pendingChatTasks ?? []);
         setPendingChatLinks(stored.pendingChatLinks ?? []);
+      } else {
+        // No session — just show DB notes
+        setNotes(dbNotes);
+        setSavedNoteIds(dbNoteIds);
       }
-    }
+    };
+    init();
+    return () => { isMounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -90,9 +132,13 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
       extendSession(task.id);
       setElapsed(stored.elapsed);
       setTimerState(stored.elapsed > 0 ? 'paused' : 'idle');
-      setNotes(stored.notes ?? []);
+      const dbNotes = dbNotesRef.current;
+      const dbNoteIds = new Set(dbNotes.map((n) => n.id));
+      const sessionSavedIds = new Set(stored.savedNoteIds ?? []);
+      const unsavedSessionNotes = (stored.notes ?? []).filter((n) => !sessionSavedIds.has(n.id));
+      setNotes([...unsavedSessionNotes, ...dbNotes]);
+      setSavedNoteIds(new Set([...Array.from(sessionSavedIds), ...Array.from(dbNoteIds)]));
       setChatMessages(stored.chatMessages ?? []);
-      setSavedNoteIds(new Set(stored.savedNoteIds ?? []));
       setSuggestedTasks(stored.suggestedTasks ?? []);
       setAddedTaskTitles(new Set(stored.addedTaskTitles ?? []));
       setPendingChatTasks(stored.pendingChatTasks ?? []);
@@ -106,8 +152,8 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
     setShowExpiryPrompt(false);
   };
 
-  // ── Explicit session save (called on "Save & Exit") ──────────────
-  const persistCurrentSession = useCallback(() => {
+  // ── Explicit session save: localStorage + flush unsaved notes to DB ─
+  const persistCurrentSession = useCallback(async (): Promise<void> => {
     saveSession({
       taskId: task.id,
       elapsed,
@@ -122,7 +168,40 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
       createdAt: createdAtRef.current,
       updatedAt: Date.now(),
     });
+    // Flush any notes not yet persisted to the database
+    const unsaved = notes.filter((n) => !savedNoteIds.has(n.id));
+    if (unsaved.length === 0) return;
+    try {
+      const { data: { session: authSess } } = await supabase.auth.getSession();
+      const token = authSess?.access_token;
+      if (!token) return;
+      await Promise.all(
+        unsaved.map(async (note) => {
+          const res = await fetch('/.netlify/functions/createTaskNote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ task_id: task.id, content: note.content }),
+          });
+          if (res.ok) setSavedNoteIds((prev) => new Set([...prev, note.id]));
+        }),
+      );
+    } catch { /* non-critical */ }
   }, [task.id, elapsed, timerState, notes, chatMessages, savedNoteIds, suggestedTasks, addedTaskTitles, pendingChatTasks, pendingChatLinks]);
+
+  // ── Sync note edit to DB (UUID-id notes are DB-loaded; fn-xxx notes flushed on Save) ──
+  const handleNoteEdited = useCallback(async (note: FocusNote) => {
+    if (note.id.startsWith('fn-')) return; // Will be handled by persistCurrentSession flush
+    try {
+      const { data: { session: authSess } } = await supabase.auth.getSession();
+      const token = authSess?.access_token;
+      if (!token) return;
+      await fetch('/.netlify/functions/updateTaskNote', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id: note.id, content: note.content }),
+      });
+    } catch { /* non-critical */ }
+  }, []);
 
   // ── Save note as real task note ──────────────────────────────────
   const handleNoteAdded = useCallback(async (note: FocusNote) => {
@@ -163,8 +242,13 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
 
   // ── Close prompt handlers ────────────────────────────────────────
   const handleCloseRequest = useCallback(() => {
-    // If nothing worth saving, just exit
-    if (elapsed === 0 && notes.length === 0 && chatMessages.length === 0 && suggestedTasks.length === 0) {
+    // Only prompt to save if the user did something in this session
+    const hasSessionActivity =
+      elapsed > 0 ||
+      chatMessages.length > 0 ||
+      suggestedTasks.length > 0 ||
+      notes.some((n) => n.id.startsWith('fn-'));
+    if (!hasSessionActivity) {
       clearSession(task.id);
       onClose();
       return;
@@ -172,10 +256,10 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
     stopTick();
     setTimerState((s) => (s === 'running' ? 'paused' : s));
     setShowClosePrompt(true);
-  }, [elapsed, notes.length, chatMessages.length, task.id, stopTick, onClose]);
+  }, [elapsed, notes, chatMessages.length, suggestedTasks.length, task.id, stopTick, onClose]);
 
-  const handleSaveAndExit = () => {
-    persistCurrentSession();
+  const handleSaveAndExit = async () => {
+    await persistCurrentSession();
     setShowClosePrompt(false);
     onClose();
   };
@@ -184,6 +268,18 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
     clearSession(task.id);
     setShowClosePrompt(false);
     onClose();
+  };
+
+  const handleSaveProgress = async () => {
+    setIsSaving(true);
+    try {
+      await persistCurrentSession();
+      notifySuccess('Session saved');
+    } catch {
+      notifyError('Failed to save session');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // ── Inactivity tracking ───────────────────────────────────────────
@@ -336,10 +432,16 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
             </p>
             <div className="flex gap-3">
               <button
+                onClick={() => setShowClosePrompt(false)}
+                className="btn-ghost px-3 py-2 text-sm"
+              >
+                Cancel
+              </button>
+              <button
                 onClick={handleDiscardAndExit}
                 className="btn-secondary"
               >
-                Discard &amp; exit
+                Discard
               </button>
               <button
                 onClick={handleSaveAndExit}
@@ -418,6 +520,16 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
             <span className="hidden sm:inline">{markingDone ? 'Completing…' : 'Mark Done'}</span>
           </button>
 
+          {/* Save progress */}
+          <button
+            onClick={handleSaveProgress}
+            disabled={isSaving}
+            className="btn-ghost p-2 rounded-xl hover:bg-gray-80 text-secondary-text transition-colors shrink-0"
+            title="Save session progress"
+          >
+            {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+          </button>
+
           {/* Close */}
           <button
             onClick={handleCloseRequest}
@@ -429,14 +541,14 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
         </header>
 
         {/* Mobile tab bar */}
-        <div className="md:hidden flex border-b border-gray-80 shrink-0">
+        <nav className="md:hidden flex border-b border-gray-80 shrink-0">
           {panelTabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActivePanel(tab.id)}
-              className={`bg-transparent border-l-none border-r-1 last:border-r-0 rounded-none flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm transition-colors ${
+              className={`bg-transparent border-l-0 border-y-1 border-r-1 last:border-r-0 rounded-none flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm transition-colors focus:outline-none ${
                 activePanel === tab.id
-                  ? 'text-brand-40 border-b-2 border-brand-50'
+                  ? 'text-brand-40 border-b border-2 border-brand-30'
                   : 'text-secondary-text hover:text-primary-text'
               }`}
             >
@@ -444,7 +556,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
               {tab.label}
             </button>
           ))}
-        </div>
+        </nav>
 
         {/* Body */}
         <div className="flex-1 min-h-0 flex overflow-hidden">
@@ -555,7 +667,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
               </div>
             </div>
             <div className="flex-1 min-h-0 p-4 overflow-hidden">
-              <FocusNotes notes={notes} onChange={setNotes} onNoteAdded={handleNoteAdded} />
+              <FocusNotes notes={notes} onChange={setNotes} onNoteAdded={handleNoteAdded} onNoteEdited={handleNoteEdited} />
             </div>
           </aside>
         </div>

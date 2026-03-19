@@ -13,9 +13,11 @@ interface Props {
   onChange: (notes: FocusNote[]) => void;
   /** Called immediately when a new note is added so the parent can persist it */
   onNoteAdded?: (note: FocusNote) => void;
+  /** Called when an existing note's content is edited inline */
+  onNoteEdited?: (note: FocusNote) => void;
 }
 
-const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded }) => {
+const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded, onNoteEdited }) => {
   const [draft, setDraft] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState('');
@@ -37,7 +39,10 @@ const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded }) => {
   const commitEdit = () => {
     const trimmed = editDraft.trim();
     if (!trimmed) return;
-    onChange(notes.map((n) => (n.id === editingId ? { ...n, content: trimmed } : n)));
+    const updatedNote = notes.find((n) => n.id === editingId);
+    const updated = { ...updatedNote!, content: trimmed };
+    onChange(notes.map((n) => (n.id === editingId ? updated : n)));
+    onNoteEdited?.(updated);
     setEditingId(null);
     setEditDraft('');
   };
