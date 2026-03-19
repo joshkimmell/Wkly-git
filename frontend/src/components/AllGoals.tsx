@@ -1679,9 +1679,19 @@ const GoalsComponent = () => {
 
     // Task filter function - applies same filters to tasks
     const taskMatchesFilters = (task: Task, taskGoalId?: string) => {
-        // Archive filter: hide tasks belonging to archived goals unless showArchived is on
+        // Archive filter: hide tasks belonging to archived goals unless showArchived is on.
+        // Use the same 3-part check as goalMatchesFilters:
+        //   1. task.goal.is_archived (data from getAllTasks join)
+        //   2. ctxArchivedIds (goal marked archived in live context)
+        //   3. goal absent from ctxGoals entirely (archived in a prior session, filtered by backend)
         const effectiveGoalId = taskGoalId || (task as any).goal_id;
-        if (!showArchived && effectiveGoalId && ctxArchivedIds.has(effectiveGoalId)) return false;
+        if (!showArchived && effectiveGoalId) {
+            const taskGoalIsArchived =
+                (task as any).goal?.is_archived === true ||
+                ctxArchivedIds.has(effectiveGoalId) ||
+                (!String(effectiveGoalId).startsWith('temp-') && ctxGoals.length > 0 && !ctxGoalIds.has(effectiveGoalId));
+            if (taskGoalIsArchived) return false;
+        }
 
         // text filter (search task title, goal title, category)
         const q = (filter || '').toString().trim();
