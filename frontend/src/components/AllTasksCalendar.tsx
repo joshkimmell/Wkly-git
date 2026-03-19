@@ -33,6 +33,7 @@ interface AllTasksCalendarProps {
   goalFilter?: string[];
   startDateFilter?: Date | null;
   endDateFilter?: Date | null;
+  showArchived?: boolean;
   // Selection props
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string, type: 'goals' | 'tasks') => void;
@@ -47,6 +48,7 @@ export default function AllTasksCalendar({
   goalFilter = [],
   startDateFilter = null,
   endDateFilter = null,
+  showArchived = false,
   selectedIds = new Set(),
   onToggleSelect,
   onVisibleTasksChange
@@ -119,6 +121,9 @@ export default function AllTasksCalendar({
   // Filter tasks based on parent filters only
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
+      // Hide tasks from archived goals unless showArchived is on
+      if (!showArchived && (task as any).goal?.is_archived) return false;
+
       // Parent text filter (search)
       if (textFilter) {
         const searchLower = textFilter.toLowerCase();
@@ -149,7 +154,7 @@ export default function AllTasksCalendar({
 
       return true;
     });
-  }, [tasks, textFilter, statusFilter, categoryFilter, goalFilter, startDateFilter, endDateFilter]);
+  }, [tasks, textFilter, statusFilter, categoryFilter, goalFilter, startDateFilter, endDateFilter, showArchived]);
 
   // Calendar logic
   const calendarDays = useMemo(() => {

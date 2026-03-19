@@ -1679,6 +1679,10 @@ const GoalsComponent = () => {
 
     // Task filter function - applies same filters to tasks
     const taskMatchesFilters = (task: Task, taskGoalId?: string) => {
+        // Archive filter: hide tasks belonging to archived goals unless showArchived is on
+        const effectiveGoalId = taskGoalId || (task as any).goal_id;
+        if (!showArchived && effectiveGoalId && ctxArchivedIds.has(effectiveGoalId)) return false;
+
         // text filter (search task title, goal title, category)
         const q = (filter || '').toString().trim();
         const qLower = q ? q.toLowerCase() : '';
@@ -3786,6 +3790,7 @@ const GoalsComponent = () => {
                                         goalFilter={filterGoal}
                                         startDateFilter={filterStartDate?.toDate() || null}
                                         endDateFilter={filterEndDate?.toDate() || null}
+                                        showArchived={showArchived}
                                         selectedIds={selectedIds}
                                         onToggleSelect={toggleSelect}
                                         onVisibleTasksChange={setCalendarTaskIds}

@@ -17,7 +17,8 @@ export const handler: Handler = async (event) => {
           id,
           title,
           category,
-          status
+          status,
+          is_archived
         )
       `)
       .eq('user_id', userId)
