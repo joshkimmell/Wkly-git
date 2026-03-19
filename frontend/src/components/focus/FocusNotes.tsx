@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Edit, Plus, Trash2 } from 'lucide-react';
-import { TextareaAutosize } from '@mui/material';
+import RichTextEditor from '@components/RichTextEditor';
+
+/** Strip HTML tags to get plain text — used for empty checks */
+const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
 
 export interface FocusNote {
   id: string;
@@ -19,16 +22,18 @@ interface Props {
 
 const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded, onNoteEdited }) => {
   const [draft, setDraft] = useState('');
+  const [rteKey, setRteKey] = useState(0); // bump to reset the add-note RTE
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState('');
 
   const addNote = () => {
-    const trimmed = draft.trim();
+    const trimmed = stripHtml(draft).trim();
     if (!trimmed) return;
-    const newNote: FocusNote = { id: `fn-${Date.now()}`, content: trimmed, createdAt: Date.now() };
+    const newNote: FocusNote = { id: `fn-${Date.now()}`, content: draft, createdAt: Date.now() };
     onChange([newNote, ...notes]);
     onNoteAdded?.(newNote);
     setDraft('');
+    setRteKey((k) => k + 1); // force RTE to remount with empty state
   };
 
   const startEdit = (note: FocusNote) => {
@@ -37,10 +42,10 @@ const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded, onNoteEdite
   };
 
   const commitEdit = () => {
-    const trimmed = editDraft.trim();
+    const trimmed = stripHtml(editDraft).trim();
     if (!trimmed) return;
     const updatedNote = notes.find((n) => n.id === editingId);
-    const updated = { ...updatedNote!, content: trimmed };
+    const updated = { ...updatedNote!, content: editDraft };
     onChange(notes.map((n) => (n.id === editingId ? updated : n)));
     onNoteEdited?.(updated);
     setEditingId(null);
@@ -56,14 +61,14 @@ const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded, onNoteEdite
     onChange(notes.filter((n) => n.id !== id));
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
       addNote();
     }
   };
 
-  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleEditKeyDown = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
       commitEdit();
@@ -76,18 +81,17 @@ const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded, onNoteEdite
 
   return (
     <div className="flex flex-col gap-3 h-full">
-      <div className="flex flex-col gap-2">
-        <textarea
+      <div className="flex flex-col gap-2" onKeyDown={handleKeyDown}>
+        <RichTextEditor
+          key={rteKey}
+          id="focus-note-draft"
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={handleKeyDown}
+          onChange={setDraft}
           placeholder="Quick note… (⌘+Enter to save)"
-          rows={3}
-          className="w-full !rounded-md !border !border-gray-70 dark:!border-gray-70 !bg-gray-80 dark:!bg-gray-90 !text-sm text-primary-text placeholder:text-secondary-text !p-3 resize-none focus:outline-none focus:!border-brand-50 transition-colors"
         />
         <button
           onClick={addNote}
-          disabled={!draft.trim()}
+          disabled={!stripHtml(draft).trim()}
           className="btn-primary self-end disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Plus className="w-4 h-4" /> Add note
@@ -103,14 +107,13 @@ const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded, onNoteEdite
             >
               {editingId === note.id ? (
                 <div className="flex flex-col gap-2 flex-1 min-w-0">
-                  <TextareaAutosize
-                    autoFocus
-                    value={editDraft}
-                    onChange={(e) => setEditDraft(e.target.value)}
-                    onKeyDown={handleEditKeyDown}
-                    minRows={3}
-                    className="w-full rounded-md border border-brand-50 bg-gray-80 dark:bg-gray-90 text-primary-text text-sm p-2 resize-none focus:outline-none transition-colors"
-                  />
+                  <div onKeyDown={handleEditKeyDown}>
+                    <RichTextEditor
+                      id={`edit-note-${note.id}`}
+                      value={editDraft}
+                      onChange={setEditDraft}
+                    />
+                  </div>
                   <div className="flex gap-2 justify-end">
                     <button
                       onClick={cancelEdit}
@@ -120,7 +123,7 @@ const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded, onNoteEdite
                     </button>
                     <button
                       onClick={commitEdit}
-                      disabled={!editDraft.trim()}
+                      disabled={!stripHtml(editDraft).trim()}
                       className="btn-primary px-2.5 py-1 rounded-md text-xs disabled:opacity-40"
                     >
                       Save
@@ -129,7 +132,7 @@ const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded, onNoteEdite
                 </div>
               ) : (
                 <>
-                  <span className="flex-1 whitespace-pre-wrap break-words">{note.content}</span>
+                  <div className="flex-1 whitespace-pre-wrap break-words" dangerouslySetInnerHTML={{ __html: note.content }} />
                   <button
                     onClick={() => startEdit(note)}
                     className="btn-ghost opacity-0 group-hover:opacity-100 text-secondary-text hover:text-brand-40 transition-opacity mt-0.5"
