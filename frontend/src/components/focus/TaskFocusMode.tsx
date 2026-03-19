@@ -415,7 +415,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
 
       {/* Session expiry prompt */}
       {showExpiryPrompt && (
-        <div className="fixed inset-0 z-[10003] bg-black/80 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[198] bg-black/80 flex items-center justify-center p-4">
           <div className="bg-gray-90 border border-gray-70 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <CalendarClock className="w-6 h-6 text-brand-40 shrink-0" />
@@ -444,7 +444,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
 
       {/* Close / Preserve Prompt */}
       {showClosePrompt && (
-        <div className="fixed inset-0 z-[10003] bg-black/80 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[198] bg-black/80 flex items-center justify-center p-4">
           <div className="bg-gray-90 border border-gray-70 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <Zap className="w-6 h-6 text-brand-40 shrink-0" />
@@ -479,7 +479,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
 
       {/* Inactivity Prompt */}
       {showInactivityPrompt && (
-        <div className="fixed inset-0 z-[10002] bg-black/70 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[197] bg-black/70 flex items-center justify-center p-4">
           <div className="bg-gray-90 border border-gray-70 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <AlertCircle className="w-6 h-6 text-yellow-400 shrink-0" />
@@ -507,7 +507,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
       )}
 
       {/* Main overlay */}
-      <div className="fixed inset-0 z-[9999] bg-background flex flex-col overflow-hidden">
+      <div className="fixed inset-0 z-[196] bg-background flex flex-col overflow-hidden">
         {/* Header */}
         <header className="shrink-0 flex items-center gap-3 px-4 md:px-6 py-3 border-b border-gray-80 bg-gray-95/90 backdrop-blur">
           {/* Breadcrumb */}
