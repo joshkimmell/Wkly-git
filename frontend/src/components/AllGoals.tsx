@@ -1549,10 +1549,24 @@ const GoalsComponent = () => {
     
 
   // Filtering predicate to be shared across views
+    // Build a fast set of active goal IDs from the live context (always excludes archived goals
+    // because fetchAllGoals backend filters is_archived = false). Used to catch stale
+    // indexedGoals entries whose is_archived flag hasn't been updated yet.
+    const ctxGoalIds = useMemo(() => new Set(ctxGoals.map(g => g.id)), [ctxGoals]);
+
     const goalMatchesFilters = (goal: Goal) => {
-        // archived filter — by default exclude archived; if showArchived is on, only show archived
-        if (!showArchived && goal.is_archived) return false;
-        if (showArchived && !goal.is_archived) return false;
+        // A goal is considered archived if:
+        //   (a) the flag on the object is explicitly true, OR
+        //   (b) it has disappeared from the live context cache (which the backend always filters
+        //       to only return is_archived=false), indicating it was archived even though the
+        //       local indexedGoals entry still carries the old flag value.
+        const isArchived =
+            goal.is_archived === true ||
+            (!String(goal.id).startsWith('temp-') && ctxGoals.length > 0 && !ctxGoalIds.has(goal.id));
+
+        // By default hide archived goals. When showArchived is on, include them in the view
+        // alongside active goals (inclusive, not exclusive).
+        if (!showArchived && isArchived) return false;
 
         // text filter (defensive) — uses debouncedFilter to avoid recomputing on every keystroke
         const q = (debouncedFilter || '').toString().trim();
@@ -2193,7 +2207,7 @@ const GoalsComponent = () => {
                                         })),
                                         ...(filterStartDate && filterEndDate ? [{ key: 'range', type: 'range' as const, label: `Range: ${filterStartDate.format('YYYY-MM-DD')} → ${filterEndDate.format('YYYY-MM-DD')}`, value: `${filterStartDate.format('YYYY-MM-DD')}|${filterEndDate.format('YYYY-MM-DD')}` }] : []),
                                         ...(filter && filter.trim() ? [{ key: 'text', type: 'text' as const, label: `Search: ${filter}`, value: filter }] : []),
-                                        ...(showArchived ? [{ key: 'archived', type: 'archived' as const, label: 'Showing: Archived', value: 'archived' }] : []),
+                                        ...(showArchived ? [{ key: 'archived', type: 'archived' as const, label: 'Including archived', value: 'archived' }] : []),
                                     ].map((item) => (
                                         <MenuItem
                                             key={item.key}
@@ -2299,7 +2313,7 @@ const GoalsComponent = () => {
                                 )}
                                 {showArchived && (
                                     <Chip
-                                        label="Showing: Archived"
+                                        label="Including archived"
                                         size="small"
                                         icon={<Archive className="w-3 h-3 ml-1" />}
                                         onDelete={() => setShowArchived(false)}
@@ -2948,11 +2962,11 @@ const GoalsComponent = () => {
                                 </Accordion>
 
                                 {/* Archived toggle */}
-                                <div className="flex items-center justify-between py-2 border-b border-divider">
+                                <div className="flex items-center justify-between py-2 ">
                                     <span className="text-xs font-semibold uppercase tracking-wide text-gray-60 dark:text-gray-40 flex items-center gap-1">
-                                        <Archive className="w-3.5 h-3.5" /> Archived
+                                        <Archive className="w-3.5 h-3.5" /> Include archived
                                     </span>
-                                    <label className="flex items-center gap-2 cursor-pointer text-sm">
+                                    {/* <label className="flex items-center gap-2 cursor-pointer text-sm">
                                         <input
                                             type="checkbox"
                                             checked={showArchived}
@@ -2961,7 +2975,14 @@ const GoalsComponent = () => {
                                             aria-label="Show archived goals"
                                         />
                                         <span>Show archived</span>
-                                    </label>
+                                    </label> */}
+                                    <Switch
+                                        size="small"
+                                        checked={showArchived}
+                                        onChange={(e) => setShowArchived(e.target.checked)}
+                                        inputProps={{ 'aria-label': 'Show archived goals' }}
+
+                                    />
                                 </div>
 
                                 <div className="flex justify-between items-center pt-2">
