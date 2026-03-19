@@ -8,7 +8,7 @@ export const handler: Handler = async (event) => {
   const { userId } = auth;
 
   const body = JSON.parse(event.body || '{}');
-  const { id, title, description, category, week_start, status, status_notes, status_set_at } = body;
+  const { id, title, description, category, week_start, status, status_notes, status_set_at, is_archived } = body;
 
   if (!id) {
     return {
@@ -28,6 +28,9 @@ export const handler: Handler = async (event) => {
     }
     if (typeof status_notes !== 'undefined') {
       updatePayload.status_notes = status_notes;
+    }
+    if (typeof is_archived !== 'undefined') {
+      updatePayload.is_archived = is_archived;
     }
 
     // .eq('user_id', userId) ensures only the owner can update their goal

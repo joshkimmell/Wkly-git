@@ -11,6 +11,9 @@ import { modalClasses, overlayClasses } from '@styles/classes';
 import RichTextEditor from '@components/RichTextEditor';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
 import { TextField, MenuItem, Checkbox, FormControlLabel, Switch, Select, InputLabel, FormControl } from '@mui/material';
+import { DatePicker, TimePicker, DateTimePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
 
 export interface AddGoalProps {
   newGoal: Goal; // Updated to use the full Goal type
@@ -98,7 +101,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       const token = session?.access_token;
       if (!token) throw new Error('User not authenticated');
       
-      const response = await fetch('/api/refineGoal', {
+      const response = await fetch('/.netlify/functions/refineGoal', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -137,7 +140,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       const token = session?.access_token;
       if (!token) throw new Error('User not authenticated');
       
-      const response = await fetch('/api/generatePlan', {
+      const response = await fetch('/.netlify/functions/generatePlan', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -196,7 +199,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       const token = session?.access_token;
       if (!token) throw new Error('User not authenticated');
       
-      const response = await fetch('/api/generatePlan', {
+      const response = await fetch('/.netlify/functions/generatePlan', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -272,66 +275,91 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         setGeneratedPlan([]);
     };
 
+  // Helper function to ensure category exists in database
+  const ensureCategoryExists = async (categoryName: string, userId: string) => {
+    try {
+      // Try to insert the category - database will handle duplicates
+      const { error: insertError } = await supabase
+        .from('categories')
+        .insert({ name: categoryName, user_id: userId });
+
+      // Ignore duplicate key errors (23505 is PostgreSQL unique violation)
+      if (insertError && !insertError.message?.includes('duplicate') && insertError.code !== '23505') {
+        console.error('Error creating category:', insertError.message);
+        // Don't throw - allow goal creation to continue even if category creation fails
+      } else if (!insertError) {
+        console.log('Category created successfully:', categoryName);
+      }
+    } catch (error) {
+      console.error('Unexpected error in ensureCategoryExists:', error);
+      // Don't throw - allow goal creation to continue
+    }
+  };
+
   // NEW: Create goal with tasks
   const createGoalWithTasks = async () => {
     try {
       setIsGenerating(true);
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        throw new Error('User not authenticated');
-      }
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Not authenticated');
 
       // Ensure week_start is properly formatted
       const weekStart = newGoal.week_start ? newGoal.week_start.split('T')[0] : getWeekStartDate();
-      
-      // Create the goal first
-      const goalPayload = {
-        title: newGoal.title,
-        description: newGoal.description,
-        category: newGoal.category,
-        week_start: weekStart,
-        user_id: user.id,
-        status: 'Not started' as const,
-      };
 
-      const { data: createdGoal, error: goalError } = await supabase
-        .from('goals')
-        .insert(goalPayload)
-        .select()
-        .single();
+      // Default category to 'General' if not provided
+      const category = newGoal.category?.trim() || 'General';
 
-      if (goalError) {
-        throw new Error(`Failed to create goal: ${goalError.message}`);
+      // Create the goal via Netlify function (uses service-role to bypass RLS)
+      const goalRes = await fetch('/.netlify/functions/createGoal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          title: newGoal.title,
+          description: newGoal.description,
+          category,
+          week_start: weekStart,
+          status: 'Not started',
+        }),
+      });
+
+      if (!goalRes.ok) {
+        const errBody = await goalRes.json().catch(() => ({}));
+        throw new Error(`Failed to create goal: ${(errBody as { error?: string }).error || goalRes.statusText}`);
       }
 
+      const createdGoal = await goalRes.json() as { id: string };
+
       // Create tasks for the goal
-      const tasksToCreate = generatedTasks
-        .filter((_, index) => selectedTasks.includes(index))
-        .map((task) => ({
-          goal_id: createdGoal.id,
-          user_id: user.id,
-          title: task.title,
-          description: task.description,
-          status: task.status,
-          scheduled_date: task.scheduled_date || null,
-          scheduled_time: task.scheduled_time || null,
-          reminder_enabled: task.reminder_enabled,
-          reminder_datetime: task.reminder_datetime || null,
-          order_index: task.order_index,
-        }));
+      const tasksToCreate = generatedTasks.filter((_, index) => selectedTasks.includes(index));
+
+      // If no tasks have a scheduled date, default the first task to today (no time)
+      const noneScheduled = tasksToCreate.length > 0 && tasksToCreate.every(t => !t.scheduled_date);
+      if (noneScheduled) {
+        tasksToCreate[0] = { ...tasksToCreate[0], scheduled_date: dayjs().format('YYYY-MM-DD') };
+      }
 
       if (tasksToCreate.length > 0) {
-        const { error: tasksError } = await supabase
-          .from('tasks')
-          .insert(tasksToCreate);
-
-        if (tasksError) {
-          console.error('Error creating tasks:', tasksError);
-          // Goal was created, but tasks failed - notify user
-          notifyError('Goal created, but some tasks failed to save');
-        } else {
-          notifySuccess(`Goal created with ${tasksToCreate.length} task(s)!`);
-        }
+        await Promise.all(
+          tasksToCreate.map((task) =>
+            fetch('/.netlify/functions/createTask', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({
+                goal_id: createdGoal.id,
+                title: task.title,
+                description: task.description,
+                status: task.status,
+                scheduled_date: task.scheduled_date || null,
+                scheduled_time: task.scheduled_time || null,
+                reminder_enabled: task.reminder_enabled,
+                reminder_datetime: task.reminder_datetime || null,
+                order_index: task.order_index,
+              }),
+            })
+          )
+        );
+        notifySuccess(`Goal created with ${tasksToCreate.length} task${tasksToCreate.length !== 1 ? 's' : ''}!`);
       } else {
         notifySuccess('Goal created!');
       }
@@ -384,39 +412,13 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       // Add the user_id to the goal object
       goal.user_id = user.id;
 
-      // Validate that the category exists in the database
-      const { error: categoryError } = await supabase
-        .from('categories')
-        .select('name')
-        .eq('name', goal.category)
-        .single();
-
-      if (categoryError && categoryError.code === 'PGRST116') {
-        console.warn('Category does not exist:', goal.category);
-
-        // Prompt the user to create the category or go back
-        const userConfirmed = window.confirm(
-          `The category "${goal.category}" does not exist. Would you like to create it?`
-        );
-
-        if (!userConfirmed) {
-          console.warn('User chose to go back and select an existing category.');
-          return;
-        }
-
-        // Create the category if the user confirms
-        const { error: insertCategoryError } = await supabase
-          .from('categories')
-          .insert({ name: goal.category });
-
-        if (insertCategoryError) {
-          throw new Error(`Error creating category: ${insertCategoryError.message}`);
-        }
-
-        console.log('Category successfully created:', goal.category);
-      } else if (categoryError) {
-        throw new Error('Error fetching category: ' + categoryError.message);
+      // Default category to 'General' if not provided
+      if (!goal.category || !goal.category.trim()) {
+        goal.category = 'General';
       }
+
+      // Ensure category exists in database (auto-create if needed)
+      await ensureCategoryExists(goal.category, user.id);
 
       // Remove fields that should not be sent to the database
   const { created_at: _created_at, id: _id, ...goalToInsert } = goal as unknown as Record<string, unknown>;
@@ -506,6 +508,12 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
     try {
       // Ensure week_start is formatted as YYYY-MM-DD
       const formattedWeekStart = weekStart.split('T')[0];
+      
+      // Default category to 'General' if not provided
+      const category = parentCategory?.trim() || 'General';
+      
+      // Ensure category exists in database
+      await ensureCategoryExists(category, userId);
 
       console.log('Bulk adding goals with default week_start:', formattedWeekStart); // Log default week_start value
 
@@ -516,7 +524,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         const goal = {
           ...step,
           user_id: userId,
-          category: parentCategory,
+          category: category,
           week_start: step.week_start ? step.week_start.split('T')[0] : formattedWeekStart,
           id,
           created_at: new Date().toISOString(),
@@ -531,7 +539,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         const payload = {
           ...step,
           user_id: userId,
-          category: parentCategory,
+          category: category,
           week_start: step.week_start ? step.week_start.split('T')[0] : formattedWeekStart,
         };
         return supabase.from('goals').insert(payload).select();
@@ -612,13 +620,6 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
   const handleAddGoal = async (event: React.FormEvent) => {
     event.preventDefault(); // Prevent default form submission
 
-    // Ensure a category is selected
-    if (!newGoal.category) {
-      console.warn('No category selected. Please select a category before adding the goal.');
-      setIsCategoryModalOpen(true); // Reopen the category modal if no category is selected
-      return;
-    }
-
     // Check if the current step is the final step in the wizard
     if (showWizard && currentStep !== 3) {
       console.warn('Add Goal(s) button must be clicked to add the goal.');
@@ -637,11 +638,6 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
     event.preventDefault(); // Prevent default form submission
     if (selectedSteps.length === 0) {
       console.warn('No steps selected. Please select at least one step to add goals.');
-      return;
-    }
-    if (!newGoal.category) {
-      console.warn('No category selected. Please select a category before adding the goals.');
-      setIsCategoryModalOpen(true); // Reopen the category modal if no category is selected
       return;
     }
     try {
@@ -743,24 +739,24 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
             />
 
             <div className="mt-4">
-              <TextField
-                select
-                label="Category"
-                value={newGoal.category}
-                onChange={(e) => setNewGoal(prev => ({ ...prev, category: e.target.value }))}
-                fullWidth
-                required
-                helperText="Select a category for this goal"
+              <label className="block text-sm font-medium text-gray-70 dark:text-gray-30 mb-2">
+                Category <span className="text-gray-50 font-normal">(optional, defaults to General)</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm('');
+                  setFilteredCategories(categories);
+                  setIsCategoryModalOpen(true);
+                }}
+                className="btn-ghost w-full text-left justify-between"
               >
-                {categories.map((cat, index) => (
-                  <MenuItem key={cat.id || cat.name || `cat-${index}`} value={cat.name}>
-                    {cat.name}
-                  </MenuItem>
-                ))}
-              </TextField>
+                {newGoal.category || 'General (default)'}
+                <SearchIcon className="w-5 h-5 inline-block ml-2" />
+              </button>
             </div>
 
-            <div className="mt-4">
+            {/* <div className="mt-4">
               <TextField
                 type="date"
                 label="Week Start Date"
@@ -770,16 +766,19 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                 required
                 InputLabelProps={{ shrink: true }}
               />
-            </div>
+            </div> */}
 
             <div className="mt-4 space-x-4 flex justify-end">
               <button type="button" onClick={goToPreviousStep} className="btn-secondary">
                 Back
               </button>
+              <button type="button" onClick={createGoalWithTasks} disabled={isGenerating} className="btn-secondary">
+                {isGenerating ? 'Creating...' : 'Add goal'}
+              </button>
               <button 
                 type="button" 
                 onClick={handleGenerateTasks}
-                disabled={!newGoal.title || !newGoal.category || isGenerating}
+                disabled={!newGoal.title || isGenerating}
                 className="btn-primary"
               >
                 {isGenerating ? 'Generating Tasks...' : 'Generate Tasks'}
@@ -835,11 +834,11 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                   </button>
                 </div>
 
-                <ul className="max-h-96 overflow-y-auto border rounded-lg">
+                <ul className="max-h-96 overflow-y-auto border border-gray-30 dark:border-gray-70 rounded-md">
                   {generatedTasks.map((task, index) => (
                     <li
                       key={task.id}
-                      className="flex gap-4 bg-gray-10 hover:bg-gray-30 dark:bg-gray-90 dark:hover:bg-gray-80 p-4 items-start border-b last:border-b-0"
+                      className="flex gap-4 bg-gray-10 bg-transparent hover:bg-background p-4 items-start border-gray-30 dark:border-gray-70 border-b last:border-b-0"
                       onClick={() => {
                         setSelectedTasks(prev =>
                           prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]
@@ -871,18 +870,28 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                   ))}
                 </ul>
 
-                <div className="mt-4 space-x-4 flex justify-end">
+                <div className="mt-4 flex justify-between items-center">
                   <button type="button" onClick={goToPreviousStep} className="btn-secondary">
                     Back
                   </button>
-                  <button 
-                    type="button" 
-                    onClick={() => setCurrentStep(4)}
-                    disabled={selectedTasks.length === 0}
-                    className="btn-primary"
-                  >
-                    Schedule Tasks ({selectedTasks.length})
-                  </button>
+                  <div className="flex gap-3 items-center">
+                    <button 
+                      type="button" 
+                      onClick={() => setCurrentStep(4)}
+                      disabled={selectedTasks.length === 0}
+                      className="btn-secondary !text-primary-link hover:underline text-brand"
+                    >
+                      Schedule Tasks
+                    </button>
+                    <button
+                      type="button"
+                      onClick={createGoalWithTasks}
+                      disabled={isGenerating}
+                      className="btn-primary"
+                    >
+                      {isGenerating ? 'Creating...' : `Create Goal${selectedTasks.length > 0 ? ` & ${selectedTasks.length} Task${selectedTasks.length !== 1 ? 's' : ''}` : ''}`}
+                    </button>
+                  </div>
                 </div>
               </>
             )}
@@ -903,33 +912,30 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                     <div key={task.id} className="p-4 border rounded-lg bg-gray-10 dark:bg-gray-90">
                       <h4 className="font-medium mb-3">{task.title}</h4>
                       
-                      <div className="grid grid-cols-2 gap-4">
-                        <TextField
-                          type="date"
-                          label="Scheduled Date"
-                          value={task.scheduled_date || ''}
-                          onChange={(e) => {
-                            const updated = [...generatedTasks];
-                            updated[originalIndex] = { ...updated[originalIndex], scheduled_date: e.target.value };
-                            setGeneratedTasks(updated);
-                          }}
-                          InputLabelProps={{ shrink: true }}
-                          size="small"
-                        />
-                        
-                        <TextField
-                          type="time"
-                          label="Scheduled Time"
-                          value={task.scheduled_time || ''}
-                          onChange={(e) => {
-                            const updated = [...generatedTasks];
-                            updated[originalIndex] = { ...updated[originalIndex], scheduled_time: e.target.value };
-                            setGeneratedTasks(updated);
-                          }}
-                          InputLabelProps={{ shrink: true }}
-                          size="small"
-                        />
-                      </div>
+                      <LocalizationProvider dateAdapter={AdapterDayjs}>
+                        <div className="grid grid-cols-2 gap-4">
+                          <DatePicker
+                            label="Scheduled Date"
+                            value={task.scheduled_date ? dayjs(task.scheduled_date) : null}
+                            onChange={(newValue) => {
+                              const updated = [...generatedTasks];
+                              updated[originalIndex] = { ...updated[originalIndex], scheduled_date: newValue ? newValue.format('YYYY-MM-DD') : '' };
+                              setGeneratedTasks(updated);
+                            }}
+                            slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                          />
+                          <TimePicker
+                            label="Scheduled Time"
+                            value={task.scheduled_time ? dayjs(`2000-01-01T${task.scheduled_time}`) : null}
+                            onChange={(newValue) => {
+                              const updated = [...generatedTasks];
+                              updated[originalIndex] = { ...updated[originalIndex], scheduled_time: newValue ? newValue.format('HH:mm') : '' };
+                              setGeneratedTasks(updated);
+                            }}
+                            slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                          />
+                        </div>
+                      </LocalizationProvider>
 
                       <div className="mt-3">
                         <FormControlLabel
@@ -948,19 +954,15 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                       </div>
 
                       {task.reminder_enabled && (
-                        <TextField
-                          type="datetime-local"
+                        <DateTimePicker
                           label="Reminder Date & Time"
-                          value={task.reminder_datetime || ''}
-                          onChange={(e) => {
+                          value={task.reminder_datetime ? dayjs(task.reminder_datetime) : null}
+                          onChange={(newValue) => {
                             const updated = [...generatedTasks];
-                            updated[originalIndex] = { ...updated[originalIndex], reminder_datetime: e.target.value };
+                            updated[originalIndex] = { ...updated[originalIndex], reminder_datetime: newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '' };
                             setGeneratedTasks(updated);
                           }}
-                          fullWidth
-                          size="small"
-                          className="mt-2"
-                          InputLabelProps={{ shrink: true }}
+                          slotProps={{ textField: { size: 'small', fullWidth: true, className: 'mt-2' } }}
                         />
                       )}
                     </div>
@@ -1014,7 +1016,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
             {isGenerating && (
               <div className="w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center my-4">
                 <div className="loader"><LoadingSpinner variant='mui' /></div>
-                <span className="ml-2">Generating plan...</span>
+                <span className="ml-2">Generating tasks...</span>
               </div>
             )}
             {error && (
@@ -1087,7 +1089,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
 
             <div className="mt-4">
               <label htmlFor="category-wizard" className="block text-sm font-medium text-gray-70">
-                Category
+                Category <span className="text-gray-50 font-normal">(optional, defaults to General)</span>
               </label>
               <div className="mt-2 mb-4">
                 <button
@@ -1099,7 +1101,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                   }}
                   className="btn-ghost w-full text-left justify-between text-xl sm:text-lg md:text-xl lg:text-2xl"
                 >
-                  {newGoal.category || '-- Select a category --'}
+                  {newGoal.category || 'General (default)'}
                   <SearchIcon className="w-5 h-5 inline-block ml-2" />
                 </button>
 
@@ -1167,27 +1169,16 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
 
                               const userId = user.id;
 
-                              const { data: existingCategory, error: fetchError } = await supabase
+                              // Try to insert the category - database will handle duplicates
+                              const { error: insertError } = await supabase
                                 .from('categories')
-                                .select('name')
-                                .eq('name', searchTerm.trim())
-                                .single();
+                                .insert({ name: searchTerm.trim(), user_id: userId });
 
-                              if (fetchError && fetchError.code !== 'PGRST116') {
-                                console.error('Error checking category existence:', fetchError.message);
+                              // Ignore duplicate key errors (23505 is PostgreSQL unique violation)
+                              if (insertError && !insertError.message?.includes('duplicate') && insertError.code !== '23505') {
+                                console.error('Error adding category:', insertError.message);
                                 return;
-                              }
-
-                              if (!existingCategory) {
-                                const { error: insertError } = await supabase
-                                  .from('categories')
-                                  .insert({ name: searchTerm.trim(), user_id: userId });
-
-                                if (insertError) {
-                                  console.error('Error adding category:', insertError.message);
-                                  return;
-                                }
-
+                              } else if (!insertError) {
                                 console.log('Category added successfully.');
                               } else {
                                 console.log('Category already exists.');
@@ -1258,13 +1249,13 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
           </div>
         )}
 
-        {currentStep === 3 && (
+        {currentStep === 3 && generatedPlan.length > 0 && (
           <div>
-            <h3 className="text-lg font-medium">Review Selected Steps</h3>
+            <h3 className="text-lg font-medium">Review Selected Tasks</h3>
             <ul className="list-disc pl-5 text-xl text-gray-90 dark:text-gray-20">
                       {generatedPlan.filter((_, index) => selectedSteps.includes(index)).map((step, index) => (
                 <li className='mt-4' key={`${step.title ?? 'step'}-${index}`}>
-                  <h4>{step.title}</h4> <span className='block text-md text-gray-60'>{step.description}</span> <span className='text-sm'>Category: {newGoal.category} | Week Start: {newGoal.week_start}</span>
+                  <h4>{step.title}</h4> <span className='block text-md text-gray-60'>{step.description}</span> <span className='text-sm'>Category: {newGoal.category}</span>
                 </li>
               ))}
             </ul>
@@ -1272,7 +1263,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
             <div className="mt-4 space-x-2">
               <button
                 onClick={handleClose}
-                className="btn-secondary"
+                className="btn-ghost"
               >
                 Cancel
               </button>
@@ -1325,7 +1316,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                 }}
                 className="btn-ghost hover:background-gray-80 w-full text-left justify-between text-xl sm:text-lg md:text-xl lg:text-2xl"
               >
-                {newGoal.category || '-- Select a category --'}
+                {newGoal.category || 'General (default)'}
                 <SearchIcon className="w-5 h-5 inline-block ml-2" />
               </button>
 
@@ -1394,27 +1385,16 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
 
                             const userId = user.id;
 
-                            const { data: existingCategory, error: fetchError } = await supabase
+                            // Try to insert the category - database will handle duplicates
+                            const { error: insertError } = await supabase
                               .from('categories')
-                              .select('name')
-                              .eq('name', searchTerm.trim())
-                              .single();
+                              .insert({ name: searchTerm.trim(), user_id: userId });
 
-                            if (fetchError && fetchError.code !== 'PGRST116') {
-                              console.error('Error checking category existence:', fetchError.message);
+                            // Ignore duplicate key errors (23505 is PostgreSQL unique violation)
+                            if (insertError && !insertError.message?.includes('duplicate') && insertError.code !== '23505') {
+                              console.error('Error adding category:', insertError.message);
                               return;
-                            }
-
-                            if (!existingCategory) {
-                              const { error: insertError } = await supabase
-                                .from('categories')
-                                .insert({ name: searchTerm.trim(), user_id: userId });
-
-                              if (insertError) {
-                                console.error('Error adding category:', insertError.message);
-                                return;
-                              }
-
+                            } else if (!insertError) {
                               console.log('Category added successfully.');
                             } else {
                               console.log('Category already exists.');
@@ -1443,54 +1423,6 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
             </div>
           </div>
 
-          <div>
-            <TextField
-              id="status"
-              select
-              label="Status"
-              value={newGoal.status || 'Not started'}
-              onChange={(e) => {
-                const val = e.target.value;
-                // Narrow to allowed statuses when possible
-                const allowed = ['Not started', 'In progress', 'Blocked', 'Done', 'On hold'] as const;
-                if (typeof val === 'string' && (allowed as readonly string[]).includes(val)) {
-                  setNewGoal(prev => ({ ...prev, status: val as Goal['status'] }));
-                } else {
-                  setNewGoal(prev => ({ ...prev, status: prev.status }));
-                }
-              }}
-              className="mt-2 w-full"
-              fullWidth
-              
-            >
-              <MenuItem key="not-started" value="Not started">Not started</MenuItem>
-              <MenuItem key="in-progress" value="In progress">In progress</MenuItem>
-              <MenuItem key="blocked" value="Blocked">Blocked</MenuItem>
-              <MenuItem key="done" value="Done">Done</MenuItem>
-            </TextField>
-          </div>
-          <div>
-            <TextField
-              id="week_start"
-              label="Week Start"
-              type="date"
-              value={newGoal.week_start}
-              onChange={(e) => {
-                const selectedDate = new Date(e.target.value);
-                if (selectedDate.getDay() === 0) {
-                  setNewGoal(prev => ({ ...prev, week_start: selectedDate.toISOString().split('T')[0] }));
-                } else {
-                  const calculatedMonday = getWeekStartDate(selectedDate);
-                  setNewGoal(prev => ({ ...prev, week_start: calculatedMonday }));
-                }
-              }}
-              className="mt-2 w-full"
-              required
-              fullWidth
-              InputLabelProps={{ shrink: true }}
-              
-            />
-          </div>
 
           <div className="mt-6 flex justify-end space-x-4">
             <button
@@ -1511,6 +1443,135 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         </form>
 
         )}
+        
+        {/* Shared Category Modal - Available for all workflows */}
+        <Modal
+          id='category-modal'
+          isOpen={isCategoryModalOpen}
+          onRequestClose={() => setIsCategoryModalOpen(false)}
+          className="fixed inset-0 flex items-center justify-center z-50"
+          overlayClassName={`${overlayClasses}`}
+          ariaHideApp={ARIA_HIDE_APP}
+          style={{
+            content: {
+              width: 'calc(100% - 8px)',
+              height: '100%',
+              margin: 'auto',
+            },
+          }}
+        >
+          <div className="p-4 bg-background-color rounded-lg shadow-lg w-full max-w-md">
+            <h2 className="text-lg font-bold mb-4">Select or Create a Category</h2>
+            <TextField
+              id="category-search-shared"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                const filtered = categories.filter((category) =>
+                  category.name.toLowerCase().includes(e.target.value.toLowerCase())
+                );
+                setFilteredCategories(filtered);
+              }}
+              className="w-full mb-4"
+              placeholder="Find or create a category"
+              fullWidth
+              autoFocus
+            />
+            <ul className="max-h-60 text-gray-80 dark:text-gray-30 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-70 mb-4">
+              {filteredCategories.map((category, idx) => (
+                <li
+                  key={category?.id ?? hashString(category?.name || String(idx))}
+                  className="p-2 hover:bg-gray-20 dark:hover:bg-gray-70 cursor-pointer"
+                  onClick={() => {
+                    setNewGoal(prev => ({ ...prev, category: category.name }));
+                    setIsCategoryModalOpen(false);
+                    setSearchTerm('');
+                  }}
+                >
+                  {category.name}
+                </li>
+              ))}
+              {filteredCategories.length === 0 && searchTerm && (
+                <li className="p-2 text-gray-30 dark:text-gray-70">
+                  No matching categories found. Create "{searchTerm}"?
+                </li>
+              )}
+              {filteredCategories.length === 0 && !searchTerm && (
+                <li className="p-2 text-gray-30 dark:text-gray-70">
+                  No categories yet. Start typing to create one.
+                </li>
+              )}
+            </ul>
+            <div className="flex gap-2 justify-end">
+              {searchTerm && filteredCategories.length === 0 && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!searchTerm.trim()) return;
+
+                    try {
+                      const { data: { user }, error: userError } = await supabase.auth.getUser();
+                      if (userError || !user) {
+                        console.error('Error fetching user ID:', userError?.message || 'User not authenticated');
+                        notifyError('You must be logged in to create categories');
+                        return;
+                      }
+
+                      const userId = user.id;
+                      const categoryName = searchTerm.trim();
+
+                      // Try to insert the category - database will handle duplicates
+                      const { error: insertError } = await supabase
+                        .from('categories')
+                        .insert({ name: categoryName, user_id: userId });
+
+                      // Ignore duplicate key errors (23505 is PostgreSQL unique violation)
+                      if (insertError && !insertError.message?.includes('duplicate') && insertError.code !== '23505') {
+                        console.error('Error adding category:', insertError.message);
+                        notifyError('Failed to create category');
+                        return;
+                      }
+
+                      if (!insertError) {
+                        notifySuccess(`Category "${categoryName}" created successfully`);
+                      } else {
+                        console.log('Category already exists.');
+                      }
+                      
+                      // Refresh categories list
+                      const { UserCategories } = await fetchCategories(); 
+                      setCategories(
+                        UserCategories && Array.isArray(UserCategories)
+                          ? UserCategories.map((category) => ({ id: category.id, name: category.name }))
+                          : []
+                      );
+
+                      setNewGoal(prev => ({ ...prev, category: categoryName }));
+                      setIsCategoryModalOpen(false);
+                      setSearchTerm('');
+                    } catch (error) {
+                      console.error('Unexpected error creating category:', error);
+                      notifyError('An unexpected error occurred');
+                    }
+                  }}
+                  className="btn-primary"
+                >
+                  Create "{searchTerm}"
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCategoryModalOpen(false);
+                  setSearchTerm('');
+                }}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </Modal>
   </>
   );
 };

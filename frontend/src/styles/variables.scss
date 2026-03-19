@@ -1,35 +1,65 @@
 @use "sass:map";
-// BRAND COLORS
-$brand-100: #17001b;
-$brand-90: #230028;
-$brand-80: #3b0043;
-$brand-70: #4d0057;
-$brand-60: #570082;
-$brand-50: #6a0078;
-$brand-40: #760086;
-$brand-30: #c300dc;
-$brand-20: #E737FE;
-$brand-10: #F07DFF;
-$brand-0: #F8C1FF;
 
-// GRAY COLORS
-$gray-100: #070707;
-$gray-90: #1A1A1A;
-$gray-80: #333333;
-$gray-70: #4D4D4D;
-$gray-60: #666666;
-$gray-50: #808080;
-$gray-40: #a4a4a4;
-$gray-30: #b4b4b4;
-$gray-20: #D7D7D7;
-$gray-10: #EDEDED;
-$gray-0: #F4F4F4;
+// ==============================================================================
+// DESIGN SYSTEM TOKENS
+// ==============================================================================
+// Single source of truth for design tokens.
+// Brand/Gray colors are set dynamically by appColors.ts and referenced via CSS vars.
+// ==============================================================================
 
+// ------------------------------------------------------------------------------
+// TYPOGRAPHY
+// ------------------------------------------------------------------------------
+$font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
-// TOKENS
-$font-family: 'Open Sans', 'Helvetica Neue', 'Helvetica', sans-serif;
-$font-size: 16px;
-$line-height: 1.5;
+// Typography scale (T-shirt sizing + semantic names)
+$font-sizes: (
+  xs: 12px,      // Caption, small labels
+  sm: 14px,      // Body small, secondary text
+  base: 16px,    // Body, default
+  lg: 18px,      // Body large, emphasized text
+  xl: 20px,      // H4, section headings
+  2xl: 24px,     // H3, card titles
+  3xl: 32px,     // H2, page headings
+  4xl: 40px      // H1, hero text
+);
+
+$line-heights: (
+  tight: 1.25,   // Headings
+  base: 1.5,     // Body text
+  relaxed: 1.75  // Long-form content
+);
+
+$font-weights: (
+  normal: 400,
+  medium: 500,
+  semibold: 600,
+  bold: 700
+);
+
+// ------------------------------------------------------------------------------
+// SPACING
+// ------------------------------------------------------------------------------
+// 8px base grid system
+$spacing: (
+  0: 0,
+  1: 4px,    // 0.5 × 8
+  2: 8px,    // 1 × 8
+  3: 12px,   // 1.5 × 8
+  4: 16px,   // 2 × 8
+  5: 20px,   // 2.5 × 8
+  6: 24px,   // 3 × 8
+  8: 32px,   // 4 × 8
+  10: 40px,  // 5 × 8
+  12: 48px,  // 6 × 8
+  16: 64px,  // 8 × 8
+  20: 80px,  // 10 × 8
+  24: 96px   // 12 × 8
+);
+
+// ------------------------------------------------------------------------------
+// OTHER TOKENS
+// ------------------------------------------------------------------------------
 $border-radius: 8px;
 $box-shadow: 0px 2px 4.9px rgba(0, 0, 0, 0.6);
 $transition: all 0.3s ease-in-out;
@@ -38,18 +68,22 @@ $container-padding: 1em;
 $container-margin: 0 auto;
 
 
+// ------------------------------------------------------------------------------
+// SEMANTIC COLOR TOKENS
+// ------------------------------------------------------------------------------
+// Reference CSS variables set by appColors.ts
+// These are theme-aware and adapt to selected palette + light/dark mode
+// ------------------------------------------------------------------------------
 
-// COLORS ---
-// Theme tokens
 $theme-dark: (
-    background-base: $gray-100,
-    background-color: $gray-90,
-    background-inverse: $gray-10,
-    primary-text: $gray-10,
-    secondary-text: $gray-30,
-    tertiary-text: $gray-50,
-    inverse-text: $gray-90,
-    button-text: $gray-0,
+    background-base: var(--gray-100),
+    background-color: var(--gray-90),
+    background-inverse: var(--gray-10),
+    primary-text: var(--gray-10),
+    secondary-text: var(--gray-30),
+    tertiary-text: var(--gray-50),
+    inverse-text: var(--gray-90),
+    button-text: var(--gray-0),
     primary-icon: var(--brand-30),
     secondary-icon: var(--brand-20),
     tertiary-icon: var(--brand-10),
@@ -70,18 +104,18 @@ $theme-dark: (
 );
 
 $theme-light: (
-    background-base: $gray-0,
-    background-color: $gray-10,
-    background-inverse: $gray-100,
-    layer-1: $gray-0,
-    primary-text: $gray-100,
-    secondary-text: $gray-70,
-    tertiary-text: $gray-50,
-    inverse-text: $gray-0,
-    button-text: $gray-100,
-    primary-icon: var(--brand-70),
-    secondary-icon: var(--brand-50),
-    tertiary-icon: var(--brand-30),
+    background-base: var(--gray-0),
+    background-color: var(--gray-10),
+    background-inverse: var(--gray-100),
+    layer-1: var(--gray-0),
+    primary-text: var(--gray-100),
+    secondary-text: var(--gray-70),
+    tertiary-text: var(--gray-50),
+    inverse-text: var(--gray-0),
+    button-text: var(--gray-100),
+    primary-icon: var(--brand-80),
+    secondary-icon: var(--brand-60),
+    tertiary-icon: var(--brand-40),
     inverse-icon: var(--brand-100),
     interactive-icon: var(--brand-70),
     primary-border: var(--brand-30),
@@ -90,19 +124,21 @@ $theme-light: (
     primary-button: var(--brand-70),
     secondary-button: var(--brand-50),
     tertiary-button: var(--brand-30),
-    primary-button-hover: var(--brand-80),
-    secondary-button-hover: var(--brand-70),
-    tertiary-button-hover: var(--brand-50),
+    primary-button-hover: var(--brand-20),
+    secondary-button-hover: var(--brand-30),
+    tertiary-button-hover: var(--brand-30),
     primary-link: var(--brand-70),
     secondary-link: var(--brand-50),
-    tertiary-link: var(--brand-30)
+    tertiary-link: var(--brand-40)
 );
 
 
 
 @mixin theme-vars($theme-map) {
+  // Semantic color tokens
+  // Direct pass-through of CSS variable references (no interpolation)
   --background: #{map.get($theme-map, background-base)};
-  --background-color: #{rgba(map.get($theme-map, background-color), 0.70)};
+  --background-color: #{map.get($theme-map, background-color)};
   --background-inverse: #{map.get($theme-map, background-inverse)};
   --primary-text: #{map.get($theme-map, primary-text)};
   --secondary-text: #{map.get($theme-map, secondary-text)};
@@ -126,40 +162,47 @@ $theme-light: (
   --primary-link: #{map.get($theme-map, primary-link)};
   --secondary-link: #{map.get($theme-map, secondary-link)};
   --tertiary-link: #{map.get($theme-map, tertiary-link)};
-  // additional tokens useful for MUI mapping
+  
+  // Design tokens
   --font-family: #{$font-family};
-  --font-size: #{$font-size};
-  --line-height: #{$line-height};
+  --font-size-xs: #{map.get($font-sizes, xs)};
+  --font-size-sm: #{map.get($font-sizes, sm)};
+  --font-size-base: #{map.get($font-sizes, base)};
+  --font-size-lg: #{map.get($font-sizes, lg)};
+  --font-size-xl: #{map.get($font-sizes, xl)};
+  --font-size-2xl: #{map.get($font-sizes, 2xl)};
+  --font-size-3xl: #{map.get($font-sizes, 3xl)};
+  --font-size-4xl: #{map.get($font-sizes, 4xl)};
+  --line-height-tight: #{map.get($line-heights, tight)};
+  --line-height-base: #{map.get($line-heights, base)};
+  --line-height-relaxed: #{map.get($line-heights, relaxed)};
+  --spacing-0: #{map.get($spacing, 0)};
+  --spacing-1: #{map.get($spacing, 1)};
+  --spacing-2: #{map.get($spacing, 2)};
+  --spacing-3: #{map.get($spacing, 3)};
+  --spacing-4: #{map.get($spacing, 4)};
+  --spacing-5: #{map.get($spacing, 5)};
+  --spacing-6: #{map.get($spacing, 6)};
+  --spacing-8: #{map.get($spacing, 8)};
+  --spacing-10: #{map.get($spacing, 10)};
+  --spacing-12: #{map.get($spacing, 12)};
+  --spacing-16: #{map.get($spacing, 16)};
+  --spacing-20: #{map.get($spacing, 20)};
+  --spacing-24: #{map.get($spacing, 24)};
   --border-radius: #{$border-radius};
   --box-shadow: #{$box-shadow};
   --transition: #{$transition};
   --max-width: #{$max-width};
   --container-padding: #{$container-padding};
-  --primary-brand-100: #{$brand-100};
-  --primary-brand-90: #{$brand-90};
-  --primary-brand-80: #{$brand-80};
-  --primary-brand-70: #{$brand-70};
-  --primary-brand-60: #{$brand-60};
-  --primary-brand-50: #{$brand-50};
-  --primary-brand-40: #{$brand-40};
-  --primary-brand-30: #{$brand-30};
-  --primary-brand-20: #{$brand-20};
-  --primary-brand-10: #{$brand-10};
-  --primary-brand-0: #{$brand-0};
-  --gray-100: #{$gray-100};
-  --gray-90: #{$gray-90};
-  --gray-80: #{$gray-80};
-  --gray-70: #{$gray-70};
-  --gray-60: #{$gray-60};
-  --gray-50: #{$gray-50};
-  --gray-40: #{$gray-40};
-  --gray-30: #{$gray-30};
-  --gray-20: #{$gray-20};
-  --gray-10: #{$gray-10};
-  --gray-0: #{$gray-0};
 }
 
-// Apply theme variables to :root (light) and .dark (dark mode)
+// ==============================================================================
+// THEME APPLICATION
+// ==============================================================================
+// Brand/gray color CSS vars are set by appColors.ts at runtime.
+// Semantic tokens are applied here based on light/dark mode.
+// ==============================================================================
+
 :root {
   @include theme-vars($theme-light);
 }

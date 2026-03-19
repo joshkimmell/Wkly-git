@@ -311,27 +311,16 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
 
                             const userId = user.id;
 
-                            const { data: existingCategory, error: fetchError } = await supabase
+                            // Try to insert the category - database will handle duplicates
+                            const { error: insertError } = await supabase
                               .from('categories')
-                              .select('name')
-                              .eq('name', searchTerm.trim())
-                              .single();
+                              .insert({ name: searchTerm.trim(), user_id: userId });
 
-                            if (fetchError && fetchError.code !== 'PGRST116') {
-                              console.error('Error checking category existence:', fetchError.message);
+                            // Ignore duplicate key errors (23505 is PostgreSQL unique violation)
+                            if (insertError && !insertError.message?.includes('duplicate') && insertError.code !== '23505') {
+                              console.error('Error adding category:', insertError.message);
                               return;
-                            }
-
-                            if (!existingCategory) {
-                              const { error: insertError } = await supabase
-                                .from('categories')
-                                .insert({ name: searchTerm.trim(), user_id: userId });
-
-                              if (insertError) {
-                                console.error('Error adding category:', insertError.message);
-                                return;
-                              }
-
+                            } else if (!insertError) {
                               console.log('Category added successfully.');
                             } else {
                               console.log('Category already exists.');
@@ -360,36 +349,7 @@ const GoalEditor: React.FC<GoalEditorProps> = ({
             </div>
           </div>
             
-          <div className='flex flex-col'>
-              <label htmlFor="week_start" className="block text-sm font-medium text-gray-70">
-                  Week Start
-              </label>
-              <TextField
-                  type="date"
-                  id="week_start"
-                  value={updatedGoal.week_start}
-                  onChange={(e) => handleFieldChange('week_start', e.target.value)}
-                  className="mt-1"
-                  fullWidth
-                  required
-              />
-          </div>
-          <div>
-            <TextField
-              id="status"
-              select
-              label="Status"
-              value={updatedGoal.status || 'Not started'}
-              onChange={(e) => setUpdatedGoal((prev) => ({ ...prev, status: e.target.value as any }))}
-              fullWidth
-              className="mt-1"
-            >
-              <MenuItem value="Not started">Not started</MenuItem>
-              <MenuItem value="In progress">In progress</MenuItem>
-              <MenuItem value="Blocked">Blocked</MenuItem>
-              <MenuItem value="Done">Done</MenuItem>
-            </TextField>
-          </div>
+
           {/* <div>
             <TextField
               id="status_notes"

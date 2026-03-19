@@ -1,39 +1,41 @@
 import { useState, useEffect, useRef } from 'react';
-import { TextField, Tooltip, IconButton, Badge, Popover, Box, FormControl, MenuItem, Checkbox, ListItemText, Chip, InputAdornment, Menu, List } from '@mui/material';
+import { TextField, Tooltip, IconButton, Badge, MenuItem, Checkbox, ListItemText, Button, Chip, InputAdornment, Menu, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import ConfirmModal from '@components/ConfirmModal';
-import { Summary } from '@utils/goalUtils'; // Adjust the import path as necessary
-import { fetchSummaries, createSummary, deleteSummary, saveSummary } from '@utils/functions'; // Adjust the import path as necessary
+import { Summary, Goal, Task, calculateGoalCompletion } from '@utils/goalUtils'; // Adjust the import path as necessary
+import { fetchSummaries, createSummary, deleteSummary, saveSummary, UserCategories, getWeekStartDate } from '@utils/functions'; // Adjust the import path as necessary
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 import SummaryCard from '@components/SummaryCard';
 import SummaryEditor from '@components/SummaryEditor';
-// import SummaryGenerator from '@components/SummaryGenerator';
+import GoalForm from '@components/GoalForm';
+import { useGoalsContext } from '@context/GoalsContext';
+import SummaryGenerator from '@components/SummaryGenerator';
 import { modalClasses, overlayClasses } from '@styles/classes'; // Adjust the import path as necessary
 import ReactQuill from 'react-quill';
 import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
-import { CheckSquare2, Filter, SquareSlash, X as CloseButton } from 'lucide-react';
+import { CheckSquare2, Filter, SquareSlash, X as CloseButton, Target, ChevronDown, XCircle, Search, Sparkles } from 'lucide-react';
 import { useTheme } from '@mui/material/styles';
+import RichTextEditor from './RichTextEditor';
 // import Editor from '@components/Editor';
 
 
 const AllSummaries = () => {
   const theme = useTheme();
+  const { goals, refreshGoals } = useGoalsContext();
   const [summaries, setSummaries] = useState<Summary[]>([]);
   const [filteredSummaries, setFilteredSummaries] = useState<Summary[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  // Removed unused summaryType state
-  const [newSummary, setNewSummary] = useState<Summary>({
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+  const [newGoal, setNewGoal] = useState<Goal>({
     id: '',
-    scope: 'week', // Default scope
     title: '',
     description: '',
-    content: '',
-    type: '', 
-    // format: '',
-    week_start: '',
+    category: '',
+    week_start: getWeekStartDate(new Date()),
     user_id: '',
-    created_at: ''
+    created_at: '',
+    status: 'Not started',
+    status_notes: '',
   });
   const [localSummaryId, setLocalSummaryId] = useState<string | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -47,6 +49,8 @@ const AllSummaries = () => {
   const [filter, setFilter] = useState<string>(''); // For filtering summaries
   const [filterType, setFilterType] = useState<string[]>([]);
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
+  const [filterScope, setFilterScope] = useState<string[]>([]);
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   // const [filterStartDate, setFilterStartDate] = useState<Dayjs | null>(null);
   // const [filterEndDate, setFilterEndDate] = useState<Dayjs | null>(null);
   const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLElement | null>(null);
@@ -56,22 +60,75 @@ const AllSummaries = () => {
   const [singleDeleteId, setSingleDeleteId] = useState<string | null>(null);
   const [isSingleDeleteConfirmOpen, setIsSingleDeleteConfirmOpen] = useState(false);
   const [singleDeleting, setSingleDeleting] = useState(false);
+  const [tasksByGoal, setTasksByGoal] = useState<Record<string, Task[]>>({});
+  
   // Count of active filters to display as a badge on the filter button
     const selectedFiltersCount =
         (filterStatus?.length || 0) +
         (filterCategory?.length || 0) +
         (filterType?.length || 0) +
+        (filterScope?.length || 0) +
         // (filterStartDate && filterEndDate ? 1 : 0) +
         (filter && filter.trim().length > 0 ? 1 : 0);
 
+  // Count incomplete goals (all goals where task completion is not 100%)
+  const incompleteGoalsCount = goals.filter(goal => {
+    const tasks = tasksByGoal[goal.id] || [];
+    const completion = calculateGoalCompletion(tasks);
+    return completion < 100;
+  }).length;
+
  
-  const closeModal = () => {
-    setIsModalOpen(false);
+  const openGoalModal = () => {
+    if (!isGoalModalOpen) {
+      setNewGoal((prev) => ({
+        ...prev,
+        week_start: getWeekStartDate(new Date()),
+      }));
+      setIsGoalModalOpen(true);
+    }
+  };
+
+  const closeGoalModal = () => {
+    setIsGoalModalOpen(false);
   };
   
   useEffect(() => {
     setFilteredSummaries(summaries); // Initialize filteredSummaries with summaries
   }, [summaries]);
+
+  // Fetch tasks for all goals to calculate completion percentages
+  useEffect(() => {
+    const fetchAllTasks = async () => {
+      if (goals.length === 0) return;
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) return;
+
+        const response = await fetch('/.netlify/functions/getAllTasks', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch tasks');
+        
+        const allTasks: Task[] = await response.json();
+        
+        // Group tasks by goal_id
+        const tasksByGoalMap: Record<string, Task[]> = {};
+        goals.forEach(goal => {
+          tasksByGoalMap[goal.id] = allTasks.filter(task => task.goal_id === goal.id);
+        });
+        
+        setTasksByGoal(tasksByGoalMap);
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+      }
+    };
+
+    fetchAllTasks();
+  }, [goals]);
 
   // Removed scope-related state and logic
 
@@ -155,48 +212,6 @@ const AllSummaries = () => {
     );
   };
 
-  const handleAddSummary = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-
-    const title = formData.get('title') as string;
-    const content = formData.get('content') as string;
-    const week_start = formData.get('week_start') as string;
-    // const summary_type = formData.get('summary_type') as string;
-
-    // Get user_id from your auth/session context
-    const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error('User is not authenticated');
-        return;
-      }
-    const user_id = user; // Ensure user_id is defined
-      await createSummary({
-        user_id,        
-        content,        // string, not undefined
-        summary_type: 'User',   
-        week_start,     // string, e.g. '2025-06-02'
-        title,
-      });
-      setNewSummary({
-        id: '',
-        scope: 'week', // Default scope
-        title: '',
-        description: '',
-        content: '',
-        type: 'User',
-        week_start: '',
-        user_id: user.id,
-        created_at: new Date().toISOString(), // Set created_at to current time
-      });
-      closeModal; // Close the modal after adding
-      handleFetchSummaries(); // Refresh summaries after adding
-      notifySuccess('Summary added successfully');
-    // Reset the form fields
-    form.reset();
-  };
-
   // Updated handleFilterChange to include filtering by content
   const handleFilterChange = (filterValue: string) => {
     setFilter(filterValue);
@@ -264,6 +279,11 @@ const AllSummaries = () => {
       result = result.filter((s) => filterType.includes(s.type || ''));
     }
 
+    // Scope filter (checklist)
+    if (filterScope && filterScope.length > 0) {
+      result = result.filter((s) => filterScope.includes(s.scope || ''));
+    }
+
     // Status filter (defensive; Summary may not have status)
     if (filterStatus && filterStatus.length > 0) {
       result = result.filter((s: any) => filterStatus.includes((s.status || '') as string));
@@ -275,304 +295,309 @@ const AllSummaries = () => {
     }
 
     setFilteredSummaries(result);
-  }, [summaries, filter, filterType, filterStatus, filterCategory]);
+  }, [summaries, filter, filterType, filterScope, filterStatus, filterCategory]);
 
   return (
     <div className="p-4">
       <div className="flex justify-between items-center">
         <h1 className="mt-4 block sm:hidden">Summaries</h1>
       </div> 
-    
-      {/* Filter and Sort Controls */}
-      <div className="mt-4 h-10 flex items-center space-x-2">
-        <Tooltip title="Open filters" placement="top" arrow>
-          <span>
-            <Badge badgeContent={(filterType?.length || 0)} color="primary" invisible={(filterType?.length || 0) === 0}>
-              <IconButton
-                className="btn-ghost mr-2"
-                size="small"
-                aria-label={`Open filters`}
-                onClick={(e) => setFilterAnchorEl(e.currentTarget)}
+    {summaries.length !== 0 ? (
+      <>
+        {/* Filter and Sort Controls */}
+        <div className="mt-4 h-10 flex items-center space-x-2">
+          {/* Filter toggle button */}
+          <Tooltip title={filterPanelOpen ? 'Close filters' : 'Open filters'} placement="top" arrow>
+            <span>
+              <Badge badgeContent={selectedFiltersCount} color="primary" invisible={selectedFiltersCount === 0}>
+                <IconButton
+                  className={`btn-ghost mr-2 border-2${filterPanelOpen ? ' !bg-gray-20 dark:!bg-gray-80 !text-primary-text !border-primary' : ''}`}
+                  size="small"
+                  aria-label={`${filterPanelOpen ? 'Close' : 'Open'} filters${selectedFiltersCount > 0 ? ` (${selectedFiltersCount} active)` : ''}`}
+                  aria-pressed={filterPanelOpen}
+                  onClick={() => setFilterPanelOpen(prev => !prev)}
                 >
-                <Filter className='w-5 h-5' />
-              </IconButton>
-            </Badge>
-          </span>
-        </Tooltip>
-        <Popover
-          open={Boolean(filterAnchorEl)}
-          anchorEl={filterAnchorEl}
-          onClose={() => setFilterAnchorEl(null)}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        >
-          <Box sx={{ p: 2, width: 240 }}>
-            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-              <label id="filter-type-label">Type</label>
-              <List role="listbox" aria-labelledby="filter-type-label" sx={{ pl: 0 }}>
-                {uniqueTypes.map((t) => {
-                  const checked = (filterType || []).includes(t);
-                  return (
-                      <MenuItem
-                      key={t}
-                      onClick={() => {
-                        setFilterType((prev) => (prev || []).includes(t) ? (prev || []).filter((v) => v !== t) : [...(prev || []), t]);
-                      }}
-                      selected={checked}
-                      dense
-                    >
-                      <Checkbox size="small" edge="start" checked={checked} tabIndex={-1} disableRipple />
-                      <ListItemText primary={t} />
-                    </MenuItem>
-                  );
-                })}
-              </List>
-              {/* <Select
-                labelId="filter-type-label"
-                multiple
-                value={filterType}
-                label="Type"
-                onChange={(e) => {
-                  const val = (e.target as HTMLInputElement).value;
-                  setFilterType(typeof val === 'string' ? val.split(',') : (val as string[]));
-                }}
-                renderValue={(selected) => (selected as string[]).join(', ')}
-              >
-                {/* <MenuItem value="">
-                  <ListItemText primary="Any" />
-                </MenuItem> */}
-                {/* {uniqueTypes.map((t) => (
-                  <MenuItem key={t} value={t}>
-                    <Checkbox size="small" checked={(filterType || []).indexOf(t) > -1} />
-                    <ListItemText primary={t} />
-                  </MenuItem>
-                ))} */}
-              {/* </Select> */}
-            </FormControl>
-            <div className="flex justify-end space-x-2">
-              <button
-                type="button"
-                className="btn-ghost"
-                onClick={() => {
-                  setFilterType([]);
-                }}
-              >
-                Clear
-              </button>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => setFilterAnchorEl(null)}
-              >
-                Done
-              </button>
-            </div>
-          </Box>
-        </Popover>
+                  <Filter className="w-5 h-5" />
+                </IconButton>
+              </Badge>
+            </span>
+          </Tooltip>
 
-        {/* Filter chips */}
-        <div className="hidden sm:flex items-center space-x-2 ml-2">
-          {selectedFiltersCount >= 4 ? (
-            <>
-              <Chip
+          {/* Selected filter chips */}
+          <div className="hidden sm:flex items-center space-x-2 ml-2">
+            {selectedFiltersCount >= 4 ? (
+              <>
+                <Chip
                   label={`${selectedFiltersCount} filters`}
                   size="small"
                   onClick={(e) => setSummaryAnchorEl(e.currentTarget)}
-                  className="gap-2 bg-gray-30 dark:bg-gray-70 text-gray-70 dark:text-gray-30 cursor-pointer"
-              />
-              <Menu
+                  className="cursor-pointer"
+                />
+                <Menu
                   anchorEl={summaryAnchorEl}
                   open={Boolean(summaryAnchorEl)}
                   onClose={() => setSummaryAnchorEl(null)}
                   anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                   transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                  PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1 } }}
-              >
-                  {/* build combined list of filters */}
+                  PaperProps={{ sx: { bgcolor: 'var(--background-paper)', p: 1 } }}
+                >
                   {[
-                      ...((filterStatus || []).map((s) => ({ key: `status:${s}`, type: 'status' as const, label: `Status: ${s}`, value: s }))),
-                      ...((filterCategory || []).map((c) => ({ key: `category:${c}`, type: 'category' as const, label: `Category: ${c}`, value: c }))),
-                      // ...(filterStartDate && filterEndDate ? [{ key: 'range', type: 'range' as const, label: `Range: ${filterStartDate.format('YYYY-MM-DD')} → ${filterEndDate.format('YYYY-MM-DD')}`, value: `${filterStartDate.format('YYYY-MM-DD')}|${filterEndDate.format('YYYY-MM-DD')}` }] : []),
-                      ...(filter && filter.trim() ? [{ key: 'text', type: 'text' as const, label: `Search: ${filter}`, value: filter }] : []),
+                    ...((filterType || []).map((t) => ({ key: `type:${t}`, type: 'type' as const, label: `Type: ${t}`, value: t }))),
+                    ...((filterScope || []).map((s) => ({ key: `scope:${s}`, type: 'scope' as const, label: `Scope: ${s}`, value: s }))),
+                    ...(filter && filter.trim() ? [{ key: 'text', type: 'text' as const, label: `Search: ${filter}`, value: filter }] : []),
                   ].map((item) => (
-                      <MenuItem
-                          key={item.key}
-                          onClick={() => {
-                              // deselect individual
-                              if (item.type === 'status') setFilterStatus((prev) => (prev || []).filter((v) => v !== item.value));
-                              else if (item.type === 'category') setFilterCategory((prev) => (prev || []).filter((v) => v !== item.value));
-                              // else if (item.type === 'range') { setFilterStartDate(null); setFilterEndDate(null); }
-                              else if (item.type === 'text') { setFilter(''); }
-                          }}
-                      >
-                          <Checkbox size="small" checked={true} />
-                          <ListItemText primary={item.label} />
-                      </MenuItem>
+                    <MenuItem
+                      key={item.key}
+                      onClick={() => {
+                        if (item.type === 'type') setFilterType((prev) => (prev || []).filter((v) => v !== item.value));
+                        else if (item.type === 'scope') setFilterScope((prev) => (prev || []).filter((v) => v !== item.value));
+                        else if (item.type === 'text') { setFilter(''); }
+                      }}
+                    >
+                      <Checkbox size="small" checked={true} />
+                      <ListItemText primary={item.label} />
+                    </MenuItem>
                   ))}
-              </Menu>
-              {/* Ghost clear-all button next to summary chip */}
-              
-              <button
+                </Menu>
+                <button
                   type="button"
                   className="btn-ghost ml-1"
                   title="Clear all filters"
                   onClick={() => {
-                      setFilter('');
-                      setFilterStatus([]);
-                      setFilterCategory([]);
-                      // setFilterStartDate(null);
-                      // setFilterEndDate(null);
-                      filterInputRef.current?.focus();
+                    setFilter('');
+                    setFilterType([]);
+                    setFilterScope([]);
                   }}
-              >
+                >
                   <Tooltip title="Clear all filters" placement="top" arrow>
-                      <CloseButton className="w-4 h-4" />
+                    <CloseButton className="w-4 h-4" />
                   </Tooltip>
-              </button>
-            </>
-          ) : (
-            <>
-              {filterStatus && filterStatus.length > 0 && (
-                filterStatus.map((s) => (
-                    <Chip
-                        key={`status-${s}`}
-                        label={`Status: ${s}`}
-                        size="small"
-                        onDelete={() => setFilterStatus((prev) => (prev || []).filter((v) => v !== s))}
-                        deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
-                        className="gap-2 bg-gray-30 dark:bg-gray-70 text-gray-70 dark:text-gray-30"
-                    />
-                ))
-              )}
-              {filterCategory && filterCategory.length > 0 && (
-                  filterCategory.map((c) => (
-                      <Chip
-                          key={`cat-${c}`}
-                          label={`Category: ${c}`}
-                          size="small"
-                          onDelete={() => setFilterCategory((prev) => (prev || []).filter((v) => v !== c))}
-                          deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
-                          className="gap-2 bg-gray-30 dark:bg-gray-70 text-gray-70 dark:text-gray-30"
-                      />
-                  ))
-              )}
-              {/* {filterStartDate && filterEndDate && (
-                  <Chip
-                      label={`Range: ${filterStartDate?.format('YYYY-MM-DD')} → ${filterEndDate?.format('YYYY-MM-DD')}`}
-                      size="small"
-                      onDelete={() => { setFilterStartDate(null); setFilterEndDate(null); }}
-                      deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
-                      className="gap-2 bg-gray-30 dark:bg-gray-70 text-gray-70 dark:text-gray-30"
-                  />
-              )} */}
-              {/* Ghost clear-all button */}
-              {selectedFiltersCount > 0 && (
-                <button
-                    type="button"
-                    className="btn-ghost ml-1"
-                    title="Clear all filters"
-                    onClick={() => {
-                        setFilter('');
-                        setFilterStatus([]);
-                        setFilterCategory([]);
-                        // setFilterStartDate(null);
-                        // setFilterEndDate(null);
-                        filterInputRef.current?.focus();
-                    }}
-                    >
-                    <Tooltip title="Clear all filters" placement='top' arrow>
-                        <CloseButton className="w-4 h-4" />
-                    </Tooltip>
                 </button>
-              )}
-            </>
-          )}
-        </div>
-        <>
-          {((filterType || []).length > 0) && (filterType || []).map((t) => (
-            <Chip key={`type-${t}`} label={`Type: ${t}`} size="small" onDelete={() => setFilterType((prev) => prev.filter((v) => v !== t))} 
-              // className="gap-2 bg-gray-30 dark:bg-gray-70 text-gray-70 dark:text-gray-30 cursor-pointer" 
-              />
-          ))}
-          {/* date range filters removed */}
-        </>
+              </>
+            ) : (
+              <>
+                {filterType && filterType.length > 0 && (
+                  filterType.map((t) => (
+                    <Chip
+                      key={`type-${t}`}
+                      label={`Type: ${t}`}
+                      size="small"
+                      onDelete={() => setFilterType((prev) => (prev || []).filter((v) => v !== t))}
+                      deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
+                      className="cursor-pointer"
+                    />
+                  ))
+                )}
+                {filterScope && filterScope.length > 0 && (
+                  filterScope.map((s) => (
+                    <Chip
+                      key={`scope-${s}`}
+                      label={`Scope: ${s}`}
+                      size="small"
+                      onDelete={() => setFilterScope((prev) => (prev || []).filter((v) => v !== s))}
+                      deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
+                      className="cursor-pointer"
+                    />
+                  ))
+                )}
+              </>
+            )}
+          </div>
 
-        {/* Bulk toolbar */}
-        <div className="selectAll">
-
-          <div className={`floating-bulk${selectedCount > 0 ? '-toolbar flex-row align-start justify-start items-start' : ''}`} role="toolbar" aria-label="Bulk actions">
-            <Tooltip title={selectedCount === visibleIdsArray.length ? 'Deselect all' : 'Select all'} placement="top" arrow>
+          {/* Bulk select toolbar */}
+          <div className="ml-auto flex items-center gap-2">
+            <Tooltip title={selectedCount > 0 ? `Deselect all` : 'Select all visible'} placement="top" arrow>
               <Badge badgeContent={selectedCount} color="primary">
                 <span className="sr-only">{selectedCount} selected</span>
                 <button
-                  className={`btn-ghost fb-btn`}
-                  onClick={() => { if (selectedCount === visibleIdsArray.length) deselectAll(); else selectAllVisible(); }}
-                  aria-label={selectedCount === visibleIdsArray.length ? 'Deselect all' : 'Select all'}
+                  className={`btn-ghost ${selectedCount > 0 ? 'dark:[&>.lucide]:stroke-brand-30 [&>.lucide]:stroke-brand-70' : ''}`}
+                  onClick={() => {
+                    if (selectedCount > 0) {
+                      deselectAll();
+                    } else {
+                      selectAllVisible();
+                    }
+                  }}
+                  aria-label={selectedCount > 0 ? `Deselect all` : 'Select all visible'}
                 >
-                  {selectedCount === visibleIdsArray.length ? <SquareSlash /> : <CheckSquare2 />}
+                  {selectedCount > 0 ? <SquareSlash /> : <CheckSquare2 />}
                 </button>
               </Badge>
             </Tooltip>
             {selectedCount > 0 && (
-              <div className="flex flex-col items-start justify-start sm:flex-row ml-2">
-                <button className="btn-ghost fb-btn" onClick={() => setIsBulkDeleteConfirmOpen(true)}>Delete</button>
+              <button className="btn-ghost" onClick={() => setIsBulkDeleteConfirmOpen(true)} title="Delete selected" aria-label="Delete selected">Delete</button>
+            )}
+          </div>
+        </div>
+
+        {/* Filter panel + content row */}
+        <div className="flex flex-row items-start w-full mt-4">
+          {/* Slide-in filter panel */}
+          <div
+            style={{
+              width: filterPanelOpen ? '252px' : '0px',
+              overflow: 'hidden',
+              flexShrink: 0,
+              transition: 'width 0.25s ease',
+            }}
+          >
+            <div className="pr-4" style={{ width: '252px', minWidth: '252px' }}>
+              <div className="rounded-lg border border-gray-20 dark:border-gray-70 bg-background-color p-3 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-primary">Filters</span>
+                  <IconButton size="small" className="btn-ghost" onClick={() => setFilterPanelOpen(false)} aria-label="Close filters">
+                    <XCircle className="w-4 h-4" />
+                  </IconButton>
+                </div>
+
+                {/* Type accordion */}
+                <Accordion defaultExpanded disableGutters elevation={0} sx={{ bgcolor: 'transparent', '&:before': { display: 'none' }, borderBottom: '1px solid', borderColor: 'divider' }}>
+                  <AccordionSummary expandIcon={<ChevronDown className="w-3.5 h-3.5" />} sx={{ p: 0, minHeight: 'unset', '& .MuiAccordionSummary-content': { my: '6px' } }}>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-60 dark:text-gray-40">Type</span>
+                  </AccordionSummary>
+                  <AccordionDetails sx={{ p: 0, pb: 1 }}>
+                    <div className="flex flex-col">
+                      {uniqueTypes.map((t) => (
+                        <label key={t} className="flex items-center gap-2 cursor-pointer text-sm py-0.5 px-1 rounded hover:bg-gray-10 dark:hover:bg-gray-80">
+                          <Checkbox
+                            size="small"
+                            checked={(filterType || []).indexOf(t) > -1}
+                            onChange={(e) => {
+                              if (e.target.checked) setFilterType(prev => [...(prev || []), t]);
+                              else setFilterType(prev => (prev || []).filter(v => v !== t));
+                            }}
+                            sx={{ p: 0 }}
+                          />
+                          {t}
+                        </label>
+                      ))}
+                    </div>
+                  </AccordionDetails>
+                </Accordion>
+
+                {/* Scope accordion */}
+                <Accordion defaultExpanded disableGutters elevation={0} sx={{ bgcolor: 'transparent', '&:before': { display: 'none' }, borderBottom: '1px solid', borderColor: 'divider' }}>
+                  <AccordionSummary expandIcon={<ChevronDown className="w-3.5 h-3.5" />} sx={{ p: 0, minHeight: 'unset', '& .MuiAccordionSummary-content': { my: '6px' } }}>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-60 dark:text-gray-40">Scope</span>
+                  </AccordionSummary>
+                  <AccordionDetails sx={{ p: 0, pb: 1 }}>
+                    <div className="flex flex-col">
+                      {['week', 'month', 'year'].map((s) => (
+                        <label key={s} className="flex items-center gap-2 cursor-pointer text-sm py-0.5 px-1 rounded hover:bg-gray-10 dark:hover:bg-gray-80">
+                          <Checkbox
+                            size="small"
+                            checked={(filterScope || []).indexOf(s) > -1}
+                            onChange={(e) => {
+                              if (e.target.checked) setFilterScope(prev => [...(prev || []), s]);
+                              else setFilterScope(prev => (prev || []).filter(v => v !== s));
+                            }}
+                            sx={{ p: 0 }}
+                          />
+                          <span className="capitalize">{s}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </AccordionDetails>
+                </Accordion>
+
+                <div className="flex justify-between items-center pt-2">
+                  <button
+                    type="button"
+                    className="btn-ghost text-sm"
+                    onClick={() => {
+                      setFilterType([]);
+                      setFilterScope([]);
+                    }}
+                  >
+                    Clear all
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Summaries content */}
+          <div className="flex-1 min-w-0">
+            {/* Search field */}
+            <TextField
+              placeholder="Search summaries..."
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              variant="outlined"
+              size="small"
+              fullWidth
+              className="mb-4 bg-white dark:bg-gray-90"
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search className="w-4 h-4" />
+                  </InputAdornment>
+                ),
+              }}
+            />
+
+            {/* Summaries grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {sortedAndFilteredSummaries.map((summary) => (
+                <SummaryCard
+                  key={summary.id}
+                  content={summary.content}
+                  title={summary.title}
+                  format="card"
+                  type={summary.type}
+                  id={summary.id}
+                  created_at={summary.created_at}
+                  week_start={summary.week_start}
+                  handleDelete={() => handleDeleteSummary(summary.id)}
+                  handleEdit={() => openEditor(summary)}
+                  selectable={true}
+                  isSelected={selectedIds.includes(summary.id)}
+                  onToggleSelect={(id: string) => {
+                    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+                  }}
+                />
+              ))}
+            </div>
+            {sortedAndFilteredSummaries.length === 0 && summaries.length > 0 && (
+              <div className="text-center text-gray-50 mt-16 space-y-4">
+                <p>No summaries match the current filters.</p>
               </div>
             )}
           </div>
-        
-      {(selectedCount === 0 ) && (
-        <TextField
-          id="summary-filter"
-          size="small"
-          value={filter}
-          onChange={(e) => handleFilterChange(e.target.value)}
-          placeholder="Filter by title, type, or content"
-          fullWidth
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <button
-                  onClick={() => setSortDirection(dir => (dir === 'asc' ? 'desc' : 'asc'))}
-                  className="border rounded px-2 py-1"
-                  title="Toggle sort direction"
-                >
-                  {sortDirection === 'asc' ? '↑' : '↓'}
-                </button>
-              </InputAdornment>
-            )
-          }}
-        />
-      )}
-      </div>
-    </div>
-
-      {/* Summaries List */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {sortedAndFilteredSummaries.map((summary) => (
-          <SummaryCard
-            key={summary.id}
-            content={summary.content}
-            title={summary.title}
-            format="card"
-            type={summary.type}
-            id={summary.id}
-            created_at={summary.created_at}
-            week_start={summary.week_start}
-            handleDelete={() => handleDeleteSummary(summary.id)}
-            handleEdit={() => openEditor(summary)}
-            selectable={true}
-            isSelected={selectedIds.includes(summary.id)}
-            onToggleSelect={(id: string) => {
-              setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-            }}
-          />
-        ))}
-      </div>
-      {sortedAndFilteredSummaries.length === 0 && (
-        <div className="text-center text-gray-50 mt-4">
-          No summaries found. Create a few goals to get started!
         </div>
-      )}
-    
+      </>
+    ) : (
+      <div className="text-center text-gray-50 mt-16 space-y-4">
+        {incompleteGoalsCount !== 0 ? (
+          <>
+            <p>You have {incompleteGoalsCount} goal{incompleteGoalsCount !== 1 ? 's' : ''}. <br />Create a summary when you're ready!</p>
+            <SummaryGenerator
+              summaryId={selectedSummary?.id || ''}
+              summaryTitle={selectedSummary?.title || `Summary: ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}
+              selectedRange={new Date()}
+              filteredGoals={goals}
+              scope='week'
+              className="flex w-auto mx-auto justify-center"
+              onSummaryCreated={fetchSummariesData}
+            />
+          </>
+        ) : (
+          <>
+            <p>You don't have any goals yet. Create a goal to start generating summaries.</p>
+            <Button
+              onClick={openGoalModal}
+              variant='contained'
+              className="btn-primary gap-3 flex mx-auto w-fit"
+              aria-label="Add a new goal"
+            >
+              <span className="block flex text-nowrap">Add a Goal</span>
+              <Target className="w-5 h-5" />
+            </Button>
+          </>
+        )}
+      </div>
+    )}
+
       {/* Edit Summary Modal */}
       <Modal
         isOpen={isEditorOpen && !!selectedSummary}
@@ -606,78 +631,6 @@ const AllSummaries = () => {
               }
             }}
           />
-        )}
-      </Modal>
-        
-
-      {/* Add Summary Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onRequestClose={() => closeModal()}
-        shouldCloseOnOverlayClick={true}
-        className="fixed inset-0 flex items-center justify-center z-50"
-        overlayClassName={`${overlayClasses}`}
-        ariaHideApp={ARIA_HIDE_APP}
-      >
-        {isModalOpen && (
-          <form id="summaryForm" onSubmit={handleAddSummary} className={`${modalClasses}`}>
-            <h3 className="text-lg font-medium text-gray-90 mb-4">Add Summary</h3>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="summary-title" className="block text-sm font-medium text-gray-70">Title</label>
-                <TextField
-                  id="summary-title"
-                  name="title"
-                  value={newSummary.title}
-                  onChange={(e) => setNewSummary({ ...newSummary, title: e.target.value })}
-                  fullWidth
-                />
-              </div>
-              <div>
-                <label htmlFor="summary-week-start" className="block text-sm font-medium text-gray-70">Select timeframe</label>
-                <TextField
-                  id="summary-week-start"
-                  name="week_start"
-                  type="date"
-                  value={newSummary.week_start}
-                  onChange={(e) => setNewSummary({ ...newSummary, week_start: e.target.value })}
-                  fullWidth
-                />
-              </div>
-              <div>
-                <label htmlFor="summary-content" className="block text-sm font-medium text-gray-70">Content</label>
-                <ReactQuill
-                  id="summary-content"
-                  value={newSummary.content}
-                  className=""
-                  onChange={(value) =>
-                    setNewSummary({ ...newSummary, content: value })
-                  }
-                />
-                <input
-                  type="hidden"
-                  name="content"
-                  value={newSummary.content}
-                  readOnly
-                />
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end space-x-4">
-              <button
-                onClick={() => closeModal()}
-                className="btn-secondary"
-                aria-label="Cancel"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn-primary"
-              >
-                Add
-              </button>
-            </div>
-          </form>
         )}
       </Modal>
       
@@ -719,6 +672,28 @@ const AllSummaries = () => {
           await performDeleteSummary(singleDeleteId);
         }}
       />
+
+      {/* Add Goal Modal */}
+      <Modal
+        isOpen={isGoalModalOpen}
+        onRequestClose={closeGoalModal}
+        shouldCloseOnOverlayClick={true}
+        ariaHideApp={ARIA_HIDE_APP}
+        className={`fixed inset-0 flex md:items-center justify-center z-50`}
+        overlayClassName={`${overlayClasses}`}
+      >
+        <div className={`${modalClasses}`}>
+          {isGoalModalOpen && (
+            <GoalForm
+              newGoal={newGoal}
+              setNewGoal={setNewGoal}
+              handleClose={closeGoalModal}
+              categories={UserCategories.map((cat: unknown) => typeof cat === 'string' ? (cat as string) : ((cat as { name?: string })?.name || ''))}
+              refreshGoals={() => refreshGoals().then(() => {})}
+            />
+          )}
+        </div>
+      </Modal>
     </div>
     
   );

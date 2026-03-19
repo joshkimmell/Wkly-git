@@ -24,9 +24,8 @@ export const handler: Handler = async (event) => {
     // Map summary_id -> id and summary_type -> type for frontend
     const mapped = (data || []).map((summary) => ({
       ...summary,
-      id: summary.summary_id, // map summary_id to id
-      type: summary.summary_type || summary.type, // map summary_type to type
-      title: summary.title, // map title or name to title
+      id: summary.summary_id,
+      type: summary.summary_type || summary.type,
     }));
 
     return {

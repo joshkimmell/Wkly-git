@@ -64,10 +64,11 @@ export const handleSignOut = async (setError: React.Dispatch<React.SetStateActio
 };
 
 
-export const fetchAllGoals = async (): Promise<Goal[]> => {
+export const fetchAllGoals = async (includeArchived = false): Promise<Goal[]> => {
   const token = await getSessionToken();
+  const params = includeArchived ? '?include_archived=true' : '';
 
-  const response = await fetch(`/api/getAllGoals`, {
+  const response = await fetch(`/api/getAllGoals${params}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -89,6 +90,40 @@ export const fetchAllGoals = async (): Promise<Goal[]> => {
   // console.log('Fetched all goals:', goals);
   // // console.log('Request Query Parameters:', response.body);
   // // console.log('User ID:', userId);
+  return goals;
+};
+
+/**
+ * Fetch goals for a specific date range, optionally including archived goals.
+ * Used by summary generation to include archived goals that fall within the scope.
+ */
+export const fetchGoalsForRange = async (
+  start: string,
+  end: string,
+  includeArchived = false,
+): Promise<Goal[]> => {
+  const token = await getSessionToken();
+  const params = new URLSearchParams({ start, end });
+  if (includeArchived) params.set('include_archived', 'true');
+
+  const response = await fetch(`/api/getAllGoals?${params.toString()}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Error fetching goals for range:', errorText);
+    throw new Error('Failed to fetch goals for range');
+  }
+
+  const goals: Goal[] = await response.json();
+  goals.sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
   return goals;
 };
 
@@ -172,7 +207,8 @@ export const fetchAllGoalsIndexed = async (
     scope: 'week' | 'month' | 'year',
     page?: string, // optional page param: legacy YYYY-MM for month, YYYY for year, or exact week_start
     start?: string, // optional ISO start date inclusive
-    end?: string // optional ISO end date exclusive
+    end?: string, // optional ISO end date exclusive
+    includeArchived = false, // include archived goals
 ): Promise<{ indexedGoals: Record<string, Goal[]>; pages: string[] }> =>
   {
     const token = await getSessionToken();
@@ -183,6 +219,7 @@ export const fetchAllGoalsIndexed = async (
       if (page) params.set('page', page);
       if (start) params.set('start', start);
       if (end) params.set('end', end);
+      if (includeArchived) params.set('include_archived', 'true');
       const url = `/api/getAllGoals?${params.toString()}`;
       const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!response.ok) {
@@ -661,11 +698,23 @@ export const filterGoalsByWeek = (goals: Goal[], selectedWeek: Date) => {
 };
 
 // Get the start date of the week (Monday)
-export const getWeekStartDate = (date: Date = new Date()): string => {
+// For timezone-aware calculations, import getWeekStartDateInTimezone from @utils/timezone
+export const getWeekStartDate = (date: Date = new Date(), timezone?: string): string => {
   if (isNaN(date.getTime())) {
     console.error('Invalid date passed to getWeekStartDate:', date);
     return new Date().toISOString().split('T')[0]; // Fallback to current date
   }
+  
+  // If timezone is provided, use timezone-aware calculation
+  if (timezone) {
+    try {
+      const { getWeekStartDateInTimezone } = require('@utils/timezone');
+      return getWeekStartDateInTimezone(date, timezone);
+    } catch (e) {
+      // Fall through to UTC calculation if timezone utils not available
+    }
+  }
+  
   // Use UTC-based calculations to avoid local timezone shifts affecting the resulting day
   const d = new Date(date);
   const day = d.getUTCDay();
@@ -715,7 +764,8 @@ export const generateSummary = async (
     category: string;
     accomplishments: { title: string; description: string; impact: string }[];
   }[],
-  responseLength?: number // Add optional responseLength parameter
+  responseLength?: number, // Add optional responseLength parameter
+  additionalContext?: string // Add optional additionalContext parameter
 ): Promise<string> => {
   const summaryId = id || uuidv4();
   const token = await getSessionToken();
@@ -727,6 +777,7 @@ export const generateSummary = async (
     week_start: weekStart,
     goalsWithAccomplishments,
     responseLength, // Include responseLength in the request body if provided
+    additionalContext, // Include additionalContext in the request body if provided
   };
 
   // Add a short correlation id so server logs can be matched to client logs
@@ -743,6 +794,7 @@ export const generateSummary = async (
       week_start: requestBody.week_start,
       goals_count: Array.isArray(requestBody.goalsWithAccomplishments) ? (requestBody.goalsWithAccomplishments as any[]).length : 0,
       responseLength: requestBody.responseLength,
+      additionalContext_preview: (requestBody.additionalContext as string | undefined)?.slice?.(0, 100),
     });
   } catch (e) {
     // ignore logging failures
@@ -779,43 +831,30 @@ export const saveSummary = async (
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User is not authenticated');
 
-  const userId = user.id;
   const weekStart = getWeekStartDate(selectedRange);
 
-  // Format the title based on the scope
-  let formattedTitle = summaryTitle;
-  if (scope === 'week') {
-    formattedTitle = `Week of ${new Date(weekStart).toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    })}`;
-  }
+  // Use the backend createSummary function instead of direct insert
+  try {
+    const result = await createSummary({
+      user_id: user,
+      content: summaryContent,
+      summary_type: summaryType,
+      week_start: weekStart,
+      title: summaryTitle,
+    });
 
-  const requestBody = {
-    user_id: userId,
-    // Persist the formatted title so stored summaries match the displayed/logged title
-    title: formattedTitle,
-    week_start: weekStart,
-    content: summaryContent,
-    summary_type: summaryType,
-  };
-
-  const { data, error } = await supabase
-    .from('summaries')
-    .insert(requestBody)
-    .select('summary_id')
-    .single();
-
-  if (error) {
-    console.error('Supabase error:', error);
+    if (result && result.id) {
+      setLocalSummaryId(result.id);
+      notifySuccess('Summary saved successfully!');
+      return result;
+    } else {
+      throw new Error('No summary ID returned');
+    }
+  } catch (error) {
+    console.error('Error saving summary:', error);
     notifyError('Failed to save summary');
-    throw new Error('Failed to save summary');
+    throw error;
   }
-  console.log('Summary title:', formattedTitle);
-  setLocalSummaryId(data.summary_id);
-  notifySuccess('Summary saved successfully!');
-  return data;
 };
 
 // Fetch summaries for a user
@@ -875,28 +914,26 @@ export const deleteSummary = async (summary_id: string) => {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User is not authenticated');
-    const userId = user.id;
-    // const summaryId = summary_id; // Assuming summary_id is passed as a parameter
-    // const weekStart = selectedWeek.toISOString().split('T')[0];
 
-    // Delete the summary for this user and week
-    const { error } = await supabase
-      .from('summaries')
-      .delete()
-      .match({ summary_id, user_id: userId });
+    // Use the backend function to delete summary (respects RLS policies)
+    const response = await fetch(`/.netlify/functions/deleteSummary?summary_id=${summary_id}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+      },
+    });
 
-    if (error) {
-      console.error('Error deleting summary:', error.message);
-      throw new Error('Failed to delete summary');
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to delete summary');
     }
 
-    // setSummary(null); // Remove summary from local state
-    // setIsEditorOpen(false); // Close editor if open
-    // console.log('Summary deleted successfully');
     notifySuccess('Summary deleted successfully!'); 
   } catch (error) {
     console.error('Error deleting summary:', error);
     notifyError('Failed to delete summary');
+    throw error;
   }
 }
 

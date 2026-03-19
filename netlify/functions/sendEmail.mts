@@ -3,10 +3,27 @@ import type { Handler } from '@netlify/functions'
 const MAILGUN_API_BASE = 'https://api.mailgun.net/v3'
 
 const buildHtml = ({ type, name, url }: { type: string; name?: string; url?: string }) => {
-  const title = type === 'reset' ? 'Reset your Wkly password' : 'Confirm your Wkly account'
-  const body = type === 'reset'
-    ? `Click the button below to reset your password.`
-    : `Click the button below to confirm your account and finish signing up.`
+  let title: string;
+  let body: string;
+  let buttonText: string;
+
+  if (type === 'reset') {
+    title = 'Reset your Wkly password';
+    body = 'Click the button below to reset your password.';
+    buttonText = 'Reset password';
+  } else if (type === 'approval') {
+    title = 'Your Wkly access has been approved!';
+    body = 'Great news! Your request for access to Wkly has been approved. You can now create your account and start using the app.';
+    buttonText = 'Create account';
+  } else if (type === 'access_restored') {
+    title = 'Your Wkly access has been restored';
+    body = 'Good news! Your access to Wkly has been restored. You can now log in to your account and continue using the app.';
+    buttonText = 'Log in to Wkly';
+  } else {
+    title = 'Confirm your Wkly account';
+    body = 'Click the button below to confirm your account and finish signing up.';
+    buttonText = 'Confirm account';
+  }
 
   return `
     <html>
@@ -14,7 +31,7 @@ const buildHtml = ({ type, name, url }: { type: string; name?: string; url?: str
         <h2 style="margin-bottom:8px">${title}</h2>
         <p style="margin-top:0">Hi ${name || ''},</p>
         <p>${body}</p>
-        <p style="margin:24px 0"><a href="${url || '#'}" style="background:#2563eb;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none;">${type === 'reset' ? 'Reset password' : 'Confirm account'}</a></p>
+        <p style="margin:24px 0"><a href="${url || '#'}" style="background:#2563eb;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none;">${buttonText}</a></p>
         <p style="font-size:13px;color:#6b7280">If you didn't request this, you can safely ignore this email.</p>
       </body>
     </html>`
@@ -42,7 +59,17 @@ const handler: Handler = async (event) => {
       return { statusCode: 400, body: 'Missing required fields: email and type' }
     }
 
-    const subject = type === 'reset' ? 'Reset your Wkly password' : 'Confirm your Wkly account'
+    let subject: string;
+    if (type === 'reset') {
+      subject = 'Reset your Wkly password';
+    } else if (type === 'approval') {
+      subject = 'Your Wkly access has been approved!';
+    } else if (type === 'access_restored') {
+      subject = 'Your Wkly access has been restored';
+    } else {
+      subject = 'Confirm your Wkly account';
+    }
+    
     const bodyHtml = buildHtml({ type, name, url })
 
     const mgUrl = `${MAILGUN_API_BASE}/${process.env.MAILGUN_DOMAIN}/messages`

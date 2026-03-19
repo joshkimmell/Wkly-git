@@ -3,11 +3,15 @@ import { useGoalsContext } from '@context/GoalsContext';
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 // import { handleDeleteGoal } from '@utils/functions';
 import { Goal, Accomplishment, Task, calculateGoalCompletion } from '@utils/goalUtils'; // Adjust the import path as necessary
-import { Trash, Edit, Award, X as CloseButton, ListTodo } from 'lucide-react';
+import GoalEditor from '@components/GoalEditor';
+import { updateGoal, addCategory } from '@utils/functions';
+import { Trash, Edit, Award, X as CloseButton, ListTodo, Archive, ArchiveRestore } from 'lucide-react';
 import { FileText as NotesIcon, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
-import { Chip, Menu, MenuItem, TextField, Tooltip, IconButton, Checkbox } from '@mui/material';
-import type { ChangeEvent } from 'react';
-import { STATUSES, STATUS_COLORS, type Status } from '../constants/statuses';
+import { Tooltip, IconButton } from '@mui/material';
+// import { Chip, Menu, MenuItem, TextField, Tooltip, IconButton, Checkbox } from '@mui/material';
+// import type { ChangeEvent } from 'react';
+import { STATUS_COLORS } from '../constants/statuses';
+// import { STATUSES, STATUS_COLORS, type Status } from '../constants/statuses';
 import { cardClasses, modalClasses, objectCounter, overlayClasses } from '@styles/classes'; // Adjust the import path as necessary
 import useGoalExtras from '@hooks/useGoalExtras';
 import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
@@ -29,6 +33,9 @@ interface GoalCardProps {
   selectable?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (id: string) => void;
+  hideTasks?: boolean; // Hide the Tasks action button (e.g. when viewed from a single task)
+  inlineEdit?: boolean; // Open GoalEditor inline instead of calling handleEdit callback
+  onRefresh?: () => Promise<unknown>; // Called after archive/unarchive so parent can refresh its local indexed goals
 }
 
 // const GoalCard: React.FC<GoalCardProps> = ({ goal }) => {
@@ -41,6 +48,9 @@ const GoalCard: React.FC<GoalCardProps> = ({
   selectable = false,
   isSelected = false,
   onToggleSelect,
+  hideTasks = false,
+  inlineEdit = false,
+  onRefresh,
 }) => {
   // // const handleDeleteGoal = (goalId: string) => {
   //   // Implement the delete logic here
@@ -65,6 +75,10 @@ const GoalCard: React.FC<GoalCardProps> = ({
   // Tasks state
   const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
+  // Archive confirmation
+  const [isArchiveConfirmOpen, setIsArchiveConfirmOpen] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
+
   // Delete confirmation
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [noteDeleteTarget, setNoteDeleteTarget] = useState<string | null>(null);
@@ -73,7 +87,11 @@ const GoalCard: React.FC<GoalCardProps> = ({
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState('');
   // Local status state for optimistic UI updates when changing status inline
-  const { refreshGoals } = useGoalsContext();
+  const { refreshGoals, updateGoalInCache } = useGoalsContext();
+
+  // Inline edit state (used when inlineEdit prop is true)
+  const [isInlineEditOpen, setIsInlineEditOpen] = useState(false);
+  const [inlineEditGoal, setInlineEditGoal] = useState<Goal>(goal);
 
   // Cache the current authenticated user's id to avoid repeated supabase.auth.getUser() calls
   const userIdRef = React.useRef<string | null>(null);
@@ -106,6 +124,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
 
   const openModal = () => {
     if (!isAccomplishmentModalOpen) {
+      // Fetch fresh accomplishments scoped to this goal whenever the modal opens
+      void fetchAccomplishments(goal.id);
       setIsAccomplishmentModalOpen(true);
     }
   };
@@ -273,6 +293,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
     // optimistic delete
     const prior = accomplishments;
     setAccomplishments((s) => s.filter((a) => a.id !== accomplishmentId));
+    // If this is a temp (optimistic) record that never persisted, just drop it from state
+    if (accomplishmentId.startsWith('temp-')) return;
     notifyWithUndo(
       'Accomplishment deleted',
       async () => {
@@ -281,6 +303,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
           .delete()
           .eq('id', accomplishmentId);
         if (error) throw new Error(error.message);
+        // async refresh list using GoalCard's own fetch so the correct state is updated
+        void fetchAccomplishments(goal.id);
       },
       () => {
         setAccomplishments(prior);
@@ -313,8 +337,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
         return;
       }
 
-      // Refresh the accomplishments list after saving
-      fetchAccomplishments();
+      // Refresh GoalCard's own accomplishments list after saving
+      void fetchAccomplishments(goal.id);
       notifySuccess('Accomplishment updated successfully.');
       closeEditAccomplishmentModal();
     } catch (err) {
@@ -322,6 +346,28 @@ const GoalCard: React.FC<GoalCardProps> = ({
       notifyError('Error saving edited accomplishment.');
     } finally {
       setIsAccomplishmentLoading(false);
+    }
+  };
+
+  // Archive / unarchive handler
+  const handleArchiveToggle = async () => {
+    const newArchived = !goal.is_archived;
+    const action = newArchived ? 'archived' : 'restored';
+    setIsArchiving(true);
+    try {
+      await updateGoal(goal.id, { is_archived: newArchived });
+      const updated = { ...goal, is_archived: newArchived };
+      updateGoalInCache(updated);
+      await refreshGoals();
+      // Also refresh the parent's local indexedGoals so the card disappears immediately
+      try { await onRefresh?.(); } catch { /* ignore */ }
+      notifySuccess(`Goal ${action}.`);
+    } catch (err) {
+      console.error('Error toggling archive:', err);
+      notifyError(`Failed to ${newArchived ? 'archive' : 'restore'} goal.`);
+    } finally {
+      setIsArchiving(false);
+      setIsArchiveConfirmOpen(false);
     }
   };
 
@@ -386,7 +432,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
         const token = session?.access_token;
         if (!token) return;
 
-        const response = await fetch('/api/getAllTasks', {
+        const response = await fetch('/.netlify/functions/getAllTasks', {
           headers: { Authorization: `Bearer ${token}` },
         });
         
@@ -464,12 +510,15 @@ const GoalCard: React.FC<GoalCardProps> = ({
             </div>
           )} */}
       
-      <div className="goal-header flex flex-row w-full justify-between items-center">
-        <div className="flex items-center gap-2">
+      <div className="goal-header flex flex-row w-full justify-between items-start">
+        <div className="flex items-center gap-2 mb-4">
           {tasks && tasks.length > 0 && (
-            <GoalCompletionDonut percentage={calculateGoalCompletion(tasks)} size={40} strokeWidth={4} />
-          )}
-        </div>
+            <GoalCompletionDonut percentage={calculateGoalCompletion(tasks)} size={70} strokeWidth={6} />
+          )}          {goal.is_archived && (
+            <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <Archive className="w-3 h-3" /> Archived
+            </span>
+          )}        </div>
         <div className="tabs flex flex-row items-center justify-end w-full">
           <span className="card-category" dangerouslySetInnerHTML={{ __html: applyHighlight(goal.category, filter) || 'No category provided.' }}>
           </span>
@@ -483,13 +532,13 @@ const GoalCard: React.FC<GoalCardProps> = ({
       </div>
       {/* Footer with accomplishments and actions */}
       <footer className="mt-2 text-sm text-gray-50 dark:text-gray-30 flex flex-col items-left justify-between">
-          
-          <div className='flex flex-row w-full justify-end items-end gap-2'>
-            {showAllGoals && (
-          <div className="text-xs pb-2 w-full text-tertiary-text">
+        <div className='flex flex-row w-full justify-between items-end gap-2'>
+          {showAllGoals && (
+          <div className="hidden text-xs pb-2 w-full text-tertiary-text">
             {goal.week_start}
           </div>
-        )}
+          )}
+          <div className="flex flex-row items-center gap-1">
             <Tooltip title="Accomplishments" placement="top" arrow>
               <span>
                 <IconButton aria-label="Accomplishments" onClick={(e) => { e.stopPropagation(); openModal(); }} size="small" className="btn-ghost">
@@ -520,6 +569,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
               </span>
             </Tooltip>
 
+            {!hideTasks && (
             <Tooltip title="Tasks" placement="top" arrow>
               <span>
                 <IconButton aria-label="Tasks" onClick={(e) => { e.stopPropagation(); openTasksModal(); }} size="small" className="btn-ghost">
@@ -527,6 +577,44 @@ const GoalCard: React.FC<GoalCardProps> = ({
                     <div data-testid={`tasks-count-${goal.id}`} className={objectCounter}>{displayedTasksCount}</div>
                   )}
                   <ListTodo className="w-5 h-5" />
+                </IconButton>
+              </span>
+            </Tooltip>
+            )}
+          </div>
+          <div className="flex flex-row items-center gap-1">
+            <Tooltip title="Edit Goal" placement="top" arrow>
+              <span>
+                <IconButton
+                  aria-label="Edit Goal"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (inlineEdit) {
+                      setInlineEditGoal(goal);
+                      setIsInlineEditOpen(true);
+                    } else {
+                      handleEdit(goal.id);
+                    }
+                  }}
+                  size="small"
+                  className="btn-ghost"
+                >
+                  <Edit className="w-5 h-5" />
+                </IconButton>
+              </span>
+            </Tooltip>
+          
+
+            <Tooltip title={goal.is_archived ? 'Restore Goal' : 'Archive Goal'} placement="top" arrow>
+              <span>
+                <IconButton
+                  aria-label={goal.is_archived ? 'Restore Goal' : 'Archive Goal'}
+                  onClick={(e) => { e.stopPropagation(); setIsArchiveConfirmOpen(true); }}
+                  size="small"
+                  className="btn-ghost"
+                  disabled={isArchiving}
+                >
+                  {goal.is_archived ? <ArchiveRestore className="w-5 h-5" /> : <Archive className="w-5 h-5" />}
                 </IconButton>
               </span>
             </Tooltip>
@@ -538,16 +626,9 @@ const GoalCard: React.FC<GoalCardProps> = ({
                 </IconButton>
               </span>
             </Tooltip>
-
-            <Tooltip title="Edit Goal" placement="top" arrow>
-              <span>
-                <IconButton aria-label="Edit Goal" onClick={(e) => { e.stopPropagation(); handleEdit(goal.id); }} size="small" className="btn-ghost">
-                  <Edit className="w-5 h-5" />
-                </IconButton>
-              </span>
-            </Tooltip>
           </div>
-      </footer>
+        </div>
+    </footer>
         
     {/* Accomplishments modal (extracted component) */}
     <AccomplishmentsModal
@@ -573,8 +654,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
             week_start: goal.week_start,
           }).select();
           if (error) throw error;
-          // refresh from server to replace temp with real rows
-          await fetchAccomplishments();
+          // refresh GoalCard's own list to replace the temp record with the real row
+          void fetchAccomplishments(goal.id);
         } catch (err) {
           console.error('Error creating accomplishment:', err);
           // rollback
@@ -709,6 +790,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
               goalId={goal.id}
               goalTitle={goal.title}
               goalDescription={goal.description || ''}
+              goalCategory={goal.category}
             />
           </div>
         </div>
@@ -735,6 +817,20 @@ const GoalCard: React.FC<GoalCardProps> = ({
       cancelLabel="Cancel"
       loading={isDeleting}
     />
+    <ConfirmModal
+      isOpen={isArchiveConfirmOpen}
+      title={goal.is_archived ? 'Restore goal?' : 'Archive goal?'}
+      message={
+        goal.is_archived
+          ? `Restore "${goal.title}"? It will reappear in all views.`
+          : `Archive "${goal.title}"? It will be hidden from all views but included in summaries for its time range.`
+      }
+      onCancel={() => setIsArchiveConfirmOpen(false)}
+      onConfirm={handleArchiveToggle}
+      confirmLabel={goal.is_archived ? 'Restore' : 'Archive'}
+      cancelLabel="Cancel"
+      loading={isArchiving}
+    />
     {/* Render children if provided */}
     {/* {children && <div className="goal-children">{children}</div>} */}
 
@@ -757,26 +853,63 @@ const GoalCard: React.FC<GoalCardProps> = ({
         </div>
       </div>
     )}
+
+    {/* Inline Goal Editor (used when inlineEdit prop is true) */}
+    {inlineEdit && isInlineEditOpen && (
+      <div 
+        className={`${overlayClasses} flex items-center justify-center`}
+        onMouseDown={(e) => {
+          // close when clicking the backdrop (only when clicking the overlay itself)
+          if (e.target === e.currentTarget) setIsInlineEditOpen(false);
+        }}
+      >
+      <GoalEditor
+        title={inlineEditGoal.title}
+        description={inlineEditGoal.description || ''}
+        category={inlineEditGoal.category || ''}
+        week_start={inlineEditGoal.week_start || ''}
+        onAddCategory={async (newCat: string) => {
+          try {
+            await addCategory(newCat);
+            setInlineEditGoal((prev) => ({ ...prev, category: newCat }));
+          } catch (err) {
+            console.error('Error adding category:', err);
+          }
+        }}
+        onRequestClose={() => setIsInlineEditOpen(false)}
+        onSave={async (updatedDescription, updatedTitle, updatedCategory, updatedWeekStart, status, status_notes) => {
+          try {
+            const allowedStatuses = ['Not started', 'In progress', 'Blocked', 'Done', 'On hold'] as const;
+            let finalStatus: Goal['status'] | undefined;
+            if (typeof status === 'string' && (allowedStatuses as readonly string[]).includes(status)) {
+              finalStatus = status as Goal['status'];
+            } else if (typeof goal.status === 'string' && (allowedStatuses as readonly string[]).includes(goal.status)) {
+              finalStatus = goal.status as Goal['status'];
+            }
+            const updated: Goal = {
+              ...goal,
+              title: updatedTitle,
+              description: updatedDescription,
+              category: updatedCategory,
+              week_start: updatedWeekStart,
+              status: finalStatus,
+              status_notes: status_notes ?? goal.status_notes,
+            };
+            await updateGoal(goal.id, updated);
+            updateGoalInCache(updated);
+            await refreshGoals();
+            setIsInlineEditOpen(false);
+          } catch (err) {
+            console.error('Error saving goal inline:', err);
+            notifyError('Failed to save goal.');
+          }
+        }}
+      />
+      </div>
+    )}
   </div>
 </>
   );
 };
       
 export default GoalCard;
-
-      // <div key={goal.id} className="bg-white shadow-sm border rounded-lg p-4">
-      //   <h4 className="text-lg font-medium text-gray-90">{goal.title}</h4>
-      //   <p className="text-gray-60 mt-1">{goal.description}</p>
-      //   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 mt-2">
-      //     {goal.category}
-      //   </span>
-      //   {/* <p className="text-sm text-gray-50 mt-2">{goal.impact}</p> */}
-      //   <div className="mt-4 flex justify-end space-x-2">
-      //     <button
-      //       onClick={() => handleDeleteGoal(goal.id)}
-      //       className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-      //     >
-      //       Delete
-      //     </button>
-      //   </div>
-      // </div>

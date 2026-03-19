@@ -113,26 +113,35 @@ export const PALETTES: Record<PaletteKey, Record<number, string>> = {
     70: "#4D4D4D",
     80: "#333333",
     90: "#1A1A1A",
-    100: "#181818"
-    // 100: '#181818',90: '#1A1A1A',80: '#333333',70: '#4D4D4D',60: '#666666',50: '#808080',40: '#a4a4a4',30: '#b4b4b4',20: '#D7D7D7',10: '#EDEDED',0: '#F4F4F4',
+    100: "#070707"
   },
 };
 
 
 
 const BRAND_STEPS = [100,90,80,70,60,50,40,30,20,10,0];
+const GRAY_STEPS = [100,90,80,70,60,50,40,30,20,10,0];
 
 // Apply a palette to :root CSS variables for brand-N and also mirror existing --primary-brand variables
 export const PALETTE_UPDATED_EVENT = 'wkly:palette-updated';
 
 export function applyPaletteToRoot(key: PaletteKey) {
   const palette = PALETTES[key];
+  const grayPalette = PALETTES.gray;
   const root = document.documentElement;
+  
+  // Apply brand colors
   BRAND_STEPS.forEach(step => {
     root.style.setProperty(`--brand-${step}`, palette[step]);
     // also set `--primary-brand-` tokens used by variables.scss
     root.style.setProperty(`--primary-brand-${step}`, palette[step]);
   });
+  
+  // Apply gray colors (always from gray palette)
+  GRAY_STEPS.forEach(step => {
+    root.style.setProperty(`--gray-${step}`, grayPalette[step]);
+  });
+  
   // persist chosen palette key in localStorage for non-auth flows
   try { localStorage.setItem('wkly:primary_palette', key); } catch (e) { /* ignore */ }
   // dispatch a simple CustomEvent so other parts of the app (MUI provider)

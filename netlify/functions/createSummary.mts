@@ -1,5 +1,5 @@
 import { Handler } from '@netlify/functions';
-import { v4 as uuidv4 } from 'uuid'; // Make sure to install uuid: npm install uuid
+import { v4 as uuidv4 } from 'uuid';
 import supabase from './lib/supabase';
 import { requireAuth } from './lib/auth';
 
@@ -53,8 +53,6 @@ export const handler: Handler = async (event) => {
       ...data,
       id: data.summary_id,
       type: data.summary_type,
-      title: data.title,
-      origin: data.summary_type,
     };
 
     return {

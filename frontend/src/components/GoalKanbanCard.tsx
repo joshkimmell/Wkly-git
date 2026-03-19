@@ -12,7 +12,7 @@ import type { ChangeEvent } from 'react';
 // import { STATUSES, STATUS_COLORS, type Status } from '../constants/statuses';
 import { cardClasses, modalClasses, objectCounter, overlayClasses } from '@styles/classes'; // Adjust the import path as necessary
 import useGoalExtras from '@hooks/useGoalExtras';
-import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
+import { notifyError, notifySuccess } from './ToastyNotification';
 // import { Link } from 'react-router-dom';
 import { applyHighlight } from '@utils/functions'; // Adjust the import path as necessary
 import AccomplishmentEditor from './AccomplishmentEditor'; // Import the AccomplishmentEditor component
@@ -273,44 +273,60 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
     }
   };
 
-  const deleteNote = (noteId: string) => {
+  const deleteNote = async (noteId: string) => {
     // optimistic delete: remove locally first
     const prior = notes;
     setNotes((s) => s.filter((n) => n.id !== noteId));
-    notifyWithUndo(
-      'Note deleted',
-      async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
-        if (!token) throw new Error('User not authenticated');
-        const res = await fetch(`/api/deleteNote?note_id=${noteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-        if (!res.ok) throw new Error(await res.text());
-        try { await fetchNotesCount?.(goal.id); } catch (e) { /* ignore */ }
-      },
-      () => {
-        setNotes(prior);
-      },
-    );
+    setIsNotesLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('User not authenticated');
+      const res = await fetch(`/api/deleteNote?note_id=${noteId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error(await res.text());
+      // success; nothing else
+      try { 
+        await fetchNotesCount?.(goal.id); 
+      } catch (e) { /* ignore */ }
+    } catch (err: any) {
+      console.error('Error deleting note:', err);
+      // rollback
+      setNotes(prior);
+      notifyError('Failed to delete note.');
+    } finally {
+      setIsNotesLoading(false);
+    }
   };
 
-  const deleteAccomplishment = (accomplishmentId: string) => {
+  const deleteAccomplishment = async (accomplishmentId: string) => {
     // optimistic delete
     const prior = accomplishments;
     setAccomplishments((s) => s.filter((a) => a.id !== accomplishmentId));
-    notifyWithUndo(
-      'Accomplishment deleted',
-      async () => {
-        const { error } = await supabase
-          .from('accomplishments')
-          .delete()
-          .eq('id', accomplishmentId);
-        if (error) throw new Error(error.message);
-        try { await fetchAccomplishmentsCount?.(goal.id); } catch (e) { /* ignore */ }
-      },
-      () => {
+    setIsAccomplishmentLoading(true);
+    try {
+      const { error } = await supabase
+        .from('accomplishments')
+        .delete()
+        .eq('id', accomplishmentId);
+
+      if (error) {
+        console.error('Error deleting accomplishment:', error.message);
+        // rollback
         setAccomplishments(prior);
-      },
-    );
+        notifyError('Error deleting accomplishment.');
+        return;
+      }
+
+  notifySuccess('Accomplishment deleted successfully.');
+  // ensure shared accomplishments count is refreshed for this goal
+  try { await fetchAccomplishmentsCount?.(goal.id); } catch (e) { /* ignore */ }
+    } catch (err) {
+      console.error('Unexpected error deleting accomplishment:', err);
+      setAccomplishments(prior);
+      notifyError('Error deleting accomplishment.');
+    } finally {
+      setIsAccomplishmentLoading(false);
+    }
   };
 
   const saveEditedAccomplishment = async (
@@ -725,6 +741,7 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
               goalId={goal.id}
               goalTitle={goal.title}
               goalDescription={goal.description}
+              goalCategory={goal.category}
             />
           </div>
         </div>

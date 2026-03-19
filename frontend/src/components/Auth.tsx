@@ -3,15 +3,16 @@ import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import supabase from '@lib/supabase'; // Import supabase client
 import Header from '@components/Header';
 import Modal from 'react-modal';
-import { TextField, Button, IconButton, Paper } from '@mui/material';
+import { TextField, Button, IconButton, Paper, Checkbox, FormControlLabel } from '@mui/material';
 import { useTheme as useMuiTheme } from '@mui/material/styles';
 import AppMuiThemeProvider from '../mui/muiTheme';
-// import appColors from '@styles/appColors';
+import appColors from '@styles/appColors';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
-import { Eye, EyeOff } from 'lucide-react';
+import { ArrowRight, Award, CheckSquare, Eye, EyeOff, Sparkles, Target } from 'lucide-react';
 import ToastNotification, { notifySuccess, notifyError } from '@components/ToastyNotification'; 
 import { sendPasswordReset } from '@lib/authHelpers';
+import RequestAccess from '@components/RequestAccess';
 // import e from 'cors';
 
 const Login = () => {
@@ -27,9 +28,12 @@ const Login = () => {
   const [loginErrors, setLoginErrors] = useState<{ email?: string; password?: string }>({});
   const [registerErrors, setRegisterErrors] = useState<{ email?: string; password?: string; passwordReEnter?: string }>({});
     const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+    const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
     const [showConfirmNotice, setShowConfirmNotice] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordReEnter, setShowPasswordReEnter] = useState(false);
+  const [isRequestAccessModalOpen, setIsRequestAccessModalOpen] = useState(false);
+  const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
 
     const handleLogin = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -135,6 +139,8 @@ const Login = () => {
                     id: user.id, // Ensure this matches the user ID from the `auth.users` table
                     username: username || null, // Optional field
                     full_name: fullName || null, // Optional field
+                    disclaimer_accepted: disclaimerAccepted,
+                    disclaimer_accepted_at: disclaimerAccepted ? new Date().toISOString() : null,
                   });
 
                 if (profileError) {
@@ -177,8 +183,43 @@ const Login = () => {
       if (!password) newRegErrors.password = 'Password is required';
       if (!passwordReEnter) newRegErrors.passwordReEnter = 'Please re-enter password';
       if (password && passwordReEnter && password !== passwordReEnter) newRegErrors.passwordReEnter = 'Passwords do not match';
+      if (!disclaimerAccepted) {
+        notifyError('You must acknowledge the proof-of-concept disclaimer to continue');
+        return;
+      }
       setRegisterErrors(newRegErrors);
       if (Object.keys(newRegErrors).length > 0) return;
+
+      // Check if email is approved for registration
+      try {
+        const response = await fetch(`/api/checkApproval?email=${encodeURIComponent(email.trim().toLowerCase())}`);
+        const approvalData = await response.json();
+
+        if (!approvalData.approved) {
+          setIsRegisterModalOpen(false);
+          notifyError('This email is not approved for registration. Please request access first.');
+          setTimeout(() => setIsRequestAccessModalOpen(true), 500);
+          return;
+        }
+
+        // Check if user already has a profile
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', email.trim().toLowerCase())
+          .maybeSingle();
+
+        if (existingProfile) {
+          setIsRegisterModalOpen(false);
+          notifyError('You already have an account! Please log in instead.');
+          setTimeout(() => setIsLoginModalOpen(true), 500);
+          return;
+        }
+      } catch (err) {
+        console.error('Error checking approval:', err);
+        notifyError('Failed to verify registration approval. Please try again.');
+        return;
+      }
 
       const result = await createUser(email, password, passwordReEnter, username, fullName);
     
@@ -242,7 +283,16 @@ const Login = () => {
       setIsRegisterModalOpen(false);
     };
 
-  const toggleTheme = () => setTheme(prev => (prev === 'theme-dark' ? 'theme-light' : 'theme-dark'));
+  const toggleTheme = () => setTheme(prev => {
+    const next = prev === 'theme-dark' ? 'theme-light' : 'theme-dark';
+    if (next === 'theme-dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    try { localStorage.setItem('theme', next); } catch {}
+    return next;
+  });
   
   useEffect(() => {
     if (theme === 'theme-dark') {
@@ -253,6 +303,21 @@ const Login = () => {
     try { localStorage.setItem('theme', theme); } catch {}
   }, [theme]);
   
+  // Initialize color palette on mount
+  useEffect(() => {
+    try {
+      const stored = appColors.getStoredPalette();
+      if (stored) {
+        appColors.applyPaletteToRoot(stored);
+      } else {
+        // Ensure colors are initialized on auth page
+        appColors.applyPaletteToRoot('purple');
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+  
     return (
     <SessionContextProvider supabaseClient={supabase}>
       <AppMuiThemeProvider mode={theme}>
@@ -261,11 +326,85 @@ const Login = () => {
           <Header   
             theme={theme}
             toggleTheme={toggleTheme}
+            onLoginClick={() => setIsLoginModalOpen(true)}
           />
-          <main className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 py-8">
-            <h1 className="text-3xl text-left mb-4">Login</h1>
-            <form onSubmit={handleLogin} className='flex flex-col gap-4 space-y-4 p-4'>
-              <div className="w-full">
+          <main className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-16 py-12 lg:py-20">
+            <div className="flex flex-col w-full items-center">
+
+              {/* ── Hero / value prop ── */}
+              <div className="flex w-full flex-col gap-6">
+                
+                <div className='relative text-start z-10 max-w-7xl'>
+                  <h1 className="text-4xl sm:text-5xl font-light leading-tight mb-3">
+                    Welcome to{' '}
+                    <span className="text-brand-40 dark:text-brand-30">Wkly</span>
+                  </h1>
+                  <p className="text-lg mb-8" style={{ color: 'var(--secondary-text, currentColor)', opacity: 0.8 }}>
+                    Your weekly command center for goals, tasks, and progress — all in one place.
+                  </p>
+
+                  <div className="pt-0 pb-4 flex flex-wrap md:flex-row gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsRequestAccessModalOpen(true)}
+                      className="btn-primary w-auto px-8 py-3 text-xl sm:text-2xl font-[300] text-nowrap"
+                    >
+                      Request Access
+                    <ArrowRight className="w-8 h-8 ml-4" />
+                    </button>
+                    <div className="flex flex-col gap-2 justify-start items-center">
+                      <button
+                        type="button"
+                        onClick={openModal}
+                        className="btn-ghost text-left !text-secondary-link px-8 py-1 text-base font-[400] hover:underline"
+                      >
+                        <span className='flex-wrap'><span className='text-nowrap'>Already approved?</span> &nbsp; <span className='font-semibold text-nowrap'>Register here</span></span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* feature pills */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full min-h-[20rem] mb-10 ">
+                    {[
+                      { icon: <Target className="w-[8rem] h-[8rem] md:w-[10rem] md:h-[10rem]" />,   label: 'Prioritized goals', desc: 'Set focused goals each week' },
+                      { icon: <CheckSquare className="w-[8rem] h-[8rem] md:w-[10rem] md:h-[10rem]" />, label: 'Task tracking', desc: 'Break goals into tasks' },
+                      { icon: <Award className="w-[8rem] h-[8rem] md:w-[10rem] md:h-[10rem]" />,   label: 'Accomplishments', desc: 'Capture what you achieved' },
+                      { icon: <Sparkles className="w-[8rem] h-[8rem] md:w-[10rem] md:h-[10rem]" />, label: 'AI summaries', desc: 'Auto-generate progress reports' },
+                    ].map(({ icon, label, desc }) => (
+                      <div
+                        key={label}
+                        className="relative flex flex-col items-start gap-1 rounded-md bg-background-color border border-brand-20 dark:border-brand-70 p-3 sm:p-8 text-left min-h-[6rem] overflow-hidden"
+                      >
+                        <div className="flex items-start pl-3 text-brand-20 dark:text-brand-80 font-normal text-lg md:text-2xl ">
+                          <div className='absolute bottom-[6rem] md:bottom-[8rem] -left-2 md:-left-8 w-full h-1 '>
+                            {icon}
+                          </div>
+                          <div className="pl-24 relative z-20 flex flex-col text-brand-60 dark:text-brand-30">
+                            {label}
+                            <p className="text-sm text-gray-50 dark:text-gray-40">{desc}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+              </div>
+
+          </div>{/* end grid */}
+          </main>
+
+          {/* Login modal */}
+          <Modal
+            isOpen={isLoginModalOpen}
+            onRequestClose={() => { setIsLoginModalOpen(false); setError(null); setLoginErrors({}); }}
+            shouldCloseOnOverlayClick={true}
+            className={`${modalClasses} w-full max-w-sm mx-4`}
+            overlayClassName={`${overlayClasses} flex items-center justify-center`}
+            ariaHideApp={ARIA_HIDE_APP}
+          >
+              <h2 className="text-2xl font-bold mb-4">Login</h2>
+              <form onSubmit={async (e) => { await handleLogin(e); }} className="flex flex-col gap-4">
                 <TextField
                   id="login-email"
                   label="Email"
@@ -282,13 +421,11 @@ const Login = () => {
                   size="small"
                   error={!!loginErrors.email}
                   helperText={loginErrors.email}
-                   // variant="outlined"
-                  sx={{ mb: 1 }}
+                  inputProps={{ autoComplete: 'email' }}
+                  sx={{ mb: 1, '& .MuiOutlinedInput-root': { backgroundColor: fieldBg, borderRadius: radius }, '& .MuiOutlinedInput-notchedOutline': { borderColor: dividerColor } }}
                 />
-              </div>
-              <div>
                 <TextField
-                  id="login-password"
+                  id="login-password-modal"
                   label="Password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
@@ -298,7 +435,7 @@ const Login = () => {
                   size="small"
                   error={!!loginErrors.password}
                   helperText={loginErrors.password}
-                   // variant="outlined"
+                  inputProps={{ autoComplete: 'current-password' }}
                   InputProps={{
                     endAdornment: (
                       <IconButton
@@ -314,21 +451,31 @@ const Login = () => {
                   }}
                   sx={{ mb: 1, '& .MuiOutlinedInput-root': { backgroundColor: fieldBg, borderRadius: radius }, '& .MuiOutlinedInput-notchedOutline': { borderColor: dividerColor } }}
                 />
-              </div>
-              <Button type="submit" variant="contained" className='btn-primary' size="large" >
-                Login
-              </Button>
-              <div className='flex flex-row justify-start gap-4 pt-6'>
-                <Button variant="outlined" onClick={openModal} sx={{ py: 0.8, px: 3, borderRadius: radius }}>
-                  Try for free
+                {error && <p className="text-sm" style={{ color: 'red' }}>{error}</p>}
+                <Button type="submit" variant="contained" className="" size="large" fullWidth>
+                  Login
                 </Button>
-                <Button variant="text" onClick={() => handlePasswordReset(email)} sx={{ py: 0.8 }}>
-                  Forgot Password
-                </Button>
-              </div>
-            </form>
-            {error && <p style={{ color: 'red' }}>{error}</p>}
+                <div className="flex flex-row justify-between items-center pt-1">
+                  <Button
+                    variant="text"
+                    className="btn-ghost text-brand-70 dark:text-brand-40"
+                    onClick={() => handlePasswordReset(email)}
+                    sx={{ py: 0.8 }}
+                  >
+                    Forgot Password
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => { setIsLoginModalOpen(false); openModal(); }}
+                    sx={{ py: 0.8, px: 2, borderRadius: radius }}
+                  >
+                    Register
+                  </Button>
+                </div>
+              </form>
+          </Modal>
 
+          {/* Register modal */}
           <Modal
             isOpen={isRegisterModalOpen}
             onRequestClose={closeModal}
@@ -355,6 +502,7 @@ const Login = () => {
                           size="small"
                           error={!!registerErrors.email}
                           helperText={registerErrors.email || ''}
+                          inputProps={{ autoComplete: 'email' }}
                           //  // variant="outlined"
                           sx={{ mb: 1, '& .MuiOutlinedInput-root': { backgroundColor: fieldBg, borderRadius: radius }, '& .MuiOutlinedInput-notchedOutline': { borderColor: dividerColor } }}
                         />
@@ -369,6 +517,7 @@ const Login = () => {
                           size="small"
                           error={!!registerErrors.password}
                           helperText={registerErrors.password}
+                          inputProps={{ autoComplete: 'new-password' }}
                           //  // variant="outlined"
                           InputProps={{
                             endAdornment: (
@@ -395,6 +544,7 @@ const Login = () => {
                           size="small"
                           error={!!registerErrors.passwordReEnter || (!!passwordReEnter && !passwordsMatch)}
                           helperText={registerErrors.passwordReEnter || ((passwordReEnter && !passwordsMatch) ? 'Passwords do not match.' : '')}
+                          inputProps={{ autoComplete: 'new-password' }}
                           InputProps={{
                             endAdornment: (
                               <IconButton
@@ -439,6 +589,26 @@ const Login = () => {
                           />
                         </Paper>
                         
+                        {/* POC Disclaimer */}
+                        <Paper elevation={1} className="border border-amber-500 dark:border-amber-700 p-4 bg-amber-50 dark:bg-amber-950 mb-4">
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                checked={disclaimerAccepted}
+                                onChange={(e) => setDisclaimerAccepted(e.target.checked)}
+                                required
+                              />
+                            }
+                            label={
+                              <span className="text-sm">
+                                I acknowledge that Wkly is currently a <strong>free proof-of-concept</strong>.
+                                Neither Josh Kimmell nor anyone associated with Wkly.me can be held responsible
+                                for the safety, privacy, or persistence of any data I add to this application. *
+                              </span>
+                            }
+                          />
+                        </Paper>
+
                         <div className='flex flex-row justify-end gap-4 pt-6'>
                           <Button type="button"  variant="outlined" onClick={closeModal} sx={{ py: 0.8, px: 3, borderRadius: radius, color: muiTheme.palette.text.primary }}>
                             Cancel
@@ -448,7 +618,7 @@ const Login = () => {
                             <Button
                               type="submit"
                               variant="contained"
-                              disabled={!email || !password || !passwordReEnter || !passwordsMatch}
+                              disabled={!email || !password || !passwordReEnter || !passwordsMatch || !disclaimerAccepted}
                               sx={{ py: 1.2, px: 3, color: muiTheme.palette.text.primary, '&:hover': { opacity: 0.95 } }}
                               className='btn-primary'
                             >
@@ -460,7 +630,6 @@ const Login = () => {
                       
                     </div>
                   </Modal>
-          </main>
         </div>
       </div>
       <Modal
@@ -478,6 +647,22 @@ const Login = () => {
           </div>
         </div>
       </Modal>
+      
+      {/* Request Access Modal */}
+      <Modal
+        isOpen={isRequestAccessModalOpen}
+        onRequestClose={() => setIsRequestAccessModalOpen(false)}
+        className="fixed inset-0 flex items-center justify-center z-50"
+        overlayClassName={`${overlayClasses}`}
+        ariaHideApp={ARIA_HIDE_APP}
+      >
+        <div className={`${modalClasses}`}>
+          <RequestAccess
+            onClose={() => setIsRequestAccessModalOpen(false)}
+          />
+        </div>
+      </Modal>
+
       <ToastNotification theme={theme} />
       </AppMuiThemeProvider>
     </SessionContextProvider>

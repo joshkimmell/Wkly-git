@@ -1,19 +1,19 @@
 import * as React from 'react';
 import { useState } from 'react';
-import MenuBtn, { MenuBtnProps } from '@components/menu-btn';
+// import MenuBtn, { MenuBtnProps } from '@components/menu-btn';
 import { styled, useTheme } from '@mui/material/styles';
-import Box from '@mui/material/Box';
+// import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
 import MuiAppBar, { AppBarProps as MuiAppBarProps } from '@mui/material/AppBar';
 import { Menu, MenuItem, Tooltip } from '@mui/material';
 import Toolbar from '@mui/material/Toolbar';
 import CssBaseline from '@mui/material/CssBaseline';
 import List from '@mui/material/List';
-import Typography from '@mui/material/Typography';
+// import Typography from '@mui/material/Typography';
 import ProfileManagement from './ProfileManagement';
-import Divider from '@mui/material/Divider';
+// import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
-import { ChevronLeft, ChevronRight, Cross, Home, LayoutGrid, MenuIcon, Moon, Sun, Text, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Cross, Home, LayoutGrid, MenuIcon, Moon, Sun, Target, Text, X } from 'lucide-react';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -30,36 +30,6 @@ import Logo from '@components/Logo';
 
 const drawerWidth = 240;
 
-// const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
-//   open?: boolean;
-// }>(({ theme }) => ({
-//   flexGrow: 1,
-//   padding: theme.spacing(3),
-//   transition: theme.transitions.create('margin', {
-//     easing: theme.transitions.easing.sharp,
-//     duration: theme.transitions.duration.leavingScreen,
-//   }),
-//   marginRight: -drawerWidth,
-//   /**
-//    * This is necessary to enable the selection of content. In the DOM, the stacking order is determined
-//    * by the order of appearance. Following this rule, elements appearing later in the markup will overlay
-//    * those that appear earlier. Since the Drawer comes after the Main content, this adjustment ensures
-//    * proper interaction with the underlying content.
-//    */
-//   position: 'relative',
-//   variants: [
-//     {
-//       props: ({ open }) => open,
-//       style: {
-//         transition: theme.transitions.create('margin', {
-//           easing: theme.transitions.easing.easeOut,
-//           duration: theme.transitions.duration.enteringScreen,
-//         }),
-//         marginRight: 0,
-//       },
-//     },
-//   ],
-// }));
 
 interface AppBarProps extends MuiAppBarProps {
   open?: boolean;
@@ -110,7 +80,7 @@ export default function PersistentDrawerRight({...props }: HeaderProps) {
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
-const { session } = useAuth();
+const { session, profile } = useAuth();
 const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
 
     // Dev-only overlay debug
@@ -138,7 +108,7 @@ const toggleThemeInternal = (): void => {
   const location = useLocation();
   const navItems = [
     { label: 'Home', href: '/', icon: <Home className='w-4 h-4' /> },
-    { label: 'Goals', href: '/goals', icon: <LayoutGrid className='w-4 h-4' /> },
+    { label: 'Goals & Tasks', href: '/goals', icon: <Target className='w-4 h-4' /> },
     { label: 'Summaries', href: '/summaries', icon: <Text className='w-4 h-4' /> },
   ];
 
@@ -179,11 +149,15 @@ const toggleThemeInternal = (): void => {
                                 <Moon className="w-5 h-5 stroke-gray-10 hover:stroke-gray-30 focus:outline-none" />
                             )}
                         </IconButton>
-                        <Avatar
-                            isEdit={false}
-                            onClick={handleMenuOpen}
-                            size='sm'
-                        />
+                        <Tooltip title="Profile" placement="bottom" arrow>
+                            <span>
+                                <Avatar
+                                    isEdit={false}
+                                    onClick={handleMenuOpen}
+                                    size='sm'
+                                />
+                            </span>
+                        </Tooltip>
                         <Menu
                             anchorEl={menuAnchor}
                             open={Boolean(menuAnchor)}
@@ -192,8 +166,8 @@ const toggleThemeInternal = (): void => {
                             className='p-4'
                         >
                             <label className="px-4 pb-4" htmlFor="profile-menu">{session?.user?.email}</label>
-                            <MenuItem onClick={() => setIsProfileOpen(true)}>Edit Profile</MenuItem>
-                            {/* <MenuItem onClick={() => console.log('Preferences')}>Preferences</MenuItem> */}
+                            <MenuItem onClick={() => setIsProfileOpen(true)}>Preferences</MenuItem>
+                            {profile?.is_admin === true && <MenuItem onClick={() => window.location.href = '/admin/access'}>Admin Access Requests</MenuItem>}
                             <MenuItem onClick={handleLogout}>Log Out</MenuItem>
                         </Menu>
                     
@@ -249,7 +223,7 @@ const toggleThemeInternal = (): void => {
           <Tooltip className='' title="Close menu" arrow>
             <IconButton onClick={handleDrawerClose} className="btn-ghost w-auto p-2">
                {/* {props.theme === 'theme-dark' && ( */}
-                    <X className="flexw-5 h-5 stroke-gray-10 hover:stroke-gray-30 focus:outline-none" />
+                    <X className="flex w-5 h-5 stroke-gray-10 hover:stroke-gray-30 focus:outline-none" />
                 {/* )} */}
 
             </IconButton>
@@ -271,17 +245,28 @@ const toggleThemeInternal = (): void => {
           {navItems.map(({ label, href, icon }) => {
             const isActive = location.pathname === href;
             return (
-              <ListItem key={label} disablePadding>
+              <ListItem key={label} disablePadding className="border-l-4" sx={{ borderColor: isActive ? 'primary.main' : 'transparent' }}>
                 <ListItemButton
                   component={Link}
                   to={href}
                   onClick={handleDrawerClose}
-                  className={`gap-0 border-b-2 ${isActive ? 'border-[var(--primary-icon)]' : 'border-transparent'}`}
+                  className={`flex gap-0 ${isActive ? 'border-2 border-brand-70 dark:border-brand-30' : 'border-none'}`}
                 >
-                  <ListItemIcon sx={{ color: isActive ? 'var(--primary-icon)' : undefined }}>
+                  <ListItemIcon 
+                    sx={{ 
+                      color: isActive ? 'primary.main' : 'text.primary'
+                    }}
+                  >
                     {icon}
                   </ListItemIcon>
-                  <ListItemText primary={label} />
+                  <ListItemText 
+                    primary={label}
+                    primaryTypographyProps={{
+                      sx: {
+                        color: isActive ? 'primary.main' : 'text.primary'
+                      }
+                    }}
+                  />
                 </ListItemButton>
               </ListItem>
             );

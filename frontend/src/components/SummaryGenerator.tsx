@@ -2,8 +2,9 @@
 // This component allows users to generate summaries based on a selected period (weekly, quarterly, yearly).
 
 import React, { useState, useEffect } from 'react';
-import { IconButton, TextField, Tooltip } from '@mui/material';
-import { saveSummary, deleteSummary, getWeekStartDate, generateSummary } from '@utils/functions';
+import { TextField, Tooltip, ToggleButtonGroup, ToggleButton, Checkbox, FormControlLabel, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
+import { saveSummary, deleteSummary, getWeekStartDate, generateSummary, fetchGoalsForRange } from '@utils/functions';
+import { notifyWithUndo } from '@components/ToastyNotification';
 import supabase from '@lib/supabase';
 import SummaryEditor from '@components/SummaryEditor';
 import LoadingSpinner from '@components/LoadingSpinner';
@@ -12,7 +13,7 @@ import { ARIA_HIDE_APP } from '@lib/modal';
 import SummaryCard from '@components/SummaryCard';
 import { modalClasses, overlayClasses } from '@styles/classes';
 import RichTextEditor from './RichTextEditor';
-import { RefreshCcw, SparklesIcon } from 'lucide-react';
+import { RefreshCcw, SparklesIcon, ChevronDown } from 'lucide-react';
 
 interface SummaryGeneratorProps {
   summaryId: string;
@@ -22,6 +23,8 @@ interface SummaryGeneratorProps {
   content?: string | null;
   // summaryType: 'AI' | 'User';
   scope: 'week' | 'month' | 'year'; // Add scope to the props
+  className?: string; // Optional className for styling
+  onSummaryCreated?: () => void; // Optional callback for when a summary is created/updated
 }
 
 const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
@@ -31,6 +34,8 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
   selectedRange,
   filteredGoals,
   scope,
+  className,
+  onSummaryCreated,
 }) => {
   const [summary, setSummary] = useState<string | null>(initialContent || null);
   const [localSummaryId, setLocalSummaryId] = useState<string | null>(summaryId || null);
@@ -62,19 +67,27 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
   const [summaryTitle, setSummaryTitle] = useState<string | null>(
     initialSummaryTitle || generateSummaryTitle(scope, selectedRange)
   );
-
-  // Reset summary state when scope changes
-  useEffect(() => {
-    setSummary(null); // Clear the current summary
-    setLocalSummaryId(null); // Reset the summary ID
-    setSummaryTitle(generateSummaryTitle(scope, selectedRange)); // Update the title
-  }, [scope, selectedRange]);
-
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
+
+  // Reset summary state when scope or selectedRange changes, but only if modal is closed
+  useEffect(() => {
+    if (!isGenerateModalOpen) {
+      setSummary(null); // Clear the current summary
+      setLocalSummaryId(null); // Reset the summary ID
+      setSummaryTitle(generateSummaryTitle(scope, selectedRange)); // Update the title
+    }
+  }, [scope, selectedRange, isGenerateModalOpen]);
   const [additionalContext, setAdditionalContext] = useState('');
   const [responseLength, setResponseLength] = useState(500); // Default response length
   const [isGenerating, setIsGenerating] = useState(false); // State to track loading
   const [error, setError] = useState<string | null>(null); // State to track errors
+  const [selectedScope, setSelectedScope] = useState<'week' | 'month' | 'year'>(scope); // Scope selector
+  const [selectedGoalIds, setSelectedGoalIds] = useState<Set<string>>(new Set(filteredGoals.map((_, idx) => idx.toString()))); // All goals selected by default
+
+  // Keep summaryTitle in sync when the user changes scope inside the modal
+  useEffect(() => {
+    setSummaryTitle(generateSummaryTitle(selectedScope, selectedRange));
+  }, [selectedScope, selectedRange]);
 
   const openGenerateModal = () => {
     setIsGenerateModalOpen(true);
@@ -84,6 +97,8 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
     setIsGenerateModalOpen(false);
     // clear the RichTextEditor input when the form/modal is canceled
     setAdditionalContext('');
+    setSelectedScope(scope); // Reset scope to the passed prop
+    setSelectedGoalIds(new Set(filteredGoals.map((_, idx) => idx.toString()))); // Reset to all goals
   };
 
   const handleGenerate = async () => {
@@ -108,6 +123,22 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
       }));
 
       const weekStart = getWeekStartDate(selectedRange);
+
+      // Also include archived goals that fall within the summary's scope
+      try {
+        const scopeEnd = new Date(weekStart);
+        scopeEnd.setDate(scopeEnd.getDate() + 7);
+        const archivedGoals = await fetchGoalsForRange(weekStart, scopeEnd.toISOString().split('T')[0], true);
+        const archived = archivedGoals.filter(g => g.is_archived);
+        archived.forEach(g => {
+          if (!goalsWithAccomplishments.some(x => x.title === g.title && x.description === g.description)) {
+            goalsWithAccomplishments.push({ title: g.title, description: g.description, category: g.category || 'Technical skills', accomplishments: [] });
+          }
+        });
+      } catch (e) {
+        console.warn('[SummaryGenerator] Could not fetch archived goals for scope:', e);
+      }
+
       const correctTitle = generateSummaryTitle(scope, selectedRange); // Ensure correct title is used
 
       const generatedSummary = await generateSummary(
@@ -120,7 +151,7 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
       );
 
       setSummary(generatedSummary);
-      saveSummary(
+      await saveSummary(
         setLocalSummaryId,
         correctTitle, // Save the correct title
         generatedSummary,
@@ -129,6 +160,10 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
         scope
       );
       setSummaryType('AI');
+      // Notify parent component that a summary was created
+      if (onSummaryCreated) {
+        onSummaryCreated();
+      }
     } catch (error) {
       console.error('Error generating summary:', error);
     }
@@ -147,47 +182,80 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
 
       const userId = user.id;
 
-      const goalsWithAccomplishments = filteredGoals.map(goal => ({
+      // Filter goals based on selection
+      const selectedGoals = filteredGoals.filter((_, idx) => selectedGoalIds.has(idx.toString()));
+      
+      const goalsWithAccomplishments = selectedGoals.map(goal => ({
         title: goal.title,
-        description: `${goal.description} ${additionalContext}`, // Append additional context to the description
+        description: goal.description,
         category: goal.category || 'Technical skills',
         accomplishments: (goal.accomplishments || []).map(accomplishment => ({
           title: accomplishment,
-          description: `${accomplishment} ${additionalContext}`, // Append additional context to accomplishments
+          description: accomplishment,
           impact: 'Medium',
         })),
       }));
 
       const weekStart =
-        scope === 'week'
+        selectedScope === 'week'
           ? getWeekStartDate(selectedRange)
-          : scope === 'month'
+          : selectedScope === 'month'
           ? new Date(selectedRange.getFullYear(), selectedRange.getMonth(), 1).toISOString().split('T')[0]
-          : scope === 'year'
+          : selectedScope === 'year'
           ? new Date(selectedRange.getFullYear(), 0, 1).toISOString().split('T')[0]
           : '';
 
+      // Also include archived goals that fall within this summary's scope
+      if (weekStart) {
+        try {
+          let scopeEnd: string;
+          if (selectedScope === 'week') {
+            const d = new Date(weekStart); d.setDate(d.getDate() + 7);
+            scopeEnd = d.toISOString().split('T')[0];
+          } else if (selectedScope === 'month') {
+            const base = new Date(weekStart);
+            scopeEnd = new Date(base.getFullYear(), base.getMonth() + 1, 1).toISOString().split('T')[0];
+          } else {
+            scopeEnd = `${new Date(weekStart).getFullYear() + 1}-01-01`;
+          }
+          const archivedGoals = await fetchGoalsForRange(weekStart, scopeEnd, true);
+          const archived = archivedGoals.filter(g => g.is_archived);
+          archived.forEach(g => {
+            if (!goalsWithAccomplishments.some(x => x.title === g.title && x.description === g.description)) {
+              goalsWithAccomplishments.push({ title: g.title, description: g.description, category: g.category || 'Technical skills', accomplishments: [] });
+            }
+          });
+        } catch (e) {
+          console.warn('[SummaryGenerator] Could not fetch archived goals for scope:', e);
+        }
+      }
+
       const generatedSummary = await generateSummary(
         localSummaryId || '',
-        scope || 'week',
-        summaryTitle || generateSummaryTitle(scope, selectedRange),
+        selectedScope || 'week',
+        summaryTitle || generateSummaryTitle(selectedScope, selectedRange),
         userId,
         weekStart,
         goalsWithAccomplishments,
-        responseLength // Pass the updated response length
+        responseLength, // Pass the updated response length
+        additionalContext // Pass additional context as separate parameter
       );
 
       setSummary(generatedSummary);
-      saveSummary(
+      await saveSummary(
         setLocalSummaryId,
         // generatedSummaryTitle,
-        summaryTitle || generateSummaryTitle(scope, selectedRange),
+        summaryTitle || generateSummaryTitle(selectedScope, selectedRange),
         generatedSummary,
         summaryType || 'AI', // Use the current summary type or default to 'AI'
         new Date(weekStart),
-        scope,
+        selectedScope,  // Use selectedScope instead of scope
       );
       setSummaryType('AI');
+      // Notify parent component that a summary was created
+      if (onSummaryCreated) {
+        onSummaryCreated();
+      }
       // closeGenerateModal();
       console.log('Response Length:', responseLength);
       console.log('Additional Context:', additionalContext);
@@ -211,12 +279,17 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
         setLocalSummaryId,
         updatedTitle, // Save the updated title
         updatedContent, // Save the updated content
-        summaryType, // Use the current summary type
+        'User', // User-edited summaries are always tagged as 'User'
         selectedRange, // Pass the selected range as a string
         scope // Pass the scope as the sixth argument
       );
       setSummary(updatedContent); // Update the summary state
       setSummaryTitle(updatedTitle); // Update the title state
+      setSummaryType('User'); // Mark as user-edited
+      // Notify parent component that a summary was saved
+      if (onSummaryCreated) {
+        onSummaryCreated();
+      }
       // console.log('formatted range:', formattedRange);
       // console.log('Summary saved successfully');
     } catch (error) {
@@ -228,25 +301,36 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
     setIsEditorOpen(false);
   };
 
-  const handleDeleteSummary = async () => {
-    try {
-      if (!localSummaryId) {
-        console.error('No summary ID to delete');
-        return;
-      }
-      // console.log('Deleting summary with ID:', localSummaryId);
-      await deleteSummary(localSummaryId); // Pass the ID, not the content!
-      setSummary(null);
-      setLocalSummaryId(null);
-      setIsEditorOpen(false);
-      // console.log('Summary deleted successfully');
-    } catch (error) {
-      console.error('Error deleting summary:', error);
+  const handleDeleteSummary = () => {
+    if (!localSummaryId) {
+      console.error('No summary ID to delete');
+      return;
     }
+
+    // Snapshot current state so it can be restored on undo
+    const savedId = localSummaryId;
+    const savedSummary = summary;
+    const savedTitle = summaryTitle;
+
+    // Optimistically remove from UI immediately
+    setSummary(null);
+    setLocalSummaryId(null);
+    setIsEditorOpen(false);
+
+    notifyWithUndo(
+      'Summary deleted',
+      () => deleteSummary(savedId),
+      () => {
+        // Restore UI state if user clicks Undo
+        setSummary(savedSummary);
+        setLocalSummaryId(savedId);
+        setSummaryTitle(savedTitle);
+      },
+    );
   };
 
   return (
-    <div>
+    <div className={`${className || ''}`}>
       
 
       <Modal
@@ -268,8 +352,78 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
 
             <div className="space-y-4">
               <h2 className="text-xl font-bold mb-4">Customize Summary Generation</h2>
-              {/* <label className="block mb-2 font-medium">Additional Context:</label> */}
-              {/* <ReactQuill value={additionalContext} onChange={setAdditionalContext} className="mb-4" /> */}
+              
+              {/* Scope Selector */}
+              <div className="mb-4">
+                <label className="block text-sm font-semibold mb-2">Scope</label>
+                <ToggleButtonGroup
+                  value={selectedScope}
+                  exclusive
+                  onChange={(_, value) => value && setSelectedScope(value)}
+                  fullWidth
+                  size="small"
+                >
+                  <ToggleButton value="week">Week</ToggleButton>
+                  <ToggleButton value="month">Month</ToggleButton>
+                  <ToggleButton value="year">Year</ToggleButton>
+                </ToggleButtonGroup>
+              </div>
+
+              {/* Goal Selection */}
+              <Accordion defaultExpanded disableGutters elevation={0} sx={{ bgcolor: 'transparent', '&:before': { display: 'none' }, borderBottom: '1px solid', borderColor: 'divider' }}>
+                <AccordionSummary expandIcon={<ChevronDown className="w-3.5 h-3.5" />} sx={{ p: 0, px: 2, minHeight: 'unset', '& .MuiAccordionSummary-content': { my: '6px' } }}>
+                  <span className="text-sm font-semibold">
+                    Goals ({selectedGoalIds.size} of {filteredGoals.length} selected)
+                  </span>
+                </AccordionSummary>
+                <AccordionDetails sx={{ p: 2, maxHeight: '200px', overflow: 'auto' }}>
+                  <div className="flex flex-col">
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={selectedGoalIds.size === filteredGoals.length}
+                          indeterminate={selectedGoalIds.size > 0 && selectedGoalIds.size < filteredGoals.length}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedGoalIds(new Set(filteredGoals.map((_, idx) => idx.toString())));
+                            } else {
+                              setSelectedGoalIds(new Set());
+                            }
+                          }}
+                          sx={{ p: 0, mr: 1 }}
+                        />
+                      }
+                      label={<span className="text-sm font-semibold">Select All</span>}
+                      sx={{ mb: 1 }}
+                    />
+                    {filteredGoals.map((goal, idx) => (
+                      <FormControlLabel
+                        key={idx}
+                        control={
+                          <Checkbox
+                            size="small"
+                            checked={selectedGoalIds.has(idx.toString())}
+                            onChange={(e) => {
+                              const newSet = new Set(selectedGoalIds);
+                              if (e.target.checked) {
+                                newSet.add(idx.toString());
+                              } else {
+                                newSet.delete(idx.toString());
+                              }
+                              setSelectedGoalIds(newSet);
+                            }}
+                            sx={{ p: 0, mr: 1 }}
+                          />
+                        }
+                        label={<span className="text-sm">{goal.title}</span>}
+                      />
+                    ))}
+                  </div>
+                </AccordionDetails>
+              </Accordion>
+
+              {/* Additional Context */}
               <div>            
                 <RichTextEditor 
                     id="additional-context"
@@ -279,11 +433,13 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
                     placeholder="Add any additional context to the summary generation"
                   />
               </div>
+
+              {/* Response Length */}
               <div>
                 <TextField
                   id="response-length"
                   type="number"
-                  label="Response length"
+                  label="Response length (words)"
                   value={responseLength}
                   onChange={(e) => setResponseLength(Number(e.target.value))}
                   placeholder="Modify the length of the generated summary"
@@ -314,14 +470,15 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
           <SummaryCard
             id={summaryId}
             className="bg-transparent dark:bg-transparent" // Pass className prop
-            scope={scope}
-            title={generateSummaryTitle(scope, selectedRange)}
+            scope={selectedScope}
+            title={generateSummaryTitle(selectedScope, selectedRange)}
             content={summary}
             type={summaryType || ''}
             format={'content'}
             created_at={new Date().toISOString()}
             handleDelete={handleDeleteSummary}
             handleEdit={() => setIsEditorOpen(true)}
+            onToggleSelect={() => {}} // Dummy handler - selection not needed in modal
           />
 
          
@@ -368,8 +525,9 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
       </Modal>
 
       <Tooltip title="Generate Summary" placement="top" arrow>
-        <button onClick={openGenerateModal} className="btn-primary gap-2 flex ml-auto sm:mt-0 md:pr-2 sm:pr-2 xs:pr-0">
+        <button onClick={openGenerateModal} className="btn-primary gap-2 flex w-auto">
           <SparklesIcon className="w-5 h-5" /> 
+          <span className="hidden md:inline text-nowrap">Generate Summary</span>
         </button>
       </Tooltip>
 

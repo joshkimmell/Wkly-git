@@ -1,7 +1,7 @@
 export const STATUSES = ['Not started', 'In progress', 'Done', 'Blocked', 'On hold'] as const;
 
 export const STATUS_COLORS: Record<string, string> = {
-  'Not started': '#9CA3AF',
+  'Not started': 'var(--secondary-text)',
   'In progress': '#2563EB',
   'Done': '#16A34A',
   'Blocked': '#DC2626',

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { GoalsProvider } from '@context/GoalsContext';
+import { TimezoneProvider } from '@context/TimezoneContext';
 import ToastNotification, { notifySuccess, notifyError } from '@components/ToastyNotification';
 // import WeeklyGoals from '@components/WeeklyGoals';
 import AllGoals from '@components/AllGoals';
@@ -9,6 +10,7 @@ import Header from '@components/Header';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import supabase from '@lib/supabase';
 import useAuth from '@hooks/useAuth';
+import { useReminderService } from '@hooks/useReminderService';
 import Auth from '@components/Auth';
 import AllSummaries from '@components/AllSummaries';
 // import AllAccomplishments from '@components/AllAccomplishments';
@@ -18,7 +20,9 @@ import NotificationsSettings from '@components/NotificationsSettings';
 import AppMuiThemeProvider from './mui/muiTheme';
 import appColors from '@styles/appColors';
 import MuiCompareDemo from '@components/MuiCompareDemo';
-
+import AdminAccessRequests from '@components/AdminAccessRequests';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Chip } from '@mui/material';
+import { Bell, Calendar, FileText } from 'lucide-react';
 
 
 const App: React.FC = () => {
@@ -36,7 +40,18 @@ const App: React.FC = () => {
   });
   const [isOpen, /*setIsOpen*/] = useState(false);
 
-  const toggleTheme = () => setTheme(prev => (prev === 'theme-dark' ? 'theme-light' : 'theme-dark'));
+  const toggleTheme = () => setTheme(prev => {
+    const next = prev === 'theme-dark' ? 'theme-light' : 'theme-dark';
+    // Apply the class synchronously so CSS variables are updated before React
+    // re-renders the MUI theme provider (which reads CSS vars at render time).
+    if (next === 'theme-dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    try { localStorage.setItem('theme', next); } catch {}
+    return next;
+  });
 
   // const handleToast = () => {
   //   notifySuccess('Action completed successfully!');
@@ -48,8 +63,19 @@ const App: React.FC = () => {
         console.error('Supabase client is not initialized');
         return;
       }
+
+      // Clear all localStorage except theme and palette preferences
+      const themePreference = localStorage.getItem('theme');
+      const palettePreference = localStorage.getItem('wkly:primary_palette');
+      
+      // Clear localStorage (preserving theme/palette)
+      localStorage.clear();
+      if (themePreference) localStorage.setItem('theme', themePreference);
+      if (palettePreference) localStorage.setItem('wkly:primary_palette', palettePreference);
+
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      
       notifySuccess('Logged out successfully');
       window.location.href = '/auth'; // Redirect to the auth route
     } catch (error) {
@@ -90,12 +116,27 @@ const App: React.FC = () => {
         appColors.applyPaletteToRoot(profile.primary_color);
       } else {
         const stored = appColors.getStoredPalette();
-        if (stored) appColors.applyPaletteToRoot(stored);
+        if (stored) {
+          appColors.applyPaletteToRoot(stored);
+        } else {
+          // Ensure colors are always initialized, even on first load
+          appColors.applyPaletteToRoot('purple');
+        }
       }
     } catch (e) {
       // ignore
     }
   }, [profile]);
+
+  // Start reminder service when user is authenticated
+  const { pendingReminderTask, dismissReminderTask } = useReminderService();
+
+  const handleEditReminderTask = () => {
+    if (!pendingReminderTask) return;
+    try { sessionStorage.setItem('wkly_edit_task_id', pendingReminderTask.id); } catch { /* ignore */ }
+    dismissReminderTask();
+    navigate('/goals');
+  };
 
 
   
@@ -129,6 +170,7 @@ const App: React.FC = () => {
   return (
     <SessionContextProvider supabaseClient={supabase}>
     <AppMuiThemeProvider mode={theme}>
+    <TimezoneProvider>
     <div className={`${current}`}>
       <div className={`min-h-screen bg-background text-primary-text ${current}`}>
         <Header   
@@ -150,11 +192,49 @@ const App: React.FC = () => {
               <Route path="/notifications" element={<NotificationsSettings />} />
               <Route path="/auth" element={<Navigate to="/" replace />} />
               <Route path="/profile" element={<ProfileManagement />} />
+              <Route path="/admin/access" element={<AdminAccessRequests />} />
             </Routes>
           </main>
         </GoalsProvider>
       </div>
     </div>
+    </TimezoneProvider>
+
+      {/* ── Task Reminder Dialog ───────────────────────────────────────── */}
+      <Dialog open={!!pendingReminderTask} onClose={dismissReminderTask} maxWidth="sm" fullWidth>
+        <div className={`${current}`}>
+        <DialogTitle className="flex items-center gap-2">
+          <Bell className="w-5 h-5 text-primary" />
+          Task Reminder
+        </DialogTitle>
+        <DialogContent className="space-y-3">
+          {pendingReminderTask && (
+            <>
+              <h3 className="font-semibold text-primary-text text-base pt-3">{pendingReminderTask.title}</h3>
+              {pendingReminderTask.description && (
+                <p className="text-sm text-secondary-text">{pendingReminderTask.description}</p>
+              )}
+              <div className="flex flex-wrap gap-2 pt-1">
+                {pendingReminderTask.scheduled_date && (
+                  <Chip icon={<Calendar className="w-3 h-3" />} label={pendingReminderTask.scheduled_date} size="small" variant="outlined" />
+                )}
+                {pendingReminderTask.scheduled_time && (
+                  <Chip icon={<FileText className="w-3 h-3" />} label={pendingReminderTask.scheduled_time} size="small" variant="outlined" />
+                )}
+                {pendingReminderTask.status && (
+                  <Chip label={pendingReminderTask.status} size="small" variant="outlined" />
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button className='!normal-case btn-secondary' onClick={dismissReminderTask} color="inherit">Cancel</Button>
+          <Button className='!normal-case btn-primary' onClick={handleEditReminderTask} variant="contained">Edit Task</Button>
+        </DialogActions>
+        </div>
+      </Dialog>
+
     </AppMuiThemeProvider>
         <ToastNotification theme={theme} />
     </SessionContextProvider>

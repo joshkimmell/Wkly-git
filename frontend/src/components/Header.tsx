@@ -1,13 +1,14 @@
-import MenuBtn, { MenuBtnProps } from '@components/menu-btn';
+import { MenuBtnProps } from '@components/menu-btn';
+// import MenuBtn from '@components/menu-btn';
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import menuClosedIcon from '/images/button-menu.svg';
-import { Sun, Moon, Home, Text, LayoutGrid } from 'lucide-react';
+// import menuClosedIcon from '/images/button-menu.svg';
+import { Sun, Moon, Home, Text, Target } from 'lucide-react';
 import { classTabItem } from '@styles/classes';
 // import { classMenuItem } from '@styles/classes';
 // supabase client not needed here; use useAuth hook's session instead
 import useAuth from '@hooks/useAuth';
-import { Menu, MenuItem, Tooltip } from '@mui/material';
+import { Menu, MenuItem, Tooltip, useMediaQuery } from '@mui/material';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP, useOverlayDebug } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
@@ -62,6 +63,7 @@ export interface HeaderProps {
     toggleTheme: () => void;
     isOpen?: boolean; // Made optional
     handleLogout?: () => Promise<void>; // Optional logout function
+    onLoginClick?: () => void; // Optional login click handler
 }
 
 // Theme is provided by the parent App via props; avoid local ThemeState here.
@@ -81,7 +83,8 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
     const [scrolled, setScrolled] = useState(false);
-    const { session } = useAuth();
+    const { session, profile } = useAuth();
+    const isLarge = useMediaQuery('(min-width: 1024px)');
     // use the module-level `isMenuHidden` exported above
 
     // const handleLogoutInternal = async (): Promise<void> => {
@@ -101,23 +104,16 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     // };
     
     // Logo is an imported SVG component; render it directly as <Logo /> below
-    const handleClick = (): void => {
-        setIsOpen((prev) => !prev); 
-        // if (menuOpen !== true) {
-        //     setIsOpen(true);
-        // }
-        // else {
-        //     setIsOpen(false);
-        // }   
-    };
+    // const handleClick = (): void => {
+    //     setIsOpen((prev) => !prev); 
+        
+    // };
 
-    const handleMenuItemClick = (): void => {
-        setIsOpen(false); // Close the menu when a menu item is selected
-        menuClosedIcon; // Reset the menu icon to menuClosedIcon
-        handleClick;
-        // console.log({isOpen});
-        // You can add any additional logic here if needed});
-    };
+    // const handleMenuItemClick = (): void => {
+    //     setIsOpen(false); // Close the menu when a menu item is selected
+    //     menuClosedIcon; // Reset the menu icon to menuClosedIcon
+    //     handleClick;
+    // };
 
     // The app-level `theme` and `toggleTheme` are provided via props.
     // Avoid maintaining a separate local themeState here which can diverge
@@ -130,20 +126,26 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
         setIsAuthenticated(!!session);
     }, [session]);
 
-    // Sticky header scroll-shrink: set `scrolled` once the page scrolls past a
-    // small threshold so CSS transitions can kick in.
-    // RAF debounce + hysteresis (32px in / 16px out) prevent the class from
-    // toggling rapidly near the boundary which cuts transitions off mid-flight.
+    // Sticky header scroll-shrink: toggle `scrolled` when crossing the scroll
+    // threshold, then lock the handler for the transition duration so layout
+    // changes from the animation cannot re-trigger it mid-flight.
     useEffect(() => {
         let rafId: number | null = null;
+        // Timestamp (ms) before which scroll events are ignored.
+        // Set to Date.now() + transition duration whenever scrolled changes.
+        const TRANSITION_MS = 420; // slightly over the 0.35s CSS transition
+        let lockedUntil = 0;
+
         const onScroll = () => {
             if (rafId !== null) return;
             rafId = requestAnimationFrame(() => {
                 rafId = null;
+                // Ignore events fired while a transition is still running
+                if (Date.now() < lockedUntil) return;
                 setScrolled((prev) => {
-                    if (!prev && window.scrollY > 32) return true;
-                    if (prev && window.scrollY < 16) return false;
-                    return prev;
+                    const next = window.scrollY > 32 ? true : window.scrollY < 16 ? false : prev;
+                    if (next !== prev) lockedUntil = Date.now() + TRANSITION_MS;
+                    return next;
                 });
             });
         };
@@ -265,91 +267,87 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                         </Link>
                     </div>
                 )}
-                {!isMenuHidden() && !drawerVisible && (
+                {isAuthenticated && !isMenuHidden() && !drawerVisible && (
                     <nav className="tabs hidden sm:flex items-end self-end ml-6 h-full">
                         <ul className="flex -mb-px text-sm font-medium">
                             <li>
+                                <Tooltip title="Home" placement="bottom" arrow className='' disableHoverListener={isLarge}>
                                 <Link
                                     to="/"
                                     className={`${classTabItem}${location.pathname === '/' ? ' active' : ''}`}
                                 >
                                     <Home className="w-4 h-4 mr-1.5" />
-                                    Home
+                                    <span className='hidden lg:inline'>Home</span>
                                 </Link>
+                                    </Tooltip>
                             </li>
                             <li>
+                                <Tooltip title="Goals & Tasks" placement="bottom" arrow className='' disableHoverListener={isLarge}>
                                 <Link
                                     to="/goals"
                                     className={`${classTabItem}${location.pathname === '/goals' ? ' active' : ''}`}
                                 >
-                                    <LayoutGrid className="w-4 h-4 mr-1.5" />
-                                    Goals
+                                    <Target className="w-4 h-4 mr-1.5" />
+                                    <span className='hidden lg:inline'>Goals & Tasks</span>
                                 </Link>
+                                    </Tooltip>
                             </li>
                             <li>
+                                <Tooltip title="Summaries" placement="bottom" arrow className='' disableHoverListener={isLarge}>
                                 <Link
                                     to="/summaries"
                                     className={`${classTabItem}${location.pathname === '/summaries' ? ' active' : ''}`}
                                 >
                                     <Text className="w-4 h-4 mr-1.5" />
-                                    Summaries
+                                    <span className='hidden lg:inline'>Summaries</span>
                                 </Link>
+                                    </Tooltip>
                             </li>
                         </ul>
                     </nav>
                 )}
-                {/* Main navigation tabs — hidden on mobile (drawer handles mobile nav) */}
+                {/* Mobile drawer — only rendered on medium screens when authenticated */}
+                {isAuthenticated && (
+                    <div ref={drawerContainerRef} className="relative md:hidden">
+                        <PersistentDrawerRight
+                            theme={props.theme}
+                            toggleTheme={props.toggleTheme}
+                            isOpen={menuOpen}
+                            handleLogout={props.handleLogout}
+                        />
+                    </div>
+                )}
+
+                {/* Desktop: avatar/menu + profile modal — authenticated only */}
                 {isAuthenticated && (
                     <>
-                    {/* <div className='flex flex-col gap-2'> */}
-                        <div>
-                            {/* Show avatar/menu only when the drawer is not open */}
-                            <div className='header-brand--avatar-wrapper absolute top-8 sm:top-10 right-3 sm:right-10'>
-                                {!drawerVisible && (
-                                    <>
-                            <Tooltip title="Profile" placement="bottom">
-                              <span>
-                                <Avatar
-                                    isEdit={false}
-                                    onClick={handleMenuOpen}
-                                    size={drawerVisible ? 'sm' : 'md'}
-                                    buttonSx={{
-                                      '& .MuiAvatar-root': {
-                                        transition: 'border-color 150ms, background-color 150ms',
-                                      },
-                                      '&:hover .MuiAvatar-root': {
-                                        borderColor: 'var(--primary)',
-                                        backgroundColor: 'color-mix(in srgb, var(--brand-30, #c300dc) 80%, transparent)',
-                                      },
-                                    }}
-                                />
-                              </span>
-                            </Tooltip>
-                                        <Menu
-                                            anchorEl={menuAnchor}
-                                            open={Boolean(menuAnchor)}
-                                            onClose={handleMenuClose}
-                                            onClick={handleMenuClose}
-                                            className='p-4'
-                                        >
-                                            <label className="px-4 pb-4" htmlFor="profile-menu">{session?.user?.email}</label>
-                                            <MenuItem onClick={() => setIsProfileOpen(true)}>Preferences</MenuItem>
-                                            {/* <MenuItem onClick={() => { handleMenuClose(); window.location.href = '/notifications'; }}>Notifications</MenuItem> */}
-                                            {/* <MenuItem onClick={() => console.log('Preferences')}>Preferences</MenuItem> */}
-                                            <MenuItem onClick={handleLogout}>Log Out</MenuItem>
-                                        </Menu>
-                                    </>
-                                )}
-                            </div>
-
-                            <div ref={drawerContainerRef} className="relative sm:hidden">
-                                <PersistentDrawerRight
-                                    theme={props.theme}
-                                    toggleTheme={props.toggleTheme}
-                                    isOpen={menuOpen}
-                                    handleLogout={props.handleLogout}
-                                />
-                            </div>
+                        {/* Show avatar/menu only when the drawer is not open */}
+                        <div className='header-brand--avatar-wrapper absolute top-8 sm:top-10 right-3 sm:right-10'>
+                            {!drawerVisible && (
+                                <>
+                                    <Tooltip title="Profile" placement="bottom" arrow className='pb-4'>
+                                        <span className="w-full h-full">
+                                            <Avatar
+                                                isEdit={false}
+                                                onClick={handleMenuOpen}
+                                                size={drawerVisible ? 'sm' : 'md'}
+                                            />
+                                         </span>
+                                    </Tooltip>
+                                    <Menu
+                                        anchorEl={menuAnchor}
+                                        open={Boolean(menuAnchor)}
+                                        onClose={handleMenuClose}
+                                        onClick={handleMenuClose}
+                                        className='p-4'
+                                    >
+                                        <label className="px-4 pb-4" htmlFor="profile-menu">{session?.user?.email}</label>
+                                        <MenuItem onClick={() => setIsProfileOpen(true)}>Preferences</MenuItem>
+                                        {profile?.is_admin === true && <MenuItem onClick={() => window.location.href = '/admin/access'}>Admin Access Requests</MenuItem>}
+                                        <MenuItem onClick={handleLogout}>Log Out</MenuItem>
+                                    </Menu>
+                                </>
+                            )}
                         </div>
                         <Modal
                             isOpen={isProfileOpen}
@@ -364,8 +362,19 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                                 </div>
                             )}
                         </Modal>
-                        
                     </>
+                )}
+                
+                {/* Login button for logged-out users */}
+                {!isAuthenticated && props.onLoginClick && (
+                    <div className='header-brand--login-wrapper absolute bottom-3 right-3 sm:right-10'>
+                        <button
+                            onClick={props.onLoginClick}
+                            className="btn-primary px-4 py-2 font-medium"
+                        >
+                            Login
+                        </button>
+                    </div>
                 )}
             </div>
 

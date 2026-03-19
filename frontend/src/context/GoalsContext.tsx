@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import supabase from '@lib/supabase';
 import { fetchAllGoals } from '@utils/functions';
 import type { Goal as GoalType } from '@utils/goalUtils';
+import useAuth from '@hooks/useAuth';
 
 type Goal = GoalType;
 
@@ -13,6 +14,7 @@ interface GoalsContextProps {
   replaceGoalInCache: (oldId: string, newGoal: Goal) => void;
   subscribeToTempId: (tempId: string, cb: (newId: string) => void) => () => void;
   removeGoalFromCache: (id: string) => void;
+  clearCache: () => void;
   isRefreshing: boolean;
   lastUpdated?: number;
   // IDs recently added (set by bulk/single add flows) so UI can navigate to them after refresh
@@ -27,6 +29,8 @@ export const GoalsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [lastUpdated, setLastUpdated] = useState<number | undefined>(undefined);
   const [lastAddedIds, setLastAddedIds] = useState<string[] | undefined>(undefined);
+  const { session } = useAuth();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const refreshGoals = async () => {
     try {
@@ -43,7 +47,27 @@ export const GoalsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Clear cache when user changes (logout or different user login)
   useEffect(() => {
+    const userId = session?.user?.id || null;
+    
+    // If userId changed (including logout: null), clear cache
+    if (currentUserId !== null && currentUserId !== userId) {
+      console.debug('[GoalsContext] User changed, clearing cache');
+      setGoals([]);
+      setLastUpdated(undefined);
+      setLastAddedIds(undefined);
+    }
+    
+    setCurrentUserId(userId);
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    // Only fetch goals if user is logged in
+    if (!session?.user?.id) {
+      return;
+    }
+
     // initial load
     refreshGoals();
 
@@ -114,7 +138,7 @@ export const GoalsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       }
     };
-  }, []);
+  }, [session?.user?.id]);
 
   // internal map of listeners waiting for tempId -> newId resolution
   const tempListenersRef = React.useRef<Record<string, Array<(newId: string) => void>>>({});
@@ -157,8 +181,15 @@ export const GoalsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const removeGoalFromCache = (id: string) => setGoals((prev) => prev.filter((p) => p.id !== id));
 
+  const clearCache = () => {
+    console.debug('[GoalsContext] clearCache: clearing all goals from cache');
+    setGoals([]);
+    setLastUpdated(undefined);
+    setLastAddedIds(undefined);
+  };
+
   return (
-    <GoalsContext.Provider value={{ goals, refreshGoals, addGoalToCache, updateGoalInCache, replaceGoalInCache, subscribeToTempId, removeGoalFromCache, isRefreshing, lastUpdated, lastAddedIds, setLastAddedIds }}>
+    <GoalsContext.Provider value={{ goals, refreshGoals, addGoalToCache, updateGoalInCache, replaceGoalInCache, subscribeToTempId, removeGoalFromCache, clearCache, isRefreshing, lastUpdated, lastAddedIds, setLastAddedIds }}>
       {children}
     </GoalsContext.Provider>
   );

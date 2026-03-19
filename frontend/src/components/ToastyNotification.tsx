@@ -22,7 +22,7 @@ const ToastNotification: React.FC<ToastNotificationProps> = ({ theme }) => {
         theme={theme}
         className="z-[200]"
         style={{ top: 'calc(var(--header-height, 7rem) + 1rem)', right: '1rem' }}
-        toastClassName="bg-gray-10 text-gray-100 dark:bg-gray-100 dark:text-gray-10 rounded-lg shadow-lg"
+        toastClassName="items-start bg-gray-100 text-gray-10 dark:bg-gray-10 dark:text-gray-100 rounded-lg shadow-lg"
       />
     </div>
   );
@@ -30,6 +30,54 @@ const ToastNotification: React.FC<ToastNotificationProps> = ({ theme }) => {
 
 export const notifySuccess = (message: string) => toast.success(message);
 export const notifyError = (message: string) => toast.error(message);
+
+/**
+ * Shows a task reminder notification that requires manual dismissal (no auto-close).
+ * Used for task reminders that should stay visible until the user acknowledges them.
+ */
+export const notifyReminder = (taskTitle: string, taskDescription?: string, onViewTask?: () => void) => {
+  toast.info(
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
+      <div>
+        <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Reminder</div>
+        <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{taskTitle}</div>
+        {taskDescription && (
+          <div style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '0.25rem' }}>
+            {taskDescription.length > 100 ? `${taskDescription.substring(0, 100)}...` : taskDescription}
+          </div>
+        )}
+      </div>
+      {onViewTask && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onViewTask();
+          }}
+          className='btn-secondary mt-2 self-start'
+          // style={{
+          //   fontWeight: 600,
+          //   cursor: 'pointer',
+          //   background: 'rgba(255, 255, 255, 0.2)',
+          //   border: '1px solid rgba(255, 255, 255, 0.3)',
+          //   padding: '4px 12px',
+          //   color: 'inherit',
+          //   fontSize: '0.875rem',
+          //   borderRadius: '4px',
+          //   alignSelf: 'flex-start',
+          // }}
+        >
+          View Task
+        </button>
+      )}
+    </div>,
+    { 
+      autoClose: false, // Must manually close
+      closeOnClick: false,
+      draggable: true,
+      closeButton: true,
+    },
+  );
+};
 
 /**
  * Shows a toast with an "Undo" button.

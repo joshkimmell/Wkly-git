@@ -7,6 +7,7 @@ import GoalForm from '@components/GoalForm';
 import TasksList from '@components/TasksList';
 import TaskCard from '@components/TaskCard';
 import AllTasksCalendar from '@components/AllTasksCalendar';
+import TasksKanban from '@components/TasksKanban';
 import Modal from 'react-modal';
 import ConfirmModal from './ConfirmModal';
 import AccomplishmentsModal from './AccomplishmentsModal';
@@ -21,17 +22,19 @@ import { mapPageForScope, loadPageByScope, savePageByScope } from '@utils/pagina
 import 'react-datepicker/dist/react-datepicker.css';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
-import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, CalendarDays, Eye, Edit, Trash, EyeOff, ChevronRight, ChevronDown, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash, ListTodo, Clock, CircleEllipsis, MoreVertical, Expand, Minimize, Maximize, Shrink } from 'lucide-react';
+import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, CalendarDays, Eye, Edit, Trash, EyeOff, ChevronRight, ChevronDown, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash, ListTodo, Clock, CircleEllipsis, MoreVertical, Expand, Minimize, Maximize, Shrink, CircleOff, XCircle, XCircleIcon, Target, Bell, Archive } from 'lucide-react';
 import { useGoalsContext } from '@context/GoalsContext';
+import { useTimezone } from '@context/TimezoneContext';
+import { convertToUTC } from '@utils/timezone';
 import useGoalExtras from '@hooks/useGoalExtras';
 // notify helpers imported where needed below
-import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, FormGroup, FormLabel, InputLabel, Select, MenuItem, Tooltip, Menu, Chip, Badge, Checkbox, ListItemText, ToggleButtonGroup, ToggleButton, Table, TableHead, TableBody, TableRow, TableCell, Paper, Typography, Switch, FormControlLabel, useMediaQuery, Button } from '@mui/material';
+import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, FormGroup, FormLabel, InputLabel, Select, MenuItem, Tooltip, Menu, Chip, Badge, Checkbox, ListItemText, ToggleButtonGroup, ToggleButton, Table, TableHead, TableBody, TableRow, TableCell, Paper, Typography, Switch, FormControlLabel, useMediaQuery, Button, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 // dnd-kit was attempted but failed to install; use HTML5 drag/drop fallback
 import { useTheme } from '@mui/material/styles';
 import supabase from '@lib/supabase';
-import { STATUS_COLORS } from '../constants/statuses';
+import { STATUS_COLORS, STATUSES } from '../constants/statuses';
 import { notifyError, notifySuccess, notifyWithUndo } from '@components/ToastyNotification';
-import { DatePicker, LocalizationProvider, TimeClock } from '@mui/x-date-pickers';
+import { ClearIcon, DatePicker, DateTimePicker, LocalizationProvider, TimeClock, TimePicker } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type { Dayjs } from 'dayjs';
 import type { ChangeEvent } from 'react';
@@ -48,7 +51,7 @@ const InlineStatus: React.FC<{ tasks?: Task[] }> = ({ tasks = [] }) => {
     return (
         <div className="flex items-center justify-center">
             {tasks && tasks.length > 0 && (
-                <GoalCompletionDonut percentage={completion} size={40} strokeWidth={4} />
+                <GoalCompletionDonut percentage={completion} size={50} strokeWidth={4} />
             )}
         </div>
     );
@@ -66,6 +69,7 @@ const GoalsComponent = () => {
     };
 
     const [indexedGoals, setIndexedGoals] = useState<Record<string, Goal[]>>({});
+    const indexedGoalsRef = useRef<Record<string, Goal[]>>({});
     const [pages, setPages] = useState<string[]>([]);
     const [currentPage, setCurrentPage] = useState<string>('');
     const currentPageRef = useRef<string>(currentPage);
@@ -87,10 +91,17 @@ const GoalsComponent = () => {
     const [addMenuAnchorEl, setAddMenuAnchorEl] = useState<HTMLElement | null>(null);
     // Standalone "Add a task" modal state
     const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
-    const [standaloneNewTask, setStandaloneNewTask] = useState<Partial<Task>>({ title: '', description: '', scheduled_date: '', scheduled_time: '' });
+    const [standaloneNewTask, setStandaloneNewTask] = useState<Partial<Task>>({ title: '', description: '' });
     const [standaloneTaskGoalId, setStandaloneTaskGoalId] = useState<string>('');
     const [standaloneCreateNewGoal, setStandaloneCreateNewGoal] = useState(false);
     const [standaloneNewGoalTitle, setStandaloneNewGoalTitle] = useState('');
+    // Date/time picker + reminder state for standalone Add Task modal
+    const [standaloneSelectedDate, setStandaloneSelectedDate] = useState<Dayjs | null>(null);
+    const [standaloneSelectedTime, setStandaloneSelectedTime] = useState<Dayjs | null>(null);
+    const [standaloneReminderEnabled, setStandaloneReminderEnabled] = useState(false);
+    const [standaloneReminderOffset, setStandaloneReminderOffset] = useState('30');
+    const [standaloneReminderDatetime, setStandaloneReminderDatetime] = useState('');
+    const [standaloneSelectedReminderDatetime, setStandaloneSelectedReminderDatetime] = useState<Dayjs | null>(null);
     const [newGoal, setNewGoal] = useState<Goal>({
         id: '',
         title: '',
@@ -129,6 +140,7 @@ const GoalsComponent = () => {
     const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
     // shared accomplishments/notes hook
     const goalExtras = useGoalExtras();
+    const { timezone } = useTimezone();
     const {
     accomplishments,
     accomplishmentCountMap,
@@ -174,10 +186,12 @@ const GoalsComponent = () => {
     const blurTimeoutRef = useRef<number | null>(null);
     const showClear = filter.length > 0 || filterFocused || clearButtonFocused;
         // Filter popover state and criteria
-    const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLElement | null>(null);
+    const [filterPanelOpen, setFilterPanelOpen] = useState(false);
     const [filterStatus, setFilterStatus] = useState<string[]>([]);
     const [filterCategory, setFilterCategory] = useState<string[]>([]);
+    const [showArchived, setShowArchived] = useState(false);
     const [filterGoal, setFilterGoal] = useState<string[]>([]);
+    const [filterScope, setFilterScope] = useState<string[]>([]);
     const [filterStartDate, setFilterStartDate] = useState<Dayjs | null>(null);
     const [filterEndDate, setFilterEndDate] = useState<Dayjs | null>(null);
     const [summaryAnchorEl, setSummaryAnchorEl] = useState<HTMLElement | null>(null);
@@ -315,16 +329,17 @@ const GoalsComponent = () => {
     // derive category options from the currently loaded goals (only categories actually used by goals)
     const allLoadedGoals = Object.values(indexedGoals).flat();
     const categoryOptions = Array.from(new Set(allLoadedGoals.map((g) => (g.category || '').toString()).filter(Boolean)));
-        // derive statuses from current goals if available
-        const statusOptions = Array.from(new Set(Object.values(indexedGoals).flat().map((g) => (g.status || '').toString()).filter(Boolean)));
+        // task status options (fixed list)
+        const statusOptions = [...STATUSES];
 
     // Count of active filters to display as a badge on the filter button
     const selectedFiltersCount =
         (filterStatus?.length || 0) +
         (filterCategory?.length || 0) +
         (filterGoal?.length || 0) +
+        (filterScope?.length || 0) +
         (filterStartDate && filterEndDate ? 1 : 0) +
-        (filter && filter.trim().length > 0 ? 1 : 0);
+        (showArchived ? 1 : 0);
 
     const theme = useTheme();
     const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
@@ -340,34 +355,12 @@ const GoalsComponent = () => {
         return 'cards';
     });
 
-    // Whether Kanban should show all goals (true) or only current scope (false).
-    const [showAllGoals, setshowAllGoals] = useState<boolean>(() => {
-        try {
-            const v = localStorage.getItem('kanban_show_all');
-            // Default to false to ensure pagination and scoped views render in tests
-            return v === null ? false : v === 'true';
-        } catch (e) { return false; }
-    });
-
     // Kanban tasks state
     const [kanbanTasks, setKanbanTasks] = useState<Record<string, Task[]>>({});
-
-    useEffect(() => {
-        try {
-            console.debug('[AllGoals] showAllGoals persisted ->', showAllGoals);
-            localStorage.setItem('kanban_show_all', showAllGoals ? 'true' : 'false');
-        } catch {}
-    }, [showAllGoals]);
-
-    // When user turns OFF 'Show all' ensure we drop the unscoped cache so the
-    // UI and effects only operate on scoped `indexedGoals`. This avoids any
-    // accidental usage of stale `fullGoals` when the toggle is disabled.
-    useEffect(() => {
-        if (!showAllGoals) {
-            console.debug('[AllGoals] showAllGoals disabled — clearing fullGoals cache');
-            setFullGoals(null);
-        }
-    }, [showAllGoals]);
+    
+    // Notification-triggered task edit modal state
+    const [notificationTaskModalOpen, setNotificationTaskModalOpen] = useState(false);
+    const [notificationTask, setNotificationTask] = useState<Task | null>(null);
 
     const handleChangeView = (_: React.MouseEvent<HTMLElement>, value: 'cards' | 'table' | 'kanban' | 'tasks-calendar' | null) => {
         if (!value) return;
@@ -417,13 +410,11 @@ const GoalsComponent = () => {
 
     // Keep kanbanColumns in sync when indexedGoals change
     useEffect(() => {
-    // Choose whether to use the unscoped fullGoals collection depending on the
-    // global 'Show all' toggle. This now applies to all views.
-    const useFull = showAllGoals && !!fullGoals && fullGoals.length > 0;
-    console.debug('[AllGoals] kanbanColumns effect running. useFull=', useFull, { viewMode, showAllGoals, fullGoalsCount: fullGoals ? fullGoals.length : 0, indexedPages: Object.keys(indexedGoals).length, isScopeLoading });
-    // If we're loading a new scope, and the user hasn't requested "All", clear columns
-    // to avoid rendering stale IDs from the previous scope.
-    if (isScopeLoading && viewMode === 'kanban' && !showAllGoals) {
+    // Always show all goals (ignoring scope toggle)
+    const useFull = !!fullGoals && fullGoals.length > 0;
+    console.debug('[AllGoals] kanbanColumns effect running. useFull=', useFull, { viewMode, fullGoalsCount: fullGoals ? fullGoals.length : 0, indexedPages: Object.keys(indexedGoals).length, isScopeLoading });
+    // If we're loading a new scope clear columns to avoid rendering stale IDs
+    if (isScopeLoading && viewMode === 'kanban') {
     setKanbanColumns((_prev) => {
             const statuses = ['Not started', 'In progress', 'Blocked', 'On hold', 'Done'];
             const empty: Record<string, string[]> = {} as Record<string, string[]>;
@@ -432,7 +423,7 @@ const GoalsComponent = () => {
         });
         return;
     }
-    const sourceGoals = showAllGoals ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || []);
+    const sourceGoals = fullGoals || Object.values(indexedGoals).flat();
         const statuses = ['Not started', 'In progress', 'Blocked', 'On hold', 'Done'];
         const cols: Record<string, string[]> = {} as Record<string, string[]>;
         for (const s of statuses) cols[s] = [];
@@ -442,7 +433,7 @@ const GoalsComponent = () => {
             cols[st].push(g.id);
         }
         setKanbanColumns(cols);
-    }, [indexedGoals, viewMode, showAllGoals, fullGoals, currentPage, filter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection]);
+    }, [indexedGoals, viewMode, fullGoals, currentPage, filter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection, kanbanTasks]);
 
     // Keep kanban columns updated when fullGoals or filters change
     useEffect(() => {
@@ -457,14 +448,13 @@ const GoalsComponent = () => {
             cols[st].push(g.id);
         }
         setKanbanColumns(cols);
-    }, [fullGoals, filter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection, viewMode]);
+    }, [fullGoals, filter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection, viewMode, kanbanTasks]);
 
-    // Fetch the full (unscoped) goals list when entering Kanban view AND the user
-    // requested "Show all" so the board shows all goals by default only when needed.
+    // Fetch the full (unscoped) goals list when entering Kanban view
     useEffect(() => {
         let mounted = true;
         const load = async () => {
-            if (viewMode !== 'kanban' || !showAllGoals) return;
+            if (viewMode !== 'kanban') return;
             try {
                 const all = await fetchAllGoals();
                 if (mounted) setFullGoals(all);
@@ -474,7 +464,7 @@ const GoalsComponent = () => {
         };
         load();
         return () => { mounted = false; };
-    }, [viewMode, showAllGoals]);
+    }, [viewMode]);
 
     // HTML5 Drag & Drop Kanban handlers (visual feedback + reorder)
     const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
@@ -649,7 +639,7 @@ const GoalsComponent = () => {
             const { data: { session } } = await supabase.auth.getSession();
             const token = session?.access_token;
             
-            const response = await fetch('/api/updateTask', {
+            const response = await fetch('/.netlify/functions/updateTask', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -948,10 +938,16 @@ const GoalsComponent = () => {
 
     const closeAddTaskModal = () => {
         setIsAddTaskModalOpen(false);
-        setStandaloneNewTask({ title: '', description: '', scheduled_date: '', scheduled_time: '' });
+        setStandaloneNewTask({ title: '', description: '' });
         setStandaloneTaskGoalId('');
         setStandaloneCreateNewGoal(false);
         setStandaloneNewGoalTitle('');
+        setStandaloneSelectedDate(null);
+        setStandaloneSelectedTime(null);
+        setStandaloneReminderEnabled(false);
+        setStandaloneReminderOffset('30');
+        setStandaloneReminderDatetime('');
+        setStandaloneSelectedReminderDatetime(null);
     };
 
     const createStandaloneTask = async () => {
@@ -981,7 +977,29 @@ const GoalsComponent = () => {
                 goalId = createdGoal.id;
                 await refreshGoals();
             }
-            const response = await fetch('/api/createTask', {
+            const dateStr = standaloneSelectedDate ? standaloneSelectedDate.format('YYYY-MM-DD') : null;
+            const timeStr = standaloneSelectedTime ? standaloneSelectedTime.format('HH:mm') : null;
+            // Compute reminder datetime in UTC
+            let computedReminderDatetime: string | null = null;
+            let finalReminderEnabled = standaloneReminderEnabled;
+            if (standaloneReminderEnabled) {
+                try {
+                    if (standaloneReminderOffset === 'custom') {
+                        computedReminderDatetime = standaloneReminderDatetime ? new Date(standaloneReminderDatetime).toISOString() : null;
+                    } else if (dateStr && timeStr) {
+                        const scheduledUTC = convertToUTC(dateStr, timeStr, timezone);
+                        const scheduledDate = new Date(scheduledUTC);
+                        scheduledDate.setMinutes(scheduledDate.getMinutes() - Number(standaloneReminderOffset));
+                        computedReminderDatetime = scheduledDate.toISOString();
+                    } else if (standaloneReminderDatetime) {
+                        computedReminderDatetime = new Date(standaloneReminderDatetime).toISOString();
+                    }
+                } catch (e) {
+                    computedReminderDatetime = null;
+                }
+                if (!computedReminderDatetime) finalReminderEnabled = false;
+            }
+            const response = await fetch('/.netlify/functions/createTask', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({
@@ -989,8 +1007,10 @@ const GoalsComponent = () => {
                     title: standaloneNewTask.title!.trim(),
                     description: standaloneNewTask.description || null,
                     status: 'Not started',
-                    scheduled_date: standaloneNewTask.scheduled_date || null,
-                    scheduled_time: standaloneNewTask.scheduled_time || null,
+                    scheduled_date: dateStr,
+                    scheduled_time: timeStr,
+                    reminder_enabled: finalReminderEnabled,
+                    reminder_datetime: computedReminderDatetime,
                     order_index: 0,
                 }),
             });
@@ -1021,7 +1041,7 @@ const GoalsComponent = () => {
     // Function to refresh goals (keeps current selection where possible)
     const refreshGoals = useCallback(async () : Promise<{indexedGoals: Record<string, Goal[]>, pages: string[]}> => {
         try {
-        const { indexedGoals, pages } = await fetchAllGoalsIndexed(scope);
+        const { indexedGoals, pages } = await fetchAllGoalsIndexed(scope, undefined, undefined, undefined, showArchived);
         setIndexedGoals(indexedGoals);
         setPages(pages);
         // Keep the latest currentPage in a ref to avoid stale closures from async callers
@@ -1040,7 +1060,48 @@ const GoalsComponent = () => {
     setIsScopeLoading(false);
         return { indexedGoals: {}, pages: [] };
         }
-    }, [scope]);
+    }, [scope, showArchived]);
+
+    // Re-fetch goals whenever the showArchived toggle changes so the list reflects the new mode.
+    // refreshGoals already passes showArchived to fetchAllGoalsIndexed.
+    useEffect(() => {
+        refreshGoals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [showArchived]);
+
+    // Check for notification-triggered task edit on mount
+    useEffect(() => {
+        const checkNotificationTask = async () => {
+            const taskId = sessionStorage.getItem('wkly_edit_task_id');
+            if (taskId) {
+                sessionStorage.removeItem('wkly_edit_task_id');
+                
+                try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const token = session?.access_token;
+                    if (!token) return;
+                    
+                    const response = await fetch('/.netlify/functions/getAllTasks', {
+                        headers: { 'Authorization': `Bearer ${token}` },
+                    });
+                    
+                    if (!response.ok) return;
+                    
+                    const allTasks: Task[] = await response.json();
+                    const task = allTasks.find((t) => t.id === taskId);
+                    
+                    if (task) {
+                        setNotificationTask(task);
+                        setNotificationTaskModalOpen(true);
+                    }
+                } catch (error) {
+                    console.error('Failed to load notification task:', error);
+                }
+            }
+        };
+        
+        checkNotificationTask();
+    }, []);
 
     // Function to fetch all tasks and group them by goal_id for kanban display
     const fetchKanbanTasks = useCallback(async () => {
@@ -1051,7 +1112,7 @@ const GoalsComponent = () => {
             const token = session?.access_token;
             if (!token) throw new Error('User not authenticated');
 
-            const response = await fetch('/api/getAllTasks', {
+            const response = await fetch('/.netlify/functions/getAllTasks', {
                 headers: { Authorization: `Bearer ${token}` },
             });
             
@@ -1091,21 +1152,37 @@ const GoalsComponent = () => {
 
     // Task handlers for kanban view
     const handleTaskStatusChange = async (taskId: string, newStatus: Task['status']) => {
-        // Find the goal_id for this task
+        // Find the goal_id and old status for this task
         let goalId: string | undefined;
+        let oldStatus: Task['status'] | undefined;
         for (const gid of Object.keys(kanbanTasks)) {
-            if (kanbanTasks[gid]?.some(t => t.id === taskId)) {
+            const task = kanbanTasks[gid]?.find(t => t.id === taskId);
+            if (task) {
                 goalId = gid;
+                oldStatus = task.status;
                 break;
             }
         }
+        
+        if (!goalId || !oldStatus) return;
+        
+        // Optimistic update: update UI immediately
+        setKanbanTasks((prev) => {
+            const updated = { ...prev };
+            if (updated[goalId]) {
+                updated[goalId] = updated[goalId].map(t => 
+                    t.id === taskId ? { ...t, status: newStatus } : t
+                );
+            }
+            return updated;
+        });
         
         try {
             const { data: { session } } = await supabase.auth.getSession();
             const token = session?.access_token;
             if (!token) throw new Error('User not authenticated');
 
-            const response = await fetch('/api/updateTask', {
+            const response = await fetch('/.netlify/functions/updateTask', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1116,29 +1193,54 @@ const GoalsComponent = () => {
 
             if (!response.ok) throw new Error('Failed to update task status');
             notifySuccess('Task status updated');
-            await fetchKanbanTasks(); // Refresh tasks
         } catch (error) {
             console.error('Error updating task status:', error);
             notifyError('Failed to update task status');
+            // Revert on error
+            setKanbanTasks((prev) => {
+                const updated = { ...prev };
+                if (updated[goalId]) {
+                    updated[goalId] = updated[goalId].map(t => 
+                        t.id === taskId ? { ...t, status: oldStatus } : t
+                    );
+                }
+                return updated;
+            });
         }
     };
 
     const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
-        // Find the goal_id for this task
+        // Find the goal_id and task for this update
         let goalId: string | undefined;
+        let originalTask: Task | undefined;
         for (const gid of Object.keys(kanbanTasks)) {
-            if (kanbanTasks[gid]?.some(t => t.id === taskId)) {
+            const task = kanbanTasks[gid]?.find(t => t.id === taskId);
+            if (task) {
                 goalId = gid;
+                originalTask = { ...task };
                 break;
             }
         }
+        
+        if (!goalId || !originalTask) return;
+        
+        // Optimistic update: update UI immediately
+        setKanbanTasks((prev) => {
+            const updated = { ...prev };
+            if (updated[goalId]) {
+                updated[goalId] = updated[goalId].map(t => 
+                    t.id === taskId ? { ...t, ...updates } : t
+                );
+            }
+            return updated;
+        });
         
         try {
             const { data: { session } } = await supabase.auth.getSession();
             const token = session?.access_token;
             if (!token) throw new Error('User not authenticated');
 
-            const response = await fetch('/api/updateTask', {
+            const response = await fetch('/.netlify/functions/updateTask', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1149,10 +1251,19 @@ const GoalsComponent = () => {
 
             if (!response.ok) throw new Error('Failed to update task');
             notifySuccess('Task updated');
-            await fetchKanbanTasks(); // Refresh tasks
         } catch (error) {
             console.error('Error updating task:', error);
             notifyError('Failed to update task');
+            // Revert on error
+            setKanbanTasks((prev) => {
+                const updated = { ...prev };
+                if (updated[goalId]) {
+                    updated[goalId] = updated[goalId].map(t => 
+                        t.id === taskId ? originalTask : t
+                    );
+                }
+                return updated;
+            });
         }
     };
 
@@ -1179,7 +1290,7 @@ const GoalsComponent = () => {
                 const { data: { session } } = await supabase.auth.getSession();
                 const token = session?.access_token;
                 if (!token) throw new Error('User not authenticated');
-                const response = await fetch('/api/deleteTask', {
+                const response = await fetch('/.netlify/functions/deleteTask', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                     body: JSON.stringify({ id: taskId }),
@@ -1226,16 +1337,15 @@ const GoalsComponent = () => {
     const { refreshGoals: ctxRefresh, removeGoalFromCache, lastUpdated, lastAddedIds, setLastAddedIds, goals: ctxGoals } = useGoalsContext();
 
     // Periodic refresh of fullGoals and refresh on background signals while Kanban is active
-    // Only refresh the unscoped list when the user has chosen to show all goals.
     useEffect(() => {
         let mounted = true;
         const reload = async () => {
-            if (viewMode !== 'kanban' || !showAllGoals) {
-                console.debug('[AllGoals] reload skipped, viewMode or toggle not set', { viewMode, showAllGoals });
+            if (viewMode !== 'kanban') {
+                console.debug('[AllGoals] reload skipped, not in kanban view', { viewMode });
                 return;
             }
             try {
-                console.debug('[AllGoals] reload: fetching fullGoals (showAllGoals=true)');
+                console.debug('[AllGoals] reload: fetching fullGoals');
                 const all = await fetchAllGoals();
                 if (mounted) setFullGoals(all);
             } catch (err) {
@@ -1251,7 +1361,7 @@ const GoalsComponent = () => {
         }, 60_000); // refresh every 60 seconds
 
         return () => { mounted = false; clearInterval(handle); };
-    }, [viewMode, showAllGoals, lastUpdated, lastAddedIds]);
+    }, [viewMode, lastUpdated, lastAddedIds]);
 
     // When the global goals cache is updated (via context), ensure this component refreshes
     useEffect(() => {
@@ -1428,26 +1538,42 @@ const GoalsComponent = () => {
     useEffect(() => {
         try {
             if (!isScopeLoading) return;
-            // If we're not in scoped kanban mode, there's nothing to wait for
-            if (viewMode !== 'kanban' || showAllGoals) {
-                setIsScopeLoading(false);
-                return;
-            }
-            // If pages are populated and the current page is available, stop loading
-            if (pages && pages.length > 0 && currentPage && pages.includes(currentPage)) {
-                setIsScopeLoading(false);
-                return;
-            }
+            // Always showing all goals, so clear the loading state
+            setIsScopeLoading(false);
         } catch (err) {
             // best-effort only
             try { setIsScopeLoading(false); } catch {}
         }
-    }, [currentPage, pages, viewMode, showAllGoals, isScopeLoading]);
+    }, [isScopeLoading]);
 
     
 
   // Filtering predicate to be shared across views
+    // Build a fast set of active goal IDs from the live context (always excludes archived goals
+    // because fetchAllGoals backend filters is_archived = false). Used to catch stale
+    // indexedGoals entries whose is_archived flag hasn't been updated yet.
+    const ctxGoalIds = useMemo(() => new Set(ctxGoals.map(g => g.id)), [ctxGoals]);
+
+    // Set of goal IDs that the context explicitly knows are archived (is_archived: true).
+    // Catches the case where updateGoalInCache marks a goal archived in context but
+    // indexedGoals still carries the stale is_archived: false (e.g. due to CDN caching).
+    const ctxArchivedIds = useMemo(() => new Set(ctxGoals.filter(g => g.is_archived).map(g => g.id)), [ctxGoals]);
+
     const goalMatchesFilters = (goal: Goal) => {
+        // A goal is considered archived if:
+        //   (a) the flag on the object is explicitly true, OR
+        //   (b) it has disappeared from the live context cache (which the backend always filters
+        //       to only return is_archived=false), indicating it was archived even though the
+        //       local indexedGoals entry still carries the old flag value.
+        const isArchived =
+            goal.is_archived === true ||
+            ctxArchivedIds.has(goal.id) ||
+            (!String(goal.id).startsWith('temp-') && ctxGoals.length > 0 && !ctxGoalIds.has(goal.id));
+
+        // By default hide archived goals. When showArchived is on, include them in the view
+        // alongside active goals (inclusive, not exclusive).
+        if (!showArchived && isArchived) return false;
+
         // text filter (defensive) — uses debouncedFilter to avoid recomputing on every keystroke
         const q = (debouncedFilter || '').toString().trim();
         const qLower = q ? q.toLowerCase() : '';
@@ -1460,46 +1586,91 @@ const GoalsComponent = () => {
         );
         if (!textMatch) return false;
 
-        // status filter (multi-select)
-        if (filterStatus && filterStatus.length > 0 && !filterStatus.includes((goal.status || ''))) return false;
+        // task status filter — show goals that have at least one task with a matching status
+        if (filterStatus && filterStatus.length > 0) {
+            const goalTasks: Task[] = tableTasksByGoal[goal.id] || kanbanTasks[goal.id] || [];
+            // If tasks are loaded, require at least one to match; if not yet loaded, let the goal through
+            if (goalTasks.length > 0) {
+                const hasMatchingTask = goalTasks.some((t) => filterStatus.includes(t.status || ''));
+                if (!hasMatchingTask) return false;
+            }
+        }
 
         // category filter (multi-select)
         if (filterCategory && filterCategory.length > 0 && !filterCategory.includes((goal.category || ''))) return false;
 
-        // time range filter - compare week_start (YYYY-MM-DD)
-        const compareGoalDate = (dateStr: string | undefined): Date | null => {
-            if (!dateStr) return null;
-            const d = new Date(dateStr);
-            if (isNaN(d.getTime())) return null;
-            return d;
-        };
-
-        const isDayjsLike = (v: unknown): v is { toDate: () => Date } => {
-            return typeof v === 'object' && v !== null && 'toDate' in v && typeof (v as { toDate?: unknown }).toDate === 'function';
-        };
-
-        if (filterStartDate) {
-            try {
-                const goalDate = compareGoalDate(goal.week_start);
-                let start: Date | undefined;
-                if (isDayjsLike(filterStartDate)) {
-                    start = filterStartDate.toDate();
-                } else {
-                    start = filterStartDate as unknown as Date;
+        // scope filter (multi-select) - determines if goal falls into week/month/year scope
+        if (filterScope && filterScope.length > 0) {
+            const weekStart = goal.week_start;
+            if (!weekStart) return false;
+            
+            const goalDate = new Date(weekStart);
+            const now = new Date();
+            const currentWeekStart = new Date(getWeekStartDate(now));
+            const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            const currentYearStart = new Date(now.getFullYear(), 0, 1);
+            
+            let matchesScope = false;
+            for (const scopeFilter of filterScope) {
+                if (scopeFilter === 'week') {
+                    // Check if goal falls within current week
+                    const weekEnd = new Date(currentWeekStart);
+                    weekEnd.setDate(weekEnd.getDate() + 7);
+                    if (goalDate >= currentWeekStart && goalDate < weekEnd) {
+                        matchesScope = true;
+                        break;
+                    }
+                } else if (scopeFilter === 'month') {
+                    // Check if goal is in current month
+                    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                    if (goalDate >= currentMonthStart && goalDate <= monthEnd) {
+                        matchesScope = true;
+                        break;
+                    }
+                } else if (scopeFilter === 'year') {
+                    // Check if goal is in current year
+                    const yearEnd = new Date(now.getFullYear(), 11, 31);
+                    if (goalDate >= currentYearStart && goalDate <= yearEnd) {
+                        matchesScope = true;
+                        break;
+                    }
                 }
-                if (goalDate && start && goalDate < start) return false;
-            } catch { /* ignore parse errors */ }
+            }
+            if (!matchesScope) return false;
         }
-        if (filterEndDate) {
+
+        // Date range filter — a goal passes if any of its tasks falls within [filterStartDate, filterEndDate].
+        // The goal's effective date range is derived from its tasks, not week_start.
+        if (filterStartDate || filterEndDate) {
             try {
-                const goalDate = compareGoalDate(goal.week_start);
-                let end: Date | undefined;
-                if (isDayjsLike(filterEndDate)) {
-                    end = filterEndDate.toDate();
-                } else {
-                    end = filterEndDate as unknown as Date;
+                const isDayjsLike = (v: unknown): v is { toDate: () => Date } =>
+                    typeof v === 'object' && v !== null && 'toDate' in v &&
+                    typeof (v as { toDate?: unknown }).toDate === 'function';
+
+                const start: Date | null = filterStartDate
+                    ? (isDayjsLike(filterStartDate) ? filterStartDate.toDate() : filterStartDate as unknown as Date)
+                    : null;
+                const end: Date | null = filterEndDate
+                    ? (isDayjsLike(filterEndDate) ? filterEndDate.toDate() : filterEndDate as unknown as Date)
+                    : null;
+
+                // Gather tasks for this goal from whichever cache is populated
+                const goalTasks: Task[] = tableTasksByGoal[goal.id] || kanbanTasks[goal.id] || [];
+
+                // If no tasks are loaded yet, let the goal through (don't exclude it)
+                if (goalTasks.length > 0) {
+                    const hasMatchingTask = goalTasks.some((t) => {
+                        if (!t.scheduled_date) return false;
+                        try {
+                            const taskDate = new Date(t.scheduled_date);
+                            if (isNaN(taskDate.getTime())) return false;
+                            if (start && taskDate < start) return false;
+                            if (end && taskDate > end) return false;
+                            return true;
+                        } catch { return false; }
+                    });
+                    if (!hasMatchingTask) return false;
                 }
-                if (goalDate && end && goalDate > end) return false;
             } catch { /* ignore parse errors */ }
         }
 
@@ -1508,6 +1679,20 @@ const GoalsComponent = () => {
 
     // Task filter function - applies same filters to tasks
     const taskMatchesFilters = (task: Task, taskGoalId?: string) => {
+        // Archive filter: hide tasks belonging to archived goals unless showArchived is on.
+        // Use the same 3-part check as goalMatchesFilters:
+        //   1. task.goal.is_archived (data from getAllTasks join)
+        //   2. ctxArchivedIds (goal marked archived in live context)
+        //   3. goal absent from ctxGoals entirely (archived in a prior session, filtered by backend)
+        const effectiveGoalId = taskGoalId || (task as any).goal_id;
+        if (!showArchived && effectiveGoalId) {
+            const taskGoalIsArchived =
+                (task as any).goal?.is_archived === true ||
+                ctxArchivedIds.has(effectiveGoalId) ||
+                (!String(effectiveGoalId).startsWith('temp-') && ctxGoals.length > 0 && !ctxGoalIds.has(effectiveGoalId));
+            if (taskGoalIsArchived) return false;
+        }
+
         // text filter (search task title, goal title, category)
         const q = (filter || '').toString().trim();
         const qLower = q ? q.toLowerCase() : '';
@@ -1568,17 +1753,17 @@ const GoalsComponent = () => {
     const [newTaskData, setNewTaskData] = useState<Partial<Task>>({
         title: '',
         description: '',
-        scheduled_date: '',
-        scheduled_time: '',
+        reminder_enabled: false,
     });
+    const [tableSelectedDate, setTableSelectedDate] = useState<Dayjs | null>(null);
+    const [tableSelectedTime, setTableSelectedTime] = useState<Dayjs | null>(null);
+    const [tableReminderDatetime, setTableReminderDatetime] = useState<Dayjs | null>(null);
 
     // Filtered & sorted list for the current page (cards/table)
-    // If the global "Show all" toggle is enabled, present the unscoped fullGoals
-    // list instead of the current page's indexed goals so the toggle applies
-    // consistently across all views.
+    // Always show all goals from all pages (ignoring scope pagination)
     const allIndexedFlattened = Object.values(indexedGoals).flat();
     const sortedAndFilteredGoals = useMemo(() => {
-        const source = showAllGoals ? (fullGoals || allIndexedFlattened) : (indexedGoals[currentPage] || []);
+        const source = allIndexedFlattened;
         return source.filter(goalMatchesFilters).sort((a, b) => {
             const dir = sortDirection === 'asc' ? 1 : -1;
             if (sortBy === 'date') {
@@ -1599,11 +1784,12 @@ const GoalsComponent = () => {
                 return 0;
             }
             // status sorts by completion percentage (% of tasks done)
-            const pa = calculateGoalCompletion(tableTasksByGoal[a.id] || []);
-            const pb = calculateGoalCompletion(tableTasksByGoal[b.id] || []);
+            // Fall back to kanbanTasks when tableTasksByGoal is empty (e.g. cards view)
+            const pa = calculateGoalCompletion(tableTasksByGoal[a.id] || kanbanTasks[a.id] || []);
+            const pb = calculateGoalCompletion(tableTasksByGoal[b.id] || kanbanTasks[b.id] || []);
             return dir * (pa - pb);
         });
-    }, [showAllGoals, fullGoals, indexedGoals, currentPage, debouncedFilter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection, tableTasksByGoal]);
+    }, [indexedGoals, debouncedFilter, filterStatus, filterCategory, filterStartDate, filterEndDate, sortBy, sortDirection, tableTasksByGoal, kanbanTasks]);
     
 
     // Proactively fetch counts for visible goals on page load (batched in chunks)
@@ -1696,22 +1882,16 @@ const GoalsComponent = () => {
         return dir * (pa - pb);
     });
 
-    // Compute visible IDs depending on viewMode (kanban wants all-goals filtering)
+    // Compute visible IDs depending on viewMode (kanban uses fullGoals if available)
     const visibleGoalIds = useMemo(() => {
         let list: Goal[];
         if (viewMode === 'kanban') {
-            if (showAllGoals) {
-                list = sortedAndFilteredFullGoals;
-            } else {
-                // When not showing all in kanban, respect the current page/scope
-                // so the board displays only goals in the selected page.
-                list = sortedAndFilteredGoals;
-            }
+            list = sortedAndFilteredFullGoals;
         } else {
             list = sortedAndFilteredGoals;
         }
         return new Set(list.map((g) => g.id));
-    }, [viewMode, showAllGoals, sortedAndFilteredFullGoals, sortedAndFilteredAllGoals, sortedAndFilteredGoals]);
+    }, [viewMode, sortedAndFilteredFullGoals, sortedAndFilteredGoals]);
 
     // Add a function to highlight filtered words
 //   const applyHighlight = (text: string, filter: string) => {
@@ -1838,7 +2018,7 @@ const GoalsComponent = () => {
             const token = session?.access_token;
             if (!token) return;
 
-            const response = await fetch('/api/getAllTasks', {
+            const response = await fetch('/.netlify/functions/getAllTasks', {
                 headers: { Authorization: `Bearer ${token}` },
             });
             
@@ -1863,7 +2043,7 @@ const GoalsComponent = () => {
             const token = session?.access_token;
             if (!token) return;
 
-            const response = await fetch('/api/getAllTasks', {
+            const response = await fetch('/.netlify/functions/getAllTasks', {
                 headers: { Authorization: `Bearer ${token}` },
             });
             
@@ -1895,7 +2075,7 @@ const GoalsComponent = () => {
             const token = session?.access_token;
             if (!token) throw new Error('User not authenticated');
 
-            const response = await fetch('/api/createTask', {
+            const response = await fetch('/.netlify/functions/createTask', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1906,8 +2086,10 @@ const GoalsComponent = () => {
                     title: newTaskData.title,
                     description: newTaskData.description || null,
                     status: 'Not started',
-                    scheduled_date: newTaskData.scheduled_date || null,
-                    scheduled_time: newTaskData.scheduled_time || null,
+                    scheduled_date: tableSelectedDate ? tableSelectedDate.format('YYYY-MM-DD') : null,
+                    scheduled_time: tableSelectedTime ? tableSelectedTime.format('HH:mm') : null,
+                    reminder_enabled: newTaskData.reminder_enabled || false,
+                    reminder_datetime: tableReminderDatetime ? tableReminderDatetime.toISOString() : null,
                     order_index: (tableTasksByGoal[goalId]?.length || 0),
                 }),
             });
@@ -1918,24 +2100,44 @@ const GoalsComponent = () => {
             setNewTaskData({
                 title: '',
                 description: '',
-                scheduled_date: '',
-                scheduled_time: '',
+                reminder_enabled: false,
             });
+            setTableSelectedDate(null);
+            setTableSelectedTime(null);
+            setTableReminderDatetime(null);
             setAddingTaskForGoal(null);
             await fetchTasksForGoal(goalId);
         } catch (error) {
             console.error('Error creating task:', error);
             notifyError('Failed to create task');
         }
-    }, [newTaskData, tableTasksByGoal]);
+    }, [newTaskData, tableSelectedDate, tableSelectedTime, tableReminderDatetime, tableTasksByGoal]);
 
-    // Fetch tasks when switching to table view
+    // Fetch tasks when switching to table view or sorting by status in cards view.
+    // indexedGoals (not sortedAndFilteredGoals) is used as the source so that
+    // setTableTasksByGoal → sortedAndFilteredGoals changes never re-trigger this effect.
     useEffect(() => {
-        if (viewMode === 'table' && sortedAndFilteredGoals.length > 0) {
-            const goalIds = sortedAndFilteredGoals.map(g => g.id);
-            fetchTasksForAllGoals(goalIds);
+        const needsTasks = viewMode === 'table' || (viewMode === 'cards' && sortBy === 'status');
+        if (!needsTasks) return;
+        const allGoalIds = Object.values(indexedGoals).flat().map((g) => g.id);
+        if (allGoalIds.length > 0) {
+            fetchTasksForAllGoals(allGoalIds);
         }
-    }, [viewMode, sortedAndFilteredGoals, fetchTasksForAllGoals]);
+    }, [viewMode, sortBy, indexedGoals, fetchTasksForAllGoals]);
+
+    // Keep indexedGoalsRef in sync so effects can read current goals without subscribing
+    useEffect(() => { indexedGoalsRef.current = indexedGoals; }, [indexedGoals]);
+
+    // Pre-load tasks for all goals when a task-status filter becomes active so
+    // goalMatchesFilters can evaluate them. Uses a ref snapshot of indexedGoals
+    // to avoid subscribing to indexedGoals and causing a re-fetch loop.
+    useEffect(() => {
+        if (!filterStatus || filterStatus.length === 0) return;
+        const allGoalIds = Object.values(indexedGoalsRef.current).flat().map((g) => g.id);
+        if (allGoalIds.length > 0) {
+            fetchTasksForAllGoals(allGoalIds);
+        }
+    }, [filterStatus, fetchTasksForAllGoals]);
 
     
 
@@ -1944,120 +2146,13 @@ const GoalsComponent = () => {
     <div className={`space-y-6`}>
         <div className="flex justify-between items-center w-full">
             {/* <h1 className="text-2xl font-bold text-gray-90 block sm:hidden">{scope.charAt(0).toUpperCase() + scope.slice(1)}ly goals</h1> */}
-            <h1 className="mt-4 block sm:hidden">Goals</h1>
+            <h1 className="mt-4 block sm:hidden">Goals & Tasks</h1>
         </div>
 
-    {(sortedAndFilteredGoals.length > 0 || selectedFiltersCount > 0) ? (
+    {(allLoadedGoals.length > 0) ? (
             
         <>
-        {/* <div className="flex justify-between items-start sm:items-center w-full mb-4">
-            <div className='flex flex-col'>
-                
-                
-                <FormControl component="fieldset" variant="standard" className="ml-2">
-                    <FormLabel component="legend" className="sr-only">Goal view options</FormLabel>
-                    <FormGroup row>
-                        <FormControlLabel
-                            control={
-                                <Switch
-                                id='All goals switch'    
-                                checked={showAllGoals}
-                                    onChange={(_, v) => { console.debug('[AllGoals] Kanban switch toggled ->', v); setshowAllGoals(v); }}
-                                    size="small"
-                                    color='primary'
-                                />
-                            }
-                            label={'All goals'}
-                            className="ml-0 text-sm h-16"
-                            
-                        />
-
-
-
-                        {!showAllGoals && (
-                            <div className='flex space-x-2'>
-                                {['week', 'month', 'year'].map((s) => (
-                                    <button
-                                        key={s}
-                                        title={`Select ${s}ly view`}
-                                            onClick={() => {
-                                                // persist the currently-viewed page for the active scope before switching
-                                                const persistedForOld = currentPage || pageByScopeRef.current[scope];
-                                                const next = { ...pageByScopeRef.current, [scope]: persistedForOld };
-                                                setPageByScope(next);
-                                                pageByScopeRef.current = next;
-                                                try { savePageByScope(next); } catch 
-
-                                                // Compute a tentative page for the new scope so the UI doesn't flip to a default.
-                                                // - week (YYYY-MM-DD) -> month (YYYY-MM)
-                                                // - month (YYYY-MM) -> week (YYYY-MM-01) as a reasonable anchor
-                                                // - preserve year where possible
-                                                let tentative: string | undefined = pageByScopeRef.current[s];
-                                                if (!tentative) {
-                                                    if (s === 'month') {
-                                                        if (currentPage && /^\d{4}-\d{2}-\d{2}$/.test(currentPage)) {
-                                                            tentative = currentPage.slice(0, 7); // YYYY-MM
-                                                        } else if (currentPage && /^\d{4}-\d{2}$/.test(currentPage)) {
-                                                            tentative = currentPage;
-                                                        }
-                                                    } else if (s === 'week') {
-                                                        if (currentPage && /^\d{4}-\d{2}$/.test(currentPage)) {
-                                                            tentative = `${currentPage}-01`; // first day of month as anchor week page
-                                                        } else if (currentPage && /^\d{4}-\d{2}-\d{2}$/.test(currentPage)) {
-                                                            tentative = currentPage;
-                                                        }
-                                                    } else if (s === 'year') {
-                                                        if (currentPage && /^\d{4}-\d{2}-\d{2}$/.test(currentPage)) tentative = currentPage.slice(0, 4);
-                                                        else if (currentPage && /^\d{4}-\d{2}$/.test(currentPage)) tentative = currentPage.slice(0, 4);
-                                                    }
-                                                }
-
-                                                if (tentative) {
-                                                    setCurrentPage(tentative);
-                                                    currentPageRef.current = tentative;
-                                                }
-
-                                                // Record which scope we're switching from so the next fetch can map correctly
-                                                try {
-                                                    // debug removed in production
-                                                } catch 
-
-                                                console.debug('[AllGoals] scope switch requested', { from: scope, to: s, lastSwitchFromRef: lastSwitchFromRef.current });
-                                                // We're about to switch scope; enter a short 'loading'
-                                                // mode so views like Kanban don't read stale indexed data
-                                                // while the new scoped fetch is in-flight.
-                                                setIsScopeLoading(true);
-                                                setIndexedGoals({});
-                                                setPages([]);
-                                                setCurrentPage('');
-                                                currentPageRef.current = '';
-                                                lastSwitchFromRef.current = scope;
-                                                setScope(s as 'week' | 'month' | 'year');
-                                            }}
-                                        className={`btn-ghost ${scope === s ? 'text-brand-60 hover:text-brand-70 dark:text-brand-20 dark:hover:text-brand-10 font-bold underline' : ''}`}
-                                    >
-                                        <span className="hidden md:inline sm:inline">{s.charAt(0).toUpperCase() + s.slice(1)}</span>
-                                        <span className="md:hidden sm:hidden">{s.charAt(0).toUpperCase()}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </FormGroup>
-                </FormControl>
-                
-                {!showAllGoals && (
-                <Pagination
-                    pages={pages}
-                    currentPage={currentPage}
-                    onPageChange={handlePageChange}
-                    scope={scope}
-                />
-                )}
-                
-            </div>
-            <div className="flex space-x-2 items-center">
-            </div>
-        </div> */}
+        
         <div className='flex flex-col 2xl:flex-row 2xl:space-x-8 items-start justify-start w-full mb-4'>
             <div id="allGoals" className="flex flex-col gap-4 w-full">
                 <div className="flex flex-row items-center gap-4 space-x-4">
@@ -2069,14 +2164,14 @@ const GoalsComponent = () => {
                         onChange={handleChangeView}
                         size="small"
                         aria-label="View mode"
-                        className=""
+                        className="border rounded-md bg-transparent"
                     >
-                        <Tooltip title="View goals" placement="top" arrow><ToggleButton value="cards" aria-label="Cards view" className='btn-ghost'><LayoutGrid /></ToggleButton></Tooltip>
+                        <Tooltip title="View goal cards" placement="top" arrow><ToggleButton value="cards" aria-label="Cards view" className='btn-ghost !border-none'><LayoutGrid /></ToggleButton></Tooltip>
                         { !isSmall && (
-                        <Tooltip title="View table" placement="top" arrow><ToggleButton value="table" aria-label="Table view" className='btn-ghost'><Table2Icon /></ToggleButton></Tooltip>
+                        <Tooltip title="View table" placement="top" arrow><ToggleButton value="table" aria-label="Table view" className='btn-ghost !border-none'><Table2Icon /></ToggleButton></Tooltip>
                         )}
-                        <Tooltip title="View kanban board" placement="top" arrow><ToggleButton value="kanban" aria-label="Kanban view" className='btn-ghost'><Kanban /></ToggleButton></Tooltip>
-                        <Tooltip title="View tasks calendar" placement="top" arrow><ToggleButton value="tasks-calendar" aria-label="Tasks calendar view" className='btn-ghost'><CalendarDays /></ToggleButton></Tooltip>
+                        <Tooltip title="View kanban board" placement="top" arrow><ToggleButton value="kanban" aria-label="Kanban view" className='btn-ghost !border-none'><Kanban /></ToggleButton></Tooltip>
+                        <Tooltip title="View tasks calendar" placement="top" arrow><ToggleButton value="tasks-calendar" aria-label="Tasks calendar view" className='btn-ghost !border-none'><CalendarDays /></ToggleButton></Tooltip>
                     </ToggleButtonGroup>
                     {/* Scope Selector */}
                 
@@ -2085,173 +2180,23 @@ const GoalsComponent = () => {
             {/* Filter and Sort Controls */}
                 <div className="relative mt-4 h-10 flex items-center space-x-2">
                     
-                    {/* Filter button + MUI TextField replacement for filter input */}
-                    <>
-                        <Tooltip title="Open filters" placement="top" arrow>
+                    {/* Filter toggle button */}
+                    <Tooltip title={filterPanelOpen ? 'Close filters' : 'Open filters'} placement="top" arrow>
                         <span>
-                        <Badge badgeContent={selectedFiltersCount} color="primary" invisible={selectedFiltersCount === 0}>
-                                        {/* <Button
-                                            aria-label={
-                                                selectedIds.size > 0 ? `Set category (${selectedIds.size})` : 'Set category'
-                                            }
-                                            onClick={(e) => {
-                                                setBulkCategoryAnchorEl(e.currentTarget);
-                                                setBulkCategoryAnchorPos(undefined);
-                                                setBulkCategoryLastClickPos({ x: e.clientX, y: e.clientY });
-                                            }}
-                                            {...(process.env.NODE_ENV === 'test' ? { 'data-testid': 'bulk-set-category-btn' } : {})}
-                                        >
-                                            <TagIcon />
-                                        </Button> */}
-                            <IconButton
-                                className="btn-ghost mr-2"
-                                size="small"
-                                aria-label={`Open filters${selectedFiltersCount > 0 ? ` (${selectedFiltersCount} active)` : ''}`}
-                                onClick={(e) => setFilterAnchorEl(e.currentTarget)}
+                            <Badge badgeContent={selectedFiltersCount} color="primary" invisible={selectedFiltersCount === 0}>
+                                <IconButton
+                                    className={`btn-ghost mr-2 border-2${filterPanelOpen ? ' !bg-gray-20 dark:!bg-gray-80 !text-primary-text !border-primary' : ''}`}
+                                    size="small"
+                                    aria-label={`${filterPanelOpen ? 'Close' : 'Open'} filters${selectedFiltersCount > 0 ? ` (${selectedFiltersCount} active)` : ''}`}
+                                    aria-pressed={filterPanelOpen}
+                                    onClick={() => setFilterPanelOpen(prev => !prev)}
                                 >
-                                <FilterIcon className="w-5 h-5" />
-                            </IconButton>
-                        </Badge>
+                                    <FilterIcon className="w-5 h-5" />
+                                </IconButton>
+                            </Badge>
                         </span>
-                        </Tooltip>
-                        <Popover
-                            open={Boolean(filterAnchorEl)}
-                            anchorEl={filterAnchorEl}
-                            onClose={() => setFilterAnchorEl(null)}
-                            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-                        >
-                            <Box sx={{ p: 2, width: 280, bgcolor: 'var(--color-background)' }}>
-                                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                                    <InputLabel id="filter-status-label">Status</InputLabel>
-                                        <Select
-                                            labelId="filter-status-label"
-                                            multiple
-                                            value={filterStatus}
-                                            label="Status"
-                                            onChange={(e) => {
-                                                const val = (e.target as HTMLInputElement).value;
-                                                setFilterStatus(typeof val === 'string' ? val.split(',') : (val as string[]));
-                                            }}
-                                            renderValue={(selected) => (selected as string[]).join(', ')}
-                                        >
-                                            {/* <MenuItem value="">
-                                                <ListItemText primary="Any" />
-                                            </MenuItem> */}
-                                            {statusOptions.map((s) => (
-                                                <MenuItem key={s} value={s}>
-                                                    <Checkbox size="small" checked={(filterStatus || []).indexOf(s) > -1} />
-                                                    <ListItemText primary={s} />
-                                                </MenuItem>
-                                            ))}
-                                        </Select>
-                                </FormControl>
-                                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                                    <InputLabel id="filter-category-label">Category</InputLabel>
-                                        <Select
-                                            labelId="filter-category-label"
-                                            multiple
-                                            value={filterCategory}
-                                            label="Category"
-                                            onChange={(e) => {
-                                                const val = (e.target as HTMLInputElement).value;
-                                                setFilterCategory(typeof val === 'string' ? val.split(',') : (val as string[]));
-                                            }}
-                                            renderValue={(selected) => (selected as string[]).join(', ')}
-                                        >
-                                            {/* <MenuItem value="">
-                                                <ListItemText primary="Any" />
-                                            </MenuItem> */}
-                                            {categoryOptions.map((c) => (
-                                                <MenuItem key={c} value={c}>
-                                                    <Checkbox size="small" checked={(filterCategory || []).indexOf(c) > -1} />
-                                                    <ListItemText primary={c} />
-                                                </MenuItem>
-                                            ))}
-                                        </Select>
-                                </FormControl>
-                                {(viewMode === 'kanban' || viewMode === 'tasks-calendar') && (
-                                    <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                                        <InputLabel id="filter-goal-label">Goal</InputLabel>
-                                            <Select
-                                                labelId="filter-goal-label"
-                                                multiple
-                                                value={filterGoal}
-                                                label="Goal"
-                                                onChange={(e) => {
-                                                    const val = (e.target as HTMLInputElement).value;
-                                                    setFilterGoal(typeof val === 'string' ? val.split(',') : (val as string[]));
-                                                }}
-                                                renderValue={(selected) => 
-                                                    (selected as string[]).map(id => {
-                                                        const allGoals = showAllGoals ? (fullGoals || []) : (indexedGoals[currentPage] || []);
-                                                        const goal = allGoals.find(g => g.id === id);
-                                                        return goal?.title || id;
-                                                    }).join(', ')
-                                                }
-                                            >
-                                                {(() => {
-                                                    const allGoals = showAllGoals ? (fullGoals || []) : (indexedGoals[currentPage] || []);
-                                                    return allGoals.map((goal) => (
-                                                        <MenuItem key={goal.id} value={goal.id}>
-                                                            <Checkbox size="small" checked={(filterGoal || []).indexOf(goal.id) > -1} />
-                                                            <ListItemText primary={goal.title} />
-                                                        </MenuItem>
-                                                    ));
-                                                })()}
-                                            </Select>
-                                    </FormControl>
-                                )}
-                                {(showAllGoals || scope === 'year') && (
-                                    <div className="flex flex-col space-y-2 mb-2">
-                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                        <div>
-                                            <label className="block text-sm text-gray-60 mb-1">Start</label>
-                                            <DatePicker
-                                                value={filterStartDate}
-                                                onChange={(v: Dayjs | null) => setFilterStartDate(v)}
-                                                slotProps={{ textField: { size: 'small' } }}
-                                                maxDate={filterEndDate || undefined}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm text-gray-60 mb-1">End</label>
-                                            <DatePicker
-                                                value={filterEndDate}
-                                                onChange={(v: Dayjs | null) => setFilterEndDate(v)}
-                                                slotProps={{ textField: { size: 'small' } }}
-                                                minDate={filterStartDate || undefined}
-                                            />
-                                        </div>
-                                    </LocalizationProvider>
-                                    </div>
-                                )}
-                        
-                                <div className="flex justify-end space-x-2">
-                                    <button
-                                        type="button"
-                                        className="btn-ghost"
-                                        onClick={() => {
-                                            setFilterStatus([]);
-                                            setFilterCategory([]);
-                                            setFilterGoal([]);
-                                            setFilterStartDate(null);
-                                            setFilterEndDate(null);
-                                        }}
-                                    >
-                                        Clear
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="btn-primary"
-                                        onClick={() => setFilterAnchorEl(null)}
-                                    >
-                                        Done
-                                    </button>
-                                </div>
-                            </Box>
-                        </Popover>
-                    </>
-                   
+                    </Tooltip>
+
                     {/* Selected filter tags (status, category, date range) */}
                     <div className="hidden sm:flex items-center space-x-2 ml-2">
                         {selectedFiltersCount >= 4 ? (
@@ -2268,19 +2213,21 @@ const GoalsComponent = () => {
                                     onClose={() => setSummaryAnchorEl(null)}
                                     anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                                     transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                                    PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1 } }}
+                                    PaperProps={{ sx: { bgcolor: 'var(--background-paper)', p: 1 } }}
                                 >
                                     {/* build combined list of filters */}
                                     {[
                                         ...((filterStatus || []).map((s) => ({ key: `status:${s}`, type: 'status' as const, label: `Status: ${s}`, value: s }))),
                                         ...((filterCategory || []).map((c) => ({ key: `category:${c}`, type: 'category' as const, label: `Category: ${c}`, value: c }))),
+                                        ...((filterScope || []).map((s) => ({ key: `scope:${s}`, type: 'scope' as const, label: `Scope: ${s}`, value: s }))),
                                         ...((filterGoal || []).map((id) => {
-                                            const allGoals = showAllGoals ? (fullGoals || []) : (indexedGoals[currentPage] || []);
+                                            const allGoals = Object.values(indexedGoals).flat();
                                             const goal = allGoals.find(g => g.id === id);
                                             return { key: `goal:${id}`, type: 'goal' as const, label: `Goal: ${goal?.title || id}`, value: id };
                                         })),
                                         ...(filterStartDate && filterEndDate ? [{ key: 'range', type: 'range' as const, label: `Range: ${filterStartDate.format('YYYY-MM-DD')} → ${filterEndDate.format('YYYY-MM-DD')}`, value: `${filterStartDate.format('YYYY-MM-DD')}|${filterEndDate.format('YYYY-MM-DD')}` }] : []),
                                         ...(filter && filter.trim() ? [{ key: 'text', type: 'text' as const, label: `Search: ${filter}`, value: filter }] : []),
+                                        ...(showArchived ? [{ key: 'archived', type: 'archived' as const, label: 'Including archived', value: 'archived' }] : []),
                                     ].map((item) => (
                                         <MenuItem
                                             key={item.key}
@@ -2288,9 +2235,11 @@ const GoalsComponent = () => {
                                                 // deselect individual
                                                 if (item.type === 'status') setFilterStatus((prev) => (prev || []).filter((v) => v !== item.value));
                                                 else if (item.type === 'category') setFilterCategory((prev) => (prev || []).filter((v) => v !== item.value));
+                                                else if (item.type === 'scope') setFilterScope((prev) => (prev || []).filter((v) => v !== item.value));
                                                 else if (item.type === 'goal') setFilterGoal((prev) => (prev || []).filter((v) => v !== item.value));
                                                 else if (item.type === 'range') { setFilterStartDate(null); setFilterEndDate(null); }
                                                 else if (item.type === 'text') { setFilter(''); }
+                                                else if (item.type === 'archived') { setShowArchived(false); }
                                             }}
                                         >
                                             <Checkbox size="small" checked={true} />
@@ -2308,8 +2257,10 @@ const GoalsComponent = () => {
                                         setFilter('');
                                         setFilterStatus([]);
                                         setFilterCategory([]);
+                                        setFilterScope([]);
                                         setFilterStartDate(null);
                                         setFilterEndDate(null);
+                                        setShowArchived(false);
                                     }}
                                 >
                                     <Tooltip title="Clear all filters" placement="top" arrow>
@@ -2343,9 +2294,21 @@ const GoalsComponent = () => {
                                         />
                                     ))
                                 )}
+                                {filterScope && filterScope.length > 0 && (
+                                    filterScope.map((s) => (
+                                        <Chip
+                                            key={`scope-${s}`}
+                                            label={`Scope: ${s}`}
+                                            size="small"
+                                            onDelete={() => setFilterScope((prev) => (prev || []).filter((v) => v !== s))}
+                                            deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
+                                            className="cursor-pointer"
+                                        />
+                                    ))
+                                )}
                                 {filterGoal && filterGoal.length > 0 && (
                                     filterGoal.map((id) => {
-                                        const allGoals = showAllGoals ? (fullGoals || []) : (indexedGoals[currentPage] || []);
+                                        const allGoals = Object.values(indexedGoals).flat();
                                         const goal = allGoals.find(g => g.id === id);
                                         return (
                                             <Chip
@@ -2368,26 +2331,17 @@ const GoalsComponent = () => {
                                         className="cursor-pointer"
                                     />
                                 )}
-                                {/* Ghost clear-all button */}
-                                {selectedFiltersCount > 0 && (
-                                <button
-                                    type="button"
-                                    className="btn-ghost ml-1"
-                                    title="Clear all filters"
-                                    onClick={() => {
-                                        setFilter('');
-                                        setFilterStatus([]);
-                                        setFilterCategory([]);
-                                        setFilterGoal([]);
-                                        setFilterStartDate(null);
-                                        setFilterEndDate(null);
-                                    }}
-                                    >
-                                    <Tooltip title="Clear all filters" placement='top' arrow>
-                                        <CloseButton className="w-4 h-4" />
-                                    </Tooltip>
-                                </button>
+                                {showArchived && (
+                                    <Chip
+                                        label="Including archived"
+                                        size="small"
+                                        icon={<Archive className="w-3 h-3 ml-1" />}
+                                        onDelete={() => setShowArchived(false)}
+                                        deleteIcon={<Tooltip title="Remove filter" placement='top' arrow><CloseButton className="btn-ghost block ml-2 w-3 h-3 stroke-gray-90 dark:stroke-gray-10 " /></Tooltip>}
+                                        className="cursor-pointer"
+                                    />
                                 )}
+                                
                             </>
                         )}
                     </div>
@@ -2400,7 +2354,7 @@ const GoalsComponent = () => {
                                 <Badge badgeContent={selectedCount} color="primary">
                                     <span className="sr-only">{selectedCount} selected</span>
                                     <button
-                                        className={`btn-ghost fb-btn ${selectedCount > 0 ? 'dark:[&>.lucide]:stroke-brand-30 [&>.lucide]:stroke-brand-70' : ''}`}
+                                        className={`btn-ghost ${selectedCount > 0 ? 'dark:[&>.lucide]:stroke-brand-30 [&>.lucide]:stroke-brand-70' : ''}`}
                                         onClick={() => {
                                             if (selectedCount > 0) {
                                                 deselectAll();
@@ -2476,7 +2430,7 @@ const GoalsComponent = () => {
                                 anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                                 anchorReference={bulkStatusAnchorPos ? 'anchorPosition' : 'anchorEl'}
                                 anchorPosition={bulkStatusAnchorPos ? { top: Math.round(bulkStatusAnchorPos.top), left: Math.round(bulkStatusAnchorPos.left) } : undefined}
-                                PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1 } }}
+                                PaperProps={{ sx: { bgcolor: 'var(--background-paper)', p: 1 } }}
                             >
                                 {statusOptions.map((s) => (
                                     <MenuItem
@@ -2503,7 +2457,7 @@ const GoalsComponent = () => {
                                 anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                                 anchorReference={bulkCategoryAnchorPos ? 'anchorPosition' : 'anchorEl'}
                                 anchorPosition={bulkCategoryAnchorPos ? { top: Math.round(bulkCategoryAnchorPos.top), left: Math.round(bulkCategoryAnchorPos.left) } : undefined}
-                                PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1, maxHeight: '300px', } }}
+                                PaperProps={{ sx: { bgcolor: 'var(--background-paper)', p: 1, maxHeight: '300px', } }}
                             >
                                 {categoryOptions.map((c) => (
                                     c === categoryOptions[0] ? (
@@ -2599,12 +2553,23 @@ const GoalsComponent = () => {
                         )}
                         {/* Collapsible search bar */}
                         <div className="relative flex items-center">
-                          {!(searchBarOpen || filter) && (
+                          {/* Search icon: fades out when bar opens */}
+                          <div
+                            style={{
+                              width: (searchBarOpen || filter) ? '0px' : '32px',
+                              opacity: (searchBarOpen || filter) ? 0 : 1,
+                              overflow: 'hidden',
+                              flexShrink: 0,
+                              pointerEvents: (searchBarOpen || filter) ? 'none' : 'auto',
+                              transition: 'width 0.2s ease, opacity 0.15s ease',
+                            }}
+                          >
                             <Tooltip title="Search" placement="top" arrow>
                               <IconButton
                                 className="btn-ghost"
                                 size="small"
                                 aria-label="Search"
+                                tabIndex={(searchBarOpen || filter) ? -1 : 0}
                                 onClick={() => {
                                   setSearchBarOpen(true);
                                   setTimeout(() => filterInputRef.current?.focus(), 50);
@@ -2613,18 +2578,22 @@ const GoalsComponent = () => {
                                 <SearchIcon className="w-5 h-5" />
                               </IconButton>
                             </Tooltip>
-                          )}
+                          </div>
+                          {/* TextField: expands open */}
                           <div
                             style={{
-                              maxWidth: (searchBarOpen || filter) ? '260px' : '0px',
-                              opacity: (searchBarOpen || filter) ? 1 : 0,
-                              overflow: 'hidden',
-                              transition: 'max-width 0.2s ease, opacity 0.15s ease',
+                                width: '100%',
+                                maxWidth: (searchBarOpen || filter) ? '480px' : '0px',
+                                opacity: (searchBarOpen || filter) ? 1 : 0,
+                                overflow: 'hidden',
+                                flexShrink: 0,
+                                transition: 'max-width 0.2s ease, opacity 0.15s ease',
                             }}
                           >
                             <TextField
                               id="goal-filter"
                               size="small"
+                              fullWidth
                               value={filter}
                               inputRef={(el) => { filterInputRef.current = el; }}
                               onFocus={() => {
@@ -2643,30 +2612,66 @@ const GoalsComponent = () => {
                               InputProps={{
                                 startAdornment: (
                                   <InputAdornment position="start">
-                                    <SearchIcon className="w-4 h-4" />
-                                  </InputAdornment>
-                                ),
-                                endAdornment: showClear ? (
-                                  <InputAdornment position="end">
                                     <IconButton
                                       size="small"
-                                      aria-label="Clear filter"
-                                      onMouseDown={(e) => e.preventDefault()}
-                                      onClick={() => {
-                                        handleFilterChange('');
-                                        filterInputRef.current?.focus();
-                                      }}
-                                      onFocus={() => { if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current); setClearButtonFocused(true); }}
-                                      onBlur={() => { blurTimeoutRef.current = window.setTimeout(() => setClearButtonFocused(false), 150); }}
-                                    >
-                                      <CloseButton className="w-4 h-4" />
+                                      aria-label="Close search"
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => {
+                                          setSearchBarOpen(false);
+                                          setFilter('');
+                                        }}
+                                    >   
+
+                                        <CloseButton className="w-5 h-5" />
                                     </IconButton>
                                   </InputAdornment>
-                                ) : null,
+                                ),
+                                endAdornment: (
+                                  <InputAdornment position="end">
+                                    <Tooltip title={filter ? "Clear text" : ""} placement="top" arrow>
+                                      <span>
+                                        <IconButton
+                                          size="small"
+                                          aria-label="Clear text"
+                                          disabled={!filter}
+                                          onMouseDown={(e) => e.preventDefault()}
+                                          onClick={() => {
+                                            handleFilterChange('');
+                                            filterInputRef.current?.focus();
+                                          }}
+                                          onFocus={() => { if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current); setClearButtonFocused(true); }}
+                                          onBlur={() => { blurTimeoutRef.current = window.setTimeout(() => setClearButtonFocused(false), 150); }}
+                                        >
+                                          <XCircleIcon className="w-4 h-4" />
+                                        </IconButton>
+                                      </span>
+                                    </Tooltip>
+                                  </InputAdornment>
+                                ),
                               }}
                             />
                           </div>
                         </div>
+                        {/* Ghost clear-all button */}
+                                {selectedFiltersCount > 0 && (
+                                <button
+                                    type="button"
+                                    className="btn-ghost ml-1"
+                                    title="Clear all filters"
+                                    onClick={() => {
+                                        setFilter('');
+                                        setFilterStatus([]);
+                                        setFilterCategory([]);
+                                        setFilterGoal([]);
+                                        setFilterStartDate(null);
+                                        setFilterEndDate(null);
+                                    }}
+                                    >
+                                    <Tooltip title="Clear all filters" placement='top' arrow>
+                                        <CloseButton className="w-4 h-4" />
+                                    </Tooltip>
+                                </button>
+                                )}
                         
                         {/* Edit Accomplishment Modal (reuses AccomplishmentEditor) */}
                         {isEditAccomplishmentModalOpen && selectedAccomplishment && (
@@ -2787,6 +2792,7 @@ const GoalsComponent = () => {
                                 aria-haspopup="menu"
                             >
                                 <PlusIcon className="w-5 h-5" />
+                                <span className="hidden md:inline">Add</span>
                             </button>
                         </Tooltip>
                         <Menu
@@ -2797,7 +2803,7 @@ const GoalsComponent = () => {
                             transformOrigin={{ vertical: 'top', horizontal: 'right' }}
                         >
                             <MenuItem onClick={() => { setAddMenuAnchorEl(null); openGoalModal(); }}>
-                                <LayoutGrid className="w-4 h-4 mr-2 text-primary" />
+                                <Target className="w-4 h-4 mr-2 text-primary" />
                                 Add a goal
                             </MenuItem>
                             <MenuItem onClick={() => { setAddMenuAnchorEl(null); setIsAddTaskModalOpen(true); }}>
@@ -2809,15 +2815,226 @@ const GoalsComponent = () => {
                             <SummaryGenerator 
                             summaryId={selectedSummary?.id || ''} 
                             summaryTitle={selectedSummary?.title || `Summary for ${scope}: ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}                                                                                                                                                                                selectedRange={new Date()}
-                            filteredGoals={showAllGoals ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || [])} // Pass the goals for the current page or full list
+                            filteredGoals={sortedAndFilteredGoals} // Pass only the filtered/visible goals
                             scope={scope}
                             />
                         </div>
                     
                     </div>
-                </div> 
+                </div>
 
-                
+                {/* Filter side panel + content row */}
+                <div className="flex flex-row items-start w-full">
+
+                    {/* Slide-in filter panel */}
+                    <div
+                        style={{
+                            width: filterPanelOpen ? '252px' : '0px',
+                            overflow: 'hidden',
+                            flexShrink: 0,
+                            transition: 'width 0.25s ease',
+                            position: 'sticky',
+                            top: '8rem',
+                            zIndex: 1,
+                        }}
+                    >
+                        <div className="pr-4" style={{ width: '252px', minWidth: '252px' }}>
+                            <div className="rounded-md border border-gray-20 dark:border-gray-70 bg-background-color p-3 flex flex-col gap-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-semibold text-primary">Filters</span>
+                                    <IconButton size="small" className="btn-ghost" onClick={() => setFilterPanelOpen(false)} aria-label="Close filters">
+                                        <XCircleIcon className="w-4 h-4" />
+                                    </IconButton>
+                                </div>
+                                {/* Status accordion — filters tasks */}
+                                <Accordion defaultExpanded disableGutters elevation={0} sx={{ bgcolor: 'transparent', '&:before': { display: 'none' }, borderBottom: '1px solid', borderColor: 'divider' }}>
+                                    <AccordionSummary expandIcon={<ChevronDown className="w-3.5 h-3.5" />} sx={{ p: 0, minHeight: 'unset', '& .MuiAccordionSummary-content': { my: '6px' } }}>
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-60 dark:text-gray-40">Task Status</span>
+                                    </AccordionSummary>
+                                    <AccordionDetails sx={{ p: 0, pb: 1 }}>
+                                        <div className="flex flex-col">
+                                            {statusOptions.map((s) => (
+                                                <label key={s} className="flex items-center gap-2 cursor-pointer text-sm py-0.5 px-1 rounded hover:bg-gray-10 dark:hover:bg-gray-80">
+                                                    <Checkbox
+                                                        size="small"
+                                                        checked={(filterStatus || []).indexOf(s) > -1}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) setFilterStatus(prev => [...(prev || []), s]);
+                                                            else setFilterStatus(prev => (prev || []).filter(v => v !== s));
+                                                        }}
+                                                        sx={{ p: 0 }}
+                                                    />
+                                                    <span className="flex items-center gap-1.5">
+                                                        <span style={{ width: 8, height: 8, borderRadius: 4, background: STATUS_COLORS[s], display: 'inline-block', flexShrink: 0 }} />
+                                                        {s}
+                                                    </span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </AccordionDetails>
+                                </Accordion>
+
+                                {/* Category accordion */}
+                                <Accordion defaultExpanded disableGutters elevation={0} sx={{ bgcolor: 'transparent', '&:before': { display: 'none' }, borderBottom: '1px solid', borderColor: 'divider' }}>
+                                    <AccordionSummary expandIcon={<ChevronDown className="w-3.5 h-3.5" />} sx={{ p: 0, minHeight: 'unset', '& .MuiAccordionSummary-content': { my: '6px' } }}>
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-60 dark:text-gray-40">Category</span>
+                                    </AccordionSummary>
+                                    <AccordionDetails sx={{ p: 0, pb: 1 }}>
+                                        <div className="flex flex-col">
+                                            {categoryOptions.map((c) => (
+                                                <label key={c} className="flex items-center gap-2 cursor-pointer text-sm py-0.5 px-1 rounded hover:bg-gray-10 dark:hover:bg-gray-80">
+                                                    <Checkbox
+                                                        size="small"
+                                                        checked={(filterCategory || []).indexOf(c) > -1}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) setFilterCategory(prev => [...(prev || []), c]);
+                                                            else setFilterCategory(prev => (prev || []).filter(v => v !== c));
+                                                        }}
+                                                        sx={{ p: 0 }}
+                                                    />
+                                                    {c}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </AccordionDetails>
+                                </Accordion>
+
+                                {/* Scope accordion */}
+                                {/* <Accordion defaultExpanded disableGutters elevation={0} sx={{ bgcolor: 'transparent', '&:before': { display: 'none' }, borderBottom: '1px solid', borderColor: 'divider' }}>
+                                    <AccordionSummary expandIcon={<ChevronDown className="w-3.5 h-3.5" />} sx={{ p: 0, minHeight: 'unset', '& .MuiAccordionSummary-content': { my: '6px' } }}>
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-60 dark:text-gray-40">Scope</span>
+                                    </AccordionSummary>
+                                    <AccordionDetails sx={{ p: 0, pb: 1 }}>
+                                        <div className="flex flex-col">
+                                            {['week', 'month', 'year'].map((s) => (
+                                                <label key={s} className="flex items-center gap-2 cursor-pointer text-sm py-0.5 px-1 rounded hover:bg-gray-10 dark:hover:bg-gray-80">
+                                                    <Checkbox
+                                                        size="small"
+                                                        checked={(filterScope || []).indexOf(s) > -1}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) setFilterScope(prev => [...(prev || []), s]);
+                                                            else setFilterScope(prev => (prev || []).filter(v => v !== s));
+                                                        }}
+                                                        sx={{ p: 0 }}
+                                                    />
+                                                    <span className="capitalize">{s}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </AccordionDetails>
+                                </Accordion> */}
+
+                                {/* Goal accordion — kanban / calendar only */}
+                                {(viewMode === 'kanban' || viewMode === 'tasks-calendar') && (
+                                    <Accordion defaultExpanded disableGutters elevation={0} sx={{ bgcolor: 'transparent', '&:before': { display: 'none' }, borderBottom: '1px solid', borderColor: 'divider' }}>
+                                        <AccordionSummary expandIcon={<ChevronDown className="w-3.5 h-3.5" />} sx={{ p: 0, minHeight: 'unset', '& .MuiAccordionSummary-content': { my: '6px' } }}>
+                                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-60 dark:text-gray-40">Goal</span>
+                                        </AccordionSummary>
+                                        <AccordionDetails sx={{ p: 0, pb: 1 }}>
+                                            <div className="flex flex-col">
+                                                {(() => {
+                                                    const allGoals = Object.values(indexedGoals).flat();
+                                                    return allGoals.map((goal) => (
+                                                        <label key={goal.id} className="flex items-center gap-2 cursor-pointer text-sm py-0.5 px-1 rounded hover:bg-gray-10 dark:hover:bg-gray-80">
+                                                            <Checkbox
+                                                                size="small"
+                                                                checked={(filterGoal || []).indexOf(goal.id) > -1}
+                                                                onChange={(e) => {
+                                                                    if (e.target.checked) setFilterGoal(prev => [...(prev || []), goal.id]);
+                                                                    else setFilterGoal(prev => (prev || []).filter(v => v !== goal.id));
+                                                                }}
+                                                                sx={{ p: 0 }}
+                                                            />
+                                                            <span className="truncate" title={goal.title}>{goal.title}</span>
+                                                        </label>
+                                                    ));
+                                                })()}
+                                            </div>
+                                        </AccordionDetails>
+                                    </Accordion>
+                                )}
+
+                                {/* Date range accordion */}
+                                <Accordion defaultExpanded disableGutters elevation={0} sx={{ bgcolor: 'transparent', '&:before': { display: 'none' }, borderBottom: '1px solid', borderColor: 'divider' }}>
+                                    <AccordionSummary expandIcon={<ChevronDown className="w-3.5 h-3.5" />} sx={{ p: 0, minHeight: 'unset', '& .MuiAccordionSummary-content': { my: '6px' } }}>
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-60 dark:text-gray-40">Date Range</span>
+                                    </AccordionSummary>
+                                    <AccordionDetails sx={{ p: 0, pb: 1 }}>
+                                        <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                            <div className="flex flex-col gap-2">
+                                                <DatePicker
+                                                    label="Start"
+                                                    value={filterStartDate}
+                                                    onChange={(v: Dayjs | null) => setFilterStartDate(v)}
+                                                    slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                                                    maxDate={filterEndDate ?? undefined}
+                                                />
+                                                <DatePicker
+                                                    label="End"
+                                                    value={filterEndDate}
+                                                    onChange={(v: Dayjs | null) => setFilterEndDate(v)}
+                                                    slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                                                    minDate={filterStartDate ?? undefined}
+                                                />
+                                            </div>
+                                        </LocalizationProvider>
+                                    </AccordionDetails>
+                                </Accordion>
+
+                                {/* Archived toggle */}
+                                <div className="flex items-center justify-between py-2 ">
+                                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-60 dark:text-gray-40 flex items-center gap-1">
+                                        <Archive className="w-3.5 h-3.5" /> Include archived
+                                    </span>
+                                    {/* <label className="flex items-center gap-2 cursor-pointer text-sm">
+                                        <input
+                                            type="checkbox"
+                                            checked={showArchived}
+                                            onChange={(e) => setShowArchived(e.target.checked)}
+                                            className="rounded"
+                                            aria-label="Show archived goals"
+                                        />
+                                        <span>Show archived</span>
+                                    </label> */}
+                                    <Switch
+                                        size="small"
+                                        checked={showArchived}
+                                        onChange={(e) => setShowArchived(e.target.checked)}
+                                        inputProps={{ 'aria-label': 'Show archived goals' }}
+
+                                    />
+                                </div>
+
+                                <div className="flex justify-between items-center pt-2">
+                                    <button
+                                        type="button"
+                                        className="btn-ghost text-sm"
+                                        onClick={() => {
+                                            setFilterStatus([]);
+                                            setFilterCategory([]);
+                                            setFilterGoal([]);
+                                            setFilterScope([]);
+                                            setFilterStartDate(null);
+                                            setFilterEndDate(null);
+                                            setShowArchived(false);
+                                        }}
+                                    >
+                                        Clear all
+                                    </button>
+                                    {/* <button
+                                        type="button"
+                                        className="btn-primary text-sm"
+                                        onClick={() => setFilterPanelOpen(false)}
+                                    >
+                                        Done
+                                    </button> */}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Goals content */}
+                    <div className="flex-1 min-w-0">
 
                 {/* Goals List - render by viewMode */}
                 {viewMode === 'cards' && (
@@ -2825,11 +3042,11 @@ const GoalsComponent = () => {
                             {sortedAndFilteredGoals.map((goal) => (
                             <GoalCard
                                 key={goal.id}
-                                goal={goal}
-                                showAllGoals={showAllGoals}
+                                goal={ctxArchivedIds.has(goal.id) ? { ...goal, is_archived: true } : goal}
+                                showAllGoals={true}
                                 handleDelete={(goalId) => handleDeleteGoal(goalId)}
                                 handleEdit={(goalId) => {
-                                    const goalSourceForEdit = showAllGoals ? (fullGoals || Object.values(indexedGoals).flat()) : (indexedGoals[currentPage] || []);
+                                    const goalSourceForEdit = Object.values(indexedGoals).flat();
                                     const goalToEdit = goalSourceForEdit.find((g) => g.id === goalId);
                                     if (goalToEdit) {
                                         setSelectedGoal(goalToEdit);
@@ -2840,6 +3057,7 @@ const GoalsComponent = () => {
                                 selectable={true}
                                 isSelected={selectedIds.has(goal.id)}
                                 onToggleSelect={(id) => toggleSelect(id, 'goals')}
+                                onRefresh={refreshGoals}
                             />
                             ))}
                         </div>
@@ -2849,72 +3067,73 @@ const GoalsComponent = () => {
                     isSmall ? (
                         setViewMode('cards'), <div></div>
                     ) : (
-                        <Paper elevation={6}>
+                        <Paper elevation={3} sx={{ bgcolor: 'var(--background-color)', color: 'var(--primary-text)' }}>
+                        {/* <Paper elevation={6}> */}
                             <Table aria-label="Goals Table">
                                 <TableHead className='border-none'>
                                     <TableRow className='bg-background-color border-none'>
                                         <TableCell colSpan={selectedCount > 0 ?  5 : 1} className="px-4 py-2"   >
                                             <div className="flex items-center space-x-4">
-                                            <div className={`floating-bulk${selectedCount > 0 ? '-toolbar flex-row align-start justify-start items-start sm:flex-row' : ''}`} role="toolbar" aria-label="Bulk actions">
-                                <Tooltip title={expandedRowIds.size === sortedAndFilteredGoals.length ? "Collapse all goals" : "Expand all goals"} placement="top" arrow>
-                                    <IconButton
-                                        className="btn-ghost fb-btn"
-                                        size="small"
-                                        aria-label={expandedRowIds.size === sortedAndFilteredGoals.length ? "Collapse all goals" : "Expand all goals"}
-                                        onClick={() => {
-                                            if (expandedRowIds.size === sortedAndFilteredGoals.length) {
-                                                setExpandedRowIds(new Set());
-                                            } else {
-                                                setExpandedRowIds(new Set(sortedAndFilteredGoals.map(g => g.id)));
-                                            }
-                                        }}
-                                    >
-                                        {expandedRowIds.size === sortedAndFilteredGoals.length ? <Shrink className="w-5 h-5" /> : <Expand className="w-5 h-5" />}
-                                    </IconButton>
-                                </Tooltip>
-                                <Tooltip title={selectedCount > 0 ? `Deselect all ${selectionType || ''}` : 'Select all...'} placement="top" arrow>
-                                        <Badge badgeContent={selectedCount} color="primary">
-                                        <span className="sr-only">{selectedCount} selected</span>
-                                        <button
-                                            className={`btn-ghost fb-btn ${selectedCount > 0 ? 'dark:[&>.lucide]:stroke-brand-30 [&>.lucide]:stroke-brand-70' : ''}`}
-                                            onClick={(e) => {
-                                                if (selectedCount > 0) {
-                                                    deselectAll();
-                                                } else {
-                                                    setSelectAllMenuAnchor(e.currentTarget);
-                                                }
-                                            }}
-                                            aria-label={selectedCount > 0 ? `Deselect all ${selectionType || ''}` : 'Select all...'}
-                                        >
-                                            {selectedCount > 0 ? <SquareSlash /> : <CheckSquare2 />}
-                                        </button>
-                                    </Badge>
-                                </Tooltip>
-                                <Menu
-                                    anchorEl={selectAllMenuAnchor}
-                                    open={Boolean(selectAllMenuAnchor)}
-                                    onClose={() => setSelectAllMenuAnchor(null)}
-                                >
-                                    <MenuItem
-                                        onClick={() => {
-                                            selectAllGoals();
-                                            setSelectAllMenuAnchor(null);
-                                        }}
-                                    >
-                                        Select All Goals ({visibleIdsArray.length})
-                                    </MenuItem>
-                                    <MenuItem
-                                        onClick={() => {
-                                            selectAllTasks();
-                                            setSelectAllMenuAnchor(null);
-                                        }}
-                                    >
-                                        Select All Tasks ({visibleTaskIds.length})
-                                    </MenuItem>
-                                </Menu>
+                                                <div className={`gap-1 floating-bulk${selectedCount > 0 ? '-toolbar flex-row align-start justify-start items-start sm:flex-row' : ''}`} role="toolbar" aria-label="Bulk actions">
+                                                    <Tooltip title={expandedRowIds.size === sortedAndFilteredGoals.length ? "Collapse all goals" : "Expand all goals"} placement="top" arrow>
+                                                        <IconButton
+                                                            className="btn-ghost fb-btn p-3"
+                                                            size="small"
+                                                            aria-label={expandedRowIds.size === sortedAndFilteredGoals.length ? "Collapse all goals" : "Expand all goals"}
+                                                            onClick={() => {
+                                                                if (expandedRowIds.size === sortedAndFilteredGoals.length) {
+                                                                    setExpandedRowIds(new Set());
+                                                                } else {
+                                                                    setExpandedRowIds(new Set(sortedAndFilteredGoals.map(g => g.id)));
+                                                                }
+                                                            }}
+                                                        >
+                                                            {expandedRowIds.size === sortedAndFilteredGoals.length ? <Shrink className="w-5 h-5" /> : <Expand className="w-5 h-5" />}
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                    <Tooltip title={selectedCount > 0 ? `Deselect all ${selectionType || ''}` : 'Select all...'} placement="top" arrow>
+                                                            <Badge badgeContent={selectedCount} color="primary">
+                                                            <span className="sr-only">{selectedCount} selected</span>
+                                                            <button
+                                                                className={`btn-ghost fb-btn ${selectedCount > 0 ? 'dark:[&>.lucide]:stroke-brand-30 [&>.lucide]:stroke-brand-70' : ''}`}
+                                                                onClick={(e) => {
+                                                                    if (selectedCount > 0) {
+                                                                        deselectAll();
+                                                                    } else {
+                                                                        setSelectAllMenuAnchor(e.currentTarget);
+                                                                    }
+                                                                }}
+                                                                aria-label={selectedCount > 0 ? `Deselect all ${selectionType || ''}` : 'Select all...'}
+                                                            >
+                                                                {selectedCount > 0 ? <SquareSlash /> : <CheckSquare2 />}
+                                                            </button>
+                                                        </Badge>
+                                                    </Tooltip>
+                                                    <Menu
+                                                        anchorEl={selectAllMenuAnchor}
+                                                        open={Boolean(selectAllMenuAnchor)}
+                                                        onClose={() => setSelectAllMenuAnchor(null)}
+                                                    >
+                                                        <MenuItem
+                                                            onClick={() => {
+                                                                selectAllGoals();
+                                                                setSelectAllMenuAnchor(null);
+                                                            }}
+                                                        >
+                                                            Select All Goals ({visibleIdsArray.length})
+                                                        </MenuItem>
+                                                        <MenuItem
+                                                            onClick={() => {
+                                                                selectAllTasks();
+                                                                setSelectAllMenuAnchor(null);
+                                                            }}
+                                                        >
+                                                            Select All Tasks ({visibleTaskIds.length})
+                                                        </MenuItem>
+                                                    </Menu>
                                 
-                                {selectedCount > 0 && (
-                                    <div className="flex flex-col items-start justify-start sm:flex-row ">
+                                                    {selectedCount > 0 && (
+                                                    <div className="flex flex-col items-start justify-start sm:flex-row ">
                                                         <button className="btn-ghost fb-btn" onClick={() => setIsBulkDeleteConfirmOpen(true)} disabled={bulkActionLoading} title="Delete selected" aria-label="Delete selected">Delete</button>
                                                         <button
                                                             className="btn-ghost fb-btn"
@@ -2974,7 +3193,7 @@ const GoalsComponent = () => {
                                                     anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                                                     anchorReference={bulkStatusAnchorPos ? 'anchorPosition' : 'anchorEl'}
                                                     anchorPosition={bulkStatusAnchorPos ? { top: Math.round(bulkStatusAnchorPos.top), left: Math.round(bulkStatusAnchorPos.left) } : undefined}
-                                                    PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1 } }}
+                                                    PaperProps={{ sx: { bgcolor: 'var(--background-paper)', p: 1 } }}
                                                 >
                                                     {statusOptions.map((s) => (
                                                         <MenuItem
@@ -3001,7 +3220,7 @@ const GoalsComponent = () => {
                                                     anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                                                     anchorReference={bulkCategoryAnchorPos ? 'anchorPosition' : 'anchorEl'}
                                                     anchorPosition={bulkCategoryAnchorPos ? { top: Math.round(bulkCategoryAnchorPos.top), left: Math.round(bulkCategoryAnchorPos.left) } : undefined}
-                                                    PaperProps={{ sx: { bgcolor: 'var(--color-background)', p: 1, height: '500px', } }}
+                                                    PaperProps={{ sx: { bgcolor: 'var(--background-paper)', p: 1, height: '500px', } }}
                                                 >
                                                     {categoryOptions.map((c) => (
                                                         c === categoryOptions[0] ? (
@@ -3127,45 +3346,9 @@ const GoalsComponent = () => {
                                         return (
                                         <React.Fragment key={goal.id}>
                                         <TableRow
-                                            // hover
-                                            // onClick={(e) => {
-                                            //     e.stopPropagation();
-                                            //     toggleRowExpanded(goal.id);
-                                            // }}
-                                            // onClick={() => toggleSelect(goal.id)}
-                                            // onClick={(e) => {
-                                            //     // If the click originated from an interactive element (button, input, link, select, textarea,
-                                            //     // or any element with role="button"), don't treat it as a card-select click. This prevents
-                                            //     // clicks on internal controls (icons, buttons, menus) from toggling selection.
-                                            //     const target = e.target as HTMLElement | null;
-                                            //     if (target && typeof target.closest === 'function') {
-                                            //     const interactive = target.closest('button, a, input, select, textarea, [role="button"]');
-                                            //     if (interactive) return;
-                                            //     }
-                                            //     toggleRowExpanded(goal.id);
-                                            // }}
-                                            // role="checkbox"
-                                            // aria-checked={selectedIds.has(goal.id)}
-                                            // tabIndex={-1}
                                             selected={selectedIds.has(goal.id)}
-                                            // inputProps={{ 'aria-label': `Select goal ${goal.title}` }}
-                                            // sx={{ cursor: 'pointer' }}
                                         >
-                                            {/* <TableCell>
-                                                <Checkbox size="small" onClick={(e) => {
-                                                    // If the click originated from an interactive element (button, input, link, select, textarea,
-                                                    // or any element with role="button"), don't treat it as a card-select click. This prevents
-                                                    // clicks on internal controls (icons, buttons, menus) from toggling selection.
-                                                    // const target = e.target as HTMLElement | null;
-                                                    // if (target && typeof target.closest === 'function') {
-                                                    // const interactive = target.closest('button, a, input, select, textarea, [role="button"]');
-                                                    // if (interactive) return;
-                                                    // }
-                                                    e.stopPropagation();
-                                                    toggleSelect(goal.id, 'goals');
-                                                }} checked={selectedIds.has(goal.id)} onChange={() => {}} inputProps={{ 'aria-label': `Select goal ${goal.title}` }}
-                                                />
-                                            </TableCell> */}
+                                            
                                             <TableCell>
                                                 <div className="flex items-start gap-2">
                                                     <IconButton
@@ -3178,20 +3361,12 @@ const GoalsComponent = () => {
                                                     >
                                                         {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
                                                     </IconButton>
-                                                    <Checkbox size="small" onClick={(e) => {
-                                                    // If the click originated from an interactive element (button, input, link, select, textarea,
-                                                    // or any element with role="button"), don't treat it as a card-select click. This prevents
-                                                    // clicks on internal controls (icons, buttons, menus) from toggling selection.
-                                                    // const target = e.target as HTMLElement | null;
-                                                    // if (target && typeof target.closest === 'function') {
-                                                    // const interactive = target.closest('button, a, input, select, textarea, [role="button"]');
-                                                    // if (interactive) return;
-                                                    // }
-                                                    e.stopPropagation();
-                                                    toggleSelect(goal.id, 'goals');
-                                                }} checked={selectedIds.has(goal.id)} onChange={() => {}} inputProps={{ 'aria-label': `Select goal ${goal.title}` }}
-                                                />
-                                                    <div>
+                                                    <Checkbox size="small" className="!btn-ghost !p-2" onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleSelect(goal.id, 'goals');
+                                                    }} checked={selectedIds.has(goal.id)} onChange={() => {}} inputProps={{ 'aria-label': `Select goal ${goal.title}` }}
+                                                    />
+                                                <div>
                                                         <Typography variant="body1"><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></Typography>
                                                         <Typography variant="body2" className="text-gray-50">
                                                             <span dangerouslySetInnerHTML={renderHTML(((goal.description || '').substring(0, 100) + ((goal.description || '').length > 200 ? '...' : '')))} />
@@ -3334,15 +3509,125 @@ const GoalsComponent = () => {
                                                 </Menu>
                                             </TableCell>
                                         </TableRow>
-                                        
+                                        {/* Add task row */}
+                                        {isExpanded && (
+                                            <TableRow className="bg-gray-10/60 dark:bg-gray-100/30 border-0" key={`add-task-${goal.id}`}>
+                                                <TableCell colSpan={5} className="pl-16 border-0">
+                                                    {addingTaskForGoal === goal.id ? (
+                                                        <div className="p-3 bg-gray-10/60 dark:bg-gray-100/30 rounded-md border-2 border-dashed border-primary space-y-2">
+                                                            <TextField
+                                                                value={newTaskData.title || ''}
+                                                                onChange={(e) => setNewTaskData(prev => ({ ...prev, title: e.target.value }))}
+                                                                size="small"
+                                                                fullWidth
+                                                                placeholder="Enter task title"
+                                                                label="Title *"
+                                                                autoFocus
+                                                            />
+                                                            <TextField
+                                                                value={newTaskData.description || ''}
+                                                                onChange={(e) => setNewTaskData(prev => ({ ...prev, description: e.target.value }))}
+                                                                size="small"
+                                                                fullWidth
+                                                                multiline
+                                                                rows={2}
+                                                                placeholder="Add description (optional)"
+                                                                label="Description"
+                                                            />
+                                                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                                            <div className="flex gap-2 items-end space-y-4">
+                                                                <DatePicker
+                                                                    label="Date"
+                                                                    value={tableSelectedDate}
+                                                                    onChange={(newValue) => setTableSelectedDate(newValue)}
+                                                                    slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                                                                />
+                                                                <TimePicker
+                                                                    label="Time (optional)"
+                                                                    value={tableSelectedTime}
+                                                                    onChange={(newValue) => setTableSelectedTime(newValue)}
+                                                                    slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                                                                />
+                                                                <div className="flex flex-row flex-1 px-4 h-full items-end justify-start">
+                                                                    <Tooltip title="Enable reminders" placement="top" arrow>
+                                                                        <FormControlLabel
+                                                                            label={<span className="flex flex-col"><Bell className="inline w-4 h-4 mr-2" /></span>}
+                                                                            control={
+                                                                                <Switch
+                                                                                    checked={newTaskData.reminder_enabled || false}
+                                                                                    onChange={(e) => setNewTaskData(prev => ({ ...prev, reminder_enabled: e.target.checked }))}
+                                                                                    size="small"
+                                                                                />
+                                                                            }
+                                                                        />
+                                                                    </Tooltip>
+                                                                    {newTaskData.reminder_enabled && (
+                                                                        // <TextField
+                                                                        //     type="datetime-local"
+                                                                        //     value={newTaskData.reminder_datetime || ''}
+                                                                        //     onChange={(e) => setNewTaskData(prev => ({ ...prev, reminder_datetime: e.target.value }))}
+                                                                        //     size="small"
+                                                                        //     label="Reminder Date & Time"
+                                                                        //     InputLabelProps={{ shrink: true }}
+                                                                        //     fullWidth
+                                                                        // />
+                                                                        <DateTimePicker
+                                                                            label="Reminder Date & Time"
+                                                                            value={tableReminderDatetime}
+                                                                            onChange={(newValue) => setTableReminderDatetime(newValue)}
+                                                                            slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                                                                        />
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            </LocalizationProvider>
+                                                            <div className="pt-4 flex gap-2 justify-end">
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        setAddingTaskForGoal(null);
+                                                                        setNewTaskData({
+                                                                            title: '',
+                                                                            description: '',
+                                                                            reminder_enabled: false,
+                                                                        });
+                                                                        setTableSelectedDate(null);
+                                                                        setTableSelectedTime(null);
+                                                                        setTableReminderDatetime(null);
+                                                                    }} 
+                                                                    className="btn-secondary btn-sm"
+                                                                >
+                                                                    Cancel
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => createTaskForGoal(goal.id)} 
+                                                                    className="btn-primary btn-sm"
+                                                                >
+                                                                    Add Task
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => setAddingTaskForGoal(goal.id)}
+                                                            className="btn-ghost w-full p-2 text-sm text-brand-60 dark:text-brand-30 hover:underline hover:bg-background-color rounded border border-dashed border-gray-30 dark:border-gray-60 hover:border-primary transition-colors flex items-center justify-start w-auto gap-2"
+                                                        >
+                                                            <PlusIcon className="w-4 h-4" />
+                                                            Add task
+                                                        </button>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
                                         {/* Task rows when expanded */}
                                         {isExpanded && goalTasks.map((task) => (
-                                            <TableRow key={`task-${task.id}`} className="flex w-full bg-background-color pl-24">
+                                            <TableRow key={`task-${task.id}`} className="flex w-full bg-gray-10/60 dark:bg-gray-100/30 pl-24">
                                                 <TableCell colSpan={5} className="pl-16">
                                                     <TaskCard 
                                                         task={task}
                                                         filter={filter}
+                                                        className="bg-transparent border-0 shadow-none p-0"
                                                         selectable
+                                                        hideGoalChip
                                                         list
                                                         isSelected={selectedIds.has(task.id)}
                                                         onToggleSelect={(id) => toggleSelect(id, 'tasks')}
@@ -3352,7 +3637,7 @@ const GoalsComponent = () => {
                                                                 const token = session?.access_token;
                                                                 if (!token) throw new Error('User not authenticated');
 
-                                                                const response = await fetch('/api/updateTask', {
+                                                                const response = await fetch('/.netlify/functions/updateTask', {
                                                                     method: 'PUT',
                                                                     headers: {
                                                                         'Content-Type': 'application/json',
@@ -3375,7 +3660,7 @@ const GoalsComponent = () => {
                                                                 const token = session?.access_token;
                                                                 if (!token) throw new Error('User not authenticated');
 
-                                                                const response = await fetch('/api/updateTask', {
+                                                                const response = await fetch('/.netlify/functions/updateTask', {
                                                                     method: 'PUT',
                                                                     headers: {
                                                                         'Content-Type': 'application/json',
@@ -3405,7 +3690,7 @@ const GoalsComponent = () => {
                                                                     const { data: { session } } = await supabase.auth.getSession();
                                                                     const token = session?.access_token;
                                                                     if (!token) throw new Error('User not authenticated');
-                                                                    const response = await fetch('/api/deleteTask', {
+                                                                    const response = await fetch('/.netlify/functions/deleteTask', {
                                                                         method: 'DELETE',
                                                                         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                                                                         body: JSON.stringify({ id: taskId }),
@@ -3425,87 +3710,6 @@ const GoalsComponent = () => {
                                                 </TableCell>
                                             </TableRow>
                                         ))}
-                                        
-                                        {/* Add task row */}
-                                        {isExpanded && (
-                                            <TableRow className="bg-gray-5 dark:bg-gray-95">
-                                                <TableCell colSpan={5} className="pl-16">
-                                                    {addingTaskForGoal === goal.id ? (
-                                                        <div className="p-3 bg-white dark:bg-background-color rounded-lg border-2 border-dashed border-primary space-y-2">
-                                                            <TextField
-                                                                value={newTaskData.title || ''}
-                                                                onChange={(e) => setNewTaskData(prev => ({ ...prev, title: e.target.value }))}
-                                                                size="small"
-                                                                fullWidth
-                                                                placeholder="Enter task title"
-                                                                label="Title *"
-                                                                autoFocus
-                                                            />
-                                                            <TextField
-                                                                value={newTaskData.description || ''}
-                                                                onChange={(e) => setNewTaskData(prev => ({ ...prev, description: e.target.value }))}
-                                                                size="small"
-                                                                fullWidth
-                                                                multiline
-                                                                rows={2}
-                                                                placeholder="Add description (optional)"
-                                                                label="Description"
-                                                            />
-                                                            <div className="flex gap-2">
-                                                                <TextField
-                                                                    type="date"
-                                                                    value={newTaskData.scheduled_date || ''}
-                                                                    onChange={(e) => setNewTaskData(prev => ({ ...prev, scheduled_date: e.target.value }))}
-                                                                    size="small"
-                                                                    label="Scheduled Date"
-                                                                    InputLabelProps={{ shrink: true }}
-                                                                    className="flex-1"
-                                                                />
-                                                                <TextField
-                                                                    type="time"
-                                                                    value={newTaskData.scheduled_time || ''}
-                                                                    onChange={(e) => setNewTaskData(prev => ({ ...prev, scheduled_time: e.target.value }))}
-                                                                    size="small"
-                                                                    label="Scheduled Time"
-                                                                    InputLabelProps={{ shrink: true }}
-                                                                    className="flex-1"
-                                                                />
-                                                            </div>
-                                                            <div className="flex gap-2 justify-end">
-                                                                <button 
-                                                                    onClick={() => {
-                                                                        setAddingTaskForGoal(null);
-                                                                        setNewTaskData({
-                                                                            title: '',
-                                                                            description: '',
-                                                                            scheduled_date: '',
-                                                                            scheduled_time: '',
-                                                                        });
-                                                                    }} 
-                                                                    className="btn-secondary btn-sm"
-                                                                >
-                                                                    Cancel
-                                                                </button>
-                                                                <button 
-                                                                    onClick={() => createTaskForGoal(goal.id)} 
-                                                                    className="btn-primary btn-sm"
-                                                                >
-                                                                    Add Task
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <button
-                                                            onClick={() => setAddingTaskForGoal(goal.id)}
-                                                            className="w-full p-2 text-sm text-primary hover:bg-gray-10 dark:hover:bg-gray-80 rounded border border-dashed border-gray-30 dark:border-gray-60 hover:border-primary transition-colors flex items-center justify-center gap-2"
-                                                        >
-                                                            <PlusIcon className="w-4 h-4" />
-                                                            Add task
-                                                        </button>
-                                                    )}
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
                                         </React.Fragment>
                                         );
                                     })}
@@ -3514,6 +3718,7 @@ const GoalsComponent = () => {
                         </Paper>
                     )
                 )}
+
                 <ConfirmModal
                     isOpen={isBulkDeleteConfirmOpen}
                     title={`Delete ${selectedCount} ${selectionType === 'tasks' ? 'tasks' : 'goals'}?`}
@@ -3549,7 +3754,7 @@ const GoalsComponent = () => {
                     loading={bulkActionLoading}
                 />
                             {viewMode === 'kanban' && (
-                                <div className="flex flex-col mt-2 md:flex-row gap-4 w-full overflow-auto">
+                                <div className="w-full mt-2">
                                     {isScopeLoading ? (
                                         <div className="w-full flex items-center justify-center p-8">
                                             <div className="flex items-center space-x-3">
@@ -3558,143 +3763,28 @@ const GoalsComponent = () => {
                                             </div>
                                         </div>
                                     ) : (
-                                    ['Not started', 'In progress', 'Blocked', 'On hold', 'Done'].map((status) => {
-                                        // Collect all tasks matching this status AND filters
-                                        const allTasks: Task[] = [];
-                                        Object.keys(kanbanTasks).forEach((goalId) => {
-                                            const goalTasks = kanbanTasks[goalId] || [];
-                                            goalTasks.forEach((task) => {
-                                                if (task.status === status) {
-                                                    // Apply all filters (including text search, category, status, goal, dates)
-                                                    if (taskMatchesFilters(task, goalId)) {
-                                                        allTasks.push(task);
-                                                    }
-                                                }
-                                            });
-                                        });
-                                        
-                                        // Auto-collapse empty columns unless manually expanded by user
-                                        const isCollapsed = (allTasks.length === 0 && !manuallyExpandedEmptyColumns.has(status)) || !!collapsedColumns[status];
-
-                                        return (
-                                            <div
-                                                key={status}
-                                                className={`
-                                                    ${!isCollapsed ? (
-                                                        "flex-1 border border-gray-30 dark:border-gray-70 bg-background-color dark:bg-opacity-30 p-3 rounded-md" 
-                                                    ) : (
-                                                        "flex-0 border border-gray-30 dark:border-gray-70 bg-background-color dark:bg-opacity-30 p-3 rounded-md"
-                                                    )} 
-                                                `}
-                                                onDragOver={(e) => handleDragOver(e, status)}
-                                                onDrop={(e) => handleDrop(e, status)}
-                                            >
-                                                <div className={`flex items-center justify-between w-full ${!isCollapsed && ('mb-3')} `}>
-                                                    
-                                                    {/* Status label with color dot */}
-                                                    {!isCollapsed && (
-                                                        <div className="flex items-center space-x-2">  
-                                                            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 6, background: STATUS_COLORS[status], marginRight: 8 }} />
-                                                            <div className="text-nowrap" style={{color: STATUS_COLORS[status]}}>
-                                                                {status}
-                                                                <span className="ml-2 text-sm text-gray-30 dark:text-gray-70">({allTasks.length})</span>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                    {(isCollapsed) ? (
-                                                        <>
-                                                        {(isSmall) && (
-                                                        <div className="flex items-center space-x-2">
-                                                            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 6, background: STATUS_COLORS[status], marginRight: 8 }} />
-                                                            <div className="text-nowrap" style={{color: STATUS_COLORS[status]}}>{status}
-                                                            </div>
-                                                        </div>
-                                                        )}
-                                                        
-                                                            <Tooltip title={`Show "${status}" column`} placement="top" arrow>
-                                                            <IconButton
-                                                                aria-label={`Show ${status} column`}
-                                                                onClick={() => {
-                                                                    setCollapsedColumns((prev) => ({ ...prev, [status]: false }));
-                                                                    // Track that user manually expanded this empty column
-                                                                    if (allTasks.length === 0) {
-                                                                        setManuallyExpandedEmptyColumns((prev) => new Set(prev).add(status));
-                                                                    }
-                                                                }}
-                                                                className="btn-ghost p-1"
-                                                            >
-                                                                <div className="flex items-center">
-                                                                    <Badge 
-                                                                        badgeContent={allTasks.length} 
-                                                                        color="primary"
-                                                                        anchorOrigin={{
-                                                                            vertical: 'top',
-                                                                            horizontal: 'right',
-                                                                        }}
-                                                                    >
-                                                                        <Eye className="w-4 h-4 text-gray-70 dark:text-gray-20" />
-                                                                    </Badge>
-                                                                </div>
-                                                            </IconButton>
-                                                            </Tooltip>
-                                                        </>
-                                                    ) : (
-                                                            
-                                                        <Tooltip title={`Hide column`} placement="top" arrow>
-                                                            <IconButton
-                                                                aria-label={`Hide ${status} column`}
-                                                                onClick={() => {
-                                                                    setCollapsedColumns((prev) => ({ ...prev, [status]: !prev[status] }));
-                                                                    // Remove from manually expanded if user collapses it
-                                                                    setManuallyExpandedEmptyColumns((prev) => {
-                                                                        const newSet = new Set(prev);
-                                                                        newSet.delete(status);
-                                                                        return newSet;
-                                                                    });
-                                                                }}
-                                                                className="btn-ghost p-1"
-                                                                >
-                                                                <EyeOff className="w-4 h-4 text-gray-50" />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                    
-                                                    )}
-                                                </div>
-
-                                                {!isCollapsed && (
-                                                    <div className="space-y-3">
-                                                        {allTasks.map((task) => (
-                                                           <div
-                                                                key={task.id}
-                                                                draggable
-                                                                onDragStart={(e) => handleTaskDragStart(e, task.id)}
-                                                                onDragEnd={handleTaskDragEnd}
-                                                                className="cursor-move"
-                                                            >
-                                                                <TaskCard
-                                                                    task={task}
-                                                                    filter={filter}
-                                                                    selectable
-                                                                    draggable={true} 
-                                                                    isSelected={selectedIds.has(task.id)}
-                                                                    onToggleSelect={(id) => toggleSelect(id, 'tasks')}
-                                                                    onStatusChange={handleTaskStatusChange}
-                                                                    onUpdate={handleTaskUpdate}
-                                                                    onDelete={handleTaskDelete}
-                                                                    allowInlineEdit
-                                                                    hideStatusChip
-                                                                />
-                                                            </div>
-                                                        ))}
-
-                                                        {dragOverColumn === status && dragOverIndex === allTasks.length && (
-                                                            <div className="p-4 border border-dashed rounded bg-transparent">&nbsp;</div>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })
+                                        <TasksKanban
+                                            tasks={(() => {
+                                                // Flatten all tasks from kanbanTasks and apply filters
+                                                const allTasks: Task[] = [];
+                                                Object.keys(kanbanTasks).forEach((goalId) => {
+                                                    const goalTasks = kanbanTasks[goalId] || [];
+                                                    goalTasks.forEach((task) => {
+                                                        // Apply all filters (including text search, category, status, goal, dates)
+                                                        if (taskMatchesFilters(task, goalId)) {
+                                                            allTasks.push(task);
+                                                        }
+                                                    });
+                                                });
+                                                return allTasks;
+                                            })()}
+                                            filter={filter}
+                                            selectedIds={selectedIds}
+                                            onToggleSelect={toggleSelect}
+                                            onStatusChange={handleTaskStatusChange}
+                                            onUpdate={handleTaskUpdate}
+                                            onDelete={handleTaskDelete}
+                                        />
                                     )}
                                 </div>
                             )}
@@ -3710,6 +3800,7 @@ const GoalsComponent = () => {
                                         goalFilter={filterGoal}
                                         startDateFilter={filterStartDate?.toDate() || null}
                                         endDateFilter={filterEndDate?.toDate() || null}
+                                        showArchived={showArchived}
                                         selectedIds={selectedIds}
                                         onToggleSelect={toggleSelect}
                                         onVisibleTasksChange={setCalendarTaskIds}
@@ -3717,13 +3808,15 @@ const GoalsComponent = () => {
                                 </div>
                             )}
                 
-                            {/* No results message when filters are active */}
-                            {sortedAndFilteredGoals.length === 0 && selectedFiltersCount > 0 && viewMode !== 'tasks-calendar' && (
+                            {/* No results message when filters or search are active */}
+                            {sortedAndFilteredGoals.length === 0 && (selectedFiltersCount > 0 || filter.trim()) && viewMode !== 'tasks-calendar' && (
                                 <div className="text-center text-gray-50 mt-8 mb-8">
-                                    <p className="text-lg mb-2">No goals match your current filters</p>
-                                    <p className="text-sm">Try adjusting your filters or clearing them to see more results</p>
+                                    <p className="text-lg mb-2">No goals match your current {filter.trim() ? 'search' : 'filters'}</p>
+                                    <p className="text-sm">Try adjusting your {filter.trim() ? 'search terms' : 'filters'} or clearing them to see more results</p>
                                 </div>
                             )}
+                    </div>{/* end goals content */}
+                </div>{/* end filter + content row */}
             </div>
             <div id="summary">
                     <Modal
@@ -3986,11 +4079,12 @@ const GoalsComponent = () => {
                                     </button>
                                 </div>
                                 
-                                <div className="max-h-[70vh] overflow-y-auto">
+                                <div className="max-h-[70vh] overflow-y-auto mt-4">
                                     <TasksList 
                                         goalId={tasksGoalId}
                                         goalTitle={(selectedGoal as any)?.title || ''}
                                         goalDescription={(selectedGoal as any)?.description || ''}
+                                        goalCategory={(selectedGoal as any)?.category}
                                         onTaskCountChange={(count) => setTasksCount(count)}
                                     />
                                 </div>
@@ -4000,19 +4094,20 @@ const GoalsComponent = () => {
             </div>
             </>
     ) : (
-    <div className="text-center text-gray-50 mt-4 justify-center flex flex-col gap-8 items-center h-64">
-                No goals found. Try adding one!
+            <div className="text-center text-gray-50 mt-4 justify-center flex flex-col gap-2 items-center h-64">
+                <p>No goals yet.</p>
+                <p className="mb-4">Create a goal to get started!</p>
                 
-                    <Button
-                        onClick={openGoalModal}
-                        variant='contained'
-                        className="btn-primary gap-2 flex"
-                        // title={`Add a new goal for the current ${scope}`}
-                        aria-label={`Add a new goal`}
-                        >
-                        <PlusIcon className="w-5 h-5" />
-                        <span className="block flex text-nowrap">Add a Goal</span>
-                    </Button>
+                <Button
+                    onClick={openGoalModal}
+                    variant='contained'
+                    className="btn-primary gap-3 flex"
+                    // title={`Add a new goal for the current ${scope}`}
+                    aria-label={`Add a new goal`}
+                    >
+                    <span className="block flex text-nowrap">Add a Goal</span>
+                    <Target className="w-5 h-5" />
+                </Button>
                 
             </div>
         )}
@@ -4102,26 +4197,99 @@ const GoalsComponent = () => {
                                 rows={2}
                                 placeholder="Optional details"
                             />
-                            <div className="flex gap-3">
-                                <TextField
-                                    type="date"
-                                    label="Scheduled date"
-                                    value={standaloneNewTask.scheduled_date || ''}
-                                    onChange={(e) => setStandaloneNewTask((p) => ({ ...p, scheduled_date: e.target.value }))}
-                                    size="small"
-                                    InputLabelProps={{ shrink: true }}
-                                    className="flex-1"
-                                />
-                                <TextField
-                                    type="time"
-                                    label="Scheduled time"
-                                    value={standaloneNewTask.scheduled_time || ''}
-                                    onChange={(e) => setStandaloneNewTask((p) => ({ ...p, scheduled_time: e.target.value }))}
-                                    size="small"
-                                    InputLabelProps={{ shrink: true }}
-                                    className="flex-1"
-                                />
-                            </div>
+                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                <div className="flex flex-col space-y-4 mt-2">
+                                    <DatePicker
+                                        label="Date"
+                                        value={standaloneSelectedDate}
+                                        onChange={(newValue) => setStandaloneSelectedDate(newValue)}
+                                        slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                                    />
+                                    <TimePicker
+                                        label="Time (optional)"
+                                        value={standaloneSelectedTime}
+                                        onChange={(newValue) => setStandaloneSelectedTime(newValue)}
+                                        slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                                    />
+
+                                    {/* Alert / Reminder */}
+                                    <div className="border border-gray-20 dark:border-gray-70 rounded-lg p-3 space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Bell className="w-4 h-4" />
+                                                <label className="text-sm font-semibold">Alert</label>
+                                            </div>
+                                            <FormControlLabel
+                                                control={
+                                                    <Switch
+                                                        checked={standaloneReminderEnabled}
+                                                        onChange={(e) => setStandaloneReminderEnabled(e.target.checked)}
+                                                        size="small"
+                                                    />
+                                                }
+                                                label={standaloneReminderEnabled ? 'On' : 'Off'}
+                                                labelPlacement="start"
+                                                sx={{ marginLeft: 0 }}
+                                            />
+                                        </div>
+
+                                        {standaloneReminderEnabled && (
+                                            <div className="flex flex-col space-y-2 gap-2">
+                                                {standaloneSelectedDate && standaloneSelectedTime ? (
+                                                    <FormControl fullWidth size="small">
+                                                        <InputLabel>Alert time</InputLabel>
+                                                        <Select
+                                                            value={standaloneReminderOffset}
+                                                            onChange={(e) => setStandaloneReminderOffset(e.target.value)}
+                                                            label="Alert time"
+                                                        >
+                                                            <MenuItem value="0">At time of task</MenuItem>
+                                                            <MenuItem value="15">15 minutes before</MenuItem>
+                                                            <MenuItem value="30">30 minutes before</MenuItem>
+                                                            <MenuItem value="60">1 hour before</MenuItem>
+                                                            <MenuItem value="1440">1 day before</MenuItem>
+                                                            <MenuItem value="custom">Custom time</MenuItem>
+                                                        </Select>
+                                                    </FormControl>
+                                                ) : (
+                                                    <p className="text-xs text-secondary-text">Set a scheduled date &amp; time above to use relative alerts, or pick a custom time.</p>
+                                                )}
+
+                                                {(standaloneReminderOffset === 'custom' || !standaloneSelectedDate || !standaloneSelectedTime) && (
+                                                    <DateTimePicker
+                                                        label="Custom alert date &amp; time"
+                                                        value={standaloneSelectedReminderDatetime}
+                                                        onChange={(newValue) => {
+                                                            setStandaloneSelectedReminderDatetime(newValue);
+                                                            setStandaloneReminderDatetime(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '');
+                                                        }}
+                                                        slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                                                    />
+                                                )}
+
+                                                {(() => {
+                                                    const dateStr = standaloneSelectedDate?.format('YYYY-MM-DD');
+                                                    const timeStr = standaloneSelectedTime?.format('HH:mm');
+                                                    if (standaloneReminderOffset === 'custom' || !dateStr || !timeStr) {
+                                                        if (!standaloneReminderDatetime) return null;
+                                                        try {
+                                                            const preview = new Date(standaloneReminderDatetime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+                                                            return <p className="text-xs text-brand-60 dark:text-brand-30">Alert at: {preview}</p>;
+                                                        } catch { return null; }
+                                                    }
+                                                    try {
+                                                        const scheduledUTC = convertToUTC(dateStr, timeStr, timezone);
+                                                        const scheduledDate = new Date(scheduledUTC);
+                                                        scheduledDate.setMinutes(scheduledDate.getMinutes() - Number(standaloneReminderOffset));
+                                                        const preview = scheduledDate.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+                                                        return <p className="text-xs text-brand-60 dark:text-brand-30">Alert at: {preview}</p>;
+                                                    } catch { return null; }
+                                                })()}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </LocalizationProvider>
                         </div>
 
                         <div className="flex justify-end gap-3 mt-6">
@@ -4153,6 +4321,127 @@ const GoalsComponent = () => {
                         )}
                     </div>
                 </Modal>
+
+        {/* Notification Task Edit Modal */}
+        <Modal
+            isOpen={notificationTaskModalOpen}
+            onRequestClose={() => {
+                setNotificationTaskModalOpen(false);
+                setNotificationTask(null);
+            }}
+            shouldCloseOnOverlayClick={true}
+            ariaHideApp={ARIA_HIDE_APP}
+            className={`fixed inset-0 flex md:items-center justify-center z-50`}
+            overlayClassName={`${overlayClasses}`}
+        >
+            <div className={`${modalClasses} max-w-2xl w-full max-h-[90vh] overflow-y-auto`}>
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-semibold">Task Reminder</h2>
+                    <IconButton
+                        onClick={() => {
+                            setNotificationTaskModalOpen(false);
+                            setNotificationTask(null);
+                        }}
+                        size="small"
+                    >
+                        <CloseButton className="w-5 h-5" />
+                    </IconButton>
+                </div>
+                {notificationTask && (
+                    <TaskCard
+                        task={notificationTask}
+                        allowInlineEdit={true}
+                        autoOpenEditModal={true}
+                        onUpdate={async (taskId, updates) => {
+                            try {
+                                const { data: { session } } = await supabase.auth.getSession();
+                                const token = session?.access_token;
+                                if (!token) throw new Error('Not authenticated');
+                                
+                                const response = await fetch('/.netlify/functions/updateTask', {
+                                    method: 'PUT',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${token}`,
+                                    },
+                                    body: JSON.stringify({ id: taskId, ...updates }),
+                                });
+                                
+                                if (!response.ok) throw new Error('Failed to update task');
+                                
+                                const updatedTask = await response.json();
+                                setNotificationTask(updatedTask);
+                                notifySuccess('Task updated');
+                                
+                                // Refresh kanban tasks if applicable
+                                if (viewMode === 'kanban' || viewMode === 'tasks-calendar') {
+                                    fetchKanbanTasks();
+                                }
+                            } catch (error) {
+                                console.error('Failed to update task:', error);
+                                notifyError('Failed to update task');
+                            }
+                        }}
+                        onDelete={async (taskId) => {
+                            try {
+                                const { data: { session } } = await supabase.auth.getSession();
+                                const token = session?.access_token;
+                                if (!token) throw new Error('Not authenticated');
+                                
+                                const response = await fetch(`/.netlify/functions/deleteTask?task_id=${taskId}`, {
+                                    method: 'DELETE',
+                                    headers: { 'Authorization': `Bearer ${token}` },
+                                });
+                                
+                                if (!response.ok) throw new Error('Failed to delete task');
+                                
+                                notifySuccess('Task deleted');
+                                setNotificationTaskModalOpen(false);
+                                setNotificationTask(null);
+                                
+                                // Refresh kanban tasks if applicable
+                                if (viewMode === 'kanban' || viewMode === 'tasks-calendar') {
+                                    fetchKanbanTasks();
+                                }
+                            } catch (error) {
+                                console.error('Failed to delete task:', error);
+                                notifyError('Failed to delete task');
+                            }
+                        }}
+                        onStatusChange={async (taskId, newStatus) => {
+                            try {
+                                const { data: { session } } = await supabase.auth.getSession();
+                                const token = session?.access_token;
+                                if (!token) throw new Error('Not authenticated');
+                                
+                                const response = await fetch('/.netlify/functions/updateTask', {
+                                    method: 'PUT',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${token}`,
+                                    },
+                                    body: JSON.stringify({ id: taskId, status: newStatus }),
+                                });
+                                
+                                if (!response.ok) throw new Error('Failed to update task status');
+                                
+                                const updatedTask = await response.json();
+                                setNotificationTask(updatedTask);
+                                notifySuccess('Task status updated');
+                                
+                                // Refresh kanban tasks if applicable
+                                if (viewMode === 'kanban' || viewMode === 'tasks-calendar') {
+                                    fetchKanbanTasks();
+                                }
+                            } catch (error) {
+                                console.error('Failed to update task status:', error);
+                                notifyError('Failed to update task status');
+                            }
+                        }}
+                    />
+                )}
+            </div>
+        </Modal>
         </div>
   );
 };

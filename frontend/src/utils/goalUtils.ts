@@ -48,6 +48,7 @@ export interface Goal {
   status?: 'Not started' | 'In progress' | 'Blocked' | 'Done' | 'On hold';
   status_notes?: string | null;
   status_set_at?: string | null;
+  is_archived?: boolean;
 };
 // export interface Summary {
 //   id: string;
@@ -95,6 +96,7 @@ export interface Task {
   goal?: { // Optional goal data for filtering
     id: string;
     category?: string;
+    title?: string;
   };
 };
 

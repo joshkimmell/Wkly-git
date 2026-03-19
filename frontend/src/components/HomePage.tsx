@@ -1,8 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGoalsContext } from '@context/GoalsContext';
+import { useTimezone } from '@context/TimezoneContext';
 import useAuth from '@hooks/useAuth';
 import { getSessionToken, getWeekStartDate } from '@utils/functions';
+import { getTodayInTimezone, formatDateInTimezone, convertToUTC } from '@utils/timezone';
 import { Task, Goal, calculateGoalCompletion } from '@utils/goalUtils';
 import LoadingSpinner from '@components/LoadingSpinner';
 import GoalForm from '@components/GoalForm';
@@ -11,6 +13,7 @@ import ProfileManagement from '@components/ProfileManagement';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
+import supabase from '@lib/supabase';
 import {
   Target,
   CheckSquare,
@@ -22,25 +25,27 @@ import {
   Circle,
   CheckCircle2,
   Clock,
-  LayoutGrid,
   Award,
   X,
   ChevronUp,
   ChevronDown as ChevronDownIcon,
+  ListTodo,
+  PlusIcon,
+  Bell,
 } from 'lucide-react';
-import Logo from './Logo';
-import { CircularProgress, Menu, MenuItem, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField } from '@mui/material';
+import { CircularProgress, Menu, MenuItem, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, IconButton, FormControlLabel, Switch, Chip } from '@mui/material';
+import { DatePicker, TimePicker, DateTimePicker } from '@mui/x-date-pickers';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import type { Dayjs } from 'dayjs';
 import GoalCompletionDonut from './GoalCompletionDonut';
+import TaskCard from './TaskCard';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
-function getTodayIso(): string {
-  return new Date().toISOString().split('T')[0];
-}
-
-function formatDisplayDate(iso: string): string {
+function formatDisplayDate(iso: string, timezone: string = 'UTC'): string {
   const d = new Date(iso + 'T00:00:00');
-  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  return formatDateInTimezone(d, timezone, { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
 function getGreeting(): string {
@@ -71,9 +76,11 @@ const ALL_STATUSES: Task['status'][] = ['Not started', 'In progress', 'On hold',
 function TodayTaskRow({
   task,
   onStatusChange,
+  onRowClick,
 }: {
   task: Task;
   onStatusChange: (taskId: string, newStatus: Task['status'], closingRationale?: string) => void;
+  onRowClick?: () => void;
 }) {
   const [displayStatus, setDisplayStatus] = useState<Task['status']>(task.status);
   const [prevStatus, setPrevStatus]       = useState<Task['status']>('Not started');
@@ -120,7 +127,10 @@ function TodayTaskRow({
   };
 
   return (
-    <li className={`flex items-center gap-3 px-4 py-3 ${displayStatus === 'Done' ? 'opacity-50' : ''}`}>
+    <li
+      className={`flex items-center gap-3 px-4 py-3 ${displayStatus === 'Done' ? 'opacity-50' : ''} ${onRowClick ? 'cursor-pointer hover:bg-gray-10 dark:hover:bg-gray-80 transition-colors' : ''}`}
+      onClick={onRowClick}
+    >
       {/* Cycle button */}
       <Tooltip title={displayStatus === 'Done' ? 'Reopen task' : 'Mark as done'}>
         <button
@@ -136,7 +146,7 @@ function TodayTaskRow({
 
       {/* Title + time */}
       <div className="min-w-0 flex-1">
-        <p className={`text-sm text-primary-text truncate ${displayStatus === 'Done' ? 'line-through' : ''}`}>
+        <p className={`text-sm text-primary-text truncate ${displayStatus === 'Done' ? 'line-through' : ''}`} title={task.title}>
           {task.title}
         </p>
         {task.scheduled_time && (
@@ -145,25 +155,39 @@ function TodayTaskRow({
           </p>
         )}
       </div>
+      <div className="flex flex-wrap w-1/3 items-center gap-2">
+        {/* Status chip */}
+        {task.goal && (
+          <Chip
+            size="small"
+            icon={<Target className="w-3 h-3 min-w-3" />}
+            label={
+              <span className="truncate flex items-center py-1 text-secondary-text w-auto max-w-[140px]">
+                <span className='truncate'>{task.goal.title}</span>
+                </span>
+            }
+            title={task.goal.title}
+            className="w-auto text-xs px-2 gap-1 py-1 max-w-[140px] max-h-6"
+            variant="outlined"
+            />
+        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); setMenuAnchor(e.currentTarget); }}
+          className={`shrink-0 flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-gray-20 dark:border-gray-70 bg-background-color hover:border-primary transition-colors ${STATUS_TEXT[displayStatus] ?? ''}`}
+        >
+          <span className={`inline-block w-1.5 h-1.5 rounded-full ${STATUS_DOT[displayStatus] ?? ''}`} />
+          {displayStatus}
+          {menuAnchor ? <ChevronUp className="w-3 h-3" /> : <ChevronDownIcon className="w-3 h-3" />}
+        </button>
 
-      {/* Status chip */}
-      <button
-        onClick={(e) => { e.stopPropagation(); setMenuAnchor(e.currentTarget); }}
-        className={`shrink-0 flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-gray-20 dark:border-gray-70 bg-background-color hover:border-primary transition-colors ${STATUS_TEXT[displayStatus] ?? ''}`}
-      >
-        <span className={`inline-block w-1.5 h-1.5 rounded-full ${STATUS_DOT[displayStatus] ?? ''}`} />
-        {displayStatus}
-        {menuAnchor ? <ChevronUp className="w-3 h-3" /> : <ChevronDownIcon className="w-3 h-3" />}
-      </button>
-
-      <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
-        {ALL_STATUSES.map(s => (
-          <MenuItem key={s} onClick={() => select(s)} selected={displayStatus === s}>
-            {s}
-          </MenuItem>
-        ))}
-      </Menu>
-
+        <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
+          {ALL_STATUSES.map(s => (
+            <MenuItem key={s} onClick={(e) => { e.stopPropagation(); select(s); }} selected={displayStatus === s}>
+              {s}
+            </MenuItem>
+          ))}
+        </Menu>
+      </div>
       {/* Closing rationale dialog */}
       <Dialog open={isClosingDialogOpen} onClose={handleDoneCancel} maxWidth="sm" fullWidth>
         <DialogTitle>Mark Task as Done</DialogTitle>
@@ -194,16 +218,20 @@ function TodayTaskRow({
 
 // ─── mini goal card ──────────────────────────────────────────────────────────
 
-function MiniGoalCard({ goal, onClick }: { goal: Goal; onClick: () => void }) {
-  const [tasks, setTasks] = useState<Task[]>([]);
+function MiniGoalCard({ goal, tasks: propTasks, onClick }: { goal: Goal; tasks?: Task[]; onClick: () => void }) {
+  const [tasks, setTasks] = useState<Task[]>(propTasks ?? []);
 
   useEffect(() => {
+    if (propTasks !== undefined) {
+      setTasks(propTasks);
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
         const token = await getSessionToken();
         if (!token) return;
-        const res = await fetch('/api/getAllTasks', {
+        const res = await fetch('/.netlify/functions/getAllTasks', {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) return;
@@ -212,29 +240,24 @@ function MiniGoalCard({ goal, onClick }: { goal: Goal; onClick: () => void }) {
       } catch { /* silent */ }
     })();
     return () => { cancelled = true; };
-  }, [goal.id]);
+  }, [goal.id, propTasks]);
 
   return (
     <button
       onClick={onClick}
-      className="group w-full text-left rounded-md border border-gray-20 dark:border-gray-70 bg-background-color p-4 hover:border-primary hover:shadow-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary"
+      className="group w-full text-left rounded-md border border-gray-20 dark:border-gray-70 bg-background-color hover:bg-brand-20 dark:hover:bg-brand-80 p-4 hover:border-primary hover:shadow-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary"
     >
     <div className="flex w-full items-center justify-between gap-2">
         <div className="flex-1 min-w-0">
           {goal.category && (
-            <p className="text-xs text-gray-50 dark:text-gray-40 mt-0.5 truncate">{goal.category}</p>
+            <p className="text-xs text-gray-50 dark:text-gray-40 mt-0.5 truncate" title={goal.category}>{goal.category}</p>
           )}
-          <p className="font-semibold text-sm text-primary-text truncate">{goal.title}</p>
+          <p className="font-semibold text-sm text-primary-text truncate" title={goal.title}>{goal.title}</p>
         </div>
         <div className="mt-3 mx-8 flex items-center gap-1.5">
-            {/* <span
-            className="inline-block w-2 h-2 rounded-full shrink-0"
-            style={{ backgroundColor: color }}
-            />
-            <span className="text-xs text-gray-50 dark:text-gray-40">{status}</span> */}
             <div className="flex items-center gap-2">
               {tasks.length > 0 && (
-                <GoalCompletionDonut percentage={calculateGoalCompletion(tasks)} size={40} strokeWidth={4} />
+                <GoalCompletionDonut percentage={calculateGoalCompletion(tasks)} size={60} strokeWidth={4} />
               )}
             </div>
         </div>
@@ -249,44 +272,54 @@ function MiniGoalCard({ goal, onClick }: { goal: Goal; onClick: () => void }) {
 function EmptyState({ onAddGoal, username }: { onAddGoal: () => void; username?: string }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center py-16 px-4 text-center max-w-7xl mx-auto">
-      <div className="w-auto h-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
-        {/* <Target className="w-8 h-8 text-primary" /> */}
-        <Logo useTheme className="absolute z-0 -mt-48 fill-primary-text w-2/3 h-full text-primary-text opacity-30" />
-      </div>
-    <div className='relative z-10 max-w-xl'>
-      <h2 className="text-4xl font-light mt-40 mb-3">Welcome{username ? `, ${username}` : ''}</h2>
-      <p className="text-secondary-text mb-8 leading-relaxed">
-        Wkly helps you stay focused week over week — track goals, manage tasks, log accomplishments, and generate AI-powered summaries of your progress.
-      </p>
+      
+        <div className='relative text-start z-10 max-w-7xl space-y-8'>
+            <h2 className="text-4xl font-light mt-2 mb-3">Welcome{username ? `, ${username}` : ''}</h2>
+            <p className="text-secondary-text mb-8 leading-relaxed max-w-2xl">
+                Wkly helps you stay focused week over week — track goals, manage tasks, log accomplishments, and generate AI-powered summaries of your progress.
+            </p>
 
-      {/* feature pills */}
-      <div className="grid grid-cols-2 gap-3 w-full min-h-[20rem] mb-10">
-        {[
-          { icon: <LayoutGrid className="w-6 h-6" />,   label: 'Prioritized goals',       desc: 'Set focused goals each week'     },
-          { icon: <CheckSquare className="w-6 h-6" />, label: 'Task tracking',    desc: 'Break goals into tasks'          },
-          { icon: <Award className="w-6 h-6" />,   label: 'Accomplishments',     desc: 'Capture what you achieved'       },
-          { icon: <Sparkles className="w-6 h-6" />, label: 'AI summaries',        desc: 'Auto-generate progress reports'  },
-        ].map(({ icon, label, desc }) => (
-          <div
-            key={label}
-            className="flex flex-col items-start gap-1 rounded-md bg-background-color border border-gray-20 dark:border-gray-70 p-3 text-left"
-          >
-            <div className="flex items-center gap-2 text-primary font-normal text-lg md:text-2xl">
-              {icon}
-              {label}
+            {/* <button
+                onClick={onAddGoal}
+                className="btn-primary text-2xl p-3 mb-8 font-[300] inline-flex items-center gap-3 transition-colors shadow-sm"
+            >
+                Add your first goal
+                <Target className="w-5 h-5" />
+            </button> */}
+            <Button
+                onClick={onAddGoal}
+                variant='contained'
+                className="btn-primary gap-3 flex"
+                // title={`Add a new goal for the current ${scope}`}
+                aria-label={`Add a new goal`}
+                >
+                <span className="block flex text-nowrap">Add Your First Goal</span>
+                <Target className="w-5 h-5" />
+            </Button>
+            {/* feature pills */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full min-h-[20rem] mb-10 ">
+                {[
+                    { icon: <Target className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />,   label: 'Prioritized goals', desc: 'Set focused goals each week' },
+                    { icon: <CheckSquare className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />, label: 'Task tracking', desc: 'Break goals into tasks' },
+                    { icon: <Award className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />,   label: 'Accomplishments', desc: 'Capture what you achieved' },
+                    { icon: <Sparkles className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />, label: 'AI summaries', desc: 'Auto-generate progress reports' },
+                ].map(({ icon, label, desc }) => (
+                <div
+                    key={label}
+                    className="flex flex-col items-start gap-1 rounded-md bg-background-color border border-brand-20 dark:border-brand-70 p-3 sm:p-8 text-left"
+                    >
+                    <div className="flex items-start gap-3 text-brand-50 font-normal text-lg md:text-2xl">
+                        {icon}
+                        <div className="flex flex-col">
+                            {label}
+                            <p className="text-sm text-gray-50 dark:text-gray-40">{desc}</p>
+                        </div>
+                    </div>
+                </div>
+                ))}
             </div>
-            <p className="text-sm text-gray-50 dark:text-gray-40">{desc}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-      <button
-        onClick={onAddGoal}
-        className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-semibold px-6 py-3 rounded-xl transition-colors shadow-sm"
-      >
-        <Plus className="w-5 h-5" />
-        Add your first goal
-      </button>
+        </div>
+      
     </div>
   );
 }
@@ -311,12 +344,12 @@ function ActionCard({
       onClick={onClick}
       className={`group w-auto text-left rounded-md border p-4 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary ${
         variant === 'primary'
-          ? 'border-primary/40 bg-primary/5 hover:bg-primary/10 dark:bg-primary/10 dark:hover:bg-primary/20'
+          ? 'border-primary/40 bg-primary/5 group-hover:bg-brand-10 dark:bg-brand-90 dark:group-hover:bg-primary/20'
           : 'border-gray-20 dark:border-gray-70 bg-transparent hover:border-primary hover:shadow-md'
       }`}
     >
       <div className="flex w-auto pr-4 items-center justify-center gap-3">
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+        <div className={`w-9 h-9 rounded-md flex items-center justify-center shrink-0 ${
           variant === 'primary' ? 'text-primary' : 'bg-transparent text-gray-60 dark:text-gray-30 group-hover:bg-primary/10 group-hover:text-primary transition-colors'
         }`}>
           {icon}
@@ -340,12 +373,16 @@ const EMPTY_GOAL: Goal = {
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { goals, isRefreshing, refreshGoals } = useGoalsContext();
-  const { profile } = useAuth();
+  const { goals, isRefreshing, refreshGoals, lastUpdated } = useGoalsContext();
+  const { profile, session } = useAuth();
+  const { timezone } = useTimezone();
   const username: string | undefined = profile?.username || undefined;
 
   const [todayTasks, setTodayTasks]     = useState<Task[]>([]);
+  const [allGoalTasks, setAllGoalTasks] = useState<Task[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
+  const [selectedTodayTask, setSelectedTodayTask] = useState<Task | null>(null);
+  const [selectedTodayTaskKey, setSelectedTodayTaskKey] = useState(0);
 
   // ── modal state ───────────────────────────────────────────────────────────
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -354,6 +391,18 @@ export default function HomePage() {
   const [goalsExpanded, setGoalsExpanded] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
+  const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
+  const [standaloneNewTask, setStandaloneNewTask] = useState<Partial<Task>>({ title: '', description: '' });
+  const [standaloneTaskGoalId, setStandaloneTaskGoalId] = useState('');
+  const [standaloneCreateNewGoal, setStandaloneCreateNewGoal] = useState(false);
+  const [standaloneNewGoalTitle, setStandaloneNewGoalTitle] = useState('');
+  // Date/time picker + reminder state for standalone Add Task modal
+  const [standaloneSelectedDate, setStandaloneSelectedDate] = useState<Dayjs | null>(null);
+  const [standaloneSelectedTime, setStandaloneSelectedTime] = useState<Dayjs | null>(null);
+  const [standaloneReminderEnabled, setStandaloneReminderEnabled] = useState(false);
+  const [standaloneReminderOffset, setStandaloneReminderOffset] = useState('30');
+  const [standaloneReminderDatetime, setStandaloneReminderDatetime] = useState('');
+  const [standaloneSelectedReminderDatetime, setStandaloneSelectedReminderDatetime] = useState<Dayjs | null>(null);
 
   // ── first-login: auto-open profile modal once per session ─────────────────
   useEffect(() => {
@@ -364,12 +413,24 @@ export default function HomePage() {
     }
   }, [profile]);
 
-  const today = getTodayIso();
+  const today = getTodayInTimezone(timezone);
 
-  // Sort goals newest-first
-  const sortedGoals = [...goals].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
+  // Build per-goal task map from the all-tasks fetch
+  const tasksByGoal = allGoalTasks.reduce<Record<string, Task[]>>((acc, t) => {
+    if (t.goal_id) {
+      (acc[t.goal_id] ??= []).push(t);
+    }
+    return acc;
+  }, {});
+
+  // Filter out 100%-complete goals; sort by completion % ascending (in-progress first)
+  const sortedGoals = [...goals]
+    .filter(goal => calculateGoalCompletion(tasksByGoal[goal.id] ?? []) < 100)
+    .sort((a, b) => {
+      const pa = calculateGoalCompletion(tasksByGoal[a.id] ?? []);
+      const pb = calculateGoalCompletion(tasksByGoal[b.id] ?? []);
+      return pb - pa;
+    });
   const latestGoals   = sortedGoals.slice(0, goalsExpanded ? 10 : 3);
   const hasGoals      = goals.length > 0;
 
@@ -378,7 +439,7 @@ export default function HomePage() {
     setTasksLoading(true);
     try {
       const token = await getSessionToken();
-      const res   = await fetch('/api/getAllTasks', {
+      const res   = await fetch('/.netlify/functions/getAllTasks', {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -387,6 +448,7 @@ export default function HomePage() {
       if (!res.ok) throw new Error(await res.text());
 
       const data: Task[] = await res.json();
+      setAllGoalTasks(data);
       const forToday = data.filter(t => t.scheduled_date === today);
       // Sort: not-done first, then done
       forToday.sort((a, b) => {
@@ -411,7 +473,7 @@ export default function HomePage() {
     setTodayTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
     try {
       const token = await getSessionToken();
-      await fetch('/api/updateTask', {
+      await fetch('/.netlify/functions/updateTask', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: taskId, status: newStatus, ...(closingRationale ? { closing_rationale: closingRationale } : {}) }),
@@ -419,6 +481,19 @@ export default function HomePage() {
     } catch (err) {
       console.error('[HomePage] handleTaskStatusChange error', err);
     }
+  };
+
+  // ── today task detail handlers ────────────────────────────────────────────
+  const handleTodayTaskUpdate = (taskId: string, updates: Partial<Task>) => {
+    setTodayTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+    setAllGoalTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+    setSelectedTodayTask(prev => prev?.id === taskId ? { ...prev, ...updates } : prev);
+  };
+
+  const handleTodayTaskDelete = (taskId: string) => {
+    setTodayTasks(prev => prev.filter(t => t.id !== taskId));
+    setAllGoalTasks(prev => prev.filter(t => t.id !== taskId));
+    setSelectedTodayTask(null);
   };
 
   // ── handlers ──────────────────────────────────────────────────────────────
@@ -442,11 +517,122 @@ export default function HomePage() {
     setSelectedGoal(null);
   };
 
+  const closeAddTaskModal = () => {
+    setIsAddTaskModalOpen(false);
+    setStandaloneNewTask({ title: '', description: '' });
+    setStandaloneTaskGoalId('');
+    setStandaloneCreateNewGoal(false);
+    setStandaloneNewGoalTitle('');
+    setStandaloneSelectedDate(null);
+    setStandaloneSelectedTime(null);
+    setStandaloneReminderEnabled(false);
+    setStandaloneReminderOffset('30');
+    setStandaloneReminderDatetime('');
+    setStandaloneSelectedReminderDatetime(null);
+  };
+
+  const createStandaloneTask = async () => {
+    if (!standaloneNewTask.title?.trim()) { 
+      alert('Task title is required');
+      return; 
+    }
+    if (!standaloneCreateNewGoal && !standaloneTaskGoalId) { 
+      alert('Please select a goal or choose to create a new one');
+      return; 
+    }
+    if (standaloneCreateNewGoal && !standaloneNewGoalTitle.trim()) { 
+      alert('New goal title is required');
+      return; 
+    }
+    try {
+      const token = await getSessionToken();
+      if (!token) throw new Error('Not authenticated');
+      
+      let goalId = standaloneTaskGoalId;
+      
+      if (standaloneCreateNewGoal) {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: createdGoal, error: goalErr } = await supabase
+          .from('goals')
+          .insert({
+            title: standaloneNewGoalTitle.trim(),
+            week_start: getWeekStartDate(),
+            user_id: user?.id,
+            status: 'Not started',
+            description: '',
+            category: '',
+          })
+          .select()
+          .single();
+        if (goalErr || !createdGoal) throw new Error(goalErr?.message || 'Failed to create goal');
+        goalId = createdGoal.id;
+        await refreshGoals();
+      }
+      
+      const dateStr = standaloneSelectedDate ? standaloneSelectedDate.format('YYYY-MM-DD') : null;
+      const timeStr = standaloneSelectedTime ? standaloneSelectedTime.format('HH:mm') : null;
+      // Compute reminder datetime in UTC
+      let computedReminderDatetime: string | null = null;
+      let finalReminderEnabled = standaloneReminderEnabled;
+      if (standaloneReminderEnabled) {
+        try {
+          if (standaloneReminderOffset === 'custom') {
+            computedReminderDatetime = standaloneReminderDatetime ? new Date(standaloneReminderDatetime).toISOString() : null;
+          } else if (dateStr && timeStr) {
+            const scheduledUTC = convertToUTC(dateStr, timeStr, timezone);
+            const scheduledDate = new Date(scheduledUTC);
+            scheduledDate.setMinutes(scheduledDate.getMinutes() - Number(standaloneReminderOffset));
+            computedReminderDatetime = scheduledDate.toISOString();
+          } else if (standaloneReminderDatetime) {
+            computedReminderDatetime = new Date(standaloneReminderDatetime).toISOString();
+          }
+        } catch (e) {
+          computedReminderDatetime = null;
+        }
+        if (!computedReminderDatetime) finalReminderEnabled = false;
+      }
+      const response = await fetch('/.netlify/functions/createTask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          goal_id: goalId,
+          title: standaloneNewTask.title!.trim(),
+          description: standaloneNewTask.description || null,
+          status: 'Not started',
+          scheduled_date: dateStr,
+          scheduled_time: timeStr,
+          reminder_enabled: finalReminderEnabled,
+          reminder_datetime: computedReminderDatetime,
+          order_index: 0,
+        }),
+      });
+      if (!response.ok) throw new Error('Failed to create task');
+      
+      closeAddTaskModal();
+      fetchTodayTasks();
+    } catch (err) {
+      console.error('[HomePage] createStandaloneTask error:', err);
+      alert('Failed to create task');
+    }
+  };
+
   // ── loading ───────────────────────────────────────────────────────────────
   if (isRefreshing && goals.length === 0) {
     return (
       <div className="flex justify-center items-center py-20">
         <CircularProgress />
+      </div>
+    );
+  }
+
+  // ── loading state (initial load or refreshing after user change) ──────────
+  if ((session?.user?.id && lastUpdated === undefined) || (isRefreshing && !hasGoals)) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-50">Loading your goals...</p>
+        </div>
       </div>
     );
   }
@@ -507,9 +693,9 @@ export default function HomePage() {
       <div>
         <p className="text-sm text-gray-50 dark:text-gray-40 mb-1 flex items-center gap-1.5">
           <Calendar className="w-3.5 h-3.5" />
-          {formatDisplayDate(today)}
+          {formatDisplayDate(today, timezone)}
         </p>
-        <h1 className="text-2xl font-bold text-primary-text">{getGreeting()}{username ? `, ${username}` : ''}</h1>
+        <h1 className="text-2xl font-medium md:text-4xl md:font-normal text-primary-text tracking-normal">{getGreeting()}{username ? `, ${username}` : ''}</h1>
       </div>
 
       {/* ── quick actions ─────────────────────────────────────────────────── */}
@@ -525,25 +711,6 @@ export default function HomePage() {
             description="Plan your next objective"
             onClick={openGoalModal}
           />
-          {/* <ActionCard
-            icon={<FileText className="w-4 h-4" />}
-            label="Add a note"
-            description="Capture thoughts on a goal"
-            onClick={goToGoals}
-          />
-          <ActionCard
-            icon={<Trophy className="w-4 h-4" />}
-            label="Log an accomplishment"
-            description="Record something you achieved"
-            onClick={goToGoals}
-          />
-          <ActionCard
-            icon={<Sparkles className="w-4 h-4" />}
-            label="Generate summary"
-            description="AI recap of your progress"
-            onClick={goToSummaries}
-            variant="primary"
-          /> */}
         </div>
       </section>
 
@@ -556,15 +723,15 @@ export default function HomePage() {
             <h2 className="font-normal text-primary-text flex items-center gap-2">
               <Target className="w-4 h-4 text-primary" />
               Latest goals
-              {goalsExpanded && goals.length > 3 && (
+              {goalsExpanded && sortedGoals.length > 3 && (
                 <span className="text-xs font-normal text-gray-50 dark:text-gray-40">
-                  showing {latestGoals.length} of {goals.length}
+                  showing {latestGoals.length} of {sortedGoals.length}
                 </span>
               )}
             </h2>
             <button
               onClick={goToGoals}
-              className="text-xs text-primary hover:underline flex items-center gap-0.5"
+              className="btn-primary hover:underline flex items-center gap-0.5"
             >
               View all <ChevronRight className="w-3 h-3" />
             </button>
@@ -572,14 +739,14 @@ export default function HomePage() {
 
           <div className="space-y-3">
             {latestGoals.map(goal => (
-              <MiniGoalCard key={goal.id} goal={goal} onClick={() => openTasksModal(goal)} />
+              <MiniGoalCard key={goal.id} goal={goal} tasks={tasksByGoal[goal.id] ?? []} onClick={() => openTasksModal(goal)} />
             ))}
-            {goals.length > 3 && (
+            {sortedGoals.length > 3 && (
               <button
                 onClick={() => setGoalsExpanded(e => !e)}
-                className="w-full text-xs text-primary hover:underline text-center pt-1"
+                className="btn-ghost w-full text-xs text-primary-link underline text-center pt-1"
               >
-                {goalsExpanded ? 'View less' : `+${goals.length - 3} more`}
+                {goalsExpanded ? 'View less' : `+${sortedGoals.length - 3} more`}
               </button>
             )}
           </div>
@@ -599,7 +766,7 @@ export default function HomePage() {
             </h2>
             <button
               onClick={goToCalendar}
-              className="text-xs text-primary hover:underline flex items-center gap-0.5"
+              className="btn-primary hover:underline flex items-center gap-0.5"
             >
               Manage <ChevronRight className="w-3 h-3" />
             </button>
@@ -615,16 +782,24 @@ export default function HomePage() {
                 <Zap className="w-7 h-7 text-gray-30 dark:text-gray-60 mb-2" />
                 <p className="text-sm text-gray-40 dark:text-gray-50">No tasks scheduled for today</p>
                 <button
-                  onClick={goToGoals}
-                  className="mt-3 text-xs text-primary hover:underline"
+                  onClick={() => setIsAddTaskModalOpen(true)}
+                  className="mt-3 btn-primary hover:underline"
                 >
-                  Schedule a task →
+                  Add a task →
                 </button>
               </div>
             ) : (
               <ul className="divide-y divide-gray-20 dark:divide-gray-70">
                 {todayTasks.map(task => (
-                  <TodayTaskRow key={task.id} task={task} onStatusChange={handleTaskStatusChange} />
+                  <TodayTaskRow
+                    key={task.id}
+                    task={task}
+                    onStatusChange={handleTaskStatusChange}
+                    onRowClick={() => {
+                      setSelectedTodayTask(task);
+                      setSelectedTodayTaskKey(k => k + 1);
+                    }}
+                  />
                 ))}
               </ul>
             )}
@@ -672,6 +847,22 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* Today task detail modal — card is hidden; MUI Dialog portals to body */}
+      {selectedTodayTask && (
+        <div className="hidden" aria-hidden="true">
+          <TaskCard
+            key={`today-task-${selectedTodayTask.id}-${selectedTodayTaskKey}`}
+            task={selectedTodayTask}
+            allowInlineEdit
+            autoOpenEditModal
+            onUpdate={handleTodayTaskUpdate}
+            onDelete={handleTodayTaskDelete}
+            onStatusChange={(id, status) => handleTaskStatusChange(id, status)}
+            onModalClose={() => setSelectedTodayTask(null)}
+          />
+        </div>
+      )}
+
       {/* Add goal modal */}
       <Modal
         isOpen={isGoalModalOpen}
@@ -691,6 +882,194 @@ export default function HomePage() {
               refreshGoals={() => refreshGoals().then(() => {})}
             />
           )}
+        </div>
+      </Modal>
+
+      {/* Add Task Modal */}
+      <Modal
+        isOpen={isAddTaskModalOpen}
+        onRequestClose={closeAddTaskModal}
+        shouldCloseOnOverlayClick={true}
+        ariaHideApp={ARIA_HIDE_APP}
+        className="fixed inset-0 flex md:items-center justify-center z-50"
+        overlayClassName={overlayClasses}
+      >
+        <div className={`${modalClasses} max-w-lg w-full`}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <ListTodo className="w-5 h-5 text-primary" />
+              Add a task
+            </h2>
+            <IconButton size="small" onClick={closeAddTaskModal} aria-label="Close">
+              <X className="w-4 h-4" />
+            </IconButton>
+          </div>
+
+          <div className="space-y-4">
+            {/* Goal selector */}
+            {!standaloneCreateNewGoal ? (
+              <FormControl fullWidth size="small">
+                <InputLabel id="standalone-task-goal-label">Goal *</InputLabel>
+                <Select
+                  labelId="standalone-task-goal-label"
+                  label="Goal *"
+                  value={standaloneTaskGoalId}
+                  onChange={(e) => setStandaloneTaskGoalId(e.target.value as string)}
+                  displayEmpty
+                >
+                  {goals.map((g) => (
+                    <MenuItem key={g.id} value={g.id}>
+                      <span className="truncate max-w-[320px] block">{g.title}</span>
+                    </MenuItem>
+                  ))}
+                  <MenuItem
+                    value="__new__"
+                    onClick={(e) => { e.stopPropagation(); setStandaloneCreateNewGoal(true); setStandaloneTaskGoalId(''); }}
+                    className="text-primary font-medium"
+                  >
+                    <PlusIcon className="w-4 h-4 mr-1 inline" /> Create new goal…
+                  </MenuItem>
+                </Select>
+              </FormControl>
+            ) : (
+              <div className="space-y-2">
+                <TextField
+                  label="New goal title *"
+                  value={standaloneNewGoalTitle}
+                  onChange={(e) => setStandaloneNewGoalTitle(e.target.value)}
+                  size="small"
+                  fullWidth
+                  autoFocus
+                  placeholder="Enter goal title"
+                />
+                <button
+                  className="text-sm text-gray-50 underline"
+                  onClick={() => { setStandaloneCreateNewGoal(false); setStandaloneNewGoalTitle(''); }}
+                >
+                  ← Pick an existing goal instead
+                </button>
+              </div>
+            )}
+
+            {/* Task fields */}
+            <TextField
+              label="Task title *"
+              value={standaloneNewTask.title || ''}
+              onChange={(e) => setStandaloneNewTask((p) => ({ ...p, title: e.target.value }))}
+              size="small"
+              fullWidth
+              autoFocus={standaloneCreateNewGoal ? false : true}
+              placeholder="What needs to be done?"
+            />
+            <TextField
+              label="Description"
+              value={standaloneNewTask.description || ''}
+              onChange={(e) => setStandaloneNewTask((p) => ({ ...p, description: e.target.value }))}
+              size="small"
+              fullWidth
+              multiline
+              rows={2}
+              placeholder="Optional details"
+            />
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <div className="flex flex-col space-y-4 mt-2">
+                <DatePicker
+                  label="Date"
+                  value={standaloneSelectedDate}
+                  onChange={(newValue) => setStandaloneSelectedDate(newValue)}
+                  slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                />
+                <TimePicker
+                  label="Time (optional)"
+                  value={standaloneSelectedTime}
+                  onChange={(newValue) => setStandaloneSelectedTime(newValue)}
+                  slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                />
+
+                {/* Alert / Reminder */}
+                <div className="border border-gray-20 dark:border-gray-70 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Bell className="w-4 h-4" />
+                      <label className="text-sm font-semibold">Alert</label>
+                    </div>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={standaloneReminderEnabled}
+                          onChange={(e) => setStandaloneReminderEnabled(e.target.checked)}
+                          size="small"
+                        />
+                      }
+                      label={standaloneReminderEnabled ? 'On' : 'Off'}
+                      labelPlacement="start"
+                      sx={{ marginLeft: 0 }}
+                    />
+                  </div>
+
+                  {standaloneReminderEnabled && (
+                    <div className="space-y-2 gap-2">
+                      {standaloneSelectedDate && standaloneSelectedTime ? (
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Alert time</InputLabel>
+                          <Select
+                            value={standaloneReminderOffset}
+                            onChange={(e) => setStandaloneReminderOffset(e.target.value)}
+                            label="Alert time"
+                          >
+                            <MenuItem value="0">At time of task</MenuItem>
+                            <MenuItem value="15">15 minutes before</MenuItem>
+                            <MenuItem value="30">30 minutes before</MenuItem>
+                            <MenuItem value="60">1 hour before</MenuItem>
+                            <MenuItem value="1440">1 day before</MenuItem>
+                            <MenuItem value="custom">Custom time</MenuItem>
+                          </Select>
+                        </FormControl>
+                      ) : (
+                        <p className="text-xs text-secondary-text">Set a scheduled date &amp; time above to use relative alerts, or pick a custom time.</p>
+                      )}
+
+                      {(standaloneReminderOffset === 'custom' || !standaloneSelectedDate || !standaloneSelectedTime) && (
+                        <DateTimePicker
+                          label="Custom alert date &amp; time"
+                          value={standaloneSelectedReminderDatetime}
+                          onChange={(newValue) => {
+                            setStandaloneSelectedReminderDatetime(newValue);
+                            setStandaloneReminderDatetime(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '');
+                          }}
+                          slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                        />
+                      )}
+
+                      {(() => {
+                        const dateStr = standaloneSelectedDate?.format('YYYY-MM-DD');
+                        const timeStr = standaloneSelectedTime?.format('HH:mm');
+                        if (standaloneReminderOffset === 'custom' || !dateStr || !timeStr) {
+                          if (!standaloneReminderDatetime) return null;
+                          try {
+                            const preview = new Date(standaloneReminderDatetime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+                            return <p className="text-xs text-brand-60 dark:text-brand-30">Alert at: {preview}</p>;
+                          } catch { return null; }
+                        }
+                        try {
+                          const scheduledUTC = convertToUTC(dateStr, timeStr, timezone);
+                          const scheduledDate = new Date(scheduledUTC);
+                          scheduledDate.setMinutes(scheduledDate.getMinutes() - Number(standaloneReminderOffset));
+                          const preview = scheduledDate.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+                          return <p className="text-xs text-brand-60 dark:text-brand-30">Alert at: {preview}</p>;
+                        } catch { return null; }
+                      })()}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </LocalizationProvider>
+          </div>
+
+          <div className="flex justify-end gap-3 mt-6">
+            <button className="btn-secondary" onClick={closeAddTaskModal}>Cancel</button>
+            <button className="btn-primary" onClick={createStandaloneTask}>Add task</button>
+          </div>
         </div>
       </Modal>
 
