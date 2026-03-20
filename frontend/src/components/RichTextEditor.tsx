@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { IconButton, Tooltip, TextField } from '@mui/material';
+import { IconButton, Tooltip, TextField, FormControl, Input, InputLabel } from '@mui/material';
 import { Bold, Italic, List, Hash, Quote, Link as LinkIcon } from 'lucide-react';
 import '@styles/richtext.scss';
 
@@ -469,146 +469,165 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
       };
     }, [contentRef]);
 
+//     const TextMaskCustom = React.forwardRef<HTMLInputElement, CustomProps>(
+//   function TextMaskCustom(props, ref) {
+//     const { onChange, ...other } = props;
+//     return (
+//       <IMaskInput
+//         {...other}
+//         mask="(#00) 000-0000"
+//         definitions={{
+//           '#': /[1-9]/,
+//         }}
+//         inputRef={ref}
+//         onAccept={(value: any) => onChange({ target: { name: props.name, value } })}
+//         overwrite
+//       />
+//     );
+//   },
+// );
+
 
   return (
     <>
       {/* <div className="richtext-container" lang="en-US" dir="ltr"> */}
         <div className={`richtext-container w-full ${label ? 'has-label' : ''} ${(focused ? 'richtext-focused' : '') || (hasContent ? 'richtext-filled' : '')}`}>
-          
-          <TextField
-            id={id}
-            multiline
-            fullWidth
-            value={html}
-            placeholder={placeholder}
-            /* label shown above as a custom floating label */
-            label={label}
-            InputLabelProps={{ shrink: (focused || hasContent) as any }}
-            inputRef={(el: any) => { contentRef.current = el; }}
-            InputProps={{
-              inputComponent: ContentEditableInput as any,
-              inputProps: { value: html, placeholder },
-            }}
-            onChange={() => { /* handled by contentEditable's onInput */ }}
-            sx={{
-              borderRadius: 0,
-              '&::before': {
-                border: '1px solid var(--Textarea-focusedHighlight)',
-                transform: 'scaleX(0)',
-                left: 0,
-                right: 0,
-                bottom: '-2px',
-                top: 'unset',
-                transition: 'transform .15s cubic-bezier(0.1,0.9,0.2,1)',
+          <FormControl variant="standard">
+            <TextField
+              id={id}
+              multiline
+              fullWidth
+              value={html}
+              // placeholder={placeholder}
+              /* label shown above as a custom floating label */
+              label={label ? label : undefined}
+              InputLabelProps={{ shrink: (focused || hasContent) as any }}
+              inputRef={(el: any) => { contentRef.current = el; }}
+              InputProps={{
+                inputComponent: ContentEditableInput as any,
+                inputProps: { value: html, placeholder },
+              }}
+              onChange={() => { /* handled by contentEditable's onInput */ }}
+              sx={{
                 borderRadius: 0,
-              },
-              '&:focus-within::before': {
-                transform: 'scaleX(1)',
-              },
-              '& .richtext-contenteditable': { paddingBottom: '3.25rem' },
-              '& label.richtext-filled': { transform: 'translate(14px, -6px) scale(0.75)'}, 
-            }}
-          />
-          <div className="richtext-toolbar">
-            <Tooltip title="Bold (Ctrl/Cmd+B)" arrow>
-              <span>
-              <IconButton
-                aria-label="Bold"
-                aria-pressed={activeBold}
-                color={activeBold ? 'primary' : 'default'}
-                size="small"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => { applyCommand('bold'); }}
-              >
-                <Bold size={16} />
-              </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Italic (Ctrl/Cmd+I)" arrow>
-              <span>
-              <IconButton
-                aria-label="Italic"
-                aria-pressed={activeItalic}
-                color={activeItalic ? 'primary' : 'default'}
-                size="small"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => { applyCommand('italic'); }}
-              >
-                <Italic size={16} />
-              </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Heading" arrow>
-              <span>
-              <IconButton
-                aria-label="Heading"
-                aria-pressed={activeHeading}
-                color={activeHeading ? 'primary' : 'default'}
-                size="small"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => { applyCommand('formatBlock:h2'); }}
-              >
-                <Hash size={16} />
-              </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Bullet list" arrow>
-              <span>
-              <IconButton
-                aria-label="Bullet list"
-                aria-pressed={activeUnordered}
-                color={activeUnordered ? 'primary' : 'default'}
-                size="small"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => { applyCommand('insertUnorderedList'); }}
-              >
-                <List size={16} />
-              </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Ordered list" arrow>
-              <span>
-              <IconButton
-                aria-label="Ordered list"
-                aria-pressed={activeOrdered}
-                color={activeOrdered ? 'primary' : 'default'}
-                size="small"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => { applyCommand('insertOrderedList'); }}
-              >
-                <List size={16} />
-              </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Blockquote" arrow>
-              <span>
-              <IconButton
-                aria-label="Blockquote"
-                aria-pressed={activeQuote}
-                color={activeQuote ? 'primary' : 'default'}
-                size="small"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => { applyCommand('formatBlock:blockquote'); }}
-              >
-                <Quote size={16} />
-              </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Link" arrow>
-              <span>
-              <IconButton
-                aria-label="Link"
-                aria-pressed={activeLink}
-                color={activeLink ? 'primary' : 'default'}
-                size="small"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={createLink}
-              >
-                <LinkIcon size={16} />
-              </IconButton>
-              </span>
-            </Tooltip>
-          </div>
+                '&::before': {
+                  border: '1px solid var(--Textarea-focusedHighlight)',
+                  transform: 'scaleX(0)',
+                  left: 0,
+                  right: 0,
+                  bottom: '-2px',
+                  top: 'unset',
+                  transition: 'transform .15s cubic-bezier(0.1,0.9,0.2,1)',
+                  borderRadius: 0,
+                },
+                '&:focus-within::before': {
+                  transform: 'scaleX(1)',
+                },
+                '& .richtext-contenteditable': { paddingBottom: '3.25rem' },
+                '& label.richtext-filled': { transform: 'translate(14px, -6px) scale(0.75)'}, 
+              }}
+            />
+            <div className="richtext-toolbar">
+              <Tooltip title="Bold (Ctrl/Cmd+B)" arrow>
+                <span>
+                <IconButton
+                  aria-label="Bold"
+                  aria-pressed={activeBold}
+                  color={activeBold ? 'primary' : 'default'}
+                  size="small"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { applyCommand('bold'); }}
+                >
+                  <Bold size={16} />
+                </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title="Italic (Ctrl/Cmd+I)" arrow>
+                <span>
+                <IconButton
+                  aria-label="Italic"
+                  aria-pressed={activeItalic}
+                  color={activeItalic ? 'primary' : 'default'}
+                  size="small"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { applyCommand('italic'); }}
+                >
+                  <Italic size={16} />
+                </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title="Heading" arrow>
+                <span>
+                <IconButton
+                  aria-label="Heading"
+                  aria-pressed={activeHeading}
+                  color={activeHeading ? 'primary' : 'default'}
+                  size="small"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { applyCommand('formatBlock:h2'); }}
+                >
+                  <Hash size={16} />
+                </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title="Bullet list" arrow>
+                <span>
+                <IconButton
+                  aria-label="Bullet list"
+                  aria-pressed={activeUnordered}
+                  color={activeUnordered ? 'primary' : 'default'}
+                  size="small"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { applyCommand('insertUnorderedList'); }}
+                >
+                  <List size={16} />
+                </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title="Ordered list" arrow>
+                <span>
+                <IconButton
+                  aria-label="Ordered list"
+                  aria-pressed={activeOrdered}
+                  color={activeOrdered ? 'primary' : 'default'}
+                  size="small"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { applyCommand('insertOrderedList'); }}
+                >
+                  <List size={16} />
+                </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title="Blockquote" arrow>
+                <span>
+                <IconButton
+                  aria-label="Blockquote"
+                  aria-pressed={activeQuote}
+                  color={activeQuote ? 'primary' : 'default'}
+                  size="small"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { applyCommand('formatBlock:blockquote'); }}
+                >
+                  <Quote size={16} />
+                </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title="Link" arrow>
+                <span>
+                <IconButton
+                  aria-label="Link"
+                  aria-pressed={activeLink}
+                  color={activeLink ? 'primary' : 'default'}
+                  size="small"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={createLink}
+                >
+                  <LinkIcon size={16} />
+                </IconButton>
+                </span>
+              </Tooltip>
+            </div>
+          </FormControl>
         {/* </div> */}
       </div>
     </>

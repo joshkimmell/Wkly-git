@@ -91,7 +91,7 @@ const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded, onNoteEdite
           id="focus-note-draft"
           value={draft}
           onChange={setDraft}
-          placeholder="Quick note… (⌘+Enter to save)"
+          label="Quick note… (⌘+Enter to save)"
         />
         <button
           onClick={addNote}

@@ -103,6 +103,8 @@ module.exports = {
         'primary-link': 'var(--primary-link)',
         'secondary-link': 'var(--secondary-link)',
         'tertiary-link': 'var(--tertiary-link)',
+        // borders
+        'border-subtle': 'var(--border-subtle)',
       },
     },
     // components: {

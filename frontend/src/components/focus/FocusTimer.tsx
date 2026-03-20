@@ -33,7 +33,7 @@ const FocusTimer: React.FC<Props> = ({ elapsed, state, onStart, onPause, onResum
       <div className="relative w-36 h-36">
         <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
           {/* Track */}
-          <circle cx="60" cy="60" r="54" fill="none" stroke="currentColor" strokeWidth="6" className="text-gray-70 dark:text-gray-80" />
+          <circle cx="60" cy="60" r="54" fill="none" stroke="var(--border-subtle)" strokeWidth="6" className="text-gray-70 dark:text-gray-80" />
           {/* Progress */}
           <circle
             cx="60" cy="60" r="54"
@@ -85,7 +85,7 @@ const FocusTimer: React.FC<Props> = ({ elapsed, state, onStart, onPause, onResum
           <button
             onClick={onReset}
             title="Reset timer"
-            className="p-2 rounded-full hover:bg-gray-20 dark:hover:bg-gray-70 text-secondary-text transition-colors"
+            className="btn-ghost p-2 rounded-full text-primary-link transition-colors"
           >
             <RotateCcw className="w-4 h-4" />
           </button>

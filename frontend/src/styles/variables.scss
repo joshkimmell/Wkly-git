@@ -100,7 +100,8 @@ $theme-dark: (
     tertiary-button-hover: var(--brand-0),
     primary-link: var(--brand-30),
     secondary-link: var(--brand-20),
-    tertiary-link: var(--brand-10)
+    tertiary-link: var(--brand-10),
+    border-subtle: var(--gray-80)
 );
 
 $theme-light: (
@@ -129,7 +130,8 @@ $theme-light: (
     tertiary-button-hover: var(--brand-30),
     primary-link: var(--brand-70),
     secondary-link: var(--brand-50),
-    tertiary-link: var(--brand-40)
+    tertiary-link: var(--brand-40),
+    border-subtle: var(--gray-20)
 );
 
 
@@ -162,6 +164,7 @@ $theme-light: (
   --primary-link: #{map.get($theme-map, primary-link)};
   --secondary-link: #{map.get($theme-map, secondary-link)};
   --tertiary-link: #{map.get($theme-map, tertiary-link)};
+  --border-subtle: #{map.get($theme-map, border-subtle)};
   
   // Design tokens
   --font-family: #{$font-family};
