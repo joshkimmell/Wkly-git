@@ -333,3 +333,21 @@ $theme-light: (
   }
   td { color: var(--secondary-text); }
 }
+
+
+// ==============================================================================
+// FOCUS TIMER ACTIVE CARD
+// ==============================================================================
+// Applied to TaskCard when a background timer is running for that task.
+// Pulses a 1px outline using the primary-icon CSS variable.
+// ==============================================================================
+
+@keyframes focus-timer-pulse {
+  0%, 100% { outline-color: var(--primary-icon); }
+  50%       { outline-color: transparent; }
+}
+
+.focus-timer-active {
+  outline: 1px solid var(--primary-icon);
+  animation: focus-timer-pulse 2s ease-in-out infinite;
+}

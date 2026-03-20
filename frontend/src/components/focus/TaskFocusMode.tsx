@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, CheckCircle, ChevronRight, Bot, Clock, FileText, Zap, AlertCircle, CalendarClock, Timer, Save, Loader2, Sparkles } from 'lucide-react';
-import FocusTimer, { TimerState, formatTime } from './FocusTimer';
+import FocusTimer, { formatTime } from './FocusTimer';
+import { useFocusTimer } from './FocusTimerContext';
 import FocusAIChat, { SuggestedTask, SuggestedLink, ChatMessage } from './FocusAIChat';
 import FocusNotes, { FocusNote } from './FocusNotes';
 import FocusFireworks from './FocusFireworks';
@@ -20,10 +21,11 @@ const INACTIVITY_MS = 5 * 60 * 1000; // 5 minutes
 type Panel = 'timer' | 'ai' | 'notes';
 
 const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }) => {
-  // Timer
-  const [elapsed, setElapsed] = useState(0);
-  const [timerState, setTimerState] = useState<TimerState>('idle');
-  const intervalRef = useRef<number | null>(null);
+  const focusTimer = useFocusTimer();
+
+  // Derived timer values from global context
+  const elapsed = focusTimer.isActiveFor(task.id) ? focusTimer.elapsed : 0;
+  const timerState = focusTimer.isActiveFor(task.id) ? focusTimer.timerState : 'idle';
 
   // Notes (synced to task notes)
   const [notes, setNotes] = useState<FocusNote[]>([]);
@@ -90,7 +92,29 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
       dbNotesRef.current = dbNotes;
       const dbNoteIds = new Set(dbNotes.map((n) => n.id));
 
-      // 2. Merge with localStorage session
+      // 2. If the global timer is already active for this task, timer is running in background.
+      //    Restore chat/notes from localStorage but skip re-initialising the timer.
+      if (focusTimer.isActiveFor(task.id)) {
+        const stored = loadSession(task.id);
+        if (stored) {
+          createdAtRef.current = stored.createdAt;
+          const sessionSavedIds = new Set(stored.savedNoteIds ?? []);
+          const unsavedSessionNotes = (stored.notes ?? []).filter((n) => !sessionSavedIds.has(n.id));
+          setNotes([...unsavedSessionNotes, ...dbNotes]);
+          setSavedNoteIds(new Set([...Array.from(sessionSavedIds), ...Array.from(dbNoteIds)]));
+          setChatMessages(stored.chatMessages ?? []);
+          setSuggestedTasks(stored.suggestedTasks ?? []);
+          setAddedTaskTitles(new Set(stored.addedTaskTitles ?? []));
+          setPendingChatTasks(stored.pendingChatTasks ?? []);
+          setPendingChatLinks(stored.pendingChatLinks ?? []);
+        } else {
+          setNotes(dbNotes);
+          setSavedNoteIds(dbNoteIds);
+        }
+        return;
+      }
+
+      // 3. Merge with localStorage session
       const stored = loadSession(task.id);
       if (stored && isSessionStale(stored)) {
         staleSessionRef.current = stored;
@@ -100,10 +124,10 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
         setSavedNoteIds(dbNoteIds);
       } else if (stored) {
         createdAtRef.current = stored.createdAt;
-        setElapsed(stored.elapsed);
-        setTimerState(stored.elapsed > 0 ? 'paused' : 'idle');
-        // Unsaved session notes (fn-xxx not yet in DB) stay; fn-xxx that were saved are
-        // already in dbNotes with their UUID, so we drop them to avoid duplicates.
+        // Restore timer via context (always paused on restore — user resumes manually)
+        if (stored.elapsed > 0) {
+          focusTimer.initTimer(task.id, stored.elapsed);
+        }
         const sessionSavedIds = new Set(stored.savedNoteIds ?? []);
         const unsavedSessionNotes = (stored.notes ?? []).filter((n) => !sessionSavedIds.has(n.id));
         setNotes([...unsavedSessionNotes, ...dbNotes]);
@@ -130,8 +154,9 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
     if (stored) {
       createdAtRef.current = stored.createdAt;
       extendSession(task.id);
-      setElapsed(stored.elapsed);
-      setTimerState(stored.elapsed > 0 ? 'paused' : 'idle');
+      if (stored.elapsed > 0) {
+        focusTimer.initTimer(task.id, stored.elapsed);
+      }
       const dbNotes = dbNotesRef.current;
       const dbNoteIds = new Set(dbNotes.map((n) => n.id));
       const sessionSavedIds = new Set(stored.savedNoteIds ?? []);
@@ -152,12 +177,16 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
     setShowExpiryPrompt(false);
   };
 
-  // ── Explicit session save: localStorage + flush unsaved notes to DB ─
+  // ── Explicit session save: localStorage + DB + flush unsaved notes ──
   const persistCurrentSession = useCallback(async (): Promise<void> => {
+    const currentElapsed = focusTimer.getElapsedSnapshot();
+    const currentTimerState = focusTimer.isActiveFor(task.id) ? focusTimer.timerState : 'idle';
+    const savedTimerState = currentTimerState === 'running' ? 'paused' : currentTimerState;
+
     saveSession({
       taskId: task.id,
-      elapsed,
-      timerState: timerState === 'running' ? 'paused' : timerState,
+      elapsed: currentElapsed,
+      timerState: savedTimerState,
       notes,
       chatMessages,
       savedNoteIds: Array.from(savedNoteIds),
@@ -168,6 +197,29 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
       createdAt: createdAtRef.current,
       updatedAt: Date.now(),
     });
+
+    // Persist full session to DB
+    try {
+      const { data: { session: authSess } } = await supabase.auth.getSession();
+      const token = authSess?.access_token;
+      if (token) {
+        await fetch('/.netlify/functions/upsertFocusSession', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            task_id: task.id,
+            elapsed_seconds: currentElapsed,
+            timer_state: savedTimerState,
+            chat_messages: chatMessages,
+            suggested_tasks: suggestedTasks,
+            added_task_titles: Array.from(addedTaskTitles),
+            pending_chat_tasks: pendingChatTasks,
+            pending_chat_links: pendingChatLinks,
+          }),
+        });
+      }
+    } catch { /* non-critical */ }
+
     // Flush any notes not yet persisted to the database
     const unsaved = notes.filter((n) => !savedNoteIds.has(n.id));
     if (unsaved.length === 0) return;
@@ -186,7 +238,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
         }),
       );
     } catch { /* non-critical */ }
-  }, [task.id, elapsed, timerState, notes, chatMessages, savedNoteIds, suggestedTasks, addedTaskTitles, pendingChatTasks, pendingChatLinks]);
+  }, [task.id, focusTimer, notes, chatMessages, savedNoteIds, suggestedTasks, addedTaskTitles, pendingChatTasks, pendingChatLinks]);
 
   // ── Sync note edit to DB (UUID-id notes are DB-loaded; fn-xxx notes flushed on Save) ──
   const handleNoteEdited = useCallback(async (note: FocusNote) => {
@@ -244,28 +296,29 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
     }
   }, [savedNoteIds, task.id]);
 
-  // ── Timer controls ────────────────────────────────────────────────
-  const startTick = useCallback(() => {
-    if (intervalRef.current) return;
-    intervalRef.current = window.setInterval(() => setElapsed((s) => s + 1), 1000);
-  }, []);
-
-  const stopTick = useCallback(() => {
-    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
-  }, []);
-
-  const handleStart = () => { setTimerState('running'); startTick(); };
-  const handlePause = () => { setTimerState('paused'); stopTick(); };
-  const handleResume = () => { setTimerState('running'); startTick(); };
-  const handleReset = () => { stopTick(); setElapsed(0); setTimerState('idle'); };
-
-  useEffect(() => () => stopTick(), [stopTick]);
+  // ── Timer controls — delegate to global context ───────────────────
+  const handleStart = () => { focusTimer.startTimer(task.id, 0); };
+  const handlePause = () => { focusTimer.pauseTimer(); };
+  const handleResume = () => { focusTimer.resumeTimer(); };
+  const handleReset = () => { focusTimer.resetTimer(); };
 
   // ── Close prompt handlers ────────────────────────────────────────
   const handleCloseRequest = useCallback(() => {
-    // Only prompt to save if the user did something in this session
+    const activeTimerState = focusTimer.isActiveFor(task.id) ? focusTimer.timerState : 'idle';
+    const activeElapsed = focusTimer.isActiveFor(task.id) ? focusTimer.elapsed : 0;
+
+    // If timer is actively running, auto-save and close — timer keeps going in background
+    if (activeTimerState === 'running') {
+      persistCurrentSession().then(() =>
+        notifySuccess('Session saved — timer running in background'),
+      );
+      onClose();
+      return;
+    }
+
+    // Only prompt to save if the user did something worth keeping
     const hasSessionActivity =
-      elapsed > 0 ||
+      activeElapsed > 0 ||
       chatMessages.length > 0 ||
       suggestedTasks.length > 0 ||
       notes.some((n) => n.id.startsWith('fn-'));
@@ -274,10 +327,8 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
       onClose();
       return;
     }
-    stopTick();
-    setTimerState((s) => (s === 'running' ? 'paused' : s));
     setShowClosePrompt(true);
-  }, [elapsed, notes, chatMessages.length, suggestedTasks.length, task.id, stopTick, onClose]);
+  }, [notes, chatMessages.length, suggestedTasks.length, task.id, focusTimer, persistCurrentSession, onClose]);
 
   const handleSaveAndExit = async () => {
     await persistCurrentSession();
@@ -308,11 +359,12 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
   // ── Inactivity tracking ───────────────────────────────────────────
   const resetInactivity = useCallback(() => {
     if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
-    if (timerState !== 'running') return;
+    const ts = focusTimer.isActiveFor(task.id) ? focusTimer.timerState : 'idle';
+    if (ts !== 'running') return;
     inactivityTimerRef.current = window.setTimeout(() => {
       setShowInactivityPrompt(true);
     }, INACTIVITY_MS);
-  }, [timerState]);
+  }, [focusTimer, task.id]);
 
   useEffect(() => {
     const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
@@ -378,8 +430,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
     setMarkingDone(true);
     try {
       await onMarkDone(task.id);
-      stopTick();
-      setTimerState('paused');
+      focusTimer.clearTimer();
       clearSession(task.id);
       setShowFireworks(true);
     } catch {
@@ -493,7 +544,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
                 onClick={handleInactivityNo}
                 className="btn-secondary"
               >
-                No, pause & exit
+                No, pause &amp; exit
               </button>
               <button
                 onClick={handleInactivityYes}

@@ -3,6 +3,8 @@ import { Task, Goal } from '@utils/goalUtils';
 import GoalCard from '@components/GoalCard';
 import TaskFocusMode from './focus/TaskFocusMode';
 import { hasSession } from './focus/useFocusSession';
+import { useFocusTimer } from './focus/FocusTimerContext';
+import { formatTime } from './focus/FocusTimer';
 import { CheckCircle, Circle, Calendar, Bell, Trash, Edit, Clock, GripVertical, ChevronUp, ChevronDown, FileText, Tag, Square, CheckSquare2, Target, Zap } from 'lucide-react';
 import { Save, X as CloseButton, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
 import { IconButton, Tooltip, Chip, TextField, Button, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, FormControlLabel, Switch, Select, FormControl, InputLabel, useMediaQuery } from '@mui/material';
@@ -81,6 +83,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
   className = '',
 }) => {
   const { timezone } = useTimezone();
+  const focusTimer = useFocusTimer();
+  const isTimerActive = focusTimer.isActiveFor(task.id);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editDescription, setEditDescription] = useState(task.description || '');
@@ -653,7 +657,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   return (
     <div
       ref={cardRef}
-      className={`${compact ? 'p-2' : `${list ? 'p-4 md:px-32' : 'p-3'}`} ${isSelected ? 'border-2 border-brand-50 bg-gray-20 dark:bg-brand-90' : `${!list ? 'border border-gray-20 dark:border-gray-70' : 'border-0'}`} bg-background-color rounded-lg hover:shadow-md transition-all ${
+      className={`${compact ? 'p-2' : `${list ? 'p-4 md:px-32' : 'p-3'}`} ${isSelected ? 'border-2 border-brand-50 bg-gray-20 dark:bg-brand-90' : isTimerActive ? 'focus-timer-active border border-transparent' : `${!list ? 'border border-gray-20 dark:border-gray-70' : 'border-0'}`} bg-background-color rounded-lg hover:shadow-md transition-all ${
         displayStatus === 'Done' ? 'opacity-60' : ''
       } ${className}`}
       draggable={draggable}
@@ -931,16 +935,21 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 </>
               )}
 
-              <Tooltip title={` ${hasFocusSession ? "Resume Task" : "Start Task"}`} placement="top" arrow>
-                <span>
+              <Tooltip title={`${isTimerActive ? `Timer: ${formatTime(focusTimer.elapsed)} — ` : ''}${hasFocusSession ? "Resume Task" : "Start Task"}`} placement="top" arrow>
+                <span className="relative inline-flex flex-col items-center">
                   <IconButton
                     aria-label="Focus Mode"
                     size="small"
                     onClick={() => setIsFocusModeOpen(true)}
                     className="btn-ghost"
                   >
-                    <Zap className={`w-5 h-5 ${hasFocusSession ? 'text-brand-30 shadow-lg transition-all animate-pulse duration-300' : ''}`} />
+                    <Zap className={`w-5 h-5 ${hasFocusSession || isTimerActive ? 'text-brand-30 shadow-lg transition-all animate-pulse duration-300' : ''}`} />
                   </IconButton>
+                  {isTimerActive && (
+                    <span className="text-[9px] font-mono text-primary-icon leading-none -mt-1 tabular-nums pointer-events-none">
+                      {formatTime(focusTimer.elapsed)}
+                    </span>
+                  )}
                 </span>
               </Tooltip>
 
