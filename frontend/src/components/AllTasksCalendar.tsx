@@ -56,18 +56,22 @@ export default function AllTasksCalendar({
   const [tasks, setTasks] = useState<TaskWithGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'day' | '3day' | 'week' | 'month'>('month');
+  const [viewMode, setViewMode] = useState<'day' | '3day' | 'week' | 'month'>(
+    () => window.matchMedia('(min-width: 900px)').matches ? 'week' : 'day'
+  );
   const [taskIdToEdit, setTaskIdToEdit] = useState<string | null>(null);
   
   const theme = useTheme();
   const isMdUp = useMediaQuery(theme.breakpoints.up('md'));
 
-  // Switch to day/3day view if on small screen and currently viewing week/month
+  // Responsive view mode: downgrade on small screens, upgrade on large screens
   useEffect(() => {
     if (!isMdUp && (viewMode === 'week' || viewMode === 'month')) {
       setViewMode('day');
+    } else if (isMdUp && (viewMode === 'day' || viewMode === '3day')) {
+      setViewMode('week');
     }
-  }, [isMdUp, viewMode]);
+  }, [isMdUp]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch all tasks
   const fetchAllTasks = async () => {

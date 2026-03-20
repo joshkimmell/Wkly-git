@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { Task, Goal } from '@utils/goalUtils';
 import GoalCard from '@components/GoalCard';
-import { CheckCircle, Circle, Calendar, Bell, Trash, Edit, Clock, GripVertical, ChevronUp, ChevronDown, FileText, Tag, Square, CheckSquare2, Target } from 'lucide-react';
+import TaskFocusMode from './focus/TaskFocusMode';
+import { hasSession } from './focus/useFocusSession';
+import { CheckCircle, Circle, Calendar, Bell, Trash, Edit, Clock, GripVertical, ChevronUp, ChevronDown, FileText, Tag, Square, CheckSquare2, Target, Zap } from 'lucide-react';
 import { Save, X as CloseButton, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
 import { IconButton, Tooltip, Chip, TextField, Button, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, FormControlLabel, Switch, Select, FormControl, InputLabel, useMediaQuery } from '@mui/material';
 import { DatePicker, TimePicker, DateTimePicker, LocalizationProvider } from '@mui/x-date-pickers';
@@ -106,6 +108,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const [notes, setNotes] = useState<Array<{ id: string; content: string; created_at: string; updated_at: string }>>([]);
   const [isNotesLoading, setIsNotesLoading] = useState(false);
   const [newNoteContent, setNewNoteContent] = useState('');
+  const [noteRteResetKey, setNoteRteResetKey] = useState(0);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState('');
   const [noteDeleteTarget, setNoteDeleteTarget] = useState<string | null>(null);
@@ -113,6 +116,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
   // Goal details dialog
   const [isGoalDetailsOpen, setIsGoalDetailsOpen] = useState(false);
+  const [isFocusModeOpen, setIsFocusModeOpen] = useState(false);
+  const [hasFocusSession, setHasFocusSession] = useState(() => hasSession(task.id));
+
+  const handleFocusDone = async (taskId: string) => {
+    // Mark task done via status change callback + update
+    onStatusChange?.(taskId, 'Done');
+    await onUpdate?.(taskId, { status: 'Done' });
+  };
   const [goalDetails, setGoalDetails] = useState<Goal | null>(null);
   const [goalDetailsLoading, setGoalDetailsLoading] = useState(false);
 
@@ -227,6 +238,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
     };
     setNotes((s) => [tempNote, ...s]);
     setNewNoteContent('');
+    setNoteRteResetKey((k) => k + 1);
     setIsNotesLoading(true);
     
     try {
@@ -919,6 +931,19 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 </>
               )}
 
+              <Tooltip title={` ${hasFocusSession ? "Resume Task" : "Start Task"}`} placement="top" arrow>
+                <span>
+                  <IconButton
+                    aria-label="Focus Mode"
+                    size="small"
+                    onClick={() => setIsFocusModeOpen(true)}
+                    className="btn-ghost"
+                  >
+                    <Zap className={`w-5 h-5 ${hasFocusSession ? 'text-brand-30 shadow-lg transition-all animate-pulse duration-300' : ''}`} />
+                  </IconButton>
+                </span>
+              </Tooltip>
+
               <Tooltip title="Notes" placement="top" arrow>
                 <span>
                   <IconButton 
@@ -1020,6 +1045,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
             <div className="space-y-4 max-h-[60vh] overflow-y-auto">
               <div className="mt-4">
                 <RichTextEditor
+                  key={`new-task-note-rte-${task.id}-${noteRteResetKey}`}
                   id={`new-task-note-${task.id}`}
                   value={newNoteContent}
                   onChange={setNewNoteContent}
@@ -1027,7 +1053,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   label="Add a new note"
                 />
                 <div className="mt-2 flex justify-end gap-2">
-                  <button className="btn-primary" onClick={createNote} disabled={isNotesLoading}>
+                  <button className="btn-primary" onClick={createNote} disabled={isNotesLoading || !newNoteContent.replace(/<[^>]*>/g, '').trim()}>
                     <PlusIcon className="w-4 h-4 inline mr-1" />Add note
                   </button>
                   {isNotesLoading && <div className="ml-2 text-sm text-secondary-text">Saving...</div>}
@@ -1360,6 +1386,16 @@ const TaskCard: React.FC<TaskCardProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Task Focus Mode */}
+      {isFocusModeOpen && (
+        <TaskFocusMode
+          task={task}
+          goalTitle={(task as any).goal?.title}
+          onClose={() => { setIsFocusModeOpen(false); setHasFocusSession(hasSession(task.id)); }}
+          onMarkDone={handleFocusDone}
+        />
+      )}
     </div>
   );
 };

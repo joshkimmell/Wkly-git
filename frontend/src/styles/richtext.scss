@@ -31,6 +31,15 @@
   font-size: 0.95rem;
   line-height: 1.4;
   outline: 0;
+
+  &:empty::before,
+  &:has(> p:only-child > br:only-child)::before,
+  &:has(> br:only-child)::before {
+    content: attr(data-placeholder);
+    color: var(--tertiary-text, #9ca3af);
+    pointer-events: none;
+    display: block;
+  }
 }
 
 /* .richtext-textfield-wrapper { position: relative; } */

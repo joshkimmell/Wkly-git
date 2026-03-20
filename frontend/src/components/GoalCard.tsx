@@ -84,6 +84,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
   const [noteDeleteTarget, setNoteDeleteTarget] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [newNoteContent, setNewNoteContent] = useState('');
+  const [noteRteResetKey, setNoteRteResetKey] = useState(0);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState('');
   // Local status state for optimistic UI updates when changing status inline
@@ -223,6 +224,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
     const tempNote = { id: tempId, content: newNoteContent, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     setNotes((s) => [tempNote, ...s]);
     setNewNoteContent('');
+    setNoteRteResetKey((k) => k + 1);
     setIsNotesLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -515,7 +517,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
           {tasks && tasks.length > 0 && (
             <GoalCompletionDonut percentage={calculateGoalCompletion(tasks)} size={70} strokeWidth={6} />
           )}          {goal.is_archived && (
-            <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 flex items-center gap-1">
+            <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-70 text-gray-50 dark:text-gray-40 flex items-center gap-1">
               <Archive className="w-3 h-3" /> Archived
             </span>
           )}        </div>
@@ -694,6 +696,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
           <div className="space-y-4 max-h-[60vh] overflow-y-auto">
             <div className="mt-4">
               <RichTextEditor
+                key={`new-note-rte-${goal.id}-${noteRteResetKey}`}
                 id={`new-note-${goal.id}`}
                 value={newNoteContent}
                 onChange={setNewNoteContent}
@@ -702,7 +705,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
               />
               <div className="mt-2 flex justify-end gap-2">
                 {/* <button className="btn-ghost" onClick={() => { setNewNoteContent(''); }}>Cancel</button> */}
-                <button className="btn-primary" onClick={createNote} disabled={isNotesLoading}><PlusIcon className="w-4 h-4 inline mr-1" />Add note</button>
+                <button className="btn-primary" onClick={createNote} disabled={isNotesLoading || !newNoteContent.replace(/<[^>]*>/g, '').trim()}><PlusIcon className="w-4 h-4 inline mr-1" />Add note</button>
                 {isNotesLoading && <div className="ml-2 text-sm text-gray-50">Saving...</div>}
               </div>
             </div>
