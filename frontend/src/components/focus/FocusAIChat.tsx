@@ -183,7 +183,7 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
               }`}
             >
               {msg.role === 'assistant' ? (
-                <div className="prose prose-sm prose-invert max-w-none [&_a]:text-brand-40 [&_a]:underline">
+                <div className="markdown-body">
                   <ReactMarkdown>{msg.content}</ReactMarkdown>
                 </div>
               ) : (
@@ -214,10 +214,14 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
                 rel="noopener noreferrer"
                 className="flex items-start gap-2 group"
               >
-                <ExternalLink className="w-3.5 h-3.5 text-brand-40 mt-0.5 shrink-0" />
                 <div>
-                  <span className="text-sm text-brand-40 group-hover:text-brand-30 underline underline-offset-2">{link.label}</span>
-                  <p className="text-xs text-secondary-text mt-0.5">{link.reason}</p>
+                    <div>
+                        <span className="flex gap-2 text-sm text-brand-40 group-hover:text-brand-30 underline underline-offset-2">
+                            {link.label}
+                            <ExternalLink className="w-3.5 h-3.5 text-brand-40 mt-1 shrink-0" />
+                        </span>
+                    <p className="text-xs text-secondary-text mt-0.5">{link.reason}</p>
+                    </div>
                 </div>
               </a>
             ))}
