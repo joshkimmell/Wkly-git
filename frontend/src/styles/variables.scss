@@ -210,3 +210,126 @@ $theme-light: (
 .dark {
   @include theme-vars($theme-dark);
 }
+
+
+// ==============================================================================
+// MARKDOWN BODY
+// ==============================================================================
+// Applied to any ReactMarkdown wrapper. Uses semantic CSS vars so it is
+// automatically theme-aware (light / dark).
+// ==============================================================================
+
+.markdown-body {
+  color: var(--primary-text);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-base);
+
+  // Paragraphs
+  p {
+    margin: 0 0 0.75rem 0;
+    &:last-child { margin-bottom: 0; }
+  }
+
+  // Headings
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--primary-text);
+    font-weight: 600;
+    line-height: var(--line-height-tight);
+    margin: 1rem 0 0.5rem 0;
+    &:first-child { margin-top: 0; }
+  }
+  h1 { font-size: var(--font-size-xl); }
+  h2 { font-size: var(--font-size-lg); }
+  h3 { font-size: var(--font-size-base); }
+  h4, h5, h6 { font-size: var(--font-size-sm); }
+
+  // Lists
+  ul, ol {
+    padding-left: 1.25rem;
+    margin: 0 0 0.75rem 0;
+    &:last-child { margin-bottom: 0; }
+  }
+  ul { list-style-type: disc; }
+  ol { list-style-type: decimal; }
+  li {
+    margin-bottom: 0.25rem;
+    color: var(--primary-text);
+    > ul, > ol { margin-top: 0.25rem; margin-bottom: 0; }
+  }
+
+  // Links
+  a {
+    color: var(--primary-link);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    &:hover { color: var(--secondary-link); }
+  }
+
+  // Inline code
+  code {
+    font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+    font-size: 0.85em;
+    padding: 0.15em 0.35em;
+    border-radius: 4px;
+    background: var(--gray-80, rgba(0,0,0,0.2));
+    color: var(--primary-text);
+  }
+
+  // Code blocks
+  pre {
+    background: var(--gray-80, rgba(0,0,0,0.2));
+    border: 1px solid var(--secondary-border);
+    border-radius: #{$border-radius};
+    padding: 0.75rem 1rem;
+    overflow-x: auto;
+    margin: 0 0 0.75rem 0;
+    &:last-child { margin-bottom: 0; }
+    code {
+      background: transparent;
+      padding: 0;
+      font-size: var(--font-size-xs);
+      color: var(--primary-text);
+    }
+  }
+
+  // Blockquote
+  blockquote {
+    border-left: 3px solid var(--primary-border);
+    margin: 0 0 0.75rem 0;
+    padding: 0.25rem 0 0.25rem 0.75rem;
+    color: var(--secondary-text);
+    font-style: italic;
+    &:last-child { margin-bottom: 0; }
+  }
+
+  // Horizontal rule
+  hr {
+    border: none;
+    border-top: 1px solid var(--secondary-border);
+    margin: 0.75rem 0;
+  }
+
+  // Strong / em
+  strong { font-weight: 600; color: var(--primary-text); }
+  em { font-style: italic; color: var(--secondary-text); }
+
+  // Tables
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 0.75rem 0;
+    font-size: var(--font-size-xs);
+    &:last-child { margin-bottom: 0; }
+  }
+  th, td {
+    border: 1px solid var(--secondary-border);
+    padding: 0.375rem 0.5rem;
+    text-align: left;
+  }
+  th {
+    background: var(--gray-80, rgba(0,0,0,0.15));
+    font-weight: 600;
+    color: var(--primary-text);
+  }
+  td { color: var(--secondary-text); }
+}
