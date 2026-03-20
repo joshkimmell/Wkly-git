@@ -17,7 +17,8 @@ interface Props {
   onMarkDone: (taskId: string) => Promise<void>;
 }
 
-const INACTIVITY_MS = 5 * 60 * 1000; // 5 minutes
+const WORK_CHECK_INTERVAL_MS = 5 * 60 * 1000; // ask every 5 min of running time
+const AUTO_CLOSE_COUNTDOWN_SEC = 120; // 2 min to respond before auto-close
 type Panel = 'timer' | 'ai' | 'notes';
 
 const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }) => {
@@ -43,9 +44,11 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
   const [pendingChatTasks, setPendingChatTasks] = useState<SuggestedTask[]>([]);
   const [pendingChatLinks, setPendingChatLinks] = useState<SuggestedLink[]>([]);
 
-  // Inactivity
-  const inactivityTimerRef = useRef<number | null>(null);
+  // Heartbeat check refs
+  const checkIntervalRef = useRef<number | null>(null);
+  const autoCloseIntervalRef = useRef<number | null>(null);
   const [showInactivityPrompt, setShowInactivityPrompt] = useState(false);
+  const [autoCloseCountdown, setAutoCloseCountdown] = useState(AUTO_CLOSE_COUNTDOWN_SEC);
 
   // Completion
   const [showFireworks, setShowFireworks] = useState(false);
@@ -356,36 +359,87 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
     }
   };
 
-  // ── Inactivity tracking ───────────────────────────────────────────
-  const resetInactivity = useCallback(() => {
-    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
-    const ts = focusTimer.isActiveFor(task.id) ? focusTimer.timerState : 'idle';
-    if (ts !== 'running') return;
-    inactivityTimerRef.current = window.setTimeout(() => {
-      setShowInactivityPrompt(true);
-    }, INACTIVITY_MS);
-  }, [focusTimer, task.id]);
-
+  // ── 5-min heartbeat: ask "Still working?" every 5 min while timer runs ─────
   useEffect(() => {
-    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
-    events.forEach((e) => window.addEventListener(e, resetInactivity, { passive: true }));
-    resetInactivity();
+    if (timerState === 'running') {
+      checkIntervalRef.current = window.setInterval(() => {
+        setShowInactivityPrompt(true);
+      }, WORK_CHECK_INTERVAL_MS);
+    } else {
+      if (checkIntervalRef.current) {
+        clearInterval(checkIntervalRef.current);
+        checkIntervalRef.current = null;
+      }
+    }
     return () => {
-      events.forEach((e) => window.removeEventListener(e, resetInactivity));
-      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      if (checkIntervalRef.current) {
+        clearInterval(checkIntervalRef.current);
+        checkIntervalRef.current = null;
+      }
     };
-  }, [resetInactivity]);
+  }, [timerState]);
 
-  const handleInactivityYes = () => {
-    setShowInactivityPrompt(false);
-    resetInactivity();
-  };
+  // ── 2-min auto-close countdown while prompt is open ──────────────────────
+  useEffect(() => {
+    if (showInactivityPrompt) {
+      setAutoCloseCountdown(AUTO_CLOSE_COUNTDOWN_SEC);
+      autoCloseIntervalRef.current = window.setInterval(() => {
+        setAutoCloseCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(autoCloseIntervalRef.current!);
+            autoCloseIntervalRef.current = null;
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      if (autoCloseIntervalRef.current) {
+        clearInterval(autoCloseIntervalRef.current);
+        autoCloseIntervalRef.current = null;
+      }
+    }
+    return () => {
+      if (autoCloseIntervalRef.current) {
+        clearInterval(autoCloseIntervalRef.current);
+        autoCloseIntervalRef.current = null;
+      }
+    };
+  }, [showInactivityPrompt]);
 
-  const handleInactivityNo = () => {
+  // Trigger auto-close when countdown hits 0
+  useEffect(() => {
+    if (autoCloseCountdown === 0 && showInactivityPrompt) {
+      handleInactivityNoRef.current?.();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoCloseCountdown, showInactivityPrompt]);
+
+  // Stable ref so the countdown effect can call the handler without stale closures
+  const handleInactivityNoRef = useRef<(() => void) | null>(null);
+
+  const handleInactivityYes = useCallback(() => {
     setShowInactivityPrompt(false);
-    handlePause();
-    handleCloseRequest();
-  };
+    // The interval keeps running; next check fires in 5 min
+  }, []);
+
+  const handleInactivityNo = useCallback(async () => {
+    setShowInactivityPrompt(false);
+    // Stop heartbeat interval immediately
+    if (checkIntervalRef.current) {
+      clearInterval(checkIntervalRef.current);
+      checkIntervalRef.current = null;
+    }
+    focusTimer.pauseTimer();
+    await persistCurrentSession();
+    notifySuccess('Session saved — timer paused');
+    onClose();
+  }, [focusTimer, persistCurrentSession, onClose]);
+
+  // Keep ref in sync for the countdown auto-close
+  useEffect(() => {
+    handleInactivityNoRef.current = handleInactivityNo;
+  }, [handleInactivityNo]);
 
   // ── Suggested task → save to DB ───────────────────────────────────
   const handleAddSuggestedTask = (st: SuggestedTask) => {
@@ -456,7 +510,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
 
   const panelTabs: { id: Panel; label: string; icon: React.ReactNode }[] = [
     { id: 'timer', label: 'Timer', icon: <Timer className="w-4 h-4" /> },
-    { id: 'ai', label: 'Assistant', icon: <Bot className="w-4 h-4" /> },
+    { id: 'ai', label: 'Assistant', icon: <Sparkles className="w-4 h-4" /> },
     { id: 'notes', label: 'Notes', icon: <FileText className="w-4 h-4" /> },
   ];
 
@@ -528,7 +582,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
         </div>
       )}
 
-      {/* Inactivity Prompt */}
+      {/* Heartbeat "Still working?" prompt */}
       {showInactivityPrompt && (
         <div className="fixed inset-0 z-[197] bg-black/70 flex items-center justify-center p-4">
           <div className="bg-gray-10 dark:bg-gray-90 border border-gray-30 dark:border-gray-70 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
@@ -536,8 +590,17 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
               <AlertCircle className="w-6 h-6 text-yellow-400 shrink-0" />
               <h3 className="text-base font-semibold text-primary-text">Still working?</h3>
             </div>
-            <p className="text-sm text-secondary-text mb-5">
-              No activity detected for 5 minutes. Are you still working on <strong className="text-primary-text">"{task.title}"</strong>?
+            <p className="text-sm text-secondary-text mb-3">
+              You've been on <strong className="text-primary-text">"{task.title}"</strong> for another 5 minutes. Are you still working on it?
+            </p>
+            <p className="text-xs text-secondary-text mb-5">
+              Auto-pausing in{' '}
+              <span className={`font-semibold tabular-nums ${
+                autoCloseCountdown <= 30 ? 'text-red-400' : 'text-yellow-400'
+              }`}>
+                {Math.floor(autoCloseCountdown / 60)}:{String(autoCloseCountdown % 60).padStart(2, '0')}
+              </span>
+              {' '}if no response.
             </p>
             <div className="flex gap-3">
               <button
@@ -550,7 +613,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
                 onClick={handleInactivityYes}
                 className="btn-primary"
               >
-                Yes, I'm on it!
+                Yes, keep going!
               </button>
             </div>
           </div>
@@ -560,7 +623,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
       {/* Main overlay */}
       <div className="fixed inset-0 z-[196] bg-background flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="shrink-0 flex items-center gap-3 px-4 md:px-6 py-3 border-b border-gray-20 dark:border-gray-80 bg-white/90 dark:bg-gray-95/90 backdrop-blur">
+        <header className="shrink-0 flex items-center gap-3 px-4 md:px-6 py-3 border-b !border-border-subtle bg-background backdrop-blur">
           {/* Breadcrumb */}
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
             <Zap className="w-5 h-5 text-primary-icon shrink-0" />
@@ -578,7 +641,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
           </div>
 
           {/* Timer compact pill (visible on md+) */}
-          <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-20 dark:bg-gray-80 border border-gray-30 dark:border-gray-70 text-sm font-mono text-primary-text">
+          <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-background-color border border-gray-20 dark:border-gray-80 text-sm font-mono text-primary-text">
             <Clock className="w-3.5 h-3.5 text-primary-icon" />
             <span className="tabular-nums">{formatTime(elapsed)}</span>
             <span className={`w-2 h-2 rounded-full ${timerState === 'running' ? 'bg-green-400 animate-pulse' : timerState === 'paused' ? 'bg-yellow-400' : 'bg-gray-60'}`} />
@@ -637,14 +700,14 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
 
           {/* ── Left: Timer panel (desktop always visible; mobile tab) */}
           <aside className={`
-            md:flex md:flex-col md:w-[220px] lg:w-[260px] md:border-r md:border-gray-20 md:dark:border-gray-80 md:shrink-0
+            md:flex md:flex-col md:w-[220px] lg:w-[260px] md:border-r md:border-border-subtle md:shrink-0
             ${activePanel === 'timer' ? 'flex flex-col w-full' : 'hidden'}
-            bg-gray-10/40 dark:bg-gray-90/40 overflow-y-auto
+            bg-background-color/40 dark:bg-background-color/40 overflow-y-auto
           `}>
             <div className="p-4 flex flex-col gap-4">
-            <div className="flex items-center gap-2 border-b border-gray-20 dark:border-gray-80 pb-2">
-                <Timer className="w-4 h-4 text-brand-30" />
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-secondary-text">Focus Timer</h2>
+            <div className="hidden md:flex items-center gap-2 border-b border-border-subtle pb-2">
+                <Timer className="w-4 h-4 text-primary-icon" />
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-secondary-text">Timer</h2>
             </div>
               <FocusTimer
                 elapsed={elapsed}
@@ -657,6 +720,8 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
 
               {/* Task info */}
               {(task.description || task.scheduled_date) && (
+                  <>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-secondary-text">Task Info</h3>
                 <div className="rounded-xl bg-gray-10 dark:bg-gray-90 border border-gray-20 dark:border-gray-80 p-3 space-y-2">
                   {task.scheduled_date && (
                     <p className="text-xs text-secondary-text">
@@ -667,12 +732,13 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
                     <p className="text-xs text-secondary-text line-clamp-4">{task.description}</p>
                   )}
                 </div>
+                </>
               )}
 
               {/* Tangential tasks queue */}
               {suggestedTasks.length > 0 && (
                 <div className="space-y-2">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-secondary-text">Suggested Tasks</h3>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-secondary-text">Captured Tasks</h3>
                   <ul className="space-y-2">
                     {suggestedTasks.map((st, i) => {
                       const added = addedTaskTitles.has(st.title);
@@ -704,12 +770,12 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
             flex-1 min-w-0 flex flex-col
             md:flex
             ${activePanel === 'ai' ? 'flex' : 'hidden md:flex'}
-            border-r border-gray-20 dark:border-gray-80 bg-gradient-to-tl from-brand-10 dark:from-brand-90 to-background backdrop-blur
+            border-r border-border-subtle bg-gradient-to-tl from-brand-20 dark:from-brand-90 to-background backdrop-blur
           `}>
-            <div className="px-4 pt-4 pb-2 shrink-0 border-b border-gray-20 dark:border-gray-80 bg-gray-10/40 dark:bg-gray-90/40">
+            <div className="hidden md:flex px-4 pt-4 pb-2 shrink-0 border-b border-border-subtle bg-background-color/40 dark:bg-background-color/40">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-brand-40" />
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-secondary-text">Focus Assistant</h2>
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-secondary-text">Assistant</h2>
               </div>
             </div>
             <div className="flex-1 min-h-0 p-4">
@@ -732,12 +798,12 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
           <aside className={`
             md:flex md:flex-col md:w-[240px] lg:w-[280px] md:shrink-0
             ${activePanel === 'notes' ? 'flex flex-col w-full' : 'hidden'}
-            bg-gray-10/40 dark:bg-gray-90/40 overflow-hidden
+            bg-background-color/40 dark:bg-background-color/40 overflow-hidden
           `}>
-            <div className="px-4 pt-4 pb-2 shrink-0 border-b border-gray-20 dark:border-gray-80">
+            <div className="hidden md:flex px-4 pt-4 pb-2 shrink-0 border-b border-border-subtle">
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-brand-40" />
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-secondary-text">Session Notes</h2>
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-secondary-text">Notes</h2>
               </div>
             </div>
             <div className="flex-1 min-h-0 p-4 overflow-hidden">
