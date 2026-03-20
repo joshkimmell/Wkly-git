@@ -75,7 +75,7 @@ export interface HeaderProps {
 // Update the `Header` component to conditionally require `handleLogout`
 const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     // navigation not required in this component
-    const [menuOpen, setIsOpen] = useState<MenuBtnProps['isOpen']>(isOpen);
+    const [menuOpen] = useState<MenuBtnProps['isOpen']>(isOpen);
     const [drawerVisible, setDrawerVisible] = useState(false);
     const drawerContainerRef = useRef<HTMLDivElement | null>(null);
     const headerRef = useRef<HTMLDivElement | null>(null);

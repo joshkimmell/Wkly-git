@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, CheckCircle, ChevronRight, Bot, Clock, FileText, Zap, AlertCircle, CalendarClock, Timer, Save, Loader2 } from 'lucide-react';
+import { X, CheckCircle, ChevronRight, Bot, Clock, FileText, Zap, AlertCircle, CalendarClock, Timer, Save, Loader2, Sparkles } from 'lucide-react';
 import FocusTimer, { TimerState, formatTime } from './FocusTimer';
 import FocusAIChat, { SuggestedTask, SuggestedLink, ChatMessage } from './FocusAIChat';
 import FocusNotes, { FocusNote } from './FocusNotes';
@@ -657,7 +657,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
           `}>
             <div className="px-4 pt-4 pb-2 shrink-0 border-b border-gray-80 bg-gray-90/40">
               <div className="flex items-center gap-2">
-                <Bot className="w-4 h-4 text-brand-40" />
+                <Sparkles className="w-4 h-4 text-brand-40" />
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-secondary-text">Focus Assistant</h2>
               </div>
             </div>

@@ -10,7 +10,6 @@ import { FileText as NotesIcon, Plus as PlusIcon, Save as SaveIcon } from 'lucid
 import { Tooltip, IconButton } from '@mui/material';
 // import { Chip, Menu, MenuItem, TextField, Tooltip, IconButton, Checkbox } from '@mui/material';
 // import type { ChangeEvent } from 'react';
-import { STATUS_COLORS } from '../constants/statuses';
 // import { STATUSES, STATUS_COLORS, type Status } from '../constants/statuses';
 import { cardClasses, modalClasses, objectCounter, overlayClasses } from '@styles/classes'; // Adjust the import path as necessary
 import useGoalExtras from '@hooks/useGoalExtras';
@@ -45,7 +44,6 @@ const GoalCard: React.FC<GoalCardProps> = ({
   handleEdit,
   filter, // Accept filter as a prop
   showAllGoals = false,
-  selectable = false,
   isSelected = false,
   onToggleSelect,
   hideTasks = false,
@@ -96,30 +94,12 @@ const GoalCard: React.FC<GoalCardProps> = ({
 
   // Cache the current authenticated user's id to avoid repeated supabase.auth.getUser() calls
   const userIdRef = React.useRef<string | null>(null);
-  const getCachedUserId = async () => {
-    if (userIdRef.current) return userIdRef.current;
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        userIdRef.current = user.id;
-        return user.id;
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
-  };
 
   // Shared counts and helpers
-  const { notesCountMap, accomplishmentCountMap, tasksCountMap, fetchNotesCount, fetchAccomplishmentsCount, refreshNotesAndCount, refreshAccomplishmentsAndCount, bumpNotesCount, decrementNotesCount } = useGoalExtras();
+  const { notesCountMap, accomplishmentCountMap, tasksCountMap, fetchNotesCount, fetchAccomplishmentsCount, refreshNotesAndCount, bumpNotesCount, decrementNotesCount } = useGoalExtras();
 
   // counts are provided by useGoalExtras (notesCountMap, accomplishmentCountMap)
 
-  const [localStatus, setLocalStatus] = useState<string | undefined>(goal.status);
-  const [statusAnchorEl, setStatusAnchorEl] = useState<null | HTMLElement>(null);
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-
-  const statusColors = STATUS_COLORS;
 
   const { subscribeToTempId } = useGoalsContext();
 
@@ -420,11 +400,6 @@ const GoalCard: React.FC<GoalCardProps> = ({
       }
     };
   }, [goal.id]);
-
-  // Keep localStatus in sync with prop changes
-  useEffect(() => {
-    setLocalStatus(goal.status);
-  }, [goal.status]);
 
   // Fetch tasks for this goal
   useEffect(() => {

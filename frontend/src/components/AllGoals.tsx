@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { fetchAllGoalsIndexed, fetchAllGoals, deleteGoal, updateGoal, saveSummary, UserCategories, initializeUserCategories, addCategory, getWeekStartDate, indexDataByScope, applyHighlight } from '../utils/functions';
-import Pagination from '@components/Pagination';
 import GoalCard from '@components/GoalCard';
 import GoalCompletionDonut from '@components/GoalCompletionDonut';
 import GoalForm from '@components/GoalForm';
@@ -22,19 +21,19 @@ import { mapPageForScope, loadPageByScope, savePageByScope } from '@utils/pagina
 import 'react-datepicker/dist/react-datepicker.css';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
-import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, CalendarDays, Eye, Edit, Trash, EyeOff, ChevronRight, ChevronDown, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash, ListTodo, Clock, CircleEllipsis, MoreVertical, Expand, Minimize, Maximize, Shrink, CircleOff, XCircle, XCircleIcon, Target, Bell, Archive } from 'lucide-react';
+import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, CalendarDays, Edit, Trash, ChevronRight, ChevronDown, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash, ListTodo, MoreVertical, Expand, Shrink, XCircleIcon, Target, Bell, Archive } from 'lucide-react';
 import { useGoalsContext } from '@context/GoalsContext';
 import { useTimezone } from '@context/TimezoneContext';
 import { convertToUTC } from '@utils/timezone';
 import useGoalExtras from '@hooks/useGoalExtras';
 // notify helpers imported where needed below
-import { TextField, InputAdornment, IconButton, Popover, Box, FormControl, FormGroup, FormLabel, InputLabel, Select, MenuItem, Tooltip, Menu, Chip, Badge, Checkbox, ListItemText, ToggleButtonGroup, ToggleButton, Table, TableHead, TableBody, TableRow, TableCell, Paper, Typography, Switch, FormControlLabel, useMediaQuery, Button, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
+import { TextField, InputAdornment, IconButton, FormControl, InputLabel, Select, MenuItem, Tooltip, Menu, Chip, Badge, Checkbox, ListItemText, ToggleButtonGroup, ToggleButton, Table, TableHead, TableBody, TableRow, TableCell, Paper, Typography, Switch, FormControlLabel, useMediaQuery, Button, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 // dnd-kit was attempted but failed to install; use HTML5 drag/drop fallback
 import { useTheme } from '@mui/material/styles';
 import supabase from '@lib/supabase';
 import { STATUS_COLORS, STATUSES } from '../constants/statuses';
 import { notifyError, notifySuccess, notifyWithUndo } from '@components/ToastyNotification';
-import { ClearIcon, DatePicker, DateTimePicker, LocalizationProvider, TimeClock, TimePicker } from '@mui/x-date-pickers';
+import { DatePicker, DateTimePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type { Dayjs } from 'dayjs';
 import type { ChangeEvent } from 'react';
@@ -184,7 +183,6 @@ const GoalsComponent = () => {
     
     const filterInputRef = useRef<HTMLInputElement | null>(null);
     const blurTimeoutRef = useRef<number | null>(null);
-    const showClear = filter.length > 0 || filterFocused || clearButtonFocused;
         // Filter popover state and criteria
     const [filterPanelOpen, setFilterPanelOpen] = useState(false);
     const [filterStatus, setFilterStatus] = useState<string[]>([]);
@@ -343,7 +341,6 @@ const GoalsComponent = () => {
 
     const theme = useTheme();
     const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
-    const isMedium = useMediaQuery(theme.breakpoints.down('md'));
     // view mode: 'cards' (default), 'table', 'kanban', or 'tasks-calendar'
     const [viewMode, setViewMode] = useState<'cards' | 'table' | 'kanban' | 'tasks-calendar'>(() => {
         try {
@@ -470,201 +467,16 @@ const GoalsComponent = () => {
     const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
-    const handleDragStart = (e: React.DragEvent, goalId: string) => {
-        setDraggingId(goalId);
-        try { e.dataTransfer?.setData('text/plain', goalId); } catch { /* ignore */ }
-        e.dataTransfer!.effectAllowed = 'move';
-    };
 
-    const handleDragEnd = () => {
-        setDraggingId(null);
-        setDragOverColumn(null);
-        setDragOverIndex(null);
-    };
 
-    const getDropIndex = (e: React.DragEvent, columnEl: HTMLElement) => {
-        const cards = Array.from(columnEl.querySelectorAll('.kanban-card')) as HTMLElement[];
-        for (let i = 0; i < cards.length; i++) {
-            const rect = cards[i].getBoundingClientRect();
-            if (e.clientY < rect.top + rect.height / 2) return i;
-        }
-        return cards.length;
-    };
 
-    const handleDragOver = (e: React.DragEvent, status: string) => {
-        e.preventDefault();
-        const col = e.currentTarget as HTMLElement;
-        const idx = getDropIndex(e, col);
-        setDragOverColumn(status);
-        setDragOverIndex(idx);
-    };
 
-    const handleDrop = async (e: React.DragEvent, status: string) => {
-        e.preventDefault();
-        
-        // Check if we're dragging a task
-        const taskId = (() => { 
-            try { return e.dataTransfer?.getData('text/task'); } 
-            catch { return null; } 
-        })();
-        
-        if (taskId || draggingTaskId) {
-            // Handle task drop
-            return handleTaskDrop(e, status);
-        }
-        
-        // Handle goal drop (existing logic)
-        const id = (() => { try { return e.dataTransfer?.getData('text/plain') || draggingId; } catch { return draggingId; } })();
-        if (!id) { handleDragEnd(); return; }
-        const prevColumns = { ...kanbanColumns };
-        // Prepare rollback snapshots outside try so they are available in catch
-        let prevIndexedSnapshot: Record<string, Goal[]> | null = null;
-        let prevFullGoals: Goal[] | null = null;
-        try {
-            // Snapshot current indexed and full goals so we can rollback on failure
-            prevIndexedSnapshot = {};
-            for (const k of Object.keys(indexedGoals)) prevIndexedSnapshot[k] = [...(indexedGoals[k] || [])];
-            prevFullGoals = fullGoals ? [...fullGoals] : null;
-            // remove from source
-            let sourceCol: string | undefined;
-            for (const k of Object.keys(prevColumns)) {
-                if (prevColumns[k].includes(id)) { sourceCol = k; break; }
-            }
-            if (!sourceCol) { handleDragEnd(); return; }
-            const newCols: Record<string, string[]> = {};
-            for (const k of Object.keys(prevColumns)) newCols[k] = [...prevColumns[k]];
-            // remove id
-            newCols[sourceCol] = newCols[sourceCol].filter((v) => v !== id);
-            // insert into dest
-            const insertIndex = dragOverIndex != null ? dragOverIndex : newCols[status].length;
-            newCols[status].splice(insertIndex, 0, id);
-            setKanbanColumns(newCols);
-
-            // Optimistically update indexedGoals statuses
-            setIndexedGoals((prevIndexedState) => {
-                const copy: Record<string, Goal[]> = {};
-                for (const k of Object.keys(prevIndexedState)) copy[k] = [...prevIndexedState[k]];
-                for (const p of Object.keys(copy)) {
-                    const idx = copy[p].findIndex((g) => g.id === id);
-                    if (idx !== -1) {
-                        copy[p][idx] = { ...copy[p][idx], status: status as Goal['status'] };
-                        break;
-                    }
-                }
-                return copy;
-            });
-
-            // If we're showing all goals in Kanban, make the same optimistic
-            // update to the `fullGoals` cache so the board moves immediately.
-            if (fullGoals) {
-                setFullGoals((prev) => prev ? prev.map((g) => (g.id === id ? { ...(g as Goal), status: status as Goal['status'] } : g)) : prev);
-            }
-            const original = Object.values(indexedGoals).flat().find(g => g.id === id) as Goal | undefined;
-            await updateGoal(id, { ...(original || { id, title: '', description: '', category: '', week_start: '', user_id: '' }), status: status as Goal['status'] });
-        } catch (err) {
-            // rollback optimistic updates
-            try { setKanbanColumns(prevColumns); } catch (e) { /* ignore */ }
-            try { if (prevIndexedSnapshot) setIndexedGoals(prevIndexedSnapshot); } catch (e) { /* ignore */ }
-            try { if (prevFullGoals) setFullGoals(prevFullGoals); } catch (e) { /* ignore */ }
-            console.error('Failed to move goal:', err);
-            notifyError('Failed to move goal.');
-        } finally {
-            handleDragEnd();
-        }
-    };
 
     // Task drag & drop handlers for kanban
     const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
 
-    const handleTaskDragStart = (e: React.DragEvent, taskId: string) => {
-        setDraggingTaskId(taskId);
-        try { e.dataTransfer?.setData('text/task', taskId); } catch { /* ignore */ }
-        e.dataTransfer!.effectAllowed = 'move';
-    };
 
-    const handleTaskDragEnd = () => {
-        setDraggingTaskId(null);
-        setDragOverColumn(null);
-    };
 
-    const handleTaskDrop = async (e: React.DragEvent, status: string) => {
-        e.preventDefault();
-        const taskId = (() => { 
-            try { return e.dataTransfer?.getData('text/task') || draggingTaskId; } 
-            catch { return draggingTaskId; } 
-        })();
-        
-        if (!taskId) { 
-            handleTaskDragEnd(); 
-            return; 
-        }
-
-        // Find the task in kanbanTasks
-        let task: Task | undefined;
-        let taskGoalId: string | undefined;
-        for (const goalId of Object.keys(kanbanTasks)) {
-            task = kanbanTasks[goalId]?.find((t) => t.id === taskId);
-            if (task) {
-                taskGoalId = goalId;
-                break;
-            }
-        }
-
-        if (!task) {
-            handleTaskDragEnd();
-            return;
-        }
-
-        // If status hasn't changed, just end the drag
-        if (task.status === status) {
-            handleTaskDragEnd();
-            return;
-        }
-
-        // Update task status
-        const prevKanbanTasks = { ...kanbanTasks };
-        try {
-            // Optimistically update local state
-            setKanbanTasks((prev) => {
-                const updated: Record<string, Task[]> = {};
-                for (const gid of Object.keys(prev)) {
-                    updated[gid] = prev[gid].map((t) => 
-                        t.id === taskId ? { ...t, status: status as Task['status'] } : t
-                    );
-                }
-                return updated;
-            });
-
-            // Update on server
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-            
-            const response = await fetch('/.netlify/functions/updateTask', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-                },
-                body: JSON.stringify({
-                    id: taskId,
-                    status: status,
-                }),
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to update task');
-            }
-
-            notifySuccess(`Task moved to ${status}`);
-        } catch (err) {
-            // Rollback on error
-            setKanbanTasks(prevKanbanTasks);
-            console.error('Failed to move task:', err);
-            notifyError('Failed to move task.');
-        } finally {
-            handleTaskDragEnd();
-        }
-    };
 
     // Old HTML5 drag/drop handlers removed in favor of dnd-kit sortable implementation.
 
@@ -1509,18 +1321,6 @@ const GoalsComponent = () => {
       return () => clearTimeout(timer);
   }, [filter]);
 
-  const handlePageChange = (page: string) => {
-      setCurrentPage(page);
-      currentPageRef.current = page;
-    const next = { ...pageByScopeRef.current, [scope]: page };
-    setPageByScope(next);
-    pageByScopeRef.current = next;
-    try { savePageByScope(next); } catch { /* ignore */ }
-        // Ensure any transient scope-loading state is cleared when the user explicitly
-        // navigates pages. This avoids cases where a previous scope-switch left
-        // `isScopeLoading` true and the UI would stay blocked after pagination.
-    try { setIsScopeLoading(false); } catch {}
-  };
 
     // persist pageByScope whenever it changes (e.g., scope switches)
     useEffect(() => {
@@ -1831,30 +1631,6 @@ const GoalsComponent = () => {
     }, [visibleIdsMemo, fetchCountsForMany, fetchNotesCount, fetchAccomplishmentsCount]);
 
     // Filtered & sorted list across all indexed pages (for Kanban view)
-    const sortedAndFilteredAllGoals = Object.values(indexedGoals).flat().filter(goalMatchesFilters).sort((a, b) => {
-        const dir = sortDirection === 'asc' ? 1 : -1;
-        if (sortBy === 'date') {
-            return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-        }
-        if (sortBy === 'title') {
-            const ta = (a.title || '').toLowerCase();
-            const tb = (b.title || '').toLowerCase();
-            if (ta < tb) return -1 * dir;
-            if (ta > tb) return 1 * dir;
-            return 0;
-        }
-        if (sortBy === 'category') {
-            const ca = (a.category || '').toLowerCase();
-            const cb = (b.category || '').toLowerCase();
-            if (ca < cb) return -1 * dir;
-            if (ca > cb) return 1 * dir;
-            return 0;
-        }
-        // status sorts by completion percentage (% of tasks done)
-        const pa = calculateGoalCompletion(kanbanTasks[a.id] || []);
-        const pb = calculateGoalCompletion(kanbanTasks[b.id] || []);
-        return dir * (pa - pb);
-    });
 
     // Filtered & sorted list from the unscoped fullGoals cache (when available)
     const sortedAndFilteredFullGoals = (fullGoals || []).filter(goalMatchesFilters).sort((a, b) => {

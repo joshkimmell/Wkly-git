@@ -7,7 +7,7 @@ import { Trash, Edit, Award, X as CloseButton, ChevronUp, ChevronDown, MoveHoriz
 import { FileText as NotesIcon, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
 import TasksList from './TasksList'; // Import TasksList component
 import GoalCompletionDonut from './GoalCompletionDonut';
-import { TextField, Tooltip, IconButton, Checkbox } from '@mui/material';
+import { TextField, Tooltip, IconButton } from '@mui/material';
 import type { ChangeEvent } from 'react';
 // import { STATUSES, STATUS_COLORS, type Status } from '../constants/statuses';
 import { cardClasses, modalClasses, objectCounter, overlayClasses } from '@styles/classes'; // Adjust the import path as necessary
@@ -93,19 +93,19 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
 
   // Cache the current authenticated user's id to avoid repeated supabase.auth.getUser() calls
   const userIdRef = React.useRef<string | null>(null);
-  const getCachedUserId = async () => {
-    if (userIdRef.current) return userIdRef.current;
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        userIdRef.current = user.id;
-        return user.id;
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
-  };
+  // const getCachedUserId = async () => {
+  //   if (userIdRef.current) return userIdRef.current;
+  //   try {
+  //     const { data: { user } } = await supabase.auth.getUser();
+  //     if (user) {
+  //       userIdRef.current = user.id;
+  //       return user.id;
+  //     }
+  //     return null;
+  //   } catch (e) {
+  //     return null;
+  //   }
+  // };
   // Shared counts and helpers
   const { notesCountMap, accomplishmentCountMap, tasksCountMap, fetchNotesCount, fetchAccomplishmentsCount, refreshNotesAndCount, refreshAccomplishmentsAndCount } = useGoalExtras();
 

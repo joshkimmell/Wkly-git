@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useState } from 'react';
 // import MenuBtn, { MenuBtnProps } from '@components/menu-btn';
-import { styled, useTheme } from '@mui/material/styles';
+import { styled } from '@mui/material/styles';
 // import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
 import MuiAppBar, { AppBarProps as MuiAppBarProps } from '@mui/material/AppBar';
@@ -13,7 +13,7 @@ import List from '@mui/material/List';
 import ProfileManagement from './ProfileManagement';
 // import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
-import { ChevronLeft, ChevronRight, Cross, Home, LayoutGrid, MenuIcon, Moon, Sun, Target, Text, X } from 'lucide-react';
+import { Home, MenuIcon, Moon, Sun, Target, Text, X } from 'lucide-react';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -67,7 +67,6 @@ const DrawerHeader = styled('div')(({ theme }) => ({
 }));
 
 export default function PersistentDrawerRight({...props }: HeaderProps) {
-  const theme = useTheme();
   const [open, setOpen] = React.useState(false);
 
   const handleDrawerOpen = () => {
@@ -79,9 +78,9 @@ export default function PersistentDrawerRight({...props }: HeaderProps) {
   };
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-const { session, profile } = useAuth();
-const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+  // const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { session, profile } = useAuth();
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
 
     // Dev-only overlay debug
     useOverlayDebug(isProfileOpen);
