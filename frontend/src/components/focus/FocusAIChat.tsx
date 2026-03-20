@@ -179,7 +179,7 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
               className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
                 msg.role === 'user'
                   ? 'bg-brand-60 text-white rounded-br-sm'
-                  : 'bg-brand-90 dark:bg-brand-90 text-primary-text rounded-bl-sm border border-gray-70'
+                  : 'bg-brand-10 dark:bg-brand-90 text-primary-text rounded-bl-sm border border-gray-20 dark:border-gray-70'
               }`}
             >
               {msg.role === 'assistant' ? (
@@ -195,7 +195,7 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
 
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-gray-80 border border-gray-70 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-2 text-secondary-text text-sm">
+            <div className="bg-gray-20 dark:bg-gray-80 border border-gray-20 dark:border-gray-70 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-2 text-secondary-text text-sm">
               <Loader2 className="w-4 h-4 animate-spin" />
               <span>Thinking…</span>
             </div>
@@ -245,7 +245,7 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
                     disabled={added}
                     className={`shrink-0 flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md font-medium transition-colors ${
                       added
-                        ? 'bg-gray-70 text-gray-50 cursor-default'
+                        ? 'bg-gray-30 dark:bg-gray-70 text-gray-50 cursor-default'
                         : 'bg-emerald-60 hover:bg-emerald-70 text-white'
                     }`}
                   >
@@ -261,7 +261,7 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
       </div>
 
       {/* Input area */}
-      <div className="pt-3 border-t border-gray-80 flex gap-2 items-end">
+      <div className="pt-3 border-t border-gray-20 dark:border-gray-80 flex gap-2 items-end">
         <textarea
           ref={inputRef}
           value={input}
@@ -269,7 +269,7 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
           onKeyDown={handleKeyDown}
           placeholder="Ask anything… (Enter to send)"
           rows={2}
-          className="flex-1 rounded-md border border-gray-70 bg-gray-90 text-primary-text placeholder:text-secondary-text text-sm p-3 resize-none focus:outline-none focus:border-brand-50 transition-colors"
+          className="flex-1 rounded-md border border-gray-30 dark:border-gray-70 bg-gray-10 dark:bg-gray-90 text-primary-text placeholder:text-secondary-text text-sm p-3 resize-none focus:outline-none focus:border-brand-50 transition-colors"
         />
         <button
           onClick={() => send()}

@@ -85,7 +85,7 @@ const FocusTimer: React.FC<Props> = ({ elapsed, state, onStart, onPause, onResum
           <button
             onClick={onReset}
             title="Reset timer"
-            className="p-2 rounded-full hover:bg-gray-70 text-secondary-text transition-colors"
+            className="p-2 rounded-full hover:bg-gray-20 dark:hover:bg-gray-70 text-secondary-text transition-colors"
           >
             <RotateCcw className="w-4 h-4" />
           </button>

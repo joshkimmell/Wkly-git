@@ -103,11 +103,11 @@ const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded, onNoteEdite
       </div>
 
       {notes.length > 0 && (
-        <ul className="flex flex-col gap-2 overflow-y-auto flex-1 min-h-0 pr-1 mt-4 border-t border-gray-80 pt-8">
+        <ul className="flex flex-col gap-2 overflow-y-auto flex-1 min-h-0 pr-1 mt-4 border-t border-gray-20 dark:border-gray-80 pt-8">
           {notes.map((note) => (
             <li
               key={note.id}
-              className="group flex items-start gap-2 rounded-none p-3 bg-gray-80/40 dark:bg-gray-90/70 border-t border-gray-90 text-sm text-primary-text"
+              className="group flex items-start gap-2 rounded-none p-3 bg-gray-20/40 dark:bg-gray-90/70 border-t border-gray-20 dark:border-gray-90 text-sm text-primary-text"
             >
               {editingId === note.id ? (
                 <div className="flex flex-col gap-2 flex-1 min-w-0">
