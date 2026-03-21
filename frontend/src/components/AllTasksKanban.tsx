@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Task } from '@utils/goalUtils';
+import { useGoalsContext } from '@context/GoalsContext';
 import TaskCard from './TaskCard';
 import LoadingSpinner from './LoadingSpinner';
 import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
@@ -31,6 +32,36 @@ interface AllTasksKanbanProps {
 export default function AllTasksKanban({ onRefresh }: AllTasksKanbanProps) {
   const [tasks, setTasks] = useState<TaskWithGoal[]>([]);
   const [loading, setLoading] = useState(true);
+  const { goals } = useGoalsContext();
+
+  // Build a stable category map from goals context
+  const goalCategoryMap = useMemo(() => {
+    const map = new Map<string, string>();
+    goals.forEach((g) => map.set(g.id, g.category));
+    return map;
+  }, [goals]);
+
+  // Track previous category map to detect changes
+  const prevCategoryMapRef = useRef<Map<string, string>>(new Map());
+
+  // Patch task.goal.category whenever a goal's category changes in the context
+  useEffect(() => {
+    const prev = prevCategoryMapRef.current;
+    let changed = false;
+    goalCategoryMap.forEach((newCat, goalId) => {
+      if (prev.get(goalId) !== newCat) changed = true;
+    });
+    if (!changed) return;
+    prevCategoryMapRef.current = new Map(goalCategoryMap);
+    setTasks((prevTasks) =>
+      prevTasks.map((t) => {
+        if (!t.goal) return t;
+        const latestCat = goalCategoryMap.get(t.goal.id);
+        if (latestCat === undefined || latestCat === t.goal.category) return t;
+        return { ...t, goal: { ...t.goal, category: latestCat } };
+      }),
+    );
+  }, [goalCategoryMap]);
   const [taskIdToEdit, setTaskIdToEdit] = useState<string | null>(null);
   
   // Filters
