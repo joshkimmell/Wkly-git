@@ -129,6 +129,31 @@ const TaskCard: React.FC<TaskCardProps> = ({
     onStatusChange?.(taskId, 'Done');
     await onUpdate?.(taskId, { status: 'Done' });
   };
+
+  const handleOpenFocusMode = async () => {
+    // Auto-advance status to In Progress when entering focus mode
+    if (displayStatus !== 'In progress' && displayStatus !== 'Done') {
+      setDisplayStatus('In progress');
+      onStatusChange?.(task.id, 'In progress');
+      if (onUpdate) {
+        onUpdate(task.id, { status: 'In progress' });
+      } else {
+        // Fallback: direct API call if no onUpdate prop provided
+        try {
+          const { data: { session: authSess } } = await supabase.auth.getSession();
+          const token = authSess?.access_token;
+          if (token) {
+            await fetch('/.netlify/functions/updateTask', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ id: task.id, status: 'In progress' }),
+            });
+          }
+        } catch { /* non-critical */ }
+      }
+    }
+    setIsFocusModeOpen(true);
+  };
   const [goalDetails, setGoalDetails] = useState<Goal | null>(null);
   const [goalDetailsLoading, setGoalDetailsLoading] = useState(false);
 
@@ -941,7 +966,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   <IconButton
                     aria-label="Focus Mode"
                     size="small"
-                    onClick={() => setIsFocusModeOpen(true)}
+                    onClick={handleOpenFocusMode}
                     className={`btn-ghost ${isTimerRunning ? 'bg-radial from-brand-40 from-40% to-transparent transition-all animate-pulse duration-300' : ''}`}
                     // style={{ background: 'radial-gradient(ellipse at center, var(--primary-background) 0%, transparent 100%), var(--background)' }}
                   >
