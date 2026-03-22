@@ -85,6 +85,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const { timezone } = useTimezone();
   const focusTimer = useFocusTimer();
   const isTimerActive = focusTimer.isActiveFor(task.id);
+  const isTimerRunning = isTimerActive && focusTimer.timerState === 'running';
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editDescription, setEditDescription] = useState(task.description || '');
@@ -657,7 +658,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   return (
     <div
       ref={cardRef}
-      className={`${compact ? 'p-2' : `${list ? 'p-4 md:px-32' : 'p-3'}`} ${isSelected ? 'border-2 border-brand-50 bg-gray-20 dark:bg-brand-90' : isTimerActive ? 'focus-timer-active border border-transparent' : `${!list ? 'border border-gray-20 dark:border-gray-70' : 'border-0'}`} bg-background-color rounded-md hover:shadow-md transition-all ${
+      className={`${compact ? 'p-2' : `${list ? 'p-4 md:px-32' : 'p-3'}`} ${isSelected ? 'border-2 border-brand-50 bg-gray-20 dark:bg-brand-90' : isTimerRunning ? 'focus-timer-active border border-transparent' : `${!list ? 'border border-gray-20 dark:border-gray-70' : 'border-0'}`} bg-background-color rounded-md hover:shadow-md transition-all ${
         displayStatus === 'Done' ? 'opacity-60' : ''
       } ${className}`}
       draggable={draggable}
@@ -941,7 +942,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                     aria-label="Focus Mode"
                     size="small"
                     onClick={() => setIsFocusModeOpen(true)}
-                    className={`btn-ghost ${hasFocusSession || isTimerActive ? 'bg-radial from-brand-40 from-40% to-transparent transition-all animate-pulse duration-300' : ''}`}
+                    className={`btn-ghost ${isTimerRunning ? 'bg-radial from-brand-40 from-40% to-transparent transition-all animate-pulse duration-300' : ''}`}
                     // style={{ background: 'radial-gradient(ellipse at center, var(--primary-background) 0%, transparent 100%), var(--background)' }}
                   >
                     <Zap className={`w-5 h-5 ${hasFocusSession || isTimerActive ? 'text-primary-link' : ''}`} />
