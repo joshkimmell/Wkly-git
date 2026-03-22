@@ -57,161 +57,46 @@ function getGreeting(): string {
 
 // ─── today task row ─────────────────────────────────────────────────────────
 
-const STATUS_DOT: Record<string, string> = {
-  'Done':        'bg-green-600 dark:bg-green-400',
-  'In progress': 'bg-blue-600 dark:bg-blue-400',
-  'Blocked':     'bg-red-600 dark:bg-red-400',
-  'On hold':     'bg-amber-500 dark:bg-amber-400',
-  'Not started': 'bg-gray-40 dark:bg-gray-50',
-};
-const STATUS_TEXT: Record<string, string> = {
-  'Done':        'text-green-600 dark:text-green-400',
-  'In progress': 'text-blue-600 dark:text-blue-400',
-  'Blocked':     'text-red-600 dark:text-red-400',
-  'On hold':     'text-amber-500 dark:text-amber-400',
-  'Not started': 'text-gray-50 dark:text-gray-40',
-};
-const ALL_STATUSES: Task['status'][] = ['Not started', 'In progress', 'On hold', 'Blocked', 'Done'];
+// const STATUS_DOT: Record<string, string> = {
+//   'Done':        'bg-green-600 dark:bg-green-400',
+//   'In progress': 'bg-blue-600 dark:bg-blue-400',
+//   'Blocked':     'bg-red-600 dark:bg-red-400',
+//   'On hold':     'bg-amber-500 dark:bg-amber-400',
+//   'Not started': 'bg-gray-40 dark:bg-gray-50',
+// };
+// const STATUS_TEXT: Record<string, string> = {
+//   'Done':        'text-green-600 dark:text-green-400',
+//   'In progress': 'text-blue-600 dark:text-blue-400',
+//   'Blocked':     'text-red-600 dark:text-red-400',
+//   'On hold':     'text-amber-500 dark:text-amber-400',
+//   'Not started': 'text-gray-50 dark:text-gray-40',
+// };
+// const ALL_STATUSES: Task['status'][] = ['Not started', 'In progress', 'On hold', 'Blocked', 'Done'];
 
 function TodayTaskRow({
   task,
   onStatusChange,
-  onRowClick,
+  onUpdate,
+  onDelete,
 }: {
   task: Task;
   onStatusChange: (taskId: string, newStatus: Task['status'], closingRationale?: string) => void;
-  onRowClick?: () => void;
+  onUpdate?: (taskId: string, updates: Partial<Task>) => void;
+  onDelete?: (taskId: string) => void;
 }) {
-  const [displayStatus, setDisplayStatus] = useState<Task['status']>(task.status);
-  const [prevStatus, setPrevStatus]       = useState<Task['status']>('Not started');
-  const [menuAnchor, setMenuAnchor]       = useState<null | HTMLElement>(null);
-  const [isClosingDialogOpen, setIsClosingDialogOpen] = useState(false);
-  const [closingRationale, setClosingRationale]       = useState('');
-
-  const openDoneDialog = () => setIsClosingDialogOpen(true);
-
-  const cycle = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (displayStatus === 'Done') {
-      setDisplayStatus(prevStatus);
-      onStatusChange(task.id, prevStatus);
-    } else {
-      setPrevStatus(displayStatus);
-      openDoneDialog();
-    }
-  };
-
-  const select = (s: Task['status']) => {
-    if (s === 'Done' && displayStatus !== 'Done') {
-      setPrevStatus(displayStatus);
-      setMenuAnchor(null);
-      openDoneDialog();
-      return;
-    }
-    if (s !== 'Done') setPrevStatus(s);
-    setDisplayStatus(s);
-    onStatusChange(task.id, s);
-    setMenuAnchor(null);
-  };
-
-  const handleDoneSubmit = () => {
-    setDisplayStatus('Done');
-    onStatusChange(task.id, 'Done', closingRationale || undefined);
-    setIsClosingDialogOpen(false);
-    setClosingRationale('');
-  };
-
-  const handleDoneCancel = () => {
-    setIsClosingDialogOpen(false);
-    setClosingRationale('');
-  };
-
   return (
-    <li
-      className={`flex items-center gap-3 px-4 py-3 ${displayStatus === 'Done' ? 'opacity-50' : ''} ${onRowClick ? 'cursor-pointer hover:bg-gray-10 dark:hover:bg-gray-80 transition-colors' : ''}`}
-      onClick={onRowClick}
-    >
-      {/* Cycle button */}
-      <Tooltip title={displayStatus === 'Done' ? 'Reopen task' : 'Mark as done'}>
-        <button
-          onClick={cycle}
-          className="btn-ghost shrink-0 hover:scale-110 transition-transform focus:outline-none"
-        >
-          {displayStatus === 'Done'
-            ? <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
-            : <Circle       className="w-5 h-5 text-secondary-text" />
-          }
-        </button>
-      </Tooltip>
-
-      {/* Title + time */}
-      <div className="min-w-0 flex-1">
-        <p className={`text-sm text-primary-text truncate ${displayStatus === 'Done' ? 'line-through' : ''}`} title={task.title}>
-          {task.title}
-        </p>
-        {task.scheduled_time && (
-          <p className="text-xs text-gray-40 dark:text-gray-50 mt-0.5 flex items-center gap-1">
-            <Clock className="w-3 h-3" />{task.scheduled_time}
-          </p>
-        )}
-      </div>
-      <div className="flex flex-wrap w-1/3 items-center gap-2">
-        {/* Status chip */}
-        {task.goal && (
-          <Chip
-            size="small"
-            icon={<Target className="w-3 h-3 min-w-3" />}
-            label={
-              <span className="truncate flex items-center py-1 text-secondary-text w-auto max-w-[140px]">
-                <span className='truncate'>{task.goal.title}</span>
-                </span>
-            }
-            title={task.goal.title}
-            className="w-auto text-xs px-2 gap-1 py-1 max-w-[140px] max-h-6"
-            variant="outlined"
-            />
-        )}
-        <button
-          onClick={(e) => { e.stopPropagation(); setMenuAnchor(e.currentTarget); }}
-          className={`shrink-0 flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-gray-20 dark:border-gray-70 bg-background-color hover:border-primary transition-colors ${STATUS_TEXT[displayStatus] ?? ''}`}
-        >
-          <span className={`inline-block w-1.5 h-1.5 rounded-full ${STATUS_DOT[displayStatus] ?? ''}`} />
-          {displayStatus}
-          {menuAnchor ? <ChevronUp className="w-3 h-3" /> : <ChevronDownIcon className="w-3 h-3" />}
-        </button>
-
-        <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
-          {ALL_STATUSES.map(s => (
-            <MenuItem key={s} onClick={(e) => { e.stopPropagation(); select(s); }} selected={displayStatus === s}>
-              {s}
-            </MenuItem>
-          ))}
-        </Menu>
-      </div>
-      {/* Closing rationale dialog */}
-      <Dialog open={isClosingDialogOpen} onClose={handleDoneCancel} maxWidth="sm" fullWidth>
-        <DialogTitle>Mark Task as Done</DialogTitle>
-        <DialogContent>
-          <p className="text-sm text-secondary-text mb-4">
-            You're about to mark this task as complete. Would you like to add a note about why or how this was completed?
-          </p>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Closing Note (Optional)"
-            fullWidth
-            multiline
-            rows={4}
-            value={closingRationale}
-            onChange={(e) => setClosingRationale(e.target.value)}
-            placeholder="e.g., Completed ahead of schedule, Requirements changed, etc."
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleDoneCancel} color="inherit">Cancel</Button>
-          <Button onClick={handleDoneSubmit} variant="contained" color="success">Mark as Done</Button>
-        </DialogActions>
-      </Dialog>
+    <li className="flex items-center gap-3 px-4 py-3">
+      <TaskCard
+        task={task}
+        className='border-none'
+        // compact
+        // list
+        hideCategory
+        onStatusChange={onStatusChange}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        allowInlineEdit
+      />
     </li>
   );
 }
@@ -795,10 +680,8 @@ export default function HomePage() {
                     key={task.id}
                     task={task}
                     onStatusChange={handleTaskStatusChange}
-                    onRowClick={() => {
-                      setSelectedTodayTask(task);
-                      setSelectedTodayTaskKey(k => k + 1);
-                    }}
+                    onUpdate={handleTodayTaskUpdate}
+                    onDelete={handleTodayTaskDelete}
                   />
                 ))}
               </ul>

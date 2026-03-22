@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { IconButton, Tooltip, TextField, FormControl, Input, InputLabel } from '@mui/material';
+import { IconButton, Tooltip, TextField, FormControl } from '@mui/material';
 import { Bold, Italic, List, Hash, Quote, Link as LinkIcon } from 'lucide-react';
 import '@styles/richtext.scss';
 

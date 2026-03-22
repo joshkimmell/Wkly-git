@@ -788,7 +788,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 }
                 icon={<Calendar className="w-3 h-3 text-primary-text" />}
                 onClick={() => setIsDateTimeDialogOpen(true)}
-                className="!text-primary-icon"
+                className="!text-primary-icon max-h-7"
               />
                 
               
@@ -844,7 +844,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                       {task.reminder_enabled ? <Bell className="w-3 h-3 text-primary-icon" /> : null}
                     </span>
                   }
-                  className="text-xs h-auto"
+                  className="text-xs h-auto max-h-7"
                   onClick={handleTimeClick}
                   variant='outlined'
                   sx={{ cursor: onUpdate ? 'pointer' : 'default' }}
@@ -860,7 +860,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                     {task.goal.category}
                   </span>
                 }
-                className="text-xs h-auto"
+                className="text-xs h-auto max-h-7"
                 variant="outlined"
               />
               
@@ -891,8 +891,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 // icon={<Circle className="w-3 h-3" />}
                 color={getStatusColor(displayStatus)}
                 onClick={handleStatusChipClick}
-                className="text-xs h-7"
+                className="text-xs h-7 max-h-7"
                 sx={{ cursor: 'pointer' }}
+                variant='outlined'
               />
             )}
 
