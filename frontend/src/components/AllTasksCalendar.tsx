@@ -88,21 +88,28 @@ export default function AllTasksCalendar({
   }, [goalCategoryMap]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'day' | '3day' | 'week' | 'month'>(
-    () => window.matchMedia('(min-width: 900px)').matches ? 'week' : 'day'
+    () => {
+      if (window.matchMedia('(min-width: 1200px)').matches) return 'week';
+      if (window.matchMedia('(min-width: 900px)').matches) return '3day';
+      return 'day';
+    }
   );
   const [taskIdToEdit, setTaskIdToEdit] = useState<string | null>(null);
   
   const theme = useTheme();
   const isMdUp = useMediaQuery(theme.breakpoints.up('md'));
+  const isLgUp = useMediaQuery(theme.breakpoints.up('lg'));
 
-  // Responsive view mode: downgrade on small screens, upgrade on large screens
+  // Responsive view mode: small=day, md=3day, lg+=week
   useEffect(() => {
-    if (!isMdUp && (viewMode === 'week' || viewMode === 'month')) {
+    if (!isMdUp) {
       setViewMode('day');
-    } else if (isMdUp && (viewMode === 'day' || viewMode === '3day')) {
+    } else if (isMdUp && !isLgUp) {
+      setViewMode('3day');
+    } else if (isLgUp) {
       setViewMode('week');
     }
-  }, [isMdUp]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isMdUp, isLgUp]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch all tasks
   const fetchAllTasks = async () => {

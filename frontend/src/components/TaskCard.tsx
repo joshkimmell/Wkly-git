@@ -393,7 +393,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
     if (status === 'Done') {
       return <CheckCircle className="w-5 h-5 text-green-600" />;
     }
-    return <Circle className="w-5 h-5 text-secondary-text" />;
+    return <CheckCircle className="w-5 h-5 text-secondary-text" />;
   };
 
   const getStatusColor = (status: Task['status']) => {
@@ -683,7 +683,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   return (
     <div
       ref={cardRef}
-      className={`${compact ? 'p-2' : `${list ? 'p-4 md:px-32' : 'p-3'}`} ${isSelected ? 'border-2 border-brand-50 bg-gray-20 dark:bg-brand-90' : isTimerRunning ? 'focus-timer-active border border-transparent' : `${!list ? 'border border-gray-20 dark:border-gray-70' : 'border-0'}`} bg-background-color rounded-md hover:shadow-md transition-all ${
+      className={`${compact ? 'p-2 w-full' : `${list ? 'p-4 md:px-32' : 'p-3'}`} ${isSelected ? 'border-2 border-brand-50 bg-gray-20 dark:bg-brand-90' : isTimerRunning ? 'focus-timer-active border border-transparent' : `${!list ? 'border border-gray-20 dark:border-gray-70' : 'border-0'}`} bg-background-color rounded-md hover:shadow-md transition-all ${
         displayStatus === 'Done' ? 'opacity-60' : ''
       } ${className}`}
       draggable={draggable}
@@ -695,8 +695,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
         if (menuJustClosedRef.current) return;
       }}
     >
-      <div className={`flex  items-start gap-2 ${list ? 'flex-row justify-between' : 'flex-col'}`}>
-        <div className={`flex flex-row justify-between ${list ? 'w-auto' : 'w-full'}`} onClick={(e) => e.stopPropagation()}>
+      <div className={`flex w-full items-start gap-2 ${list ? 'flex-wrap justify-between' : 'flex-col'}`}>
+        <div className={`flex flex-row py-2 justify-between ${list ? 'w-auto' : 'w-full'}`} onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-1">
             
             {/* Drag handle */}
@@ -706,21 +706,44 @@ const TaskCard: React.FC<TaskCardProps> = ({
               </div>
             )}
           </div>
+          <div className={`flex flex-wrap w-full items-center gap-3 ${list ? '' : 'justify-end'}`}>
+            {/* Status toggle */}
+            <IconButton
+              onClick={cycleStatus}
+              className="text-tertiary-button mt-0.5 hover:scale-110 transition-transform"
+              title={`${displayStatus === 'Done' ? 'Reopen' : 'Mark as done'} `}
+            >
+              <Tooltip title={`${displayStatus === 'Done' ? 'Reopen' : 'Mark as done'}  `} placement="top" arrow>
+                {getStatusIcon(displayStatus)}
+              </Tooltip>
+              <span className=' md:hidden text-xs text-primary-text px-2 md:px-0'>{`${displayStatus === 'Done' ? 'Reopen' : 'Mark as done'}`}</span>
+            </IconButton>
 
-          {/* Status toggle */}
-          <IconButton
-            onClick={cycleStatus}
-            className="text-tertiary-button mt-0.5 hover:scale-110 transition-transform"
-            title={`${displayStatus === 'Done' ? 'Reopen' : 'Mark as done'} `}
-          >
-            <Tooltip title={`${displayStatus === 'Done' ? 'Reopen' : 'Mark as done'}  `} placement="top" arrow>
-              {getStatusIcon(displayStatus)}
-            </Tooltip>
-          </IconButton>
+            {/* Start focus */}
+            <span className="relative inline-flex flex-col items-center">
+              <IconButton
+                aria-label="Focus Mode"
+                size="small"
+                onClick={handleOpenFocusMode}
+                className={`btn-ghost px-0 !rounded-full ${isTimerRunning ? '!bg-brand-40 transition-all animate-pulse duration-300' : ''}`}
+                // style={{ background: 'radial-gradient(ellipse at center, var(--primary-background) 0%, transparent 100%), var(--background)' }}
+              >
+              <Tooltip title={`${isTimerActive ? `Timer: ${formatTime(focusTimer.elapsed)} — ` : ''}${hasFocusSession ? "Resume Task" : "Start Task"}`} placement="top" arrow>
+                <Zap className={`w-5 h-5 ${hasFocusSession || isTimerActive ? 'text-primary-icon' : ''}`} />
+              </Tooltip>
+                <span className=' md:hidden text-xs text-primary-text px-2 md:px-0'>{`${hasFocusSession ? "Resume Task" : "Start Task"}`}</span>
+              </IconButton>
+              {isTimerActive && (
+                <span className="absolute text-xs font-mono text-primary-icon leading-none -bottom-4 tabular-nums pointer-events-none">
+                  {formatTime(focusTimer.elapsed)}
+                </span>
+              )}
+            </span>
+          </div>
         </div>
 
         {/* Task content */}
-        <div className="flex-1 w-full space-y-2">
+        <div className="flex-1 px-2 w-full space-y-3">
           {isEditing ? (
             <div className="space-y-2">
               <TextField
@@ -745,7 +768,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
             </div>
           ) : (
             <>
-                <div className="flex items-start gap-2">
+                <div className="flex w-full items-start gap-2">
                     {/* Selection checkbox */}
                     {selectable && (
                     <button
@@ -776,7 +799,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
           )}
 
           {/* Metadata */}
-          <div className="flex flex-wrap h-auto gap-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-wrap w-full h-auto gap-2" onClick={(e) => e.stopPropagation()}>
             {!task.scheduled_date && onUpdate && (
               <Chip
                 size="medium"
@@ -901,7 +924,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
         </div>
 
         {/* Actions */}
-        <div className={`flex ${list ? 'w-auto flex-col sm:flex-row items-center' : 'w-full'} justify-end gap-1`} onClick={(e) => e.stopPropagation()}>
+        <div className={`flex ${list ? 'w-auto flex-wrap items-center' : 'w-full'} justify-end gap-1`} onClick={(e) => e.stopPropagation()}>
           {isEditing ? (
             <>
               <Tooltip title="Save">
@@ -962,7 +985,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 </>
               )}
 
-              <Tooltip title={`${isTimerActive ? `Timer: ${formatTime(focusTimer.elapsed)} — ` : ''}${hasFocusSession ? "Resume Task" : "Start Task"}`} placement="top" arrow>
+              {/* <Tooltip title={`${isTimerActive ? `Timer: ${formatTime(focusTimer.elapsed)} — ` : ''}${hasFocusSession ? "Resume Task" : "Start Task"}`} placement="top" arrow>
                 <span className="relative inline-flex flex-col items-center">
                   <IconButton
                     aria-label="Focus Mode"
@@ -979,7 +1002,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                     </span>
                   )}
                 </span>
-              </Tooltip>
+              </Tooltip> */}
 
               <Tooltip title="Notes" placement="top" arrow>
                 <span>

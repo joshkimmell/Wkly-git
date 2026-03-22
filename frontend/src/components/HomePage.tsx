@@ -85,17 +85,17 @@ function TodayTaskRow({
   onDelete?: (taskId: string) => void;
 }) {
   return (
-    <li className="flex items-center gap-3 px-4 py-3">
+    <li className="flex flex-wrap w-full items-center gap-3 px-4 py-3">
       <TaskCard
         task={task}
         className='border-none'
-        // compact
-        // list
+        compact
+        list
         hideCategory
         onStatusChange={onStatusChange}
         onUpdate={onUpdate}
         onDelete={onDelete}
-        allowInlineEdit
+        // allowInlineEdit
       />
     </li>
   );
@@ -657,7 +657,7 @@ export default function HomePage() {
             </button>
           </div>
 
-          <div className="rounded-md border border-gray-20 dark:border-gray-70 bg-background-color overflow-hidden">
+          <div className="rounded-md border border-gray-20 dark:border-gray-70 bg-background-color">
             {tasksLoading ? (
               <div className="flex justify-center items-center p-8">
                 <LoadingSpinner />
