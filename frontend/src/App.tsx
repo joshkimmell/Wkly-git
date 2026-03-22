@@ -24,6 +24,7 @@ import MuiCompareDemo from '@components/MuiCompareDemo';
 import AdminAccessRequests from '@components/AdminAccessRequests';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Chip } from '@mui/material';
 import { Bell, Calendar, FileText } from 'lucide-react';
+import { loadSession, saveSession } from '@components/focus/useFocusSession';
 
 
 const App: React.FC = () => {
@@ -131,6 +132,71 @@ const App: React.FC = () => {
 
   // Start reminder service when user is authenticated
   const { pendingReminderTask, dismissReminderTask } = useReminderService();
+
+  // ── App bootstrap: runs once per authenticated session ──────────────
+  useEffect(() => {
+    if (!effectiveSession) return;
+    const bootstrap = async () => {
+      try {
+        const { data: { session: authSess } } = await supabase.auth.getSession();
+        const token = authSess?.access_token;
+        if (!token) return;
+
+        // 1. Reschedule overdue tasks so scheduled_date is always up-to-date on first load
+        fetch('/.netlify/functions/rescheduleOverdueTasks', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => {});
+
+        // 2. Hydrate localStorage focus sessions from DB so they're available
+        //    before the user ever opens the focus view
+        const res = await fetch('/.netlify/functions/getAllFocusSessions', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const dbSessions: Array<{
+          task_id: string;
+          elapsed_seconds: number;
+          timer_state: string;
+          chat_messages: unknown[];
+          suggested_tasks: unknown[];
+          added_task_titles: string[];
+          pending_chat_tasks: unknown[];
+          pending_chat_links: unknown[];
+          created_at: string;
+          updated_at: string;
+        }> = await res.json();
+
+        for (const db of dbSessions) {
+          const dbUpdatedAt = new Date(db.updated_at).getTime();
+          const existing = loadSession(db.task_id);
+          // Only write if DB is newer than what's already in localStorage
+          if (!existing || dbUpdatedAt > existing.updatedAt) {
+            saveSession({
+              taskId: db.task_id,
+              elapsed: db.elapsed_seconds,
+              // Never restore as 'running' — user must resume manually
+              timerState: db.timer_state === 'running' ? 'paused' : db.timer_state as 'paused' | 'idle',
+              // Notes live in task_notes table; preserve any local ones
+              notes: existing?.notes ?? [],
+              chatMessages: (db.chat_messages ?? []) as any,
+              savedNoteIds: existing?.savedNoteIds ?? [],
+              suggestedTasks: (db.suggested_tasks ?? []) as any,
+              addedTaskTitles: db.added_task_titles ?? [],
+              pendingChatTasks: (db.pending_chat_tasks ?? []) as any,
+              pendingChatLinks: (db.pending_chat_links ?? []) as any,
+              createdAt: new Date(db.created_at).getTime(),
+              updatedAt: dbUpdatedAt,
+            });
+          }
+        }
+      } catch {
+        // Non-critical: silently ignore bootstrap errors
+      }
+    };
+    bootstrap();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!effectiveSession]);
 
   const handleEditReminderTask = () => {
     if (!pendingReminderTask) return;
