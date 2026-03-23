@@ -738,7 +738,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
               <Tooltip title={`${
                 isTimerActive
                   ? pomodoroSettings.timerMode === 'pomodoro'
-                    ? `Pomodoro — `
+                    ? `Timer: `
                     : `Timer: ${formatTime(focusTimer.elapsed)} — `
                   : ''
               }${hasFocusSession ? 'Resume Task' : 'Start Task'}`} placement="top" arrow>
@@ -761,7 +761,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 : pomodoroPhase === 'short-break' ? { border: 'border-blue-400/40', icon: 'text-blue-500', dot: 'bg-blue-500' }
                 : { border: 'border-violet-400/40', icon: 'text-violet-500', dot: 'bg-violet-500' };
               return (
-                <Tooltip title="Pomodoro timer — click to expand" placement="top" arrow>
+                <Tooltip title="View Timer" placement="top" arrow>
                   <button
                     onClick={(e) => { e.stopPropagation(); setPomodoroPopoverAnchor(e.currentTarget); }}
                     className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background-color border ${pillColor.border} text-xs font-mono text-primary-text hover:opacity-80 transition-opacity`}
@@ -1483,11 +1483,13 @@ const TaskCard: React.FC<TaskCardProps> = ({
         </DialogActions>
       </Dialog>
 
-      {/* Pomodoro popover */}
+      {/* Pomodoro popover — keepMounted keeps PomodoroTimer (and its tick interval) alive
+           even when the popover is closed, so the pill updates in real time. */}
       <Popover
         open={Boolean(pomodoroPopoverAnchor)}
         anchorEl={pomodoroPopoverAnchor}
         onClose={() => setPomodoroPopoverAnchor(null)}
+        keepMounted
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         transformOrigin={{ vertical: 'top', horizontal: 'center' }}
         PaperProps={{
