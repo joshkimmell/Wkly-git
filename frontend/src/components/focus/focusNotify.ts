@@ -15,18 +15,33 @@ export async function requestNotificationPermission(): Promise<boolean> {
 
 export function sendFocusNotification(title: string, body: string): void {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  try {
-    const n = new Notification(title, {
-      body,
-      icon: '/images/icon-192.png',
-      badge: '/images/icon-192.png',
-      tag: 'wkly-focus-timer',
-      renotify: true,
-    });
-    // Auto-close after 8 s
-    setTimeout(() => n.close(), 8000);
-  } catch {
-    /* non-critical */
+
+  const options = {
+    body,
+    icon: '/images/icon-192.png',
+    badge: '/images/icon-192.png',
+    tag: 'wkly-focus-timer',
+    renotify: true,
+  } as NotificationOptions;
+
+  // Prefer service worker notifications — renotify is only guaranteed to fire
+  // through a SW (Chrome silently drops renotify on in-page Notification instances
+  // when a notification with the same tag is already open).
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready
+      .then((reg) => reg.showNotification(title, options))
+      .catch(() => {
+        // SW not controlling the page yet — fall back to in-page notification
+        try {
+          const n = new Notification(title, options);
+          setTimeout(() => n.close(), 8000);
+        } catch { /* non-critical */ }
+      });
+  } else {
+    try {
+      const n = new Notification(title, options);
+      setTimeout(() => n.close(), 8000);
+    } catch { /* non-critical */ }
   }
 }
 
