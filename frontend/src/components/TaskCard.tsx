@@ -5,9 +5,11 @@ import TaskFocusMode from './focus/TaskFocusMode';
 import { hasSession } from './focus/useFocusSession';
 import { useFocusTimer } from './focus/FocusTimerContext';
 import { formatTime } from './focus/FocusTimer';
-import { CheckCircle, Circle, Calendar, Bell, Trash, Edit, Clock, GripVertical, ChevronUp, ChevronDown, FileText, Tag, Square, CheckSquare2, Target, Zap } from 'lucide-react';
+import PomodoroTimer, { type PomodoroPhase } from './focus/PomodoroTimer';
+import { usePomodoroSettings } from '@hooks/usePomodoroSettings';
+import { CheckCircle, Calendar, Bell, Trash, Edit, Clock, GripVertical, ChevronUp, ChevronDown, FileText, Tag, Square, CheckSquare2, Target, Zap } from 'lucide-react';
 import { Save, X as CloseButton, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
-import { IconButton, Tooltip, Chip, TextField, Button, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, FormControlLabel, Switch, Select, FormControl, InputLabel, useMediaQuery } from '@mui/material';
+import { IconButton, Tooltip, Chip, TextField, Button, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, FormControlLabel, Switch, Select, FormControl, InputLabel, useMediaQuery, Popover } from '@mui/material';
 import { DatePicker, TimePicker, DateTimePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
@@ -84,8 +86,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
 }) => {
   const { timezone } = useTimezone();
   const focusTimer = useFocusTimer();
+  const { settings: pomodoroSettings } = usePomodoroSettings();
   const isTimerActive = focusTimer.isActiveFor(task.id);
   const isTimerRunning = isTimerActive && focusTimer.timerState === 'running';
+
+  // Pomodoro pill state
+  const [pomodoroPhase, setPomodoroPhase] = useState<PomodoroPhase>('focus');
+  const [pomodoroRemaining, setPomodoroRemaining] = useState(pomodoroSettings.focusMinutes * 60);
+  const [pomodoroPopoverAnchor, setPomodoroPopoverAnchor] = useState<HTMLElement | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editDescription, setEditDescription] = useState(task.description || '');
@@ -726,19 +734,47 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 size="small"
                 onClick={handleOpenFocusMode}
                 className={`btn-ghost px-0 !rounded-full ${isTimerRunning ? '!bg-brand-60 transition-all animate-pulse duration-300' : ''}`}
-                // style={{ background: 'radial-gradient(ellipse at center, var(--primary-background) 0%, transparent 100%), var(--background)' }}
               >
-              <Tooltip title={`${isTimerActive ? `Timer: ${formatTime(focusTimer.elapsed)} — ` : ''}${hasFocusSession ? "Resume Task" : "Start Task"}`} placement="top" arrow>
+              <Tooltip title={`${
+                isTimerActive
+                  ? pomodoroSettings.timerMode === 'pomodoro'
+                    ? `Pomodoro — `
+                    : `Timer: ${formatTime(focusTimer.elapsed)} — `
+                  : ''
+              }${hasFocusSession ? 'Resume Task' : 'Start Task'}`} placement="top" arrow>
                 <Zap className={`w-5 h-5 ${hasFocusSession || isTimerActive ? 'text-primary-icon' : ''}`} />
               </Tooltip>
                 <span className=' md:hidden text-xs text-primary-text px-2 md:px-0'>{`${hasFocusSession ? "Resume Task" : "Start Task"}`}</span>
               </IconButton>
-              {isTimerActive && (
+              {/* Basic timer floating countdown */}
+              {isTimerActive && pomodoroSettings.timerMode !== 'pomodoro' && (
                 <span className="absolute text-xs font-mono text-primary-icon leading-none -bottom-4 tabular-nums pointer-events-none">
                   {formatTime(focusTimer.elapsed)}
                 </span>
               )}
             </span>
+
+            {/* Pomodoro compact pill — only when pomodoro mode and timer active for this task */}
+            {isTimerActive && pomodoroSettings.timerMode === 'pomodoro' && (() => {
+              const pillColor =
+                pomodoroPhase === 'focus' ? { border: 'border-red-400/40', icon: 'text-red-500', dot: 'bg-red-500' }
+                : pomodoroPhase === 'short-break' ? { border: 'border-blue-400/40', icon: 'text-blue-500', dot: 'bg-blue-500' }
+                : { border: 'border-violet-400/40', icon: 'text-violet-500', dot: 'bg-violet-500' };
+              return (
+                <Tooltip title="Pomodoro timer — click to expand" placement="top" arrow>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setPomodoroPopoverAnchor(e.currentTarget); }}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background-color border ${pillColor.border} text-xs font-mono text-primary-text hover:opacity-80 transition-opacity`}
+                  >
+                    <Clock className={`w-3 h-3 ${pillColor.icon}`} />
+                    <span className="tabular-nums">{formatTime(pomodoroRemaining)}</span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${
+                      !isTimerRunning ? 'bg-gray-40' : `${pillColor.dot} animate-pulse`
+                    }`} />
+                  </button>
+                </Tooltip>
+              );
+            })()}
           </div>
         </div>
 
@@ -1446,6 +1482,36 @@ const TaskCard: React.FC<TaskCardProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Pomodoro popover */}
+      <Popover
+        open={Boolean(pomodoroPopoverAnchor)}
+        anchorEl={pomodoroPopoverAnchor}
+        onClose={() => setPomodoroPopoverAnchor(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+        PaperProps={{
+          elevation: 8,
+          sx: { backgroundColor: 'var(--background-color)', backgroundImage: 'none', borderRadius: '12px', overflow: 'hidden' },
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-3 w-64">
+          <PomodoroTimer
+            taskId={task.id}
+            settings={pomodoroSettings}
+            onStart={() => focusTimer.startTimer(task.id, 0)}
+            onPause={() => focusTimer.pauseTimer()}
+            onResume={() => focusTimer.resumeTimer()}
+            onReset={() => focusTimer.resetTimer()}
+            externalTimerState={focusTimer.isActiveFor(task.id) ? focusTimer.timerState : 'idle'}
+            onStateChange={(phase, _state, remaining) => {
+              setPomodoroPhase(phase);
+              setPomodoroRemaining(remaining);
+            }}
+          />
+        </div>
+      </Popover>
 
       {/* Task Focus Mode */}
       {isFocusModeOpen && (
