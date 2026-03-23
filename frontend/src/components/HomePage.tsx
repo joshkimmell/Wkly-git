@@ -724,6 +724,7 @@ export default function HomePage() {
                 goalId={selectedGoal.id}
                 goalTitle={selectedGoal.title}
                 goalDescription={selectedGoal.description || ''}
+                onBeforeFocusMode={closeTasksModal}
               />
             </div>
           </div>

@@ -769,6 +769,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
               goalTitle={goal.title}
               goalDescription={goal.description || ''}
               goalCategory={goal.category}
+              onBeforeFocusMode={() => setIsTasksModalOpen(false)}
             />
           </div>
         </div>

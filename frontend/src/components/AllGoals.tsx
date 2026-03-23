@@ -3862,6 +3862,7 @@ const GoalsComponent = () => {
                                         goalDescription={(selectedGoal as any)?.description || ''}
                                         goalCategory={(selectedGoal as any)?.category}
                                         onTaskCountChange={(count) => setTasksCount(count)}
+                                        onBeforeFocusMode={() => { setIsTasksModalOpen(false); setTasksGoalId(null); }}
                                     />
                                 </div>
                             </div>

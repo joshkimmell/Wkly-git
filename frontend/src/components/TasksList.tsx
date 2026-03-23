@@ -23,11 +23,12 @@ interface TasksListProps {
   goalDescription: string;
   goalCategory?: string;
   onTaskCountChange?: (count: number) => void;
+  onBeforeFocusMode?: () => void; // Propagated to TaskCard — lets parent close overlapping dialogs
 }
 
 type ViewMode = 'list' | 'kanban' | 'calendar';
 
-const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescription, goalCategory, onTaskCountChange }) => {
+const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescription, goalCategory, onTaskCountChange, onBeforeFocusMode }) => {
   const { timezone } = useTimezone();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -960,6 +961,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
                 selectable
                 isSelected={selectedIds.has(task.id)}
                 onToggleSelect={toggleSelect}
+                onBeforeFocusMode={onBeforeFocusMode}
               />
             );
           })}

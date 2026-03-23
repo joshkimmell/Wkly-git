@@ -54,6 +54,7 @@ interface TaskCardProps {
   onModalClose?: () => void;   // Called when the full edit modal closes (save or cancel)
   className?: string; // Allow passing additional class names
   onUnschedule?: (taskId: string) => void; // Remove task from calendar (AllTasksCalendar / TasksCalendar only)
+  onBeforeFocusMode?: () => void; // Called before TaskFocusMode opens — lets parent close overlapping dialogs
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({
@@ -85,6 +86,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onModalClose,
   className = '',
   onUnschedule,
+  onBeforeFocusMode,
 }) => {
   const { timezone } = useTimezone();
   const focusTimer = useFocusTimer();
@@ -140,6 +142,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
     await onUpdate?.(taskId, { status: 'Done' });
   };
 
+  // Exposed so parent dialogs can close before focus mode mounts
   const handleCloseDialogs = () => {
     setIsFullEditModalOpen(false);
     setIsNotesModalOpen(false);
@@ -153,6 +156,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const handleOpenFocusMode = async () => {
     // Close any open dialogs/modals before entering focus mode
     handleCloseDialogs();
+    onBeforeFocusMode?.();
     // Auto-advance status to In Progress when entering focus mode
     if (displayStatus !== 'In progress' && displayStatus !== 'Done') {
       setDisplayStatus('In progress');
