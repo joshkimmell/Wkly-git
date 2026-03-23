@@ -7,7 +7,7 @@ import { useFocusTimer } from './focus/FocusTimerContext';
 import { formatTime } from './focus/FocusTimer';
 import PomodoroTimer, { type PomodoroPhase } from './focus/PomodoroTimer';
 import { usePomodoroSettings } from '@hooks/usePomodoroSettings';
-import { CheckCircle, Calendar, Bell, Trash, Edit, Clock, GripVertical, ChevronUp, ChevronDown, FileText, Tag, Square, CheckSquare2, Target, Zap, CalendarX, AlarmClock } from 'lucide-react';
+import { CheckCircle, Calendar, Bell, Trash, Edit, Clock, GripVertical, ChevronUp, ChevronDown, FileText, Tag, Square, CheckSquare2, Target, Zap, CalendarX } from 'lucide-react';
 import { Save, X as CloseButton, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
 import { IconButton, Tooltip, Chip, TextField, Button, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, FormControlLabel, Switch, Select, FormControl, InputLabel, useMediaQuery, Popover } from '@mui/material';
 import { DatePicker, TimePicker, DateTimePicker, LocalizationProvider } from '@mui/x-date-pickers';
@@ -96,7 +96,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const [pomodoroPhase, setPomodoroPhase] = useState<PomodoroPhase>('focus');
   const [pomodoroRemaining, setPomodoroRemaining] = useState(pomodoroSettings.focusMinutes * 60);
   const [pomodoroPopoverAnchor, setPomodoroPopoverAnchor] = useState<HTMLElement | null>(null);
-  const [snoozeMenuAnchor, setSnoozeMenuAnchor] = useState<HTMLElement | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editDescription, setEditDescription] = useState(task.description || '');
@@ -640,14 +639,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
     openNotesModal();
   };
 
-  const handleSnooze = (minutes: number) => {
-    if (!onUpdate) return;
-    const newDatetime = new Date(Date.now() + minutes * 60 * 1000).toISOString();
-    onUpdate(task.id, { reminder_datetime: newDatetime, reminder_enabled: true });
-    clearNotifiedReminder(task.id);
-    setSnoozeMenuAnchor(null);
-  };
-
   const handleClosingRationaleSubmit = () => {
     if (!onStatusChange) return;
     
@@ -1088,14 +1079,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 </span>
               </Tooltip>
               
-              {task.reminder_enabled && task.reminder_datetime && onUpdate && (
-                <Tooltip title="Snooze reminder" placement="top" arrow>
-                  <IconButton className="btn-ghost" size="small" onClick={(e) => { e.stopPropagation(); setSnoozeMenuAnchor(e.currentTarget); }}>
-                    <AlarmClock className="w-5 h-5" />
-                  </IconButton>
-                </Tooltip>
-              )}
-
               {onUnschedule && task.scheduled_date && (
                 <Tooltip title="Remove from calendar" placement="top" arrow>
                   <IconButton className="btn-ghost" size="small" onClick={(e) => { e.stopPropagation(); onUnschedule(task.id); }}>
@@ -1115,18 +1098,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
           )}
         </div>
       </div>
-
-      {/* Snooze reminder menu */}
-      <Menu
-        anchorEl={snoozeMenuAnchor}
-        open={Boolean(snoozeMenuAnchor)}
-        onClose={() => setSnoozeMenuAnchor(null)}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <MenuItem onClick={() => handleSnooze(5)}>Snooze 5 minutes</MenuItem>
-        <MenuItem onClick={() => handleSnooze(10)}>Snooze 10 minutes</MenuItem>
-        <MenuItem onClick={() => handleSnooze(20)}>Snooze 20 minutes</MenuItem>
-      </Menu>
 
       {/* Date/Time Picker Dialog */}
       <DateTimePickerDialog
