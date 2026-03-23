@@ -152,6 +152,7 @@ const PomodoroTimer: React.FC<Props> = ({
   const sessionCountRef = useRef(sessionCount);
   const timerStateRef = useRef(timerState);
   const settingsRef = useRef(settings);
+  const advancePhaseRef = useRef<(fromPhase: PomodoroPhase, fromSessionCount: number) => void>(() => {});
 
   // Keep refs in sync
   useEffect(() => { phaseRef.current = phase; }, [phase]);
@@ -224,14 +225,19 @@ const PomodoroTimer: React.FC<Props> = ({
     }
   }, [onStart, onPause, onResume]);
 
+  // Keep advancePhaseRef always pointing at the latest advancePhase
+  useEffect(() => { advancePhaseRef.current = advancePhase; }, [advancePhase]);
+
   // ── Tick ─────────────────────────────────────────────────────
+  // Empty deps: interval is created once on mount and never restarted.
+  // advancePhaseRef ensures we always call the latest version.
   useEffect(() => {
     tickRef.current = window.setInterval(() => {
       if (timerStateRef.current !== 'running') return;
       setRemaining((prev) => {
         const next = prev - 1;
         if (next <= 0) {
-          advancePhase(phaseRef.current, sessionCountRef.current);
+          advancePhaseRef.current(phaseRef.current, sessionCountRef.current);
           return 0;
         }
         return next;
@@ -240,7 +246,7 @@ const PomodoroTimer: React.FC<Props> = ({
     return () => {
       if (tickRef.current) clearInterval(tickRef.current);
     };
-  }, [advancePhase]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Controls ──────────────────────────────────────────────────
   const handleStart = () => {
