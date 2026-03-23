@@ -20,6 +20,7 @@ import NotificationsSettings from '@components/NotificationsSettings';
 import AppMuiThemeProvider from './mui/muiTheme';
 import appColors from '@styles/appColors';
 import { FocusTimerProvider } from '@components/focus/FocusTimerContext';
+import { FocusModeProvider } from '@context/FocusModeContext';
 import MuiCompareDemo from '@components/MuiCompareDemo';
 import AdminAccessRequests from '@components/AdminAccessRequests';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Chip } from '@mui/material';
@@ -239,6 +240,7 @@ const App: React.FC = () => {
     <AppMuiThemeProvider mode={theme}>
     <TimezoneProvider>
     <FocusTimerProvider>
+    <FocusModeProvider>
     <div className={`${current}`}>
       <div className={`min-h-screen bg-background text-primary-text ${current}`}>
         <Header   
@@ -266,6 +268,7 @@ const App: React.FC = () => {
         </GoalsProvider>
       </div>
     </div>
+    </FocusModeProvider>
     </FocusTimerProvider>
     </TimezoneProvider>
 

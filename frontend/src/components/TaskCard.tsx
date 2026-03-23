@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { Task, Goal } from '@utils/goalUtils';
 import GoalCard from '@components/GoalCard';
-import TaskFocusMode from './focus/TaskFocusMode';
+import { useFocusMode } from '@context/FocusModeContext';
 import { hasSession } from './focus/useFocusSession';
 import { useFocusTimer } from './focus/FocusTimerContext';
 import { formatTime } from './focus/FocusTimer';
@@ -133,8 +133,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
   // Goal details dialog
   const [isGoalDetailsOpen, setIsGoalDetailsOpen] = useState(false);
-  const [isFocusModeOpen, setIsFocusModeOpen] = useState(false);
   const [hasFocusSession, setHasFocusSession] = useState(() => hasSession(task.id));
+
+  const { openFocusMode } = useFocusMode();
 
   const handleFocusDone = async (taskId: string) => {
     // Mark task done via status change callback + update
@@ -156,7 +157,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const handleOpenFocusMode = async () => {
     // Close any open dialogs/modals before entering focus mode
     handleCloseDialogs();
-    onBeforeFocusMode?.();
     // Auto-advance status to In Progress when entering focus mode
     if (displayStatus !== 'In progress' && displayStatus !== 'Done') {
       setDisplayStatus('In progress');
@@ -178,7 +178,15 @@ const TaskCard: React.FC<TaskCardProps> = ({
         } catch { /* non-critical */ }
       }
     }
-    setIsFocusModeOpen(true);
+    // Open focus mode via app-level context so it survives any parent unmounts
+    openFocusMode({
+      task,
+      goalTitle: (task as any).goal?.title,
+      onDone: handleFocusDone,
+      onClose: () => { setHasFocusSession(hasSession(task.id)); },
+    });
+    // Close parent dialog/modal after context has registered the request
+    onBeforeFocusMode?.();
   };
   const [goalDetails, setGoalDetails] = useState<Goal | null>(null);
   const [goalDetailsLoading, setGoalDetailsLoading] = useState(false);
@@ -1562,15 +1570,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
         </div>
       </Popover>
 
-      {/* Task Focus Mode */}
-      {isFocusModeOpen && (
-        <TaskFocusMode
-          task={task}
-          goalTitle={(task as any).goal?.title}
-          onClose={() => { setIsFocusModeOpen(false); setHasFocusSession(hasSession(task.id)); }}
-          onMarkDone={handleFocusDone}
-        />
-      )}
+      {/* Task Focus Mode is rendered at app level via FocusModeContext */}
     </div>
   );
 };
