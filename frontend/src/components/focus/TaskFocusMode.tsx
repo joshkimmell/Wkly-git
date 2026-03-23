@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { X, CheckCircle, ChevronRight, Clock, FileText, Zap, AlertCircle, CalendarClock, Timer, Save, Loader2, Sparkles } from 'lucide-react';
 import FocusTimer, { formatTime } from './FocusTimer';
 import PomodoroTimer, { type PomodoroPhase } from './PomodoroTimer';
@@ -98,6 +99,16 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
 
   // Header save state
   const [isSaving, setIsSaving] = useState(false);
+
+  // Mark #root as inert (blocks all clicks/keyboard behind overlay)
+  // and portal the UI out to document.body so the inert doesn't trap the overlay itself
+  useEffect(() => {
+    const root = document.getElementById('root');
+    if (root) root.setAttribute('inert', '');
+    return () => {
+      if (root) root.removeAttribute('inert');
+    };
+  }, []);
 
   // ── Load session + DB notes on mount ────────────────────────────
   useEffect(() => {
@@ -546,7 +557,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
     { id: 'notes', label: 'Notes', icon: <FileText className="w-4 h-4" /> },
   ];
 
-  return (
+  return createPortal(
     <>
       {showFireworks && <FocusFireworks onDone={handleFireworksDone} />}
 
@@ -892,7 +903,8 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
           </aside>
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 };
 

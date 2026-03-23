@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { IconButton, Tooltip, TextField, FormControl } from '@mui/material';
-import { Bold, Italic, List, Hash, Quote, Link as LinkIcon } from 'lucide-react';
+import { Bold, Italic, List, Hash, Quote, Link as LinkIcon, ListOrdered } from 'lucide-react';
 import '@styles/richtext.scss';
 
 type Props = {
@@ -498,14 +498,14 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
               multiline
               fullWidth
               value={html}
-              // placeholder={placeholder}
+              placeholder=''
               /* label shown above as a custom floating label */
-              label={label ? label : undefined}
+              label={label ? label : placeholder ? placeholder : undefined}
               InputLabelProps={{ shrink: (focused || hasContent) as any }}
               inputRef={(el: any) => { contentRef.current = el; }}
               InputProps={{
                 inputComponent: ContentEditableInput as any,
-                inputProps: { value: html, placeholder },
+                inputProps: { value: html },
               }}
               onChange={() => { /* handled by contentEditable's onInput */ }}
               sx={{
@@ -594,7 +594,7 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => { applyCommand('insertOrderedList'); }}
                 >
-                  <List size={16} />
+                  <ListOrdered size={16} />
                 </IconButton>
                 </span>
               </Tooltip>

@@ -114,6 +114,7 @@ const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded, onNoteEdite
                   <div onKeyDown={handleEditKeyDown}>
                     <RichTextEditor
                       id={`edit-note-${note.id}`}
+                      key={'rteEdit-' + note.id} // reset when switching notes
                       value={editDraft}
                       onChange={setEditDraft}
                     />
