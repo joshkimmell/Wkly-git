@@ -71,6 +71,31 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
   const [pomodoroPhase, setPomodoroPhase] = useState<PomodoroPhase>('focus');
   const [pomodoroRemaining, setPomodoroRemaining] = useState(pomodoroSettings.focusMinutes * 60);
 
+  // Resizable Notes panel
+  const [notesWidth, setNotesWidth] = useState<number>(() => {
+    try { return parseInt(localStorage.getItem('wkly_focus_notes_width') || '280', 10); } catch { return 280; }
+  });
+  const notesWidthRef = useRef(280);
+  useEffect(() => { notesWidthRef.current = notesWidth; }, [notesWidth]);
+
+  const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = notesWidthRef.current;
+    const onMouseMove = (mv: MouseEvent) => {
+      const newWidth = Math.max(160, Math.min(600, startWidth + (startX - mv.clientX)));
+      setNotesWidth(newWidth);
+      notesWidthRef.current = newWidth;
+      try { localStorage.setItem('wkly_focus_notes_width', String(newWidth)); } catch {}
+    };
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }, []);
+
   // Header save state
   const [isSaving, setIsSaving] = useState(false);
 
@@ -838,10 +863,21 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
             </div>
           </main>
 
+          {/* ── Drag handle: Assistant ↔ Notes ─────────────────── */}
+          <div
+            className="hidden md:flex w-1.5 cursor-col-resize items-center justify-center shrink-0 group hover:bg-brand-40/20 active:bg-brand-40/30 transition-colors relative select-none"
+            onMouseDown={handleDividerMouseDown}
+            title="Drag to resize"
+          >
+            <div className="w-0.5 h-10 rounded-full bg-border-subtle group-hover:bg-brand-40 group-active:bg-brand-50 transition-colors" />
+          </div>
+
           {/* ── Right: Notes panel ──────────────────────────────────── */}
-          <aside className={`
-            md:flex md:flex-col md:w-[240px] lg:w-[280px] md:shrink-0
-            ${activePanel === 'notes' ? 'flex flex-col w-full' : 'hidden'}
+          <aside
+            style={{ width: notesWidth }}
+            className={`
+            md:flex md:flex-col md:shrink-0
+            ${activePanel === 'notes' ? 'flex flex-col w-full' : 'hidden md:flex'}
             bg-background-color/40 dark:bg-background-color/40 overflow-hidden
           `}>
             <div className="hidden md:flex px-4 pt-4 pb-2 shrink-0 border-b border-border-subtle">

@@ -660,7 +660,7 @@ export default function HomePage() {
           <div className="rounded-md border border-gray-20 dark:border-gray-70 bg-background-color">
             {tasksLoading ? (
               <div className="flex justify-center items-center p-8">
-                <LoadingSpinner />
+                <CircularProgress />
               </div>
             ) : todayTasks.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
