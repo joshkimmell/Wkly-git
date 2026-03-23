@@ -132,7 +132,13 @@ const PomodoroTimer: React.FC<Props> = ({
   const [phase, setPhase] = useState<PomodoroPhase>(() => initState().phase);
   const [remaining, setRemaining] = useState<number>(() => initState().remaining);
   const [sessionCount, setSessionCount] = useState<number>(() => initState().sessionCount);
-  const [timerState, setTimerState] = useState<TimerState>(() => initState().timerState);
+  const [timerState, setTimerState] = useState<TimerState>(() => {
+    const s = initState();
+    // If the global FocusTimerContext timer is already running (e.g. user re-opened
+    // focus mode while timer was running in background), sync our countdown state.
+    if (_externalTimerState === 'running' && s.timerState !== 'idle') return 'running';
+    return s.timerState;
+  });
 
   // Editing mode for durations
   const [editingDuration, setEditingDuration] = useState(false);
