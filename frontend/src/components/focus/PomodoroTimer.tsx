@@ -10,7 +10,7 @@
  *  - Phase state persisted to localStorage so it survives open/close
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Play, Pause, RotateCcw, SkipForward } from 'lucide-react';
+import { Play, Pause, RotateCcw, SkipForward, Settings } from 'lucide-react';
 import type { TimerState } from './FocusTimerContext';
 import type { PomodoroSettings } from '@hooks/usePomodoroSettings';
 import { playTadaSound, playBreakEndSound, sendFocusNotification, requestNotificationPermission } from './focusNotify';
@@ -139,6 +139,23 @@ const PomodoroTimer: React.FC<Props> = ({
     if (_externalTimerState === 'running' && s.timerState !== 'idle') return 'running';
     return s.timerState;
   });
+
+  // Local durations — updated immediately on save so ring + button reflect changes
+  // before the parent re-renders with the new settings prop.
+  const [localDurations, setLocalDurations] = useState({
+    focus: settings.focusMinutes,
+    short: settings.shortBreakMinutes,
+    long: settings.longBreakMinutes,
+  });
+
+  // Sync local durations when the prop changes from outside (e.g. Preferences panel)
+  useEffect(() => {
+    setLocalDurations({
+      focus: settings.focusMinutes,
+      short: settings.shortBreakMinutes,
+      long: settings.longBreakMinutes,
+    });
+  }, [settings.focusMinutes, settings.shortBreakMinutes, settings.longBreakMinutes]);
 
   // Editing mode for durations
   const [editingDuration, setEditingDuration] = useState(false);
@@ -279,9 +296,9 @@ const PomodoroTimer: React.FC<Props> = ({
 
   // ── Duration editing ──────────────────────────────────────────
   const handleOpenEdit = () => {
-    setDraftFocus(settings.focusMinutes);
-    setDraftShort(settings.shortBreakMinutes);
-    setDraftLong(settings.longBreakMinutes);
+    setDraftFocus(localDurations.focus);
+    setDraftShort(localDurations.short);
+    setDraftLong(localDurations.long);
     setEditingDuration(true);
   };
 
@@ -291,13 +308,17 @@ const PomodoroTimer: React.FC<Props> = ({
     const s = clamp(draftShort, 1, 60);
     const l = clamp(draftLong, 1, 120);
     // Update remaining if it matches the current phase default
-    if (phase === 'focus' && remaining === settings.focusMinutes * 60) {
+    if (phase === 'focus' && remaining === localDurations.focus * 60) {
       setRemaining(f * 60);
-    } else if (phase === 'short-break' && remaining === settings.shortBreakMinutes * 60) {
+    } else if (phase === 'short-break' && remaining === localDurations.short * 60) {
       setRemaining(s * 60);
-    } else if (phase === 'long-break' && remaining === settings.longBreakMinutes * 60) {
+    } else if (phase === 'long-break' && remaining === localDurations.long * 60) {
       setRemaining(l * 60);
     }
+    // Update local display state immediately — don't wait for prop round-trip
+    setLocalDurations({ focus: f, short: s, long: l });
+    // Also patch settingsRef so advancePhase uses new durations right away
+    settingsRef.current = { ...settingsRef.current, focusMinutes: f, shortBreakMinutes: s, longBreakMinutes: l };
     // Persist via custom event so usePomodoroSettings state above updates
     try {
       const stored = localStorage.getItem('wkly_pomodoro_settings');
@@ -315,7 +336,11 @@ const PomodoroTimer: React.FC<Props> = ({
 
   // ── Visual ────────────────────────────────────────────────────
   const phaseColors = PHASE_COLORS[phase];
-  const totalSeconds = phaseDurationSeconds(phase, settings);
+  // Use localDurations so ring updates immediately after saving without waiting for prop
+  const totalSeconds =
+    phase === 'focus' ? localDurations.focus * 60
+    : phase === 'short-break' ? localDurations.short * 60
+    : localDurations.long * 60;
   const progress = remaining / totalSeconds; // 1 = full, 0 = empty
   const circumference = 2 * Math.PI * 54;
   const dashOffset = circumference * (1 - progress);
@@ -414,9 +439,10 @@ const PomodoroTimer: React.FC<Props> = ({
       {!editingDuration ? (
         <button
           onClick={handleOpenEdit}
-          className="text-xs text-primary-link underline"
-        >
-          {settings.focusMinutes}/{settings.shortBreakMinutes}/{settings.longBreakMinutes} min · edit
+          className="btn-ghost text-xs !text-primary-link hover:underline gap-2"
+          >
+            {localDurations.focus}/{localDurations.short}/{localDurations.long} min
+            <Settings className="w-3.5 h-3.5" />
         </button>
       ) : (
         <div className="flex flex-col items-center gap-2 w-full px-4">
