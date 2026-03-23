@@ -427,7 +427,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
     }
   };
 
-  const rescheduleTask = async (taskId: string, newDate: string) => {
+  const rescheduleTask = async (taskId: string, newDate: string | null) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
@@ -988,6 +988,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
           onEdit={startEdit}
           onDelete={deleteTask}
           onReschedule={rescheduleTask}
+          onUnschedule={(id) => rescheduleTask(id, null)}
         />
       )}
 

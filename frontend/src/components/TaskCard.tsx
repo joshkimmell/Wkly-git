@@ -7,7 +7,7 @@ import { useFocusTimer } from './focus/FocusTimerContext';
 import { formatTime } from './focus/FocusTimer';
 import PomodoroTimer, { type PomodoroPhase } from './focus/PomodoroTimer';
 import { usePomodoroSettings } from '@hooks/usePomodoroSettings';
-import { CheckCircle, Calendar, Bell, Trash, Edit, Clock, GripVertical, ChevronUp, ChevronDown, FileText, Tag, Square, CheckSquare2, Target, Zap } from 'lucide-react';
+import { CheckCircle, Calendar, Bell, Trash, Edit, Clock, GripVertical, ChevronUp, ChevronDown, FileText, Tag, Square, CheckSquare2, Target, Zap, CalendarX, AlarmClock } from 'lucide-react';
 import { Save, X as CloseButton, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
 import { IconButton, Tooltip, Chip, TextField, Button, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, FormControlLabel, Switch, Select, FormControl, InputLabel, useMediaQuery, Popover } from '@mui/material';
 import { DatePicker, TimePicker, DateTimePicker, LocalizationProvider } from '@mui/x-date-pickers';
@@ -53,6 +53,7 @@ interface TaskCardProps {
   autoOpenEditModal?: boolean; // Auto-open edit modal on mount (for reminder navigation)
   onModalClose?: () => void;   // Called when the full edit modal closes (save or cancel)
   className?: string; // Allow passing additional class names
+  onUnschedule?: (taskId: string) => void; // Remove task from calendar (AllTasksCalendar / TasksCalendar only)
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({
@@ -83,6 +84,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   autoOpenEditModal = false,
   onModalClose,
   className = '',
+  onUnschedule,
 }) => {
   const { timezone } = useTimezone();
   const focusTimer = useFocusTimer();
@@ -94,6 +96,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const [pomodoroPhase, setPomodoroPhase] = useState<PomodoroPhase>('focus');
   const [pomodoroRemaining, setPomodoroRemaining] = useState(pomodoroSettings.focusMinutes * 60);
   const [pomodoroPopoverAnchor, setPomodoroPopoverAnchor] = useState<HTMLElement | null>(null);
+  const [snoozeMenuAnchor, setSnoozeMenuAnchor] = useState<HTMLElement | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editDescription, setEditDescription] = useState(task.description || '');
@@ -637,6 +640,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
     openNotesModal();
   };
 
+  const handleSnooze = (minutes: number) => {
+    if (!onUpdate) return;
+    const newDatetime = new Date(Date.now() + minutes * 60 * 1000).toISOString();
+    onUpdate(task.id, { reminder_datetime: newDatetime, reminder_enabled: true });
+    clearNotifiedReminder(task.id);
+    setSnoozeMenuAnchor(null);
+  };
+
   const handleClosingRationaleSubmit = () => {
     if (!onStatusChange) return;
     
@@ -714,7 +725,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
               </div>
             )}
           </div>
-          <div className={`flex flex-wrap w-full items-center gap-3 ${list ? '' : 'justify-end'}`}>
+          <div className={`flex flex-wrap w-full items-center gap-3 ${list ? 'max-w-28' : 'justify-end'}`}>
             {/* Status toggle */}
             <IconButton
               onClick={cycleStatus}
@@ -738,7 +749,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
               <Tooltip title={`${
                 isTimerActive
                   ? pomodoroSettings.timerMode === 'pomodoro'
-                    ? `Timer: `
+                    ? ``
                     : `Timer: ${formatTime(focusTimer.elapsed)} — `
                   : ''
               }${hasFocusSession ? 'Resume Task' : 'Start Task'}`} placement="top" arrow>
@@ -755,7 +766,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
             </span>
 
             {/* Pomodoro compact pill — only when pomodoro mode and timer active for this task */}
-            {isTimerActive && pomodoroSettings.timerMode === 'pomodoro' && (() => {
+            {/* {isTimerActive && pomodoroSettings.timerMode === 'pomodoro' && (() => {
               const pillColor =
                 pomodoroPhase === 'focus' ? { border: 'border-red-400/40', icon: 'text-red-500', dot: 'bg-red-500' }
                 : pomodoroPhase === 'short-break' ? { border: 'border-blue-400/40', icon: 'text-blue-500', dot: 'bg-blue-500' }
@@ -774,7 +785,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   </button>
                 </Tooltip>
               );
-            })()}
+            })()} */}
           </div>
         </div>
 
@@ -804,6 +815,27 @@ const TaskCard: React.FC<TaskCardProps> = ({
             </div>
           ) : (
             <>
+              {/* Pomodoro compact pill — only when pomodoro mode and timer active for this task */}
+            {isTimerActive && pomodoroSettings.timerMode === 'pomodoro' && (() => {
+              const pillColor =
+                pomodoroPhase === 'focus' ? { border: 'border-red-400/40', icon: 'text-red-500', dot: 'bg-red-500' }
+                : pomodoroPhase === 'short-break' ? { border: 'border-blue-400/40', icon: 'text-blue-500', dot: 'bg-blue-500' }
+                : { border: 'border-violet-400/40', icon: 'text-violet-500', dot: 'bg-violet-500' };
+              return (
+                <Tooltip title="View Timer" placement="top" arrow>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setPomodoroPopoverAnchor(e.currentTarget); }}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background-color border ${pillColor.border} text-xs font-mono text-primary-text hover:opacity-80 transition-opacity`}
+                  >
+                    <Clock className={`w-3 h-3 ${pillColor.icon}`} />
+                    <span className="tabular-nums">{formatTime(pomodoroRemaining)}</span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${
+                      !isTimerRunning ? 'bg-gray-40' : `${pillColor.dot} animate-pulse`
+                    }`} />
+                  </button>
+                </Tooltip>
+              );
+            })()}
                 <div className="flex w-full items-start gap-2">
                     {/* Selection checkbox */}
                     {selectable && (
@@ -1056,6 +1088,22 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 </span>
               </Tooltip>
               
+              {task.reminder_enabled && task.reminder_datetime && onUpdate && (
+                <Tooltip title="Snooze reminder" placement="top" arrow>
+                  <IconButton className="btn-ghost" size="small" onClick={(e) => { e.stopPropagation(); setSnoozeMenuAnchor(e.currentTarget); }}>
+                    <AlarmClock className="w-5 h-5" />
+                  </IconButton>
+                </Tooltip>
+              )}
+
+              {onUnschedule && task.scheduled_date && (
+                <Tooltip title="Remove from calendar" placement="top" arrow>
+                  <IconButton className="btn-ghost" size="small" onClick={(e) => { e.stopPropagation(); onUnschedule(task.id); }}>
+                    <CalendarX className="w-5 h-5" />
+                  </IconButton>
+                </Tooltip>
+              )}
+
               {onDelete && (
                 <Tooltip title="Delete task" placement="top" arrow>
                   <IconButton className='btn-ghost' size="small" onClick={(e) => { e.stopPropagation(); setDeleteTaskConfirmOpen(true); }}>
@@ -1067,6 +1115,18 @@ const TaskCard: React.FC<TaskCardProps> = ({
           )}
         </div>
       </div>
+
+      {/* Snooze reminder menu */}
+      <Menu
+        anchorEl={snoozeMenuAnchor}
+        open={Boolean(snoozeMenuAnchor)}
+        onClose={() => setSnoozeMenuAnchor(null)}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <MenuItem onClick={() => handleSnooze(5)}>Snooze 5 minutes</MenuItem>
+        <MenuItem onClick={() => handleSnooze(10)}>Snooze 10 minutes</MenuItem>
+        <MenuItem onClick={() => handleSnooze(20)}>Snooze 20 minutes</MenuItem>
+      </Menu>
 
       {/* Date/Time Picker Dialog */}
       <DateTimePickerDialog
