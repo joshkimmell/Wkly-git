@@ -563,7 +563,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
 
       {/* Session expiry prompt */}
       {showExpiryPrompt && (
-        <div className="fixed inset-0 z-[198] bg-black/80 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
           <div className="bg-gray-10 dark:bg-gray-90 border border-gray-30 dark:border-gray-70 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <CalendarClock className="w-6 h-6 text-brand-40 shrink-0" />

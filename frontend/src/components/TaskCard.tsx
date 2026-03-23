@@ -140,7 +140,19 @@ const TaskCard: React.FC<TaskCardProps> = ({
     await onUpdate?.(taskId, { status: 'Done' });
   };
 
+  const handleCloseDialogs = () => {
+    setIsFullEditModalOpen(false);
+    setIsNotesModalOpen(false);
+    setIsDateTimeDialogOpen(false);
+    setStatusMenuAnchor(null);
+    setIsGoalDetailsOpen(false);
+    setIsClosingRationaleDialogOpen(false);
+    setPomodoroPopoverAnchor(null);
+  };
+
   const handleOpenFocusMode = async () => {
+    // Close any open dialogs/modals before entering focus mode
+    handleCloseDialogs();
     // Auto-advance status to In Progress when entering focus mode
     if (displayStatus !== 'In progress' && displayStatus !== 'Done') {
       setDisplayStatus('In progress');
