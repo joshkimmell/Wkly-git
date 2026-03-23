@@ -82,7 +82,7 @@ const GoalsComponent = () => {
     const lastSwitchFromRef = useRef<string | null>(null);
     // Default: Date Descending
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-    const [sortBy, setSortBy] = useState<'date' | 'category' | 'status' | 'title'>('date');
+    const [sortBy, setSortBy] = useState<'date' | 'category' | 'status' | 'title'>('status');
     const [sortAnchorEl, setSortAnchorEl] = useState<HTMLElement | null>(null);
     const [isGoalModalOpen, setIsGoalModalOpen] = useState(false); // Modal state
     const [isEditorOpen, setIsEditorOpen] = useState(false); // Editor modal state
