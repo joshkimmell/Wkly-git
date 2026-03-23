@@ -1505,7 +1505,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
             onStart={() => focusTimer.startTimer(task.id, 0)}
             onPause={() => focusTimer.pauseTimer()}
             onResume={() => focusTimer.resumeTimer()}
-            onReset={() => focusTimer.resetTimer()}
+            onReset={() => focusTimer.pauseTimer()} // pause instead of clear — keeps pill visible
             externalTimerState={focusTimer.isActiveFor(task.id) ? focusTimer.timerState : 'idle'}
             onStateChange={(phase, _state, remaining) => {
               setPomodoroPhase(phase);
