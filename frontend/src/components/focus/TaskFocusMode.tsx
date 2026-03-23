@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, CheckCircle, ChevronRight, Bot, Clock, FileText, Zap, AlertCircle, CalendarClock, Timer, Save, Loader2, Sparkles } from 'lucide-react';
+import { X, CheckCircle, ChevronRight, Clock, FileText, Zap, AlertCircle, CalendarClock, Timer, Save, Loader2, Sparkles } from 'lucide-react';
 import FocusTimer, { formatTime } from './FocusTimer';
-import PomodoroTimer from './PomodoroTimer';
+import PomodoroTimer, { type PomodoroPhase } from './PomodoroTimer';
 import { useFocusTimer } from './FocusTimerContext';
 import { usePomodoroSettings } from '@hooks/usePomodoroSettings';
 import FocusAIChat, { SuggestedTask, SuggestedLink, ChatMessage } from './FocusAIChat';
@@ -66,6 +66,10 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
   const [showClosePrompt, setShowClosePrompt] = useState(false);
   const staleSessionRef = useRef<ReturnType<typeof loadSession>>(null);
   const dbNotesRef = useRef<FocusNote[]>([]);
+
+  // Pomodoro phase state (lifted from PomodoroTimer for header pill)
+  const [pomodoroPhase, setPomodoroPhase] = useState<PomodoroPhase>('focus');
+  const [pomodoroRemaining, setPomodoroRemaining] = useState(pomodoroSettings.focusMinutes * 60);
 
   // Header save state
   const [isSaving, setIsSaving] = useState(false);
@@ -644,11 +648,32 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
           </div>
 
           {/* Timer compact pill (visible on md+) */}
-          <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-background-color border border-gray-20 dark:border-gray-80 text-sm font-mono text-primary-text">
-            <Clock className="w-3.5 h-3.5 text-primary-icon" />
-            <span className="tabular-nums">{formatTime(elapsed)}</span>
-            <span className={`w-2 h-2 rounded-full ${timerState === 'running' ? 'bg-green-400 animate-pulse' : timerState === 'paused' ? 'bg-yellow-400' : 'bg-gray-60'}`} />
-          </div>
+          {pomodoroSettings.timerMode === 'pomodoro' ? (
+            <div className={`hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-background-color border text-sm font-mono text-primary-text ${
+              pomodoroPhase === 'focus' ? 'border-red-400/40 dark:border-red-500/30'
+              : pomodoroPhase === 'short-break' ? 'border-blue-400/40 dark:border-blue-500/30'
+              : 'border-violet-400/40 dark:border-violet-500/30'
+            }`}>
+              <Clock className={`w-3.5 h-3.5 ${
+                pomodoroPhase === 'focus' ? 'text-red-500'
+                : pomodoroPhase === 'short-break' ? 'text-blue-500'
+                : 'text-violet-500'
+              }`} />
+              <span className="tabular-nums">{formatTime(pomodoroRemaining)}</span>
+              <span className={`w-2 h-2 rounded-full ${
+                timerState !== 'running' ? 'bg-gray-40'
+                : pomodoroPhase === 'focus' ? 'bg-red-500 animate-pulse'
+                : pomodoroPhase === 'short-break' ? 'bg-blue-500 animate-pulse'
+                : 'bg-violet-500 animate-pulse'
+              }`} />
+            </div>
+          ) : (
+            <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-background-color border border-gray-20 dark:border-gray-80 text-sm font-mono text-primary-text">
+              <Clock className="w-3.5 h-3.5 text-primary-icon" />
+              <span className="tabular-nums">{formatTime(elapsed)}</span>
+              <span className={`w-2 h-2 rounded-full ${timerState === 'running' ? 'bg-green-400 animate-pulse' : timerState === 'paused' ? 'bg-yellow-400' : 'bg-gray-60'}`} />
+            </div>
+          )}
 
           {/* Mark Done */}
           <button
@@ -721,6 +746,10 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
                   onResume={handleResume}
                   onReset={handleReset}
                   externalTimerState={timerState}
+                  onStateChange={(phase, _state, remaining) => {
+                    setPomodoroPhase(phase);
+                    setPomodoroRemaining(remaining);
+                  }}
                 />
               ) : (
                 <FocusTimer

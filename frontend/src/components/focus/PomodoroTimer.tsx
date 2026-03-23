@@ -84,6 +84,8 @@ interface Props {
   onReset: () => void;
   /** Overall session timer state from FocusTimerContext (for re-hydration) */
   externalTimerState: TimerState;
+  /** Called whenever phase, timerState, or remaining changes — lets the parent reflect Pomodoro state */
+  onStateChange?: (phase: PomodoroPhase, timerState: TimerState, remaining: number) => void;
 }
 
 const PHASE_LABELS: Record<PomodoroPhase, string> = {
@@ -106,6 +108,7 @@ const PomodoroTimer: React.FC<Props> = ({
   onResume,
   onReset,
   externalTimerState: _externalTimerState,
+  onStateChange,
 }) => {
   // ── Init state from localStorage ──────────────────────────────
   const initState = useCallback((): PersistedPomodoroState => {
@@ -177,6 +180,9 @@ const PomodoroTimer: React.FC<Props> = ({
   useEffect(() => { sessionCountRef.current = sessionCount; }, [sessionCount]);
   useEffect(() => { timerStateRef.current = timerState; }, [timerState]);
   useEffect(() => { settingsRef.current = settings; }, [settings]);
+
+  // Notify parent of phase / timerState / remaining changes
+  useEffect(() => { onStateChange?.(phase, timerState, remaining); }, [phase, timerState, remaining, onStateChange]);
 
   // ── Persist state to localStorage ────────────────────────────
   useEffect(() => {
