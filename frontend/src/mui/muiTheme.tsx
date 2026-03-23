@@ -129,7 +129,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
     },
     dark: {
       primary: readCssVar(['--brand-30', '--primary-brand-30'], PALETTES.purple[30], preferBody),
-      iconPrimary: readCssVar(['--brand-30', '--primary-brand-30'], PALETTES.purple[30], preferBody),
+      iconPrimary: readCssVar(['--brand-40', '--primary-brand-40'], PALETTES.purple[40], preferBody),
       background: readCssVar(['--gray-100', '--background-color'], PALETTES.gray[30], preferBody),
       paper: readCssVar(['--gray-90', '--background-paper'], PALETTES.gray[90], preferBody),
       textPrimary: readCssVar(['--primary-text', '--color-text-primary'], '#E6E6E6', preferBody),

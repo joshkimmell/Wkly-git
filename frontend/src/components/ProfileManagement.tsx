@@ -34,6 +34,7 @@ import appColors, { PaletteKey } from '@styles/appColors';
 import NotificationsSettings from './NotificationsSettings';
 import CalendarIntegration from './CalendarIntegration';
 import { COMMON_TIMEZONES, getBrowserTimezone } from '@utils/timezone';
+import { usePomodoroSettings } from '@hooks/usePomodoroSettings';
 
 interface ProfileManagementProps {
   onClose?: () => void;
@@ -60,7 +61,9 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
   const notificationsSaveRef = React.useRef<(() => Promise<void>) | null>(null);
 
   // Simple UI state: which panel is active
-  const [active, setActive] = useState<'profile' | 'appearance' | 'notifications' | 'calendar'>('profile');
+  const [active, setActive] = useState<'profile' | 'appearance' | 'notifications' | 'calendar' | 'focus'>('profile');
+
+  const { settings: pomodoroSettings, updateSettings: updatePomodoroSettings } = usePomodoroSettings();
 
   const [savingAll, setSavingAll] = useState(false);
   // Local password state for optional in-profile password reset UI
@@ -245,6 +248,9 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
             </ListItemButton>
             <ListItemButton selected={active === 'calendar'} onClick={() => setActive('calendar')}>
               <ListItemText primary="Calendar" secondary="iCal / Google Calendar sync" />
+            </ListItemButton>
+            <ListItemButton selected={active === 'focus'} onClick={() => setActive('focus')}>
+              <ListItemText primary="Focus" secondary="Timer mode & Pomodoro" />
             </ListItemButton>
           </List>
         </nav>
@@ -508,6 +514,154 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
             <CalendarIntegration />
           </section>
         )}
+
+        {active === 'focus' && (
+          <section className="space-y-6 p-2">
+            <div>
+              <Typography variant="h6" gutterBottom>Focus Timer</Typography>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Choose your timer style and configure Pomodoro intervals.
+              </Typography>
+            </div>
+
+            {/* Timer mode */}
+            <div className="space-y-2">
+              <Typography variant="subtitle2">Timer mode</Typography>
+              <div className="flex flex-col gap-2">
+                {([
+                  { value: 'pomodoro', label: 'Pomodoro (default)', desc: 'Countdown with focus/break phases, notifications & sounds' },
+                  { value: 'basic', label: 'Basic stopwatch', desc: 'Simple count-up timer — no phases or interruptions' },
+                ] as const).map(({ value, label, desc }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => updatePomodoroSettings({ timerMode: value })}
+                    className={`text-left w-full rounded-lg border px-4 py-3 transition-colors ${
+                      pomodoroSettings.timerMode === value
+                        ? 'border-primary bg-brand-10 dark:bg-brand-90'
+                        : 'border-gray-20 dark:border-gray-70 hover:border-primary'
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-primary-text">{label}</p>
+                    <p className="text-xs text-secondary-text mt-0.5">{desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Pomodoro settings (only when pomodoro mode selected) */}
+            {pomodoroSettings.timerMode === 'pomodoro' && (
+              <>
+                {/* Intervals */}
+                <div className="space-y-3">
+                  <Typography variant="subtitle2">Interval durations</Typography>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: 'Focus (min)', field: 'focusMinutes' as const, min: 1, max: 120, value: pomodoroSettings.focusMinutes },
+                      { label: 'Short break', field: 'shortBreakMinutes' as const, min: 1, max: 60, value: pomodoroSettings.shortBreakMinutes },
+                      { label: 'Long break', field: 'longBreakMinutes' as const, min: 1, max: 120, value: pomodoroSettings.longBreakMinutes },
+                    ].map(({ label, field, min, max, value }) => (
+                      <div key={field} className="flex flex-col gap-1">
+                        <label className="text-xs text-secondary-text">{label}</label>
+                        <input
+                          type="number"
+                          value={value}
+                          min={min}
+                          max={max}
+                          onChange={(e) => updatePomodoroSettings({ [field]: Math.max(min, Math.min(max, Number(e.target.value))) })}
+                          className="border border-gray-30 dark:border-gray-60 bg-background-color rounded px-2 py-1.5 text-sm text-center w-full"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-secondary-text">Sessions before long break</label>
+                    <input
+                      type="number"
+                      value={pomodoroSettings.longBreakInterval}
+                      min={1}
+                      max={10}
+                      onChange={(e) => updatePomodoroSettings({ longBreakInterval: Math.max(1, Math.min(10, Number(e.target.value))) })}
+                      className="border border-gray-30 dark:border-gray-60 bg-background-color rounded px-2 py-1.5 text-sm text-center w-24"
+                    />
+                  </div>
+                </div>
+
+                {/* Quick presets */}
+                <div className="space-y-2">
+                  <Typography variant="subtitle2">Presets</Typography>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { label: '25/5/15', focusMinutes: 25, shortBreakMinutes: 5,  longBreakMinutes: 15, longBreakInterval: 4 },
+                      { label: '50/10/30', focusMinutes: 50, shortBreakMinutes: 10, longBreakMinutes: 30, longBreakInterval: 3 },
+                      { label: '90/20/30', focusMinutes: 90, shortBreakMinutes: 20, longBreakMinutes: 30, longBreakInterval: 2 },
+                    ].map((preset) => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => updatePomodoroSettings(preset)}
+                        className="btn-secondary text-xs px-3 py-1 rounded-full"
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Auto-start */}
+                <div className="space-y-1">
+                  <Typography variant="subtitle2">Auto-start</Typography>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        size="small"
+                        checked={pomodoroSettings.autoStartBreaks}
+                        onChange={(e) => updatePomodoroSettings({ autoStartBreaks: e.target.checked })}
+                      />
+                    }
+                    label={<span className="text-sm">Auto-start breaks</span>}
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        size="small"
+                        checked={pomodoroSettings.autoStartFocus}
+                        onChange={(e) => updatePomodoroSettings({ autoStartFocus: e.target.checked })}
+                      />
+                    }
+                    label={<span className="text-sm">Auto-start next focus session</span>}
+                  />
+                </div>
+
+                {/* Sounds & notifications */}
+                <div className="space-y-1">
+                  <Typography variant="subtitle2">Alerts</Typography>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        size="small"
+                        checked={pomodoroSettings.soundEnabled}
+                        onChange={(e) => updatePomodoroSettings({ soundEnabled: e.target.checked })}
+                      />
+                    }
+                    label={<span className="text-sm">Play sound when phase ends</span>}
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        size="small"
+                        checked={pomodoroSettings.notificationsEnabled}
+                        onChange={(e) => updatePomodoroSettings({ notificationsEnabled: e.target.checked })}
+                      />
+                    }
+                    label={<span className="text-sm">Browser notifications</span>}
+                  />
+                </div>
+              </>
+            )}
+          </section>
+        )}
+
         {/* Footer: single Save All / Cancel */}
         <footer className="flex bg-transparent w-full justify-end p-3 rounded shadow space-x-2">
           <Button variant="outlined" onClick={() => onClose && onClose()}>Cancel</Button>

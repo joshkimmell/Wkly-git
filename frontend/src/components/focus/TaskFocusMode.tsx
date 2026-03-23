@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, CheckCircle, ChevronRight, Bot, Clock, FileText, Zap, AlertCircle, CalendarClock, Timer, Save, Loader2, Sparkles } from 'lucide-react';
 import FocusTimer, { formatTime } from './FocusTimer';
+import PomodoroTimer from './PomodoroTimer';
 import { useFocusTimer } from './FocusTimerContext';
+import { usePomodoroSettings } from '@hooks/usePomodoroSettings';
 import FocusAIChat, { SuggestedTask, SuggestedLink, ChatMessage } from './FocusAIChat';
 import FocusNotes, { FocusNote } from './FocusNotes';
 import FocusFireworks from './FocusFireworks';
@@ -23,6 +25,7 @@ type Panel = 'timer' | 'ai' | 'notes';
 
 const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }) => {
   const focusTimer = useFocusTimer();
+  const { settings: pomodoroSettings } = usePomodoroSettings();
 
   // Derived timer values from global context
   const elapsed = focusTimer.isActiveFor(task.id) ? focusTimer.elapsed : 0;
@@ -709,14 +712,26 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
                 <Timer className="w-4 h-4 text-primary-icon" />
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-secondary-text">Timer</h2>
             </div>
-              <FocusTimer
-                elapsed={elapsed}
-                state={timerState}
-                onStart={handleStart}
-                onPause={handlePause}
-                onResume={handleResume}
-                onReset={handleReset}
-              />
+              {pomodoroSettings.timerMode === 'pomodoro' ? (
+                <PomodoroTimer
+                  taskId={task.id}
+                  settings={pomodoroSettings}
+                  onStart={handleStart}
+                  onPause={handlePause}
+                  onResume={handleResume}
+                  onReset={handleReset}
+                  externalTimerState={timerState}
+                />
+              ) : (
+                <FocusTimer
+                  elapsed={elapsed}
+                  state={timerState}
+                  onStart={handleStart}
+                  onPause={handlePause}
+                  onResume={handleResume}
+                  onReset={handleReset}
+                />
+              )}
 
               {/* Task info */}
               {(task.description || task.scheduled_date) && (

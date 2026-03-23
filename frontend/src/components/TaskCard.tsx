@@ -725,7 +725,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 aria-label="Focus Mode"
                 size="small"
                 onClick={handleOpenFocusMode}
-                className={`btn-ghost px-0 !rounded-full ${isTimerRunning ? '!bg-brand-40 transition-all animate-pulse duration-300' : ''}`}
+                className={`btn-ghost px-0 !rounded-full ${isTimerRunning ? '!bg-brand-60 transition-all animate-pulse duration-300' : ''}`}
                 // style={{ background: 'radial-gradient(ellipse at center, var(--primary-background) 0%, transparent 100%), var(--background)' }}
               >
               <Tooltip title={`${isTimerActive ? `Timer: ${formatTime(focusTimer.elapsed)} — ` : ''}${hasFocusSession ? "Resume Task" : "Start Task"}`} placement="top" arrow>

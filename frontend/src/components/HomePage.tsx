@@ -22,18 +22,18 @@ import {
   Plus,
   Calendar,
   Zap,
-  Circle,
-  CheckCircle2,
-  Clock,
+  // Circle,
+  // CheckCircle2,
+  // Clock,
   Award,
   X,
-  ChevronUp,
-  ChevronDown as ChevronDownIcon,
+  // ChevronUp,
+  // ChevronDown,
   ListTodo,
   PlusIcon,
   Bell,
 } from 'lucide-react';
-import { CircularProgress, Menu, MenuItem, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, IconButton, FormControlLabel, Switch, Chip } from '@mui/material';
+import { CircularProgress, MenuItem, Button, TextField, FormControl, InputLabel, Select, IconButton, FormControlLabel, Switch } from '@mui/material';
 import { DatePicker, TimePicker, DateTimePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
