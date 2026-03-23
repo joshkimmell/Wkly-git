@@ -283,7 +283,7 @@ const PomodoroTimer: React.FC<Props> = ({
 
   const handleReset = () => {
     setPhase('focus');
-    setRemaining(settings.focusMinutes * 60);
+    setRemaining(localDurations.focus * 60);
     setSessionCount(0);
     setTimerState('idle');
     clearPhaseState(taskId);
@@ -307,13 +307,13 @@ const PomodoroTimer: React.FC<Props> = ({
     const f = clamp(draftFocus, 1, 120);
     const s = clamp(draftShort, 1, 60);
     const l = clamp(draftLong, 1, 120);
-    // Update remaining if it matches the current phase default
-    if (phase === 'focus' && remaining === localDurations.focus * 60) {
-      setRemaining(f * 60);
-    } else if (phase === 'short-break' && remaining === localDurations.short * 60) {
-      setRemaining(s * 60);
-    } else if (phase === 'long-break' && remaining === localDurations.long * 60) {
-      setRemaining(l * 60);
+    // When idle, always reset remaining to the new duration (timer hasn't started yet).
+    // When running/paused, only reset if remaining still equals the old full-phase duration
+    // (i.e. the user reset to full but hasn't started yet mid-session).
+    const newDurSecs = phase === 'focus' ? f * 60 : phase === 'short-break' ? s * 60 : l * 60;
+    const oldDurSecs = phase === 'focus' ? localDurations.focus * 60 : phase === 'short-break' ? localDurations.short * 60 : localDurations.long * 60;
+    if (timerState === 'idle' || remaining === oldDurSecs) {
+      setRemaining(newDurSecs);
     }
     // Update local display state immediately — don't wait for prop round-trip
     setLocalDurations({ focus: f, short: s, long: l });
