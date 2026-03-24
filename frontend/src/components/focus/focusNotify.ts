@@ -3,6 +3,8 @@
  * Sound + browser notification helpers for the Pomodoro timer.
  */
 
+import { APP_NOTIFICATION_BADGE, APP_NOTIFICATION_ICON } from '@utils/notificationIcons';
+
 // ── Browser notification ──────────────────────────────────────────
 
 export async function requestNotificationPermission(): Promise<boolean> {
@@ -18,8 +20,8 @@ export function sendFocusNotification(title: string, body: string): void {
 
   const options = {
     body,
-    icon: '/images/icon-192.png',
-    badge: '/images/icon-192.png',
+    icon: APP_NOTIFICATION_ICON,
+    badge: APP_NOTIFICATION_BADGE,
     tag: 'wkly-focus-timer',
     renotify: true,
   } as NotificationOptions;

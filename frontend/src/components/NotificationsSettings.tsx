@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { TextField, Button, Switch, FormControlLabel, Select, MenuItem, InputLabel, FormControl } from '@mui/material';
 import supabase from '@lib/supabase';
+import { APP_NOTIFICATION_ICON } from '@utils/notificationIcons';
 
 type Settings = {
   enableSlack: boolean;
@@ -189,7 +190,7 @@ export default function NotificationsSettings({ registerSave }: Props) {
       // Show a test notification
       new Notification('Wkly Notifications Enabled', {
         body: 'You will now receive task reminders as OS notifications',
-        icon: '/images/logo-192x192.png',
+        icon: APP_NOTIFICATION_ICON,
       });
       return;
     }
@@ -204,7 +205,7 @@ export default function NotificationsSettings({ registerSave }: Props) {
         await saveSettings(newSettings);
         new Notification('Wkly Notifications Enabled', {
           body: 'You will now receive task reminders as OS notifications',
-          icon: '/images/logo-192x192.png',
+          icon: APP_NOTIFICATION_ICON,
         });
       } else {
         const newSettings = { ...settings, enableOsNotifications: false };

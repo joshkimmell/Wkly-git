@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import supabase from '@lib/supabase';
 import { notifyReminder, notifyError } from '@components/ToastyNotification';
 import { Task } from '@utils/goalUtils';
+import { APP_NOTIFICATION_ICON } from '@utils/notificationIcons';
 
 const STORAGE_KEY = 'wkly_notifications_settings_v1';
 const CHECK_INTERVAL = 60000; // Check every minute
@@ -236,7 +237,7 @@ export function useReminderService() {
           // console.log('[ReminderService] Showing OS notification');
           const notification = new Notification('Task Reminder: ' + task.title, {
             body: task.description || 'You have a task due',
-            icon: '/images/logo-192x192.png',
+            icon: APP_NOTIFICATION_ICON,
             tag: `task-reminder-${task.id}`,
             requireInteraction: true, // Notification stays until dismissed
           });
