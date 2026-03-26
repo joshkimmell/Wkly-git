@@ -48,7 +48,7 @@ const FocusTimer: React.FC<Props> = ({ elapsed, state, onStart, onPause, onResum
         </svg>
         {/* Time display */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-2xl font-mono font-bold text-gray-90 dark:text-white tabular-nums">
+          <span className="!text-2xl font-mono font-bold text-gray-90 dark:text-white tabular-nums">
             {formatTime(elapsed)}
           </span>
           <span className="text-xs text-secondary-text capitalize mt-0.5">{state === 'idle' ? 'ready' : state}</span>
@@ -60,7 +60,7 @@ const FocusTimer: React.FC<Props> = ({ elapsed, state, onStart, onPause, onResum
         {state === 'idle' && (
           <button
             onClick={onStart}
-            className="btn-primary flex items-center gap-1.5 rounded-full"
+            className="btn-primary flex items-center gap-1.5 px-4 py-2 rounded-full"
           >
             <Play className="w-4 h-4" /> Start
           </button>
@@ -76,7 +76,7 @@ const FocusTimer: React.FC<Props> = ({ elapsed, state, onStart, onPause, onResum
         {state === 'paused' && (
           <button
             onClick={onResume}
-            className="btn-primary flex items-center gap-1.5 rounded-full"
+            className="btn-primary flex items-center gap-1.5 px-4 py-2 rounded-full"
           >
             <Play className="w-4 h-4" /> Resume
           </button>

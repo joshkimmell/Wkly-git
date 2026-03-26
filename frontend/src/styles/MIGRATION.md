@@ -40,15 +40,15 @@
 
 #### Added to [`variables.scss`](./variables.scss):
 ```scss
-$font-sizes: (
+$font-size: (
   xs: 12px,      // Caption, small labels
   sm: 14px,      // Body small
   base: 16px,    // Body default
   lg: 18px,      // Emphasized text
-  xl: 20px,      // H4
-  2xl: 24px,     // H3
-  3xl: 32px,     // H2
-  4xl: 40px      // H1
+  xl: 24px,      // H4
+  2xl: 32px,     // H3
+  3xl: 40px,     // H2
+  4xl: 48px      // H1
 );
 
 $line-heights: (

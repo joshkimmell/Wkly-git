@@ -75,8 +75,9 @@ export const PALETTES: Record<PaletteKey, Record<number, string>> = {
     // 100: '#071718',90:'#082421',80:'#07393b',70:'#074b4f',60:'#006b66',50:'#008f86',40:'#00b6a8',30:'#2fe0c9',20:'#90f0e6',10:'#cffff6',0:'#f7fffb'
   },
   orange: {
-    0: "#FFF7EF",
-    10: "#FFF0DC",
+    0: "#faf5ef",
+    5: "#f3ede8",
+    10: "#e9e1d6",
     20: "#FFD9B3",
     30: "#FFB470",
     40: "#FF8A37",
@@ -121,6 +122,7 @@ export const PALETTES: Record<PaletteKey, Record<number, string>> = {
 
 const BRAND_STEPS = [100,90,80,70,60,50,40,30,20,10,0];
 const GRAY_STEPS = [100,90,80,70,60,50,40,30,20,10,0];
+const ORANGE_STEPS = [100,90,80,70,60,50,40,30,20,10,5,0];
 
 // Apply a palette to :root CSS variables for brand-N and also mirror existing --primary-brand variables
 export const PALETTE_UPDATED_EVENT = 'wkly:palette-updated';
@@ -128,6 +130,7 @@ export const PALETTE_UPDATED_EVENT = 'wkly:palette-updated';
 export function applyPaletteToRoot(key: PaletteKey) {
   const palette = PALETTES[key];
   const grayPalette = PALETTES.gray;
+  const orangePalette = PALETTES.orange;
   const root = document.documentElement;
   
   // Apply brand colors
@@ -140,6 +143,11 @@ export function applyPaletteToRoot(key: PaletteKey) {
   // Apply gray colors (always from gray palette)
   GRAY_STEPS.forEach(step => {
     root.style.setProperty(`--gray-${step}`, grayPalette[step]);
+  });
+
+  // Apply orange colors (always fixed — used by $theme-light background tokens)
+  ORANGE_STEPS.forEach(step => {
+    root.style.setProperty(`--orange-${step}`, orangePalette[step]);
   });
   
   // persist chosen palette key in localStorage for non-auth flows

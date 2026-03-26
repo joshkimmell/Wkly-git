@@ -10,18 +10,23 @@
 // ------------------------------------------------------------------------------
 // TYPOGRAPHY
 // ------------------------------------------------------------------------------
-$font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+$font-family: (
+  sans: ('Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif),
+  serif: ('Buenard', 'Georgia', 'serif'),
+  // serif: ('Gentium Plus', 'Georgia', 'serif'),
+  // serif: ('Neuton', Georgia, serif),
+);
 
 // Typography scale (T-shirt sizing + semantic names)
-$font-sizes: (
+$font-size: (
   xs: 12px,      // Caption, small labels
   sm: 14px,      // Body small, secondary text
   base: 16px,    // Body, default
   lg: 18px,      // Body large, emphasized text
-  xl: 20px,      // H4, section headings
-  2xl: 24px,     // H3, card titles
-  3xl: 32px,     // H2, page headings
-  4xl: 40px      // H1, hero text
+  xl: 24px,      // H4, section headings
+  2xl: 32px,     // H3, card titles
+  3xl: 40px,     // H2, page headings
+  4xl: 48px      // H1, hero text
 );
 
 $line-heights: (
@@ -31,10 +36,15 @@ $line-heights: (
 );
 
 $font-weights: (
+  ultrathin: 100,  
+  thin: 200,
+  light: 300,
   normal: 400,
   medium: 500,
   semibold: 600,
-  bold: 700
+  bold: 700,
+  extrabold: 800,
+  black: 900
 );
 
 // ------------------------------------------------------------------------------
@@ -84,10 +94,10 @@ $theme-dark: (
     tertiary-text: var(--gray-50),
     inverse-text: var(--gray-90),
     button-text: var(--gray-0),
-    primary-icon: var(--brand-40),
-    secondary-icon: var(--brand-30),
-    tertiary-icon: var(--brand-10),
-    inverse-icon: var(--brand-0),
+    primary-icon: var(--gray-30),
+    secondary-icon: var(--gray-40),
+    tertiary-icon: var(--gray-10),
+    inverse-icon: var(--gray-90),
     interactive-icon: var(--brand-30),
     primary-border: var(--brand-50),
     secondary-border: var(--brand-70),
@@ -114,11 +124,11 @@ $theme-light: (
     tertiary-text: var(--gray-50),
     inverse-text: var(--gray-0),
     button-text: var(--gray-100),
-    primary-icon: var(--brand-80),
-    secondary-icon: var(--brand-60),
-    tertiary-icon: var(--brand-40),
-    inverse-icon: var(--brand-100),
-    interactive-icon: var(--brand-70),
+    primary-icon: var(--gray-80),
+    secondary-icon: var(--gray-60),
+    tertiary-icon: var(--gray-40),
+    inverse-icon: var(--gray-10),
+    interactive-icon: var(--brand-60),
     primary-border: var(--brand-30),
     secondary-border: var(--brand-20),
     tertiary-border: var(--brand-10),
@@ -141,6 +151,7 @@ $theme-light: (
   // Direct pass-through of CSS variable references (no interpolation)
   --background: #{map.get($theme-map, background-base)};
   --background-color: #{map.get($theme-map, background-color)};
+  --background-color-alpha: color-mix(in srgb, var(--background-color) 80%, transparent);
   --background-inverse: #{map.get($theme-map, background-inverse)};
   --primary-text: #{map.get($theme-map, primary-text)};
   --secondary-text: #{map.get($theme-map, secondary-text)};
@@ -167,15 +178,16 @@ $theme-light: (
   --border-subtle: #{map.get($theme-map, border-subtle)};
   
   // Design tokens
-  --font-family: #{$font-family};
-  --font-size-xs: #{map.get($font-sizes, xs)};
-  --font-size-sm: #{map.get($font-sizes, sm)};
-  --font-size-base: #{map.get($font-sizes, base)};
-  --font-size-lg: #{map.get($font-sizes, lg)};
-  --font-size-xl: #{map.get($font-sizes, xl)};
-  --font-size-2xl: #{map.get($font-sizes, 2xl)};
-  --font-size-3xl: #{map.get($font-sizes, 3xl)};
-  --font-size-4xl: #{map.get($font-sizes, 4xl)};
+  --font-family-sans: #{map.get($font-family, sans)};
+  --font-family-serif: #{map.get($font-family, serif)};
+  --font-size-xs: #{map.get($font-size, xs)};
+  --font-size-sm: #{map.get($font-size, sm)};
+  --font-size-base: #{map.get($font-size, base)};
+  --font-size-lg: #{map.get($font-size, lg)};
+  --font-size-xl: #{map.get($font-size, xl)};
+  --font-size-2xl: #{map.get($font-size, 2xl)};
+  --font-size-3xl: #{map.get($font-size, 3xl)};
+  --font-size-4xl: #{map.get($font-size, 4xl)};
   --line-height-tight: #{map.get($line-heights, tight)};
   --line-height-base: #{map.get($line-heights, base)};
   --line-height-relaxed: #{map.get($line-heights, relaxed)};
@@ -231,20 +243,30 @@ $theme-light: (
   p {
     margin: 0 0 0.75rem 0;
     &:last-child { margin-bottom: 0; }
+    font-family: var(--font-family-sans);
   }
 
   // Headings
   h1, h2, h3, h4, h5, h6 {
     color: var(--primary-text);
-    font-weight: 600;
+    font-family: var(--font-family-serif);
+    font-weight: 700;
     line-height: var(--line-height-tight);
     margin: 1rem 0 0.5rem 0;
     &:first-child { margin-top: 0; }
   }
-  h1 { font-size: var(--font-size-xl); }
-  h2 { font-size: var(--font-size-lg); }
-  h3 { font-size: var(--font-size-base); }
-  h4, h5, h6 { font-size: var(--font-size-sm); }
+  // h1 { 
+  //   @apply 'text-3xl)'; 
+  // }
+  // h2 { 
+  //   @apply 'text-2xl)'; 
+  // }
+  // h3 { 
+  //   @apply 'text-xl)'; 
+  // }
+  // h4, h5, h6 { 
+  //   @apply 'text-lg)'; 
+  // }
 
   // Lists
   ul, ol {

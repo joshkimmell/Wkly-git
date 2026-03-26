@@ -65,10 +65,10 @@ font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 | `sm` | `--font-size-sm` | 14px | Body small, secondary text |
 | `base` | `--font-size-base` | 16px | Body text (default) |
 | `lg` | `--font-size-lg` | 18px | Emphasized body text |
-| `xl` | `--font-size-xl` | 20px | H4, section headings |
-| `2xl` | `--font-size-2xl` | 24px | H3, card titles |
-| `3xl` | `--font-size-3xl` | 32px | H2, page headings |
-| `4xl` | `--font-size-4xl` | 40px | H1, hero text |
+| `xl` | `--font-size-xl` | 24px | H4, section headings |
+| `2xl` | `--font-size-2xl` | 32px | H3, card titles |
+| `3xl` | `--font-size-3xl` | 40px | H2, page headings |
+| `4xl` | `--font-size-4xl` | 48px | H1, hero text |
 
 ### Usage
 ```jsx
@@ -246,6 +246,7 @@ localStorage.setItem('theme', 'theme-light');
 
 ### Recent Changes (March 2026)
 1. ✅ **Font standardized to Inter** (was Open Sans)
+2. ✅ **Font serif standardized to Neuton** (was nothing)
 2. ✅ **Typography scale defined** (xs-4xl with semantic names)
 3. ✅ **Spacing scale standardized** (8px grid system)
 4. ✅ **Colors consolidated** to appColors.ts (removed SCSS duplicates)

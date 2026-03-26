@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { IconButton, Tooltip, TextField, FormControl } from '@mui/material';
+import { IconButton, Tooltip, TextField, FormControl, Switch } from '@mui/material';
 import { Bold, Italic, List, Hash, Quote, Link as LinkIcon, ListOrdered } from 'lucide-react';
 import '@styles/richtext.scss';
 
@@ -72,10 +72,100 @@ const ContentEditableInput = React.forwardRef<HTMLDivElement, any>(function Cont
   );
 });
 
+/** Convert HTML produced by the visual editor into Markdown text */
+const htmlToMarkdown = (rawHtml: string): string => {
+  if (!rawHtml?.trim()) return '';
+  const div = document.createElement('div');
+  div.innerHTML = rawHtml;
+  const convert = (node: Node): string => {
+    if (node.nodeType === Node.TEXT_NODE) return node.textContent || '';
+    if (node.nodeType !== Node.ELEMENT_NODE) return '';
+    const el = node as HTMLElement;
+    const tag = el.tagName.toLowerCase();
+    const inner = Array.from(el.childNodes).map(convert).join('');
+    switch (tag) {
+      case 'p': return inner.trim() ? inner.trim() + '\n\n' : '';
+      case 'br': return '\n';
+      case 'strong': case 'b': return `**${inner}**`;
+      case 'em': case 'i': return `_${inner}_`;
+      case 'h1': return `# ${inner.trim()}\n\n`;
+      case 'h2': return `## ${inner.trim()}\n\n`;
+      case 'h3': return `### ${inner.trim()}\n\n`;
+      case 'h4': return `#### ${inner.trim()}\n\n`;
+      case 'h5': return `##### ${inner.trim()}\n\n`;
+      case 'h6': return `###### ${inner.trim()}\n\n`;
+      case 'blockquote': return inner.trim().split('\n').map((l: string) => `> ${l}`).join('\n') + '\n\n';
+      case 'ul': return Array.from(el.children).map(li => `- ${convert(li).trim()}`).join('\n') + '\n\n';
+      case 'ol': return Array.from(el.children).map((li, idx) => `${idx + 1}. ${convert(li).trim()}`).join('\n') + '\n\n';
+      case 'li': return inner.trim();
+      case 'a': return `[${inner}](${(el as HTMLAnchorElement).href})`;
+      case 'code': return `\`${inner}\``;
+      case 'pre': return `\`\`\`\n${inner.trim()}\n\`\`\`\n\n`;
+      case 'div': return inner.trim() ? inner + '\n' : '';
+      default: return inner;
+    }
+  };
+  return Array.from(div.childNodes).map(convert).join('').replace(/\n{3,}/g, '\n\n').trim();
+};
+
+/** Inline markdown → HTML (bold, italic, code, links) */
+const inlineMd = (text: string) =>
+  text
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/_([^_]+)_/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+
+/** Convert Markdown text into basic HTML for the visual contentEditable editor */
+const markdownToHtml = (md: string): string => {
+  if (!md?.trim()) return '<p><br/></p>';
+  const lines = md.split('\n');
+  const out: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    const hMatch = line.match(/^(#{1,6})\s+(.*)/);
+    if (hMatch) {
+      out.push(`<h${hMatch[1].length}>${inlineMd(hMatch[2])}</h${hMatch[1].length}>`);
+      i++;
+    } else if (/^[-*]\s+/.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && /^[-*]\s+/.test(lines[i])) {
+        items.push(`<li>${inlineMd(lines[i].replace(/^[-*]\s+/, ''))}</li>`);
+        i++;
+      }
+      out.push(`<ul>${items.join('')}</ul>`);
+    } else if (/^\d+\.\s+/.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
+        items.push(`<li>${inlineMd(lines[i].replace(/^\d+\.\s+/, ''))}</li>`);
+        i++;
+      }
+      out.push(`<ol>${items.join('')}</ol>`);
+    } else if (/^>\s?/.test(line)) {
+      const bqLines: string[] = [];
+      while (i < lines.length && /^>\s?/.test(lines[i])) {
+        bqLines.push(lines[i].replace(/^>\s?/, ''));
+        i++;
+      }
+      out.push(`<blockquote><p>${bqLines.map(inlineMd).join('<br/>')}</p></blockquote>`);
+    } else if (line.trim() === '') {
+      i++;
+    } else {
+      out.push(`<p>${inlineMd(line)}</p>`);
+      i++;
+    }
+  }
+  return out.join('') || '<p><br/></p>';
+};
+
 const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, label }) => {
   // local html state for the contentEditable editor
   const [html, setHtml] = useState<string>(value || '');
   const contentRef = useRef<HTMLDivElement | null>(null);
+  const [mode, setMode] = useState<'visual' | 'markdown'>('visual');
+  const [markdownValue, setMarkdownValue] = useState<string>('');
+  const markdownRef = useRef<HTMLTextAreaElement | null>(null);
 
   // ensure content has a top-level paragraph wrapper when appropriate
 
@@ -249,8 +339,87 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
     };
   }, [contentRef]);
 
+  /** Switch between Visual and Markdown editing modes */
+  const toggleMode = (newMode: 'visual' | 'markdown') => {
+    if (newMode === mode) return;
+    if (newMode === 'markdown') {
+      const md = htmlToMarkdown(html || value || '');
+      setMarkdownValue(md);
+      setHasContent(Boolean(md.trim()));
+      onChange(md);
+    } else {
+      const newHtml = markdownToHtml(markdownValue);
+      setHtml(newHtml);
+      if (contentRef.current) contentRef.current.innerHTML = newHtml;
+      onChange(newHtml);
+    }
+    setMode(newMode);
+  };
+
+  /** Insert markdown syntax at the current textarea cursor / selection */
+  const applyMarkdownSyntax = (cmd: string) => {
+    const textarea = markdownRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart ?? 0;
+    const end = textarea.selectionEnd ?? 0;
+    const selected = markdownValue.slice(start, end);
+    let prefix = '';
+    let suffix = '';
+    let linePrefix = '';
+
+    if (cmd === 'bold') { prefix = '**'; suffix = '**'; }
+    else if (cmd === 'italic') { prefix = '_'; suffix = '_'; }
+    else if (/^formatBlock:h(\d)$/.test(cmd)) {
+      const level = Number(cmd.match(/h(\d)/)?.[1] ?? 2);
+      linePrefix = '#'.repeat(level) + ' ';
+    } else if (cmd === 'insertUnorderedList') { linePrefix = '- '; }
+    else if (cmd === 'insertOrderedList') { linePrefix = '1. '; }
+    else if (cmd === 'formatBlock:blockquote') { linePrefix = '> '; }
+
+    let newValue: string;
+    let newStart: number;
+    let newEnd: number;
+
+    if (linePrefix) {
+      const beforeCursor = markdownValue.slice(0, start);
+      const lineStart = beforeCursor.lastIndexOf('\n') + 1;
+      newValue = markdownValue.slice(0, lineStart) + linePrefix + markdownValue.slice(lineStart);
+      newStart = start + linePrefix.length;
+      newEnd = end + linePrefix.length;
+    } else {
+      newValue = markdownValue.slice(0, start) + prefix + selected + suffix + markdownValue.slice(end);
+      newStart = start + prefix.length;
+      newEnd = selected ? start + prefix.length + selected.length : start + prefix.length;
+    }
+
+    setMarkdownValue(newValue);
+    setHasContent(Boolean(newValue.trim()));
+    onChange(newValue);
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(newStart, newEnd);
+    });
+  };
+
+  /** Insert a markdown link at the current textarea cursor position */
+  const createMarkdownLink = () => {
+    const textarea = markdownRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart ?? 0;
+    const end = textarea.selectionEnd ?? 0;
+    const selected = markdownValue.slice(start, end);
+    const url = prompt('Enter URL:', '');
+    if (url === null) return;
+    const linkText = selected || 'link text';
+    const mdLink = `[${linkText}](${url})`;
+    const newValue = markdownValue.slice(0, start) + mdLink + markdownValue.slice(end);
+    setMarkdownValue(newValue);
+    onChange(newValue);
+  };
+
   // Helper: create or edit link
   const createLink = () => {
+    if (mode === 'markdown') { createMarkdownLink(); return; }
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0) return;
     
@@ -296,6 +465,7 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
 
   // Helper: apply command with execCommand primary and fallbacks
   const applyCommand = (cmd: 'bold' | 'italic' | 'formatBlock:h2' | 'formatBlock:blockquote' | 'insertUnorderedList' | 'insertOrderedList') => {
+    if (mode === 'markdown') { applyMarkdownSyntax(cmd); return; }
     try {
       if (cmd === 'bold' || cmd === 'italic') {
         const c = cmd;
@@ -469,30 +639,12 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
       };
     }, [contentRef]);
 
-//     const TextMaskCustom = React.forwardRef<HTMLInputElement, CustomProps>(
-//   function TextMaskCustom(props, ref) {
-//     const { onChange, ...other } = props;
-//     return (
-//       <IMaskInput
-//         {...other}
-//         mask="(#00) 000-0000"
-//         definitions={{
-//           '#': /[1-9]/,
-//         }}
-//         inputRef={ref}
-//         onAccept={(value: any) => onChange({ target: { name: props.name, value } })}
-//         overwrite
-//       />
-//     );
-//   },
-// );
-
 
   return (
     <>
-      {/* <div className="richtext-container" lang="en-US" dir="ltr"> */}
-        <div className={`richtext-container w-full ${label ? 'has-label' : ''} ${(focused ? 'richtext-focused' : '') || (hasContent ? 'richtext-filled' : '')}`}>
-          <FormControl variant="standard">
+      <div className={`richtext-container w-full ${label ? 'has-label' : ''} ${(focused ? 'richtext-focused' : '') || (hasContent ? 'richtext-filled' : '')}`}>
+        <FormControl variant="standard" className='w-full'>
+          {mode === 'visual' ? (
             <TextField
               id={id}
               multiline
@@ -521,114 +673,170 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
                   borderRadius: 0,
                 },
                 '&:focus-within::before': {
-                  transform: 'scaleX(1)',
+                  // transform: 'scaleX(1)',
                 },
                 '& .richtext-contenteditable': { paddingBottom: '3.25rem' },
-                '& label.richtext-filled': { transform: 'translate(14px, -6px) scale(0.75)'}, 
+                '& label.richtext-filled': { transform: 'translate(14px, -6px) scale(0.75)' },
               }}
             />
-            <div className="richtext-toolbar">
-              <Tooltip title="Bold (Ctrl/Cmd+B)" arrow>
-                <span>
-                <IconButton
-                  aria-label="Bold"
-                  aria-pressed={activeBold}
-                  color={activeBold ? 'primary' : 'default'}
-                  size="small"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => { applyCommand('bold'); }}
-                >
-                  <Bold size={16} />
-                </IconButton>
-                </span>
-              </Tooltip>
-              <Tooltip title="Italic (Ctrl/Cmd+I)" arrow>
-                <span>
-                <IconButton
-                  aria-label="Italic"
-                  aria-pressed={activeItalic}
-                  color={activeItalic ? 'primary' : 'default'}
-                  size="small"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => { applyCommand('italic'); }}
-                >
-                  <Italic size={16} />
-                </IconButton>
-                </span>
-              </Tooltip>
-              <Tooltip title="Heading" arrow>
-                <span>
-                <IconButton
-                  aria-label="Heading"
-                  aria-pressed={activeHeading}
-                  color={activeHeading ? 'primary' : 'default'}
-                  size="small"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => { applyCommand('formatBlock:h2'); }}
-                >
-                  <Hash size={16} />
-                </IconButton>
-                </span>
-              </Tooltip>
-              <Tooltip title="Bullet list" arrow>
-                <span>
-                <IconButton
-                  aria-label="Bullet list"
-                  aria-pressed={activeUnordered}
-                  color={activeUnordered ? 'primary' : 'default'}
-                  size="small"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => { applyCommand('insertUnorderedList'); }}
-                >
-                  <List size={16} />
-                </IconButton>
-                </span>
-              </Tooltip>
-              <Tooltip title="Ordered list" arrow>
-                <span>
-                <IconButton
-                  aria-label="Ordered list"
-                  aria-pressed={activeOrdered}
-                  color={activeOrdered ? 'primary' : 'default'}
-                  size="small"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => { applyCommand('insertOrderedList'); }}
-                >
-                  <ListOrdered size={16} />
-                </IconButton>
-                </span>
-              </Tooltip>
-              <Tooltip title="Blockquote" arrow>
-                <span>
-                <IconButton
-                  aria-label="Blockquote"
-                  aria-pressed={activeQuote}
-                  color={activeQuote ? 'primary' : 'default'}
-                  size="small"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => { applyCommand('formatBlock:blockquote'); }}
-                >
-                  <Quote size={16} />
-                </IconButton>
-                </span>
-              </Tooltip>
-              <Tooltip title="Link" arrow>
-                <span>
-                <IconButton
-                  aria-label="Link"
-                  aria-pressed={activeLink}
-                  color={activeLink ? 'primary' : 'default'}
-                  size="small"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={createLink}
-                >
-                  <LinkIcon size={16} />
-                </IconButton>
-                </span>
-              </Tooltip>
+          ) : (
+            <div style={{ position: 'relative', width: '100%' }}>
+              {label && (
+                <label style={{ display: 'block', fontSize: '0.75rem', color: 'currentColor', opacity: 0.7, marginBottom: 4 }}>
+                  {label}
+                </label>
+              )}
+              <textarea
+                ref={markdownRef}
+                value={markdownValue}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setMarkdownValue(v);
+                  setHasContent(Boolean(v.trim()));
+                  onChange(v);
+                }}
+                onFocus={() => setFocused(true)}
+                onBlur={() => setFocused(false)}
+                onKeyDown={(e) => {
+                  const meta = e.ctrlKey || e.metaKey;
+                  if (!meta) return;
+                  const key = e.key.toLowerCase();
+                  if (key === 'b') { e.preventDefault(); applyMarkdownSyntax('bold'); }
+                  else if (key === 'i') { e.preventDefault(); applyMarkdownSyntax('italic'); }
+                }}
+                placeholder={placeholder || 'Write in Markdown…'}
+                rows={5}
+                style={{
+                  width: '100%',
+                  paddingBottom: '3.25rem',
+                  resize: 'vertical',
+                  fontFamily: 'monospace',
+                  fontSize: 'inherit',
+                  background: 'var(--Textarea-background)',
+                  borderBottom: '1px solid var(--Textarea-focusedHighlight)',
+                  outline: '1px solid var(--tertiary-text)',
+                  color: 'inherit',
+                  padding: '1rem 1rem 3.25rem',
+                  boxSizing: 'border-box',
+                  minHeight: '80px',
+                }}
+              />
             </div>
-          </FormControl>
-        {/* </div> */}
+          )}
+          <div className="richtext-toolbar">
+            <Tooltip title="Bold (Ctrl/Cmd+B)" arrow>
+              <span>
+              <IconButton
+                aria-label="Bold"
+                aria-pressed={activeBold}
+                color={activeBold ? 'primary' : 'inherit'}
+                size="small"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { applyCommand('bold'); }}
+              >
+                <Bold size={16} />
+              </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Italic (Ctrl/Cmd+I)" arrow>
+              <span>
+              <IconButton
+                aria-label="Italic"
+                aria-pressed={activeItalic}
+                color={activeItalic ? 'primary' : 'inherit'}
+                size="small"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { applyCommand('italic'); }}
+              >
+                <Italic size={16} />
+              </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Heading" arrow>
+              <span>
+              <IconButton
+                aria-label="Heading"
+                aria-pressed={activeHeading}
+                color={activeHeading ? 'primary' : 'inherit'}
+                size="small"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { applyCommand('formatBlock:h2'); }}
+              >
+                <Hash size={16} />
+              </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Bullet list" arrow>
+              <span>
+              <IconButton
+                aria-label="Bullet list"
+                aria-pressed={activeUnordered}
+                color={activeUnordered ? 'primary' : 'inherit'}
+                size="small"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { applyCommand('insertUnorderedList'); }}
+              >
+                <List size={16} />
+              </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Ordered list" arrow>
+              <span>
+              <IconButton
+                aria-label="Ordered list"
+                aria-pressed={activeOrdered}
+                color={activeOrdered ? 'primary' : 'inherit'}
+                size="small"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { applyCommand('insertOrderedList'); }}
+              >
+                <ListOrdered size={16} />
+              </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Blockquote" arrow>
+              <span>
+              <IconButton
+                aria-label="Blockquote"
+                aria-pressed={activeQuote}
+                color={activeQuote ? 'primary' : 'inherit'}
+                size="small"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { applyCommand('formatBlock:blockquote'); }}
+              >
+                <Quote size={16} />
+              </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Link" arrow>
+              <span>
+              <IconButton
+                aria-label="Link"
+                aria-pressed={activeLink}
+                color={activeLink ? 'primary' : 'inherit'}
+                size="small"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={createLink}
+              >
+                <LinkIcon size={16} />
+              </IconButton>
+              </span>
+            </Tooltip>
+            <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Tooltip title={mode === 'markdown' ? 'Switch to Visual' : 'Switch to Markdown'} arrow>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <span style={{ fontSize: '0.65rem', opacity: 0.6, userSelect: 'none' }}>Markdown</span>
+                  <Switch
+                    size="small"
+                    checked={mode === 'markdown'}
+                    onChange={(e) => toggleMode(e.target.checked ? 'markdown' : 'visual')}
+                    inputProps={{ 'aria-label': 'Toggle Markdown mode' }}
+                  />
+                </span>
+              </Tooltip>
+            </span>
+          </div>
+        </FormControl>
       </div>
     </>
   );

@@ -1,9 +1,37 @@
 import React, { useState } from 'react';
 import { Edit, Plus, Trash2 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import RichTextEditor from '@components/RichTextEditor';
 
 /** Strip HTML tags to get plain text — used for empty checks */
 const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+
+/** Real rich-text formatting tags produced by the toolbar (not just <p>/<br/>) */
+const RICH_HTML_RE = /<(strong|b|em|i|ul|ol|li|h[1-6]|blockquote|a |img |code|pre|table|thead|tbody|tr|td|th)[\s>]/i;
+
+/**
+ * Render note content correctly for both sources:
+ *  - AI-generated / pasted markdown  → ReactMarkdown + GFM
+ *  - Editor-formatted HTML (bold, lists, etc.) → dangerouslySetInnerHTML
+ *  - Plain text wrapped in <p><br/> by normalizeHtml → strip wrapper, then ReactMarkdown
+ */
+const NoteContent: React.FC<{ content: string }> = ({ content }) => {
+  const trimmed = content.trim();
+
+  // Content with real HTML formatting tags → render as HTML
+  if (RICH_HTML_RE.test(trimmed)) {
+    return <div dangerouslySetInnerHTML={{ __html: trimmed }} />;
+  }
+
+  // Strip the minimal <p>…</p> / <br/> wrapper added by normalizeHtml, then treat as markdown
+  const md = trimmed
+    .replace(/^\s*<p>/i, '')
+    .replace(/<\/p>\s*$/i, '')
+    .replace(/<br\s*\/?>/gi, '\n');
+
+  return <ReactMarkdown remarkPlugins={[remarkGfm]}>{md}</ReactMarkdown>;
+};
 
 export interface FocusNote {
   id: string;
@@ -84,8 +112,8 @@ const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded, onNoteEdite
   };
 
   return (
-    <div className="flex flex-col gap-3 h-full">
-      <div className="flex flex-col gap-2" onKeyDown={handleKeyDown}>
+    <div className="flex flex-col gap-3 h-full w-full">
+      <div className="flex flex-col w-full gap-2" onKeyDown={handleKeyDown}>
         <RichTextEditor
           key={rteKey}
           id="focus-note-draft"
@@ -110,7 +138,7 @@ const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded, onNoteEdite
               className="group flex items-start gap-2 rounded-none p-3 bg-gray-20/40 dark:bg-gray-90/70 border-t border-gray-20 dark:border-gray-90 text-sm text-primary-text"
             >
               {editingId === note.id ? (
-                <div className="flex flex-col gap-2 flex-1 min-w-0">
+                <div className="flex flex-col gap-2 flex-1 min-w-0 w-full">
                   <div onKeyDown={handleEditKeyDown}>
                     <RichTextEditor
                       id={`edit-note-${note.id}`}
@@ -137,7 +165,9 @@ const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded, onNoteEdite
                 </div>
               ) : (
                 <>
-                  <div className="flex-1 whitespace-pre-wrap break-words" dangerouslySetInnerHTML={{ __html: note.content }} />
+                  <div className="flex-1 min-w-0 break-words prose prose-sm dark:prose-invert max-w-none">
+                    <NoteContent content={note.content} />
+                  </div>
                   <button
                     onClick={() => startEdit(note)}
                     className="btn-ghost opacity-0 group-hover:opacity-100 text-secondary-text hover:text-brand-40 transition-opacity mt-0.5"

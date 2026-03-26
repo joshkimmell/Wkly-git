@@ -580,7 +580,7 @@ export default function HomePage() {
           <Calendar className="w-3.5 h-3.5" />
           {formatDisplayDate(today, timezone)}
         </p>
-        <h1 className="text-2xl font-medium md:text-4xl md:font-normal text-primary-text tracking-normal">{getGreeting()}{username ? `, ${username}` : ''}</h1>
+        <h1 className="text-2xl font-medium md:text-4xl md:font-normal text-primary-text tracking-tight">{getGreeting()}{username ? `, ${username}!` : ''}</h1>
       </div>
 
       {/* ── quick actions ─────────────────────────────────────────────────── */}

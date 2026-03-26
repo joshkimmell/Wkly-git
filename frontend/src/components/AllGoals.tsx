@@ -663,48 +663,6 @@ const GoalsComponent = () => {
                                                         }
                                                 }
                         
-                        // If we determined a desiredPage, ask the server for only that page
-                        // using start/end (or legacy page for week) to reduce payload. This is
-                        // backwards-compatible because initial fetch produced `pages` used
-                        // for mapping; here we optionally replace the full indexedGoals with
-                        // a server-filtered snapshot for the chosen page.
-                        if (desiredPage) {
-                            try {
-                                let startParam: string | undefined;
-                                let endParam: string | undefined;
-                                // compute start/end based on scope and desiredPage
-                                if (scope === 'week') {
-                                    // week scope: use exact page (legacy equality) via `page`
-                                    const resp = await fetchAllGoalsIndexed(scope, desiredPage);
-                                    if (resp && resp.indexedGoals) {
-                                        setIndexedGoals(resp.indexedGoals);
-                                        setPages(resp.pages);
-                                    }
-                                } else if (scope === 'month') {
-                                    const [y, m] = (desiredPage as string).split('-');
-                                    startParam = `${y}-${m}-01`;
-                                    const monthIndex = parseInt(m, 10);
-                                    endParam = monthIndex === 12 ? `${parseInt(y, 10) + 1}-01-01` : `${y}-${String(monthIndex + 1).padStart(2, '0')}-01`;
-                                    const resp = await fetchAllGoalsIndexed(scope, undefined, startParam, endParam);
-                                    if (resp && resp.indexedGoals) {
-                                        setIndexedGoals(resp.indexedGoals);
-                                        setPages(resp.pages);
-                                    }
-                                } else if (scope === 'year') {
-                                    const y = desiredPage as string;
-                                    startParam = `${y}-01-01`;
-                                    endParam = `${parseInt(y, 10) + 1}-01-01`;
-                                    const resp = await fetchAllGoalsIndexed(scope, undefined, startParam, endParam);
-                                    if (resp && resp.indexedGoals) {
-                                        setIndexedGoals(resp.indexedGoals);
-                                        setPages(resp.pages);
-                                    }
-                                }
-                            } catch (err) {
-                                console.warn('[AllGoals] server-filtered page fetch failed (falling back to full indexed):', err);
-                            }
-                        }
-
                 // We've received scoped data — end the loading state.
                 setIsScopeLoading(false);
 

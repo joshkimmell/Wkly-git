@@ -13,6 +13,9 @@ module.exports = {
       // are also defined in `variables.scss` as fallbacks for builds.
       fontFamily: {
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        serif: ['Buenard', 'Georgia', 'serif'],
+        // serif: ['Gentium Plus', 'Georgia', 'serif'],
+        // serif: ['Neuton', 'Georgia', 'serif'],
       },
       fontSize: {
         xs: 'var(--font-size-xs)',      // 12px
@@ -74,6 +77,7 @@ module.exports = {
         },
         background: 'var(--background)',
         'background-color': 'var(--background-color)',
+        'background-color-alpha': 'var(--background-color-alpha)',
         'background-inverse': 'var(--background-inverse)',
         // text
         'primary-text': 'var(--primary-text)',

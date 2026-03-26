@@ -717,7 +717,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   return (
     <div
       ref={cardRef}
-      className={`${compact ? 'p-2 w-full' : `${list ? 'p-4 md:px-32' : 'p-3'}`} ${isSelected ? 'border-2 border-brand-50 bg-gray-20 dark:bg-brand-90' : isTimerRunning ? 'focus-timer-active border border-transparent' : `${!list ? 'border border-gray-20 dark:border-gray-70' : 'border-0'}`} bg-background-color rounded-md hover:shadow-md transition-all ${
+      className={`${compact ? 'p-2 w-full' : `${list ? 'p-4 md:px-32' : 'p-3'}`} ${isSelected ? 'border-2 border-brand-50 bg-gray-20 dark:bg-brand-90' : isTimerRunning ? 'focus-timer-active border border-transparent' : `${!list ? 'border border-gray-20 dark:border-gray-70' : 'border-0'}`} bg-background-color-alpha rounded-md hover:shadow-md transition-all ${
         displayStatus === 'Done' ? 'opacity-60' : ''
       } ${className}`}
       draggable={draggable}
@@ -768,13 +768,13 @@ const TaskCard: React.FC<TaskCardProps> = ({
                     : `Timer: ${formatTime(focusTimer.elapsed)} — `
                   : ''
               }${hasFocusSession ? 'Resume Task' : 'Start Task'}`} placement="top" arrow>
-                <Zap className={`w-5 h-5 ${hasFocusSession || isTimerActive ? 'text-primary-icon' : ''}`} />
+                <Zap className={`w-5 h-5 ${hasFocusSession || isTimerActive ? 'text-interactive-icon' : ''}`} />
               </Tooltip>
                 <span className=' md:hidden text-xs text-primary-text px-2 md:px-0'>{`${hasFocusSession ? "Resume Task" : "Start Task"}`}</span>
               </IconButton>
               {/* Basic timer floating countdown */}
               {isTimerActive && pomodoroSettings.timerMode !== 'pomodoro' && (
-                <span className="absolute text-xs font-mono text-primary-icon leading-none -bottom-4 tabular-nums pointer-events-none">
+                <span className="absolute text-xs font-mono text-interactive-icon leading-none -bottom-4 tabular-nums pointer-events-none">
                   {formatTime(focusTimer.elapsed)}
                 </span>
               )}
@@ -787,7 +787,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 : pomodoroPhase === 'short-break' ? { border: 'border-blue-400/40', icon: 'text-blue-500', dot: 'bg-blue-500' }
                 : { border: 'border-violet-400/40', icon: 'text-violet-500', dot: 'bg-violet-500' };
               return (
-                <Tooltip title="View Timer" placement="top" arrow>
+                <Tooltip arrow placement="top" title="View Timer" placement="top" arrow>
                   <button
                     onClick={(e) => { e.stopPropagation(); setPomodoroPopoverAnchor(e.currentTarget); }}
                     className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background-color border ${pillColor.border} text-xs font-mono text-primary-text hover:opacity-80 transition-opacity`}
@@ -894,19 +894,19 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 }
                 icon={<Calendar className="w-3 h-3 text-primary-text" />}
                 onClick={() => setIsDateTimeDialogOpen(true)}
-                className="!text-primary-icon max-h-7"
+                className="!text-interactive-text max-h-7"
               />
                 
               
             )}
             {task.scheduled_date && !hideCategory && (
               <>
-                <Chip
+                <Tooltip arrow placement="top" title="Edit date and time"><Chip
                   size="medium"
                   icon={<Calendar className="w-3 h-3" />}
                   label={
                     <span className="flex items-center">
-                      <span className="flex items-center text-primary-icon gap-2 pl-2 py-1">
+                      <span className="flex items-center text-interactive-text gap-2 pl-2 py-1">
                         {formattedDate}{task.scheduled_time ? ` ${task.scheduled_time}` : ''}
                         {task.reminder_enabled ? <><span className='min-w-3 h-auto'></span><span className='absolute right-0 bg-background rounded-full p-1'><Bell className="w-3 h-3 text-secondary-icon" /></span></> : null}
                       </span>
@@ -917,18 +917,19 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   variant="outlined"
                   sx={{ cursor: onUpdate ? 'pointer' : 'default' }}
                 />
+                </Tooltip>
               </>
             )}
             {task.scheduled_date && hideCategory && task.scheduled_time && (
               <>
-                <Chip
+                <Tooltip arrow placement="top" title="Edit date and time"><Chip
                   size="medium"
                   icon={<Clock className="w-3 h-3" />}
                   label={
                     <>
-                    <span className="flex flex-row items-center text-secondary-icon gap-2 pl-2 py-1">
+                    <span className="flex flex-row items-center text-secondary-text gap-2 pl-2 py-1">
                       {task.scheduled_time}
-                      {task.reminder_enabled ? <><span className='min-w-3 h-auto'></span><span className='absolute right-0 bg-background rounded-full p-1'><Bell className="w-3 h-3 text-secondary-icon" /></span></> : null}
+                      {task.reminder_enabled ? <><span className='min-w-3 h-auto'></span><span className='absolute right-0 bg-background rounded-full p-1'><Bell className="w-3 h-3 text-secondary-text" /></span></> : null}
                     </span>
                     </>
                   }
@@ -937,17 +938,18 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   onClick={handleTimeClick}
                   sx={{ cursor: onUpdate ? 'pointer' : 'default' }}
                 />
+                </Tooltip>
               </>
             )}
             {task.scheduled_time && !task.scheduled_date && (
               <>
-                <Chip
+                <Tooltip arrow placement="top" title="Edit time"><Chip
                   size="medium"
                   icon={<Clock className="w-3 h-3" />}
                   label={
-                    <span className="flex flex-row items-center text-primary-icon gap-2 px-2 py-1">
+                    <span className="flex flex-row items-center text-interactive-text gap-2 px-2 py-1">
                       {task.scheduled_time}
-                      {task.reminder_enabled ? <Bell className="w-3 h-3 text-primary-icon" /> : null}
+                      {task.reminder_enabled ? <Bell className="w-3 h-3 text-interactive-icon" /> : null}
                     </span>
                   }
                   className="text-xs h-auto max-h-7"
@@ -955,6 +957,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   variant='outlined'
                   sx={{ cursor: onUpdate ? 'pointer' : 'default' }}
                 />
+                </Tooltip>
               </>
             )}
             {!hideCategory && task.goal?.category && (
@@ -966,13 +969,13 @@ const TaskCard: React.FC<TaskCardProps> = ({
                     {task.goal.category}
                   </span>
                 }
-                className="text-xs h-auto max-h-7"
+                className="gap-1 text-xs h-auto max-h-7"
                 variant="outlined"
               />
               
             )}
             {!hideGoalChip && task.goal?.title && (
-                  <Chip
+                  <Tooltip arrow placement="top" title="View goal details"><Chip
                     size="medium"
                     icon={<Target className="w-3 h-3 min-w-3" />}
                     label={
@@ -980,14 +983,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
                         <span className='truncate'>{task.goal.title}</span>
                       </span>
                     }
-                    title={task.goal.title}
                     className="w-auto text-xs px-2 py-1 min-w-[100px] max-h-7 cursor-pointer"
                     variant="outlined"
                     onClick={handleOpenGoalDetails}
                   />
+                  </Tooltip>
             )}
             {!hideStatusChip && (
-              <Chip
+              <Tooltip arrow placement="top" title="Change status"><Chip
                 size="medium"
                 label={
                     <span className="flex items-center gap-2 px-2 py-1">
@@ -1001,6 +1004,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 sx={{ cursor: 'pointer' }}
                 variant='outlined'
               />
+              </Tooltip>
             )}
 
           </div>
@@ -1010,12 +1014,12 @@ const TaskCard: React.FC<TaskCardProps> = ({
         <div className={`flex ${list ? 'w-auto flex-wrap items-center' : 'w-full'} justify-end gap-1`} onClick={(e) => e.stopPropagation()}>
           {isEditing ? (
             <>
-              <Tooltip title="Save">
+              <Tooltip arrow placement="top" title="Save">
                 <IconButton size="small" onClick={handleSaveEdit} className="text-green-600 dark:text-green-400">
                   <Save className="w-4 h-4" />
                 </IconButton>
               </Tooltip>
-              <Tooltip title="Cancel">
+              <Tooltip arrow placement="top" title="Cancel">
                 <IconButton size="small" onClick={handleCancelEdit} className="text-red-600 dark:text-red-400">
                   <CloseButton className="w-4 h-4" />
                 </IconButton>
@@ -1025,7 +1029,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
             <>
               {showMoveButtons && (
                 <>
-                  <Tooltip title="Move up">
+                  <Tooltip arrow placement="top" title="Move up">
                     <span>
                       <IconButton 
                         size="small" 
@@ -1036,7 +1040,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                       </IconButton>
                     </span>
                   </Tooltip>
-                  <Tooltip title="Move down">
+                  <Tooltip arrow placement="top" title="Move down">
                     <span>
                       <IconButton 
                         size="small" 
@@ -1080,7 +1084,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                     <Zap className={`w-5 h-5 ${hasFocusSession || isTimerActive ? 'text-primary-link' : ''}`} />
                   </IconButton>
                   {isTimerActive && (
-                    <span className="text-[9px] font-mono text-primary-icon leading-none -mt-1 tabular-nums pointer-events-none">
+                    <span className="text-[9px] font-mono text-interactive-icon leading-none -mt-1 tabular-nums pointer-events-none">
                       {formatTime(focusTimer.elapsed)}
                     </span>
                   )}

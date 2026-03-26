@@ -66,6 +66,11 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
   const brand30 = runtimePalette[30];
   const brand20 = runtimePalette[20];
   const brand10 = runtimePalette[10];
+
+  const orangePalette = PALETTES.orange;
+    const orange20 = orangePalette ? orangePalette[20] : '#FCD9C8';
+    const orange10 = orangePalette ? orangePalette[10] : '#FFF4F1';
+
   // Primary/ghost derived from palette
   let primary = brand50;
   const ghost = brand50;
@@ -99,6 +104,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
   const textPrimary = textPrimaryRaw || (isDark ? '#E6E6E6' : '#111827');
   const textSecondary = readCssVar(['--secondary-text', '--color-text-secondary'], isDark ? '#B3B3B3' : '#4D4D4D', preferBody);
   const textPlaceholder = readCssVar(['--placeholder-text', '--color-text-placeholder'], isDark ? '#7A7A7A' : '#A0A0A0', preferBody);
+  const actionColor = readCssVar(['--action-color', '--color-action'], isDark ? brand80 : brand20, preferBody);
   const linkPrimary = readCssVar(['--link-text', '--color-link-text'], isDark ? brand30 : brand60, preferBody);
   const iconPrimary = readCssVar(['--link-text', '--color-link-text'], isDark ? brand30 : brand60, preferBody);
   const textOnColor = readCssVar(['--on-color-text', '--color-on-color-text'],  '#FFFFFF', preferBody);
@@ -118,7 +124,8 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
     light: {
       primary: readCssVar(['--brand-60', '--primary-brand-60'], PALETTES.purple[60], preferBody),
       iconPrimary: readCssVar(['--brand-70', '--primary-brand-70'], PALETTES.purple[70], preferBody),
-      background: readCssVar(['--gray-10', '--background-color', '--color-background-color'], PALETTES.gray[10], preferBody),
+      background: readCssVar(['--gray-10', '--background-color', '--color-background-color'], 'var(--gray-10)', preferBody),
+      actionColor: readCssVar(['--action-color', '--color-action'], brand20, preferBody),
       paper: readCssVar(['--gray-20', '--background-paper'], PALETTES.gray[20], preferBody),
       textPrimary: readCssVar(['--primary-text', '--color-text-primary'], '#111827', preferBody),
       textSecondary: readCssVar(['--secondary-text', '--color-text-secondary'], '#4D4D4D', preferBody),
@@ -131,6 +138,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
       primary: readCssVar(['--brand-30', '--primary-brand-30'], PALETTES.purple[30], preferBody),
       iconPrimary: readCssVar(['--brand-40', '--primary-brand-40'], PALETTES.purple[40], preferBody),
       background: readCssVar(['--gray-100', '--background-color'], PALETTES.gray[30], preferBody),
+      actionColor: readCssVar(['--action-color', '--color-action'], brand80, preferBody),
       paper: readCssVar(['--gray-90', '--background-paper'], PALETTES.gray[90], preferBody),
       textPrimary: readCssVar(['--primary-text', '--color-text-primary'], '#E6E6E6', preferBody),
       textSecondary: readCssVar(['--secondary-text', '--color-text-secondary'], '#B3B3B3', preferBody),
@@ -145,7 +153,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
 
   const secondary = textSecondary;
   const info = primary;
-  const actionHover = textSecondary;
+  const actionHover = actionColor;
   // Use brand accents and green palette for success semantics
   const success = PALETTES.green ? PALETTES.green[60] : '#22c55e';
   const primaryBorder = borderPrimary || divider;
@@ -219,6 +227,12 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
       },
       link: {
         main: linkPrimary,
+      },
+      action: {
+        // default: linkPrimary,
+        hover: actionHover,
+        active: linkPrimary || actionHover,
+        disabled: textPlaceholder,
       },
   divider: divider,
     },
@@ -367,9 +381,15 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
             padding: '0.125em 0.25em 0.125em 0.625em',
             height: 'auto',
             // keep chip compact like the tag
-            minHeight: 'auto',
+            minHeight: '1.75rem',
             display: 'inline-flex',
             alignItems: 'center',
+          },
+          clickable: {
+            "&:hover": {
+              backgroundColor: 'var(--brand-20)',
+              filter: 'brightness(0.92)',
+            },
           },
           label: {
             // match .card-category font-size and line-height
@@ -394,10 +414,10 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
           root: {
             padding: 6,
             // color: primaryIcon || inverseIcon,
-            color: primaryIcon,
+            color:  linkPrimary,
             '&:hover': {
-              filter: 'brightness(0.5)',
-              color: linkPrimary,
+              filter: 'brightness(0.75)',
+              // color: linkPrimary,
             },
           },
         },
@@ -577,6 +597,8 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
             fontWeight: 300,
             color: textPrimary,
             borderColor: borderPrimary,
+            fontFamily: fontFamily,
+            fontSize: '2em',
           },
         },
       },

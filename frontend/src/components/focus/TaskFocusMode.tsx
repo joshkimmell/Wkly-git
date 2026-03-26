@@ -669,7 +669,6 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
         <header className="shrink-0 flex items-center gap-3 px-4 md:px-6 py-3 border-b !border-border-subtle bg-background backdrop-blur">
           {/* Breadcrumb */}
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
-            <Zap className="w-5 h-5 text-primary-icon shrink-0" />
             <div className="min-w-0">
               {goalTitle && (
                 <div className="flex items-center gap-1 text-xs text-secondary-text truncate">
@@ -677,9 +676,12 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
                   <ChevronRight className="w-3 h-3 shrink-0" />
                 </div>
               )}
-              <h1 className="text-sm font-semibold text-primary-text truncate max-w-xs md:max-w-md lg:max-w-2xl">
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+              <Zap className="w-7 h-7 text-interactive-icon shrink-0" />
+              <h1 className="text-primary-text truncate max-w-xs md:max-w-md lg:max-w-2xl">
                 {task.title}
               </h1>
+              </div>
             </div>
           </div>
 
@@ -705,7 +707,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
             </div>
           ) : (
             <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-background-color border border-gray-20 dark:border-gray-80 text-sm font-mono text-primary-text">
-              <Clock className="w-3.5 h-3.5 text-primary-icon" />
+              <Clock className="w-3.5 h-3.5 text-interactive-icon" />
               <span className="tabular-nums">{formatTime(elapsed)}</span>
               <span className={`w-2 h-2 rounded-full ${timerState === 'running' ? 'bg-green-400 animate-pulse' : timerState === 'paused' ? 'bg-yellow-400' : 'bg-gray-60'}`} />
             </div>
@@ -749,7 +751,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
               onClick={() => setActivePanel(tab.id)}
               className={`bg-brand-10 dark:bg-brand-90 border-l-0 border-t-1 border-r-1 last:border-r-0 rounded-none flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm transition-colors focus:outline-none focus:shadow-none focus:ring-0 focus:ring-offset-0 ${
                 activePanel === tab.id
-                  ? '!text-brand-30 !border-b !border-b-2 !border-b-primary-icon !bg-brand-10 dark:!bg-brand-80'
+                  ? '!text-brand-30 !border-b !border-b-2 !border-b-interactive-icon !bg-brand-10 dark:!bg-brand-80'
                   : 'text-secondary-text hover:text-primary-text'
               }`}
             >
@@ -770,7 +772,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
           `}>
             <div className="p-4 flex flex-col gap-4">
             <div className="hidden md:flex items-center gap-2 border-b border-border-subtle pb-2">
-                <Timer className="w-4 h-4 text-primary-icon" />
+                <Timer className="w-4 h-4 text-interactive-icon" />
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-secondary-text">Timer</h2>
             </div>
               {pomodoroSettings.timerMode === 'pomodoro' ? (

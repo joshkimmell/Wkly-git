@@ -382,7 +382,7 @@ const PomodoroTimer: React.FC<Props> = ({
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-3xl font-mono font-bold text-gray-90 dark:text-white tabular-nums">
+          <span className="text-2xl font-mono font-bold text-primary-text tabular-nums">
             {formatTime(remaining)}
           </span>
           <span className={`text-xs font-medium capitalize mt-0.5 ${phaseColors.text}`}>
@@ -394,20 +394,20 @@ const PomodoroTimer: React.FC<Props> = ({
       {/* Controls */}
       <div className="flex items-center gap-2">
         {timerState === 'idle' && (
-          <button onClick={handleStart} className="btn-primary flex items-center gap-1.5 rounded-full">
+          <button onClick={handleStart} className="btn-primary flex items-center gap-1.5 px-4 py-2 rounded-full">
             <Play className="w-4 h-4" /> Start
           </button>
         )}
         {timerState === 'running' && (
           <button
             onClick={handlePause}
-            className="flex items-center gap-1.5 px-4 py-2 bg-yellow-700 hover:!bg-yellow-800 text-white rounded-full text-sm font-medium transition-colors"
+            className="btn-primary flex items-center gap-1.5 px-4 py-2 bg-yellow-700 hover:!bg-yellow-800 rounded-full transition-colors"
           >
             <Pause className="w-4 h-4" /> Pause
           </button>
         )}
         {timerState === 'paused' && (
-          <button onClick={handleResume} className="btn-primary flex items-center gap-1.5 rounded-full">
+          <button onClick={handleResume} className="btn-primary flex items-center gap-1.5 px-4 py-2 rounded-full">
             <Play className="w-4 h-4" /> Resume
           </button>
         )}

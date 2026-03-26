@@ -335,7 +335,7 @@ const Login = () => {
               <div className="flex w-full flex-col gap-6">
                 
                 <div className='relative text-start z-10 max-w-7xl'>
-                  <h1 className="text-4xl sm:text-5xl font-light leading-tight mb-3">
+                  <h1 className="text-4xl sm:text-5xl leading-tight mb-3">
                     Welcome to{' '}
                     <span className="text-brand-40 dark:text-brand-30">Wkly</span>
                   </h1>
