@@ -11,6 +11,9 @@
   body {
     @apply antialiased text-primary-text;
   }
+  p {
+    @apply pb-4;
+  }
   button {
     @apply appearance-none inline-flex items-center px-2 py-2 border border-gray-30 dark:border-gray-70 text-primary-text text-sm font-medium rounded-md shadow-sm bg-brand-60 hover:bg-opacity-60 hover:bg-brand-20 dark:hover:bg-brand-80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-70;
     &:disabled {
@@ -40,7 +43,7 @@
     @apply text-primary-text font-bold;
   }
   h1 { 
-  @apply text-2xl font-serif; 
+  @apply text-2xl font-serif leading-tight pb-3; 
   }
   h2 { 
     @apply text-xl; 
