@@ -211,6 +211,8 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
             sel?.addRange(range);
           };
 
+          // don't focus the visual editor if it's hidden (markdown mode)
+          if ((el as HTMLElement).offsetParent === null) return;
           moveCaretToEnd(el);
           // keep focus on editor
           (el as HTMLElement).focus();
@@ -351,6 +353,7 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
       const newHtml = markdownToHtml(markdownValue);
       setHtml(newHtml);
       if (contentRef.current) contentRef.current.innerHTML = newHtml;
+      setHasContent(Boolean(markdownValue.trim()));
       onChange(newHtml);
     }
     setMode(newMode);
@@ -644,7 +647,7 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
     <>
       <div className={`richtext-container w-full ${label ? 'has-label' : ''} ${(focused ? 'richtext-focused' : '') || (hasContent ? 'richtext-filled' : '')}`}>
         <FormControl variant="standard" className='w-full'>
-          {mode === 'visual' ? (
+          <div style={{ display: mode === 'visual' ? undefined : 'none' }}>
             <TextField
               id={id}
               multiline
@@ -679,8 +682,8 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
                 '& label.richtext-filled': { transform: 'translate(14px, -6px) scale(0.75)' },
               }}
             />
-          ) : (
-            <div style={{ position: 'relative', width: '100%' }}>
+          </div>
+          <div style={{ display: mode === 'markdown' ? undefined : 'none', position: 'relative', width: '100%' }}>
               {label && (
                 <label style={{ display: 'block', fontSize: '0.75rem', color: 'currentColor', opacity: 0.7, marginBottom: 4 }}>
                   {label}
@@ -722,7 +725,6 @@ const RichTextEditor: React.FC<Props> = ({ id, value, onChange, placeholder, lab
                 }}
               />
             </div>
-          )}
           <div className="richtext-toolbar">
             <Tooltip title="Bold (Ctrl/Cmd+B)" arrow>
               <span>
