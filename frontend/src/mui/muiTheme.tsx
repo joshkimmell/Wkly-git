@@ -52,83 +52,7 @@ const readCssVar = (names: string[], fallback: string, preferBody = true) => {
 };
 
 const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
-  // Instead of trusting the incoming `mode`, derive dark/light from the
-  // computed background color so the MUI theme always matches the runtime
-  // CSS variables (this avoids the case where the app thinks it's light but
-  // the CSS vars are for dark, resulting in inverted colors).
-
-  // Helper: determine whether a CSS color string is dark by computing
-  // relative luminance. Support  (#rgb/#rrggbb) and rgb(a).
-  // const parseColorToRgb = (c: string): [number, number, number] | null => {
-  //   if (!c) return null;
-  //   const s = c.trim();
-  //   // rgb/rgba
-  //   const rgbMatch = s.match(/rgba?\(([^)]+)\)/i);
-  //   if (rgbMatch) {
-  //     const parts = rgbMatch[1].split(',').map(p => parseFloat(p));
-  //     if (parts.length >= 3 && parts.every(p => !Number.isNaN(p))) {
-  //       return [parts[0], parts[1], parts[2]];
-  //     }
-  //   }
-  //   //  (#rrggbb or #rgb)
-  //   const Match = s.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
-  //   if (Match) {
-  //     const  = Match[1];
-  //     if (.length === 3) {
-  //       const r = parseInt([0] + [0], 16);
-  //       const g = parseInt([1] + [1], 16);
-  //       const b = parseInt([2] + [2], 16);
-  //       return [r, g, b];
-  //     }
-  //     const r = parseInt(.substr(0, 2), 16);
-  //     const g = parseInt(.substr(2, 2), 16);
-  //     const b = parseInt(.substr(4, 2), 16);
-  //     return [r, g, b];
-  //   }
-  //   return null;
-  // };
-
-  // const isColorDark = (color: string) => {
-  //   const rgb = parseColorToRgb(color);
-  //   if (!rgb) return false; // default to light
-  //   // relative luminance (approx) — convert sRGB to linear then compute
-  //   const toLinear = (v: number) => {
-  //     const s = v / 255;
-  //     return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-  //   };
-  //   const [r, g, b] = rgb;
-  //   const L = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
-  //   return L < 0.5;
-  // };
-
-  // // Convert an [r,g,b] tuple to #rrggbb
-  // const rgbTo = (rgb: [number, number, number]) => {
-  //   const to = (v: number) => {
-  //     const i = Math.round(v);
-  //     const s = i.toString(16);
-  //     return s.length === 1 ? '0' + s : s;
-  //   };
-  //   return `#${to(rgb[0])}${to(rgb[1])}${to(rgb[2])}`;
-  // };
-
-  // // Normalize a CSS color string (rgb(...) or #) into a #rrggbb string.
-  // // Returns null if the color couldn't be parsed.
-  // const normalizeColorTo = (c: string | undefined | null) => {
-  //   if (!c) return null;
-  //   const rgb = parseColorToRgb(c);
-  //   if (!rgb) return null;
-  //   return rgbTo(rgb);
-  // };
-
-  // Prefer reading CSS vars from `document.body` only when the intended
-  // mode is dark (the app applies `.dark` to the body). For light mode
-  // prefer the documentElement (:root) so we don't accidentally read
-  // stale dark variables that are still present on the body during
-  // class-toggle timing windows.
   const preferBody = mode === 'theme-dark';
-  // Determine the selected palette key (persisted by appColors) and derive
-  // brand tokens directly from the canonical PALETTES object. This avoids
-  // relying on computed CSS variables and makes theme derivation deterministic.
   const storedPaletteKey = (appColors.getStoredPalette && appColors.getStoredPalette()) || 'purple';
   const runtimePalette = PALETTES[storedPaletteKey as keyof typeof PALETTES] || PALETTES.purple;
   // brand token mapping (numbers match the SCSS steps)
@@ -142,6 +66,11 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
   const brand30 = runtimePalette[30];
   const brand20 = runtimePalette[20];
   const brand10 = runtimePalette[10];
+
+  const orangePalette = PALETTES.orange;
+    const orange20 = orangePalette ? orangePalette[20] : '#FCD9C8';
+    const orange10 = orangePalette ? orangePalette[10] : '#FFF4F1';
+
   // Primary/ghost derived from palette
   let primary = brand50;
   const ghost = brand50;
@@ -175,6 +104,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
   const textPrimary = textPrimaryRaw || (isDark ? '#E6E6E6' : '#111827');
   const textSecondary = readCssVar(['--secondary-text', '--color-text-secondary'], isDark ? '#B3B3B3' : '#4D4D4D', preferBody);
   const textPlaceholder = readCssVar(['--placeholder-text', '--color-text-placeholder'], isDark ? '#7A7A7A' : '#A0A0A0', preferBody);
+  const actionColor = readCssVar(['--action-color', '--color-action'], isDark ? brand80 : brand20, preferBody);
   const linkPrimary = readCssVar(['--link-text', '--color-link-text'], isDark ? brand30 : brand60, preferBody);
   const iconPrimary = readCssVar(['--link-text', '--color-link-text'], isDark ? brand30 : brand60, preferBody);
   const textOnColor = readCssVar(['--on-color-text', '--color-on-color-text'],  '#FFFFFF', preferBody);
@@ -194,7 +124,8 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
     light: {
       primary: readCssVar(['--brand-60', '--primary-brand-60'], PALETTES.purple[60], preferBody),
       iconPrimary: readCssVar(['--brand-70', '--primary-brand-70'], PALETTES.purple[70], preferBody),
-      background: readCssVar(['--gray-10', '--background-color', '--color-background-color'], PALETTES.gray[10], preferBody),
+      background: readCssVar(['--gray-10', '--background-color', '--color-background-color'], 'var(--gray-10)', preferBody),
+      actionColor: readCssVar(['--action-color', '--color-action'], brand20, preferBody),
       paper: readCssVar(['--gray-20', '--background-paper'], PALETTES.gray[20], preferBody),
       textPrimary: readCssVar(['--primary-text', '--color-text-primary'], '#111827', preferBody),
       textSecondary: readCssVar(['--secondary-text', '--color-text-secondary'], '#4D4D4D', preferBody),
@@ -205,8 +136,9 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
     },
     dark: {
       primary: readCssVar(['--brand-30', '--primary-brand-30'], PALETTES.purple[30], preferBody),
-      iconPrimary: readCssVar(['--brand-30', '--primary-brand-30'], PALETTES.purple[30], preferBody),
+      iconPrimary: readCssVar(['--brand-40', '--primary-brand-40'], PALETTES.purple[40], preferBody),
       background: readCssVar(['--gray-100', '--background-color'], PALETTES.gray[30], preferBody),
+      actionColor: readCssVar(['--action-color', '--color-action'], brand80, preferBody),
       paper: readCssVar(['--gray-90', '--background-paper'], PALETTES.gray[90], preferBody),
       textPrimary: readCssVar(['--primary-text', '--color-text-primary'], '#E6E6E6', preferBody),
       textSecondary: readCssVar(['--secondary-text', '--color-text-secondary'], '#B3B3B3', preferBody),
@@ -221,7 +153,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
 
   const secondary = textSecondary;
   const info = primary;
-  const actionHover = textSecondary;
+  const actionHover = actionColor;
   // Use brand accents and green palette for success semantics
   const success = PALETTES.green ? PALETTES.green[60] : '#22c55e';
   const primaryBorder = borderPrimary || divider;
@@ -295,6 +227,12 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
       },
       link: {
         main: linkPrimary,
+      },
+      action: {
+        // default: linkPrimary,
+        hover: actionHover,
+        active: linkPrimary || actionHover,
+        disabled: textPlaceholder,
       },
   divider: divider,
     },
@@ -443,9 +381,15 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
             padding: '0.125em 0.25em 0.125em 0.625em',
             height: 'auto',
             // keep chip compact like the tag
-            minHeight: 'auto',
+            minHeight: '1.75rem',
             display: 'inline-flex',
             alignItems: 'center',
+          },
+          clickable: {
+            "&:hover": {
+              backgroundColor: 'var(--brand-20)',
+              filter: 'brightness(0.92)',
+            },
           },
           label: {
             // match .card-category font-size and line-height
@@ -470,10 +414,10 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
           root: {
             padding: 6,
             // color: primaryIcon || inverseIcon,
-            color: primaryIcon,
+            color:  linkPrimary,
             '&:hover': {
-              filter: 'brightness(0.5)',
-              color: linkPrimary,
+              filter: 'brightness(0.75)',
+              // color: linkPrimary,
             },
           },
         },
@@ -653,6 +597,8 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
             fontWeight: 300,
             color: textPrimary,
             borderColor: borderPrimary,
+            fontFamily: fontFamily,
+            fontSize: '2em',
           },
         },
       },

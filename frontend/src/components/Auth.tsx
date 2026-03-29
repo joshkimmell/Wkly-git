@@ -335,7 +335,7 @@ const Login = () => {
               <div className="flex w-full flex-col gap-6">
                 
                 <div className='relative text-start z-10 max-w-7xl'>
-                  <h1 className="text-4xl sm:text-5xl font-light leading-tight mb-3">
+                  <h1 className="text-4xl sm:text-5xl leading-tight mb-3">
                     Welcome to{' '}
                     <span className="text-brand-40 dark:text-brand-30">Wkly</span>
                   </h1>
@@ -368,7 +368,7 @@ const Login = () => {
                     {[
                       { icon: <Target className="w-[8rem] h-[8rem] md:w-[10rem] md:h-[10rem]" />,   label: 'Prioritized goals', desc: 'Set focused goals each week' },
                       { icon: <CheckSquare className="w-[8rem] h-[8rem] md:w-[10rem] md:h-[10rem]" />, label: 'Task tracking', desc: 'Break goals into tasks' },
-                      { icon: <Award className="w-[8rem] h-[8rem] md:w-[10rem] md:h-[10rem]" />,   label: 'Accomplishments', desc: 'Capture what you achieved' },
+                      { icon: <Award className="w-[8rem] h-[8rem] md:w-[10rem] md:h-[10rem]" />,   label: 'Wins', desc: 'Capture what you achieved' },
                       { icon: <Sparkles className="w-[8rem] h-[8rem] md:w-[10rem] md:h-[10rem]" />, label: 'AI summaries', desc: 'Auto-generate progress reports' },
                     ].map(({ icon, label, desc }) => (
                       <div

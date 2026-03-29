@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { Task, Goal } from '@utils/goalUtils';
 import GoalCard from '@components/GoalCard';
-import TaskFocusMode from './focus/TaskFocusMode';
+import { useFocusMode } from '@context/FocusModeContext';
 import { hasSession } from './focus/useFocusSession';
-import { CheckCircle, Circle, Calendar, Bell, Trash, Edit, Clock, GripVertical, ChevronUp, ChevronDown, FileText, Tag, Square, CheckSquare2, Target, Zap } from 'lucide-react';
+import { useFocusTimer } from './focus/FocusTimerContext';
+import { formatTime } from './focus/FocusTimer';
+import PomodoroTimer, { type PomodoroPhase } from './focus/PomodoroTimer';
+import { usePomodoroSettings } from '@hooks/usePomodoroSettings';
+import { CheckCircle, Calendar, Bell, Trash, Edit, Clock, GripVertical, ChevronUp, ChevronDown, FileText, Tag, Square, CheckSquare2, Target, Zap, CalendarX } from 'lucide-react';
 import { Save, X as CloseButton, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
-import { IconButton, Tooltip, Chip, TextField, Button, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, FormControlLabel, Switch, Select, FormControl, InputLabel, useMediaQuery } from '@mui/material';
+import { IconButton, Tooltip, Chip, TextField, Button, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, FormControlLabel, Switch, Select, FormControl, InputLabel, useMediaQuery, Popover } from '@mui/material';
 import { DatePicker, TimePicker, DateTimePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
@@ -49,6 +53,8 @@ interface TaskCardProps {
   autoOpenEditModal?: boolean; // Auto-open edit modal on mount (for reminder navigation)
   onModalClose?: () => void;   // Called when the full edit modal closes (save or cancel)
   className?: string; // Allow passing additional class names
+  onUnschedule?: (taskId: string) => void; // Remove task from calendar (AllTasksCalendar / TasksCalendar only)
+  onBeforeFocusMode?: () => void; // Called before TaskFocusMode opens — lets parent close overlapping dialogs
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({
@@ -79,8 +85,19 @@ const TaskCard: React.FC<TaskCardProps> = ({
   autoOpenEditModal = false,
   onModalClose,
   className = '',
+  onUnschedule,
+  onBeforeFocusMode,
 }) => {
   const { timezone } = useTimezone();
+  const focusTimer = useFocusTimer();
+  const { settings: pomodoroSettings } = usePomodoroSettings();
+  const isTimerActive = focusTimer.isActiveFor(task.id);
+  const isTimerRunning = isTimerActive && focusTimer.timerState === 'running';
+
+  // Pomodoro pill state
+  const [pomodoroPhase, setPomodoroPhase] = useState<PomodoroPhase>('focus');
+  const [pomodoroRemaining, setPomodoroRemaining] = useState(pomodoroSettings.focusMinutes * 60);
+  const [pomodoroPopoverAnchor, setPomodoroPopoverAnchor] = useState<HTMLElement | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editDescription, setEditDescription] = useState(task.description || '');
@@ -116,13 +133,60 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
   // Goal details dialog
   const [isGoalDetailsOpen, setIsGoalDetailsOpen] = useState(false);
-  const [isFocusModeOpen, setIsFocusModeOpen] = useState(false);
   const [hasFocusSession, setHasFocusSession] = useState(() => hasSession(task.id));
+
+  const { openFocusMode } = useFocusMode();
 
   const handleFocusDone = async (taskId: string) => {
     // Mark task done via status change callback + update
     onStatusChange?.(taskId, 'Done');
     await onUpdate?.(taskId, { status: 'Done' });
+  };
+
+  // Exposed so parent dialogs can close before focus mode mounts
+  const handleCloseDialogs = () => {
+    setIsFullEditModalOpen(false);
+    setIsNotesModalOpen(false);
+    setIsDateTimeDialogOpen(false);
+    setStatusMenuAnchor(null);
+    setIsGoalDetailsOpen(false);
+    setIsClosingRationaleDialogOpen(false);
+    setPomodoroPopoverAnchor(null);
+  };
+
+  const handleOpenFocusMode = async () => {
+    // Close any open dialogs/modals before entering focus mode
+    handleCloseDialogs();
+    // Auto-advance status to In Progress when entering focus mode
+    if (displayStatus !== 'In progress' && displayStatus !== 'Done') {
+      setDisplayStatus('In progress');
+      onStatusChange?.(task.id, 'In progress');
+      if (onUpdate) {
+        onUpdate(task.id, { status: 'In progress' });
+      } else {
+        // Fallback: direct API call if no onUpdate prop provided
+        try {
+          const { data: { session: authSess } } = await supabase.auth.getSession();
+          const token = authSess?.access_token;
+          if (token) {
+            await fetch('/.netlify/functions/updateTask', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ id: task.id, status: 'In progress' }),
+            });
+          }
+        } catch { /* non-critical */ }
+      }
+    }
+    // Open focus mode via app-level context so it survives any parent unmounts
+    openFocusMode({
+      task,
+      goalTitle: (task as any).goal?.title,
+      onDone: handleFocusDone,
+      onClose: () => { setHasFocusSession(hasSession(task.id)); },
+    });
+    // Close parent dialog/modal after context has registered the request
+    onBeforeFocusMode?.();
   };
   const [goalDetails, setGoalDetails] = useState<Goal | null>(null);
   const [goalDetailsLoading, setGoalDetailsLoading] = useState(false);
@@ -363,7 +427,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
     if (status === 'Done') {
       return <CheckCircle className="w-5 h-5 text-green-600" />;
     }
-    return <Circle className="w-5 h-5 text-secondary-text" />;
+    return <CheckCircle className="w-5 h-5 text-secondary-text" />;
   };
 
   const getStatusColor = (status: Task['status']) => {
@@ -653,7 +717,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   return (
     <div
       ref={cardRef}
-      className={`${compact ? 'p-2' : `${list ? 'p-4 md:px-32' : 'p-3'}`} ${isSelected ? 'border-2 border-brand-50 bg-gray-20 dark:bg-brand-90' : `${!list ? 'border border-gray-20 dark:border-gray-70' : 'border-0'}`} bg-background-color rounded-lg hover:shadow-md transition-all ${
+      className={`${compact ? 'p-2 w-full' : `${list ? 'p-4 md:px-32' : 'p-3'}`} ${isSelected ? 'border-2 border-brand-50 bg-gray-20 dark:bg-brand-90' : isTimerRunning ? 'focus-timer-active border border-transparent' : `${!list ? 'border border-gray-20 dark:border-gray-70' : 'border-0'}`} bg-background-color-alpha rounded-md hover:shadow-md transition-all ${
         displayStatus === 'Done' ? 'opacity-60' : ''
       } ${className}`}
       draggable={draggable}
@@ -665,8 +729,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
         if (menuJustClosedRef.current) return;
       }}
     >
-      <div className={`flex  items-start gap-2 ${list ? 'flex-row justify-between' : 'flex-col'}`}>
-        <div className={`flex flex-row justify-between ${list ? 'w-auto' : 'w-full'}`} onClick={(e) => e.stopPropagation()}>
+      <div className={`flex w-full items-start gap-2 ${list ? 'flex-wrap justify-between' : 'flex-col'}`}>
+        <div className={`flex flex-row py-2 justify-between ${list ? 'w-auto' : 'w-full'}`} onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-1">
             
             {/* Drag handle */}
@@ -676,21 +740,72 @@ const TaskCard: React.FC<TaskCardProps> = ({
               </div>
             )}
           </div>
+          <div className={`flex flex-wrap w-full items-center gap-3 ${list ? 'max-w-28' : 'justify-end'}`}>
+            {/* Status toggle */}
+            <IconButton
+              onClick={cycleStatus}
+              className="text-tertiary-button mt-0.5 hover:scale-110 transition-transform"
+              title={`${displayStatus === 'Done' ? 'Reopen' : 'Mark as done'} `}
+            >
+              <Tooltip title={`${displayStatus === 'Done' ? 'Reopen' : 'Mark as done'}  `} placement="top" arrow>
+                {getStatusIcon(displayStatus)}
+              </Tooltip>
+              <span className=' md:hidden text-xs text-primary-text px-2 md:px-0'>{`${displayStatus === 'Done' ? 'Reopen' : 'Mark as done'}`}</span>
+            </IconButton>
 
-          {/* Status toggle */}
-          <IconButton
-            onClick={cycleStatus}
-            className="text-tertiary-button mt-0.5 hover:scale-110 transition-transform"
-            title={`${displayStatus === 'Done' ? 'Reopen' : 'Mark as done'} `}
-          >
-            <Tooltip title={`${displayStatus === 'Done' ? 'Reopen' : 'Mark as done'}  `} placement="top" arrow>
-              {getStatusIcon(displayStatus)}
-            </Tooltip>
-          </IconButton>
+            {/* Start focus */}
+            <span className="relative inline-flex flex-col items-center">
+              <IconButton
+                aria-label="Focus Mode"
+                size="small"
+                onClick={handleOpenFocusMode}
+                className={`btn-ghost px-0 !rounded-full ${isTimerRunning ? '!bg-brand-60 transition-all animate-pulse duration-300' : ''}`}
+              >
+              <Tooltip title={`${
+                isTimerActive
+                  ? pomodoroSettings.timerMode === 'pomodoro'
+                    ? ``
+                    : `Timer: ${formatTime(focusTimer.elapsed)} — `
+                  : ''
+              }${hasFocusSession ? 'Resume Task' : 'Start Task'}`} placement="top" arrow>
+                <Zap className={`w-5 h-5 ${hasFocusSession || isTimerActive ? 'text-interactive-icon' : ''}`} />
+              </Tooltip>
+                <span className=' md:hidden text-xs text-primary-text px-2 md:px-0'>{`${hasFocusSession ? "Resume Task" : "Start Task"}`}</span>
+              </IconButton>
+              {/* Basic timer floating countdown */}
+              {isTimerActive && pomodoroSettings.timerMode !== 'pomodoro' && (
+                <span className="absolute text-xs font-mono text-interactive-icon leading-none -bottom-4 tabular-nums pointer-events-none">
+                  {formatTime(focusTimer.elapsed)}
+                </span>
+              )}
+            </span>
+
+            {/* Pomodoro compact pill — only when pomodoro mode and timer active for this task */}
+            {/* {isTimerActive && pomodoroSettings.timerMode === 'pomodoro' && (() => {
+              const pillColor =
+                pomodoroPhase === 'focus' ? { border: 'border-red-400/40', icon: 'text-red-500', dot: 'bg-red-500' }
+                : pomodoroPhase === 'short-break' ? { border: 'border-blue-400/40', icon: 'text-blue-500', dot: 'bg-blue-500' }
+                : { border: 'border-violet-400/40', icon: 'text-violet-500', dot: 'bg-violet-500' };
+              return (
+                <Tooltip arrow placement="top" title="View Timer" placement="top" arrow>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setPomodoroPopoverAnchor(e.currentTarget); }}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background-color border ${pillColor.border} text-xs font-mono text-primary-text hover:opacity-80 transition-opacity`}
+                  >
+                    <Clock className={`w-3 h-3 ${pillColor.icon}`} />
+                    <span className="tabular-nums">{formatTime(pomodoroRemaining)}</span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${
+                      !isTimerRunning ? 'bg-gray-40' : `${pillColor.dot} animate-pulse`
+                    }`} />
+                  </button>
+                </Tooltip>
+              );
+            })()} */}
+          </div>
         </div>
 
         {/* Task content */}
-        <div className="flex-1 w-full space-y-2">
+        <div className="flex-1 px-2 w-full space-y-3">
           {isEditing ? (
             <div className="space-y-2">
               <TextField
@@ -715,7 +830,28 @@ const TaskCard: React.FC<TaskCardProps> = ({
             </div>
           ) : (
             <>
-                <div className="flex items-start gap-2">
+              {/* Pomodoro compact pill — only when pomodoro mode and timer active for this task */}
+            {isTimerActive && pomodoroSettings.timerMode === 'pomodoro' && (() => {
+              const pillColor =
+                pomodoroPhase === 'focus' ? { border: 'border-red-400/40', icon: 'text-red-500', dot: 'bg-red-500' }
+                : pomodoroPhase === 'short-break' ? { border: 'border-blue-400/40', icon: 'text-blue-500', dot: 'bg-blue-500' }
+                : { border: 'border-violet-400/40', icon: 'text-violet-500', dot: 'bg-violet-500' };
+              return (
+                <Tooltip title="View Timer" placement="top" arrow>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setPomodoroPopoverAnchor(e.currentTarget); }}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background-color border ${pillColor.border} text-xs font-mono text-primary-text hover:opacity-80 transition-opacity`}
+                  >
+                    <Clock className={`w-3 h-3 ${pillColor.icon}`} />
+                    <span className="tabular-nums">{formatTime(pomodoroRemaining)}</span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${
+                      !isTimerRunning ? 'bg-gray-40' : `${pillColor.dot} animate-pulse`
+                    }`} />
+                  </button>
+                </Tooltip>
+              );
+            })()}
+                <div className="flex w-full items-start gap-2">
                     {/* Selection checkbox */}
                     {selectable && (
                     <button
@@ -746,7 +882,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
           )}
 
           {/* Metadata */}
-          <div className="flex flex-wrap h-auto gap-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-wrap w-full h-auto gap-2" onClick={(e) => e.stopPropagation()}>
             {!task.scheduled_date && onUpdate && (
               <Chip
                 size="medium"
@@ -758,19 +894,19 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 }
                 icon={<Calendar className="w-3 h-3 text-primary-text" />}
                 onClick={() => setIsDateTimeDialogOpen(true)}
-                className="!text-primary-icon"
+                className="!text-interactive-text max-h-7"
               />
                 
               
             )}
             {task.scheduled_date && !hideCategory && (
               <>
-                <Chip
+                <Tooltip arrow placement="top" title="Edit date and time"><Chip
                   size="medium"
                   icon={<Calendar className="w-3 h-3" />}
                   label={
                     <span className="flex items-center">
-                      <span className="flex items-center text-primary-icon gap-2 pl-2 py-1">
+                      <span className="flex items-center text-interactive-text gap-2 pl-2 py-1">
                         {formattedDate}{task.scheduled_time ? ` ${task.scheduled_time}` : ''}
                         {task.reminder_enabled ? <><span className='min-w-3 h-auto'></span><span className='absolute right-0 bg-background rounded-full p-1'><Bell className="w-3 h-3 text-secondary-icon" /></span></> : null}
                       </span>
@@ -781,18 +917,19 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   variant="outlined"
                   sx={{ cursor: onUpdate ? 'pointer' : 'default' }}
                 />
+                </Tooltip>
               </>
             )}
             {task.scheduled_date && hideCategory && task.scheduled_time && (
               <>
-                <Chip
+                <Tooltip arrow placement="top" title="Edit date and time"><Chip
                   size="medium"
                   icon={<Clock className="w-3 h-3" />}
                   label={
                     <>
-                    <span className="flex flex-row items-center text-secondary-icon gap-2 pl-2 py-1">
+                    <span className="flex flex-row items-center text-secondary-text gap-2 pl-2 py-1">
                       {task.scheduled_time}
-                      {task.reminder_enabled ? <><span className='min-w-3 h-auto'></span><span className='absolute right-0 bg-background rounded-full p-1'><Bell className="w-3 h-3 text-secondary-icon" /></span></> : null}
+                      {task.reminder_enabled ? <><span className='min-w-3 h-auto'></span><span className='absolute right-0 bg-background rounded-full p-1'><Bell className="w-3 h-3 text-secondary-text" /></span></> : null}
                     </span>
                     </>
                   }
@@ -801,24 +938,26 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   onClick={handleTimeClick}
                   sx={{ cursor: onUpdate ? 'pointer' : 'default' }}
                 />
+                </Tooltip>
               </>
             )}
             {task.scheduled_time && !task.scheduled_date && (
               <>
-                <Chip
+                <Tooltip arrow placement="top" title="Edit time"><Chip
                   size="medium"
                   icon={<Clock className="w-3 h-3" />}
                   label={
-                    <span className="flex flex-row items-center text-primary-icon gap-2 px-2 py-1">
+                    <span className="flex flex-row items-center text-interactive-text gap-2 px-2 py-1">
                       {task.scheduled_time}
-                      {task.reminder_enabled ? <Bell className="w-3 h-3 text-primary-icon" /> : null}
+                      {task.reminder_enabled ? <Bell className="w-3 h-3 text-interactive-icon" /> : null}
                     </span>
                   }
-                  className="text-xs h-auto"
+                  className="text-xs h-auto max-h-7"
                   onClick={handleTimeClick}
                   variant='outlined'
                   sx={{ cursor: onUpdate ? 'pointer' : 'default' }}
                 />
+                </Tooltip>
               </>
             )}
             {!hideCategory && task.goal?.category && (
@@ -830,13 +969,13 @@ const TaskCard: React.FC<TaskCardProps> = ({
                     {task.goal.category}
                   </span>
                 }
-                className="text-xs h-auto"
+                className="gap-1 text-xs h-auto max-h-7"
                 variant="outlined"
               />
               
             )}
             {!hideGoalChip && task.goal?.title && (
-                  <Chip
+                  <Tooltip arrow placement="top" title="View goal details"><Chip
                     size="medium"
                     icon={<Target className="w-3 h-3 min-w-3" />}
                     label={
@@ -844,14 +983,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
                         <span className='truncate'>{task.goal.title}</span>
                       </span>
                     }
-                    title={task.goal.title}
                     className="w-auto text-xs px-2 py-1 min-w-[100px] max-h-7 cursor-pointer"
                     variant="outlined"
                     onClick={handleOpenGoalDetails}
                   />
+                  </Tooltip>
             )}
             {!hideStatusChip && (
-              <Chip
+              <Tooltip arrow placement="top" title="Change status"><Chip
                 size="medium"
                 label={
                     <span className="flex items-center gap-2 px-2 py-1">
@@ -861,24 +1000,26 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 // icon={<Circle className="w-3 h-3" />}
                 color={getStatusColor(displayStatus)}
                 onClick={handleStatusChipClick}
-                className="text-xs h-7"
+                className="text-xs h-7 max-h-7"
                 sx={{ cursor: 'pointer' }}
+                variant='outlined'
               />
+              </Tooltip>
             )}
 
           </div>
         </div>
 
         {/* Actions */}
-        <div className={`flex ${list ? 'w-auto flex-col sm:flex-row items-center' : 'w-full'} justify-end gap-1`} onClick={(e) => e.stopPropagation()}>
+        <div className={`flex ${list ? 'w-auto flex-wrap items-center' : 'w-full'} justify-end gap-1`} onClick={(e) => e.stopPropagation()}>
           {isEditing ? (
             <>
-              <Tooltip title="Save">
+              <Tooltip arrow placement="top" title="Save">
                 <IconButton size="small" onClick={handleSaveEdit} className="text-green-600 dark:text-green-400">
                   <Save className="w-4 h-4" />
                 </IconButton>
               </Tooltip>
-              <Tooltip title="Cancel">
+              <Tooltip arrow placement="top" title="Cancel">
                 <IconButton size="small" onClick={handleCancelEdit} className="text-red-600 dark:text-red-400">
                   <CloseButton className="w-4 h-4" />
                 </IconButton>
@@ -888,7 +1029,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
             <>
               {showMoveButtons && (
                 <>
-                  <Tooltip title="Move up">
+                  <Tooltip arrow placement="top" title="Move up">
                     <span>
                       <IconButton 
                         size="small" 
@@ -899,7 +1040,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                       </IconButton>
                     </span>
                   </Tooltip>
-                  <Tooltip title="Move down">
+                  <Tooltip arrow placement="top" title="Move down">
                     <span>
                       <IconButton 
                         size="small" 
@@ -931,18 +1072,24 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 </>
               )}
 
-              <Tooltip title={` ${hasFocusSession ? "Resume Task" : "Start Task"}`} placement="top" arrow>
-                <span>
+              {/* <Tooltip title={`${isTimerActive ? `Timer: ${formatTime(focusTimer.elapsed)} — ` : ''}${hasFocusSession ? "Resume Task" : "Start Task"}`} placement="top" arrow>
+                <span className="relative inline-flex flex-col items-center">
                   <IconButton
                     aria-label="Focus Mode"
                     size="small"
-                    onClick={() => setIsFocusModeOpen(true)}
-                    className="btn-ghost"
+                    onClick={handleOpenFocusMode}
+                    className={`btn-ghost ${isTimerRunning ? 'bg-radial from-brand-40 from-40% to-transparent transition-all animate-pulse duration-300' : ''}`}
+                    // style={{ background: 'radial-gradient(ellipse at center, var(--primary-background) 0%, transparent 100%), var(--background)' }}
                   >
-                    <Zap className={`w-5 h-5 ${hasFocusSession ? 'text-brand-30 shadow-lg transition-all animate-pulse duration-300' : ''}`} />
+                    <Zap className={`w-5 h-5 ${hasFocusSession || isTimerActive ? 'text-primary-link' : ''}`} />
                   </IconButton>
+                  {isTimerActive && (
+                    <span className="text-[9px] font-mono text-interactive-icon leading-none -mt-1 tabular-nums pointer-events-none">
+                      {formatTime(focusTimer.elapsed)}
+                    </span>
+                  )}
                 </span>
-              </Tooltip>
+              </Tooltip> */}
 
               <Tooltip title="Notes" placement="top" arrow>
                 <span>
@@ -960,6 +1107,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 </span>
               </Tooltip>
               
+              {onUnschedule && task.scheduled_date && (
+                <Tooltip title="Remove from calendar" placement="top" arrow>
+                  <IconButton className="btn-ghost" size="small" onClick={(e) => { e.stopPropagation(); onUnschedule(task.id); }}>
+                    <CalendarX className="w-5 h-5" />
+                  </IconButton>
+                </Tooltip>
+              )}
+
               {onDelete && (
                 <Tooltip title="Delete task" placement="top" arrow>
                   <IconButton className='btn-ghost' size="small" onClick={(e) => { e.stopPropagation(); setDeleteTaskConfirmOpen(true); }}>
@@ -1387,15 +1542,39 @@ const TaskCard: React.FC<TaskCardProps> = ({
         </DialogActions>
       </Dialog>
 
-      {/* Task Focus Mode */}
-      {isFocusModeOpen && (
-        <TaskFocusMode
-          task={task}
-          goalTitle={(task as any).goal?.title}
-          onClose={() => { setIsFocusModeOpen(false); setHasFocusSession(hasSession(task.id)); }}
-          onMarkDone={handleFocusDone}
-        />
-      )}
+      {/* Pomodoro popover — keepMounted keeps PomodoroTimer (and its tick interval) alive
+           even when the popover is closed, so the pill updates in real time. */}
+      <Popover
+        open={Boolean(pomodoroPopoverAnchor)}
+        anchorEl={pomodoroPopoverAnchor}
+        onClose={() => setPomodoroPopoverAnchor(null)}
+        keepMounted
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+        PaperProps={{
+          elevation: 8,
+          sx: { backgroundColor: 'var(--background-color)', backgroundImage: 'none', borderRadius: '12px', overflow: 'hidden' },
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-3 w-64">
+          <PomodoroTimer
+            taskId={task.id}
+            settings={pomodoroSettings}
+            onStart={() => focusTimer.startTimer(task.id, 0)}
+            onPause={() => focusTimer.pauseTimer()}
+            onResume={() => focusTimer.resumeTimer()}
+            onReset={() => focusTimer.pauseTimer()} // pause instead of clear — keeps pill visible
+            externalTimerState={focusTimer.isActiveFor(task.id) ? focusTimer.timerState : 'idle'}
+            onStateChange={(phase, _state, remaining) => {
+              setPomodoroPhase(phase);
+              setPomodoroRemaining(remaining);
+            }}
+          />
+        </div>
+      </Popover>
+
+      {/* Task Focus Mode is rendered at app level via FocusModeContext */}
     </div>
   );
 };

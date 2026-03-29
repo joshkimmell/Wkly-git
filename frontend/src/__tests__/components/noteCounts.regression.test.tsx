@@ -12,7 +12,7 @@ const fakeGoal = {
   week_start: '2025-10-13',
 };
 
-describe('notes/accomplishments counts regression', () => {
+describe('notes/wins counts regression', () => {
   beforeEach(() => {
     mockSupabaseAuthGetUser();
   });

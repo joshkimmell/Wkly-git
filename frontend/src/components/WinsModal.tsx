@@ -3,21 +3,21 @@ import { Edit, Trash, Plus as PlusIcon, X as CloseButton } from 'lucide-react';
 import { modalClasses, overlayClasses } from '@styles/classes';
 import { TextField, Tooltip, IconButton } from '@mui/material';
 import ConfirmModal from './ConfirmModal';
-import { Accomplishment } from '@utils/goalUtils';
+import { Win } from '@utils/goalUtils';
 import RichTextEditor from './RichTextEditor';
 
 interface Props {
   goalTitle: string;
   isOpen: boolean;
   onClose: () => void;
-  accomplishments: Accomplishment[];
+  wins: Win[];
   onCreate: (item: { title: string; description?: string; impact?: string }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onEdit: (item: Accomplishment) => void;
+  onEdit: (item: Win) => void;
   loading?: boolean;
 }
 
-export default function AccomplishmentsModal({ goalTitle, isOpen, onClose, accomplishments, onCreate, onDelete, onEdit, loading }: Props) {
+export default function WinsModal({ goalTitle, isOpen, onClose, wins, onCreate, onDelete, onEdit, loading }: Props) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [impact, setImpact] = useState('');
@@ -67,7 +67,7 @@ export default function AccomplishmentsModal({ goalTitle, isOpen, onClose, accom
 
     previouslyFocused.current = document.activeElement as HTMLElement | null;
 
-    const container = modalRef.current || document.getElementById('editAccomplishments');
+    const container = modalRef.current || document.getElementById('editWins');
     if (!container) return;
 
     const focusableSelector = 'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
@@ -119,7 +119,7 @@ export default function AccomplishmentsModal({ goalTitle, isOpen, onClose, accom
 
   return (
     <div
-      id="editAccomplishments"
+      id="editWins"
       className={`${overlayClasses} flex items-center justify-center`}
       onMouseDown={(e) => {
         // close when clicking the backdrop (only when clicking the overlay itself)
@@ -129,7 +129,7 @@ export default function AccomplishmentsModal({ goalTitle, isOpen, onClose, accom
     >
       <div className={`${modalClasses} w-full max-w-2xl`}>
         <div className='flex flex-row w-full justify-between'>
-                <h3 className="text-lg font-medium text-gray-90 mb-4">Accomplishments for "{goalTitle}"</h3>
+                <h3 className="text-lg font-medium text-gray-90 mb-4">Wins for "{goalTitle}"</h3>
                 <div className="mb-2 flex justify-end">
                     <Tooltip title="Close" placement="top" arrow>
                       <span>
@@ -148,8 +148,8 @@ export default function AccomplishmentsModal({ goalTitle, isOpen, onClose, accom
               onChange={(e) => setTitle(e.target.value)}
               onFocus={() => setTitleFocused(true)}
               onBlur={() => setTitleFocused(false)}
-              placeholder="Add an accomplishment for this goal."
-              label="Add a new accomplishment"
+              placeholder="Add a win for this goal."
+              label="Add a new win"
               multiline
               rows={3}
               className="mt-1 block w-full"
@@ -163,28 +163,28 @@ export default function AccomplishmentsModal({ goalTitle, isOpen, onClose, accom
               </>
             )}
             <div className="mt-2 flex justify-end gap-2">
-              <button className="btn-primary" onClick={handleAdd} disabled={loading}><PlusIcon className="w-4 h-4 inline mr-1" />Add accomplishment</button>
+              <button className="btn-primary" onClick={handleAdd} disabled={loading}><PlusIcon className="w-4 h-4 inline mr-1" />Add win</button>
             </div>
           </div>
           <div>
-        {accomplishments.length > 0 && (
-            <h4 className="text-md font-semibold mb-2">Existing accomplishments</h4>
+        {wins.length > 0 && (
+            <h4 className="text-md font-semibold mb-2">Existing wins</h4>
         )}    
             <ul className="space-y-3">
-              {accomplishments.map((acc) => (
+              {wins.map((acc) => (
                 <li key={acc.id} className="p-3 border rounded bg-gray-20 dark:bg-gray-80 dark:border-gray-70">
                     <div className="flex flex-col w-full">
                         <div className='flex flex-row justify-between items-center mb-2'>
                         {acc.created_at && <div className="text-xs dark:text-gray-40 text-gray-70">{new Date(acc.created_at).toLocaleString()}</div>}
                         <div className="flex flex-row justify-end">
-                        <Tooltip title="Edit accomplishment" placement="top" arrow>
+                        <Tooltip title="Edit win" placement="top" arrow>
                           <span>
-                            <IconButton className="btn-ghost" onClick={() => onEdit(acc)} size="small" aria-label="Edit accomplishment"><Edit className="w-4 h-4" /></IconButton>
+                            <IconButton className="btn-ghost" onClick={() => onEdit(acc)} size="small" aria-label="Edit win"><Edit className="w-4 h-4" /></IconButton>
                           </span>
                         </Tooltip>
-                        <Tooltip title="Delete accomplishment" placement="top" arrow>
+                        <Tooltip title="Delete win" placement="top" arrow>
                           <span>
-                            <IconButton className="btn-ghost" onClick={() => setDeleteTarget(acc.id)} size="small" aria-label="Delete accomplishment"><Trash className="w-4 h-4" /></IconButton>
+                            <IconButton className="btn-ghost" onClick={() => setDeleteTarget(acc.id)} size="small" aria-label="Delete win"><Trash className="w-4 h-4" /></IconButton>
                           </span>
                         </Tooltip>
                         </div>
@@ -200,8 +200,8 @@ export default function AccomplishmentsModal({ goalTitle, isOpen, onClose, accom
                 </li>
               ))}
 
-              {accomplishments.length === 0 && (
-                <li className="text-sm text-gray-50">No accomplishments yet.</li>
+              {wins.length === 0 && (
+                <li className="text-sm text-gray-50">No wins yet.</li>
               )}
             </ul>
           </div>
@@ -209,8 +209,8 @@ export default function AccomplishmentsModal({ goalTitle, isOpen, onClose, accom
       </div>
       <ConfirmModal
         isOpen={!!deleteTarget}
-        title="Delete accomplishment?"
-        message={`Are you sure you want to delete this accomplishment? This action cannot be undone.`}
+        title="Delete win?"
+        message={`Are you sure you want to delete this win? This action cannot be undone.`}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={async () => {
           if (!deleteTarget) return;

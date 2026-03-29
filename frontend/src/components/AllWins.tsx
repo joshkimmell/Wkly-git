@@ -3,21 +3,21 @@ import { TextField } from '@mui/material';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
-import { fetchAllAccomplishmentsIndexed, applyHighlight } from '@utils/functions';
-import { Accomplishment } from '@utils/goalUtils'; // Adjust the import path as necessary
-import AccomplishmentCard from './AccomplishmentCard';
-import AccomplishmentEditor from './AccomplishmentEditor';
+import { fetchAllWinsIndexed, applyHighlight } from '@utils/functions';
+import { Win } from '@utils/goalUtils'; // Adjust the import path as necessary
+import WinCard from './WinCard';
+import WinEditor from './WinEditor';
 import { modalClasses, overlayClasses } from '@styles/classes';
 import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
 // import { over } from 'lodash';
 
 
-// Corrected assignment to use `indexedAccomplishments`
-const AllAccomplishments = () => {
-  const [accomplishments, setAccomplishments] = useState<Accomplishment[]>([]);
-  const [filteredAccomplishments, setFilteredAccomplishments] = useState<Accomplishment[]>([]);
+// Corrected assignment to use `indexedWins`
+const AllWins = () => {
+  const [wins, setWins] = useState<Win[]>([]);
+  const [filteredWins, setFilteredWins] = useState<Win[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newAccomplishment, setNewAccomplishment] = useState<Accomplishment>({
+  const [newWin, setNewWin] = useState<Win>({
     id: '',
     title: '',
     description: '',
@@ -27,30 +27,30 @@ const AllAccomplishments = () => {
     week_start: '',
     created_at: '',
   });
-  const [filter, setFilter] = useState<string>(''); // For filtering accomplishments
+  const [filter, setFilter] = useState<string>(''); // For filtering wins
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [sortField] = useState<'created_at'>('created_at');
   const [scope] = useState<'week' | 'month' | 'year'>('week');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [selectedAccomplishment, setSelectedAccomplishment] = useState<Accomplishment | null>(null);
+  const [selectedWin, setSelectedWin] = useState<Win | null>(null);
 
   
 
   useEffect(() => {
-    const fetchAccomplishments = async () => {
+    const fetchWins = async () => {
       try {
-        const fetchedAccomplishments = await fetchAllAccomplishmentsIndexed(scope);
-        const accomplishmentsArray = Object.values(fetchedAccomplishments.indexedAccomplishments).flat();
-        setFilteredAccomplishments(accomplishmentsArray);
+        const fetchedWins = await fetchAllWinsIndexed(scope);
+        const winsArray = Object.values(fetchedWins.indexedWins).flat();
+        setFilteredWins(winsArray);
       } catch (error) {
-        console.error('Error fetching accomplishments:', error);
+        console.error('Error fetching wins:', error);
       }
     };
-    fetchAccomplishments();
+    fetchWins();
   }, [scope]);
 
-  // Fetch all accomplishments for the logged-in user
-  const fetchAccomplishments = async () => {
+  // Fetch all wins for the logged-in user
+  const fetchWins = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -64,19 +64,19 @@ const AllAccomplishments = () => {
         .eq('user_id', user.id);
 
       if (error) {
-        console.error('Error fetching accomplishments:', error.message);
+        console.error('Error fetching wins:', error.message);
         return;
       }
 
-      setAccomplishments(data || []);
-      setFilteredAccomplishments(data || []); // Initialize filtered accomplishments
+      setWins(data || []);
+      setFilteredWins(data || []); // Initialize filtered wins
     } catch (err) {
-      console.error('Unexpected error fetching accomplishments:', err);
+      console.error('Unexpected error fetching wins:', err);
     }
   };
 
-  // Add a new accomplishment
-  const handleAddAccomplishment = async () => {
+  // Add a new win
+  const handleAddWin = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -85,19 +85,19 @@ const AllAccomplishments = () => {
       }
 
       const { error } = await supabase.from('accomplishments').insert({
-        ...newAccomplishment,
+        ...newWin,
         user_id: user.id,
         created_at: new Date().toISOString(),
       });
 
       if (error) {
-        console.error('Error adding accomplishment:', error.message);
+        console.error('Error adding win:', error.message);
         return;
       }
 
-      fetchAccomplishments(); // Refresh accomplishments after adding
+      fetchWins(); // Refresh wins after adding
       closeModal();
-      setNewAccomplishment({
+      setNewWin({
         id: '',
         title: '',
         description: '',
@@ -111,50 +111,50 @@ const AllAccomplishments = () => {
         // type: '',
       });
     } catch (err) {
-      console.error('Unexpected error adding accomplishment:', err);
+      console.error('Unexpected error adding win:', err);
     }
   };
 
-  // Delete an accomplishment
-  const handleDeleteAccomplishment = (accomplishmentId: string) => {
-    const toDelete = accomplishments.find(a => a.id === accomplishmentId);
+  // Delete a win
+  const handleDeleteWin = (winId: string) => {
+    const toDelete = wins.find(a => a.id === winId);
     if (!toDelete) return;
     // Optimistically remove from UI
-    setAccomplishments(prev => prev.filter(a => a.id !== accomplishmentId));
-    setFilteredAccomplishments(prev => prev.filter(a => a.id !== accomplishmentId));
+    setWins(prev => prev.filter(a => a.id !== winId));
+    setFilteredWins(prev => prev.filter(a => a.id !== winId));
     notifyWithUndo(
-      'Accomplishment deleted',
+      'Win deleted',
       async () => {
         const { error } = await supabase
           .from('accomplishments')
           .delete()
-          .eq('id', accomplishmentId);
+          .eq('id', winId);
         if (error) throw new Error(error.message);
       },
       () => {
-        setAccomplishments(prev => [...prev, toDelete]);
-        setFilteredAccomplishments(prev => [...prev, toDelete]);
+        setWins(prev => [...prev, toDelete]);
+        setFilteredWins(prev => [...prev, toDelete]);
       },
     );
   };
 
-  // Filter accomplishments based on the filter state
+  // Filter wins based on the filter state
   const handleFilterChange = (filterValue: string) => {
     setFilter(filterValue);
     if (filterValue) {
-      const filtered = accomplishments.filter((accomplishment) =>
-        accomplishment.title.toLowerCase().includes(filterValue.toLowerCase()) ||
-        ((accomplishment.description || '').toLowerCase().includes(filterValue.toLowerCase())) ||
-        ((accomplishment.impact || '').toLowerCase().includes(filterValue.toLowerCase()))
+      const filtered = wins.filter((win) =>
+        win.title.toLowerCase().includes(filterValue.toLowerCase()) ||
+        ((win.description || '').toLowerCase().includes(filterValue.toLowerCase())) ||
+        ((win.impact || '').toLowerCase().includes(filterValue.toLowerCase()))
       );
-      setFilteredAccomplishments(filtered);
+      setFilteredWins(filtered);
     } else {
-      setFilteredAccomplishments(accomplishments); // Reset to all accomplishments if no filter
+      setFilteredWins(wins); // Reset to all wins if no filter
     }
   };
 
   // Update the Summaries list rendering logic to apply filtering and sorting
-  const sortedAndFilteredAccomplishments = filteredAccomplishments.sort((a, b) => {
+  const sortedAndFilteredWins = filteredWins.sort((a, b) => {
     if (sortField === 'created_at') {
       const aDate = new Date(a.created_at);
       const bDate = new Date(b.created_at);
@@ -180,32 +180,32 @@ const AllAccomplishments = () => {
     setIsModalOpen(false);
   };
 
-  function openEditor(accomplishment: Accomplishment) {
-    setSelectedAccomplishment(accomplishment);
+  function openEditor(win: Win) {
+    setSelectedWin(win);
     setIsEditorOpen(true);
   }
 
   function closeEditor() {
     setIsEditorOpen(false);
-    setSelectedAccomplishment(null);
+    setSelectedWin(null);
   }
 
   useEffect(() => {
-    fetchAccomplishments();
+    fetchWins();
   }, []);
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-90 block sm:hidden whitespace-nowrap">All accomplishments</h1>
+        <h1 className="text-2xl font-bold text-gray-90 block sm:hidden whitespace-nowrap">All wins</h1>
         <div className="space-x-4 py-4 w-full justify-end flex">
           <button
             onClick={() => openModal()}
             className="btn-primary"
-            title="Add Accomplishment"
-            aria-label="Add Accomplishment"
+            title="Add Win"
+            aria-label="Add Win"
             >
-            Add Accomplishment
+            Add Win
           </button>
         </div>
       </div> 
@@ -229,26 +229,26 @@ const AllAccomplishments = () => {
         </button>
       </div>
 
-      {/* Accomplishments List */}
+      {/* Wins List */}
       <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'>
-        {sortedAndFilteredAccomplishments.map((accomplishment) => (
-          <AccomplishmentCard
-            key={accomplishment.id}
-            id={accomplishment.id}
-            title={applyHighlight(accomplishment.title || '', filter)}
-            description={applyHighlight(accomplishment.description || '', filter)}
-            impact={applyHighlight(accomplishment.impact || '', filter)}
-            // content={accomplishment.content}
-            // type={accomplishment.type}
-            created_at={accomplishment.created_at}
-            // week_start={accomplishment.week_start}
-            handleDelete={() => handleDeleteAccomplishment(accomplishment.id)}
-            handleEdit={() => openEditor(accomplishment)}
+        {sortedAndFilteredWins.map((win) => (
+          <WinCard
+            key={win.id}
+            id={win.id}
+            title={applyHighlight(win.title || '', filter)}
+            description={applyHighlight(win.description || '', filter)}
+            impact={applyHighlight(win.impact || '', filter)}
+            // content={win.content}
+            // type={win.type}
+            created_at={win.created_at}
+            // week_start={win.week_start}
+            handleDelete={() => handleDeleteWin(win.id)}
+            handleEdit={() => openEditor(win)}
           />
         ))}
       </div>
 
-      {/* Add Accomplishment Modal */}
+      {/* Add Win Modal */}
       <Modal
         isOpen={isModalOpen}
         onRequestClose={closeModal}
@@ -259,21 +259,21 @@ const AllAccomplishments = () => {
         <div className={`${modalClasses}`}>
           {isModalOpen && (
             <>
-              <h3 className="text-lg font-medium text-gray-90 mb-4">Add Accomplishment</h3>
+              <h3 className="text-lg font-medium text-gray-90 mb-4">Add Win</h3>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-70">Title</label>
                   <TextField
-                    value={newAccomplishment.title}
-                    onChange={(e) => setNewAccomplishment({ ...newAccomplishment, title: e.target.value })}
+                    value={newWin.title}
+                    onChange={(e) => setNewWin({ ...newWin, title: e.target.value })}
                     fullWidth
                   />
                 </div>
                 <div>
                   <TextField
                     label="Description"
-                    value={newAccomplishment.description}
-                    onChange={(e) => setNewAccomplishment({ ...newAccomplishment, description: e.target.value })}
+                    value={newWin.description}
+                    onChange={(e) => setNewWin({ ...newWin, description: e.target.value })}
                     multiline
                     rows={4}
                     fullWidth
@@ -283,8 +283,8 @@ const AllAccomplishments = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-70">Impact</label>
                   <TextField
-                    value={newAccomplishment.impact}
-                    onChange={(e) => setNewAccomplishment({ ...newAccomplishment, impact: e.target.value })}
+                    value={newWin.impact}
+                    onChange={(e) => setNewWin({ ...newWin, impact: e.target.value })}
                     fullWidth
                   />
                 </div>
@@ -297,7 +297,7 @@ const AllAccomplishments = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={handleAddAccomplishment}
+                  onClick={handleAddWin}
                   className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
                   Add
@@ -308,7 +308,7 @@ const AllAccomplishments = () => {
         </div>
       </Modal>
 
-      {/* Accomplishment Editor Modal */}
+      {/* Win Editor Modal */}
       <Modal
         isOpen={isEditorOpen}
         onRequestClose={closeEditor}
@@ -318,19 +318,19 @@ const AllAccomplishments = () => {
       >
         <div className={`${modalClasses}`}>
           {isEditorOpen && (
-            selectedAccomplishment ? (
-              <AccomplishmentEditor
-                accomplishment={selectedAccomplishment}
+            selectedWin ? (
+              <WinEditor
+                win={selectedWin}
                 onRequestClose={closeEditor}
                 onSave={async (updatedDescription?: string, updatedTitle?: string, updatedImpact?: string) => {
-                  if (!selectedAccomplishment) return;
+                  if (!selectedWin) return;
 
                   // Build a locally-updated object for UI
-                  const updatedAccomplishment = {
-                    ...selectedAccomplishment,
-                    description: updatedDescription ?? selectedAccomplishment.description ?? '',
-                    title: updatedTitle ?? selectedAccomplishment.title ?? '',
-                    impact: updatedImpact ?? selectedAccomplishment.impact ?? '',
+                  const updatedWin = {
+                    ...selectedWin,
+                    description: updatedDescription ?? selectedWin.description ?? '',
+                    title: updatedTitle ?? selectedWin.title ?? '',
+                    impact: updatedImpact ?? selectedWin.impact ?? '',
                   };
 
                   try {
@@ -339,34 +339,34 @@ const AllAccomplishments = () => {
                       .update({
                         // write null when empty so DB stores null instead of empty string
                         description: updatedDescription && updatedDescription.trim() ? updatedDescription : null,
-                        title: (updatedTitle ?? selectedAccomplishment.title),
+                        title: (updatedTitle ?? selectedWin.title),
                         impact: updatedImpact && updatedImpact.trim() ? updatedImpact : null,
                       })
-                      .eq('id', updatedAccomplishment.id);
+                      .eq('id', updatedWin.id);
 
                     if (error) {
-                      console.error('Error updating accomplishment:', error.message);
-                      notifyError('Error updating accomplishment.');
+                      console.error('Error updating win:', error.message);
+                      notifyError('Error updating win.');
                       return;
                     }
 
-                    setFilteredAccomplishments((prev: Accomplishment[]) =>
-                      prev.map((accomplishment: Accomplishment) =>
-                        accomplishment.id === updatedAccomplishment.id
-                          ? updatedAccomplishment
-                          : accomplishment
+                    setFilteredWins((prev: Win[]) =>
+                      prev.map((win: Win) =>
+                        win.id === updatedWin.id
+                          ? updatedWin
+                          : win
                       )
                     );
                     closeEditor();
-                    // notifySuccess('Accomplishment updated successfully.');
+                    // notifySuccess('Win updated successfully.');
                   } catch (err) {
-                    console.error('Unexpected error updating accomplishment:', err);
+                    console.error('Unexpected error updating win:', err);
                   }
                 }}
               />
             ) : (
               <div className="p-4 text-center">
-                <p className="text-gray-50">No accomplishment selected for editing.</p>
+                <p className="text-gray-50">No win selected for editing.</p>
               </div>
             )
           )}
@@ -376,4 +376,4 @@ const AllAccomplishments = () => {
   );
 };
 
-export default AllAccomplishments;
+export default AllWins;

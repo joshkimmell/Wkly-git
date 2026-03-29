@@ -3,7 +3,7 @@ import supabase from "@lib/supabase";
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { notifyError, notifySuccess } from "@components/ToastyNotification";
 import { v4 as uuidv4 } from "uuid";
-import { Category, Goal, Summary, Accomplishment } from "@utils/goalUtils"; // Adjust the import path as necessary
+import { Category, Goal, Summary, Win } from "@utils/goalUtils"; // Adjust the import path as necessary
 // import { error } from "console";
 
 const baseUrl = import.meta.env.DEV ? 'http://localhost:8888' : ''; // Use localhost for dev, empty for production
@@ -127,7 +127,7 @@ export const fetchGoalsForRange = async (
   return goals;
 };
 
-// // Refined type definitions for `Goal`, `Summary`, and `Accomplishment`
+// // Refined type definitions for `Goal`, `Summary`, and `Win`
 // interface Goal {
 //   id: string;
 //   title: string;
@@ -151,7 +151,7 @@ export const fetchGoalsForRange = async (
 //   week_start: string;
 // }
 
-// interface Accomplishment {
+// interface Win {
 //   id: string;
 //   title: string;
 //   description: string;
@@ -758,7 +758,7 @@ export const generateSummary = async (
   title: string,
   userId: string,
   weekStart: string,
-  goalsWithAccomplishments: {
+  goalsWithWins: {
     title: string;
     description: string;
     category: string;
@@ -775,7 +775,7 @@ export const generateSummary = async (
     scope,
     summaryTitle: title,
     week_start: weekStart,
-    goalsWithAccomplishments,
+    goalsWithAccomplishments: goalsWithWins,
     responseLength, // Include responseLength in the request body if provided
     additionalContext, // Include additionalContext in the request body if provided
   };
@@ -977,10 +977,10 @@ export const fetchAllSummariesIndexed = async (
   }
 };
 
-// Implement fetchAllAccomplishmentsIndexed
-export const fetchAllAccomplishmentsIndexed = async (
+// Implement fetchAllWinsIndexed
+export const fetchAllWinsIndexed = async (
   scope: 'week' | 'month' | 'year'
-): Promise<{ indexedAccomplishments: Record<string, Accomplishment[]>; pages: string[] }> => {
+): Promise<{ indexedWins: Record<string, Win[]>; pages: string[] }> => {
   const token = await getSessionToken();
 
   try {
@@ -989,24 +989,24 @@ export const fetchAllAccomplishmentsIndexed = async (
     });
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Error fetching accomplishments: ${errorText}`);
+      throw new Error(`Error fetching wins: ${errorText}`);
     }
 
-    const accomplishments: Accomplishment[] = await response.json();
-    const accomplishmentsWithScope = accomplishments.map((accomplishment) => ({
-      ...accomplishment,
+    const wins: Win[] = await response.json();
+    const winsWithScope = wins.map((win) => ({
+      ...win,
       scope,
-      impact: accomplishment.impact ?? "",
+      impact: win.impact ?? "",
       // Ensure description and goal_id are strings for indexDataByScope
-      description: accomplishment.description ?? '',
-      goal_id: accomplishment.goal_id ?? '',
+      description: win.description ?? '',
+      goal_id: win.goal_id ?? '',
     }));
-    const indexedAccomplishments = indexDataByScope(accomplishmentsWithScope, scope);
-    const pages = getPagesFromIndexedData(indexedAccomplishments);
+    const indexedWins = indexDataByScope(winsWithScope, scope);
+    const pages = getPagesFromIndexedData(indexedWins);
 
-    return { indexedAccomplishments, pages };
+    return { indexedWins, pages };
   } catch (error) {
-    console.error('Error fetching accomplishments:', error);
+    console.error('Error fetching wins:', error);
     throw error;
   }
 };

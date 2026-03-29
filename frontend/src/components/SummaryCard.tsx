@@ -53,7 +53,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
   const [isExpanded, setIsExpanded] = useState(false); // State to track expansion
   const [filter, setFilter] = useState<string>('');
   
-  // accomplishment creation now handled via AccomplishmentsModal onCreate (optimistic updates)
+  // win creation now handled via WinsModal onCreate (optimistic updates)
   
      // Use shared HTML-producing highlight helper and render via dangerouslySetInnerHTML
         const renderHTML = (text?: string | null) => ({ __html: applyHighlight(text ?? '', filter) });
@@ -103,7 +103,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
         }}
       >
         <div className={`flex flex-row w-full items-start justify-between gap-4 align-top`}>  
-          <h4 className="w-full text-lg font-bold text-gray-90" dangerouslySetInnerHTML={{ __html: title }}></h4>
+          <h1 className="w-full text-primary-link" dangerouslySetInnerHTML={{ __html: title }}></h1>
           <div className="flex flex-row justify-between">
             <Chip
               label={type}                

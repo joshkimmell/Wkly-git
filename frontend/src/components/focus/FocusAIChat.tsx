@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Send, Loader2, ExternalLink, Plus } from 'lucide-react';
 import supabase from '@lib/supabase';
@@ -47,6 +47,12 @@ const STARTER_PROMPTS = [
 
 const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, onAddSuggestedTask, initialMessages, onMessagesChange, initialPendingTasks, initialPendingLinks, onPendingTasksChange, onPendingLinksChange }) => {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages ?? []);
+  // true while auto-completing a message that was sent before focus mode was closed
+  const [isBackgroundResuming, setIsBackgroundResuming] = useState(false);
+
+  // Flags for one-shot background resume
+  const shouldAutoResumeRef = useRef(false);
+  const didAutoResumeRef = useRef(false);
 
   // If the parent loads a session after mount and passes non-empty initialMessages, sync once
   const didSyncRef = useRef(false);
@@ -54,9 +60,28 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
     if (!didSyncRef.current && initialMessages && initialMessages.length > 0) {
       didSyncRef.current = true;
       setMessages(initialMessages);
+      // If last message is from user, the AI never responded — resume in background
+      const lastMsg = initialMessages[initialMessages.length - 1];
+      if (lastMsg.role === 'user') {
+        shouldAutoResumeRef.current = true;
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialMessages]);
+
+  // After messages state settles, trigger the background resume (runs once)
+  useEffect(() => {
+    if (shouldAutoResumeRef.current && !didAutoResumeRef.current && messages.length > 0) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg.role === 'user') {
+        didAutoResumeRef.current = true;
+        shouldAutoResumeRef.current = false;
+        resumeBackgroundRef.current?.(messages);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
+
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [pendingTasks, setPendingTasks] = useState<SuggestedTask[]>(initialPendingTasks ?? []);
@@ -86,6 +111,48 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
   const [addedTaskIds, setAddedTaskIds] = useState<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Stable ref so the one-shot resume effect can call without stale closures
+  const resumeBackgroundRef = useRef<((msgs: ChatMessage[]) => void) | null>(null);
+
+  // Complete an unanswered user message (sent before focus mode was closed)
+  const resumeBackground = useCallback(async (currentMessages: ChatMessage[]) => {
+    setIsBackgroundResuming(true);
+    setLoading(true);
+    setPendingTasks([]);
+    setPendingLinks([]);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch('/.netlify/functions/focusChat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ taskTitle, taskDescription, goalTitle, messages: currentMessages }),
+      });
+      if (!res.ok) throw new Error('Request failed');
+      const data = await res.json();
+      const assistantMsg: ChatMessage = { role: 'assistant', content: data.message };
+      const updated = [...currentMessages, assistantMsg];
+      setMessages(updated);
+      onMessagesChange?.(updated);
+      if (data.suggestedTasks?.length) setPendingTasks(data.suggestedTasks);
+      if (data.suggestedLinks?.length) setPendingLinks(data.suggestedLinks);
+    } catch {
+      const errMsg: ChatMessage = { role: 'assistant', content: "Sorry, I couldn't connect. Please try again." };
+      const updated = [...currentMessages, errMsg];
+      setMessages(updated);
+      onMessagesChange?.(updated);
+    } finally {
+      setLoading(false);
+      setIsBackgroundResuming(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskTitle, taskDescription, goalTitle, onMessagesChange]);
+
+  // Keep stable ref in sync
+  useEffect(() => {
+    resumeBackgroundRef.current = resumeBackground;
+  }, [resumeBackground]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -164,7 +231,7 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
                 <button
                   key={p}
                   onClick={() => send(p)}
-                  className="text-xs px-3 py-1.5 rounded-full border border-brand-50/40 text-brand-30 hover:bg-brand-60/20 transition-colors"
+                  className="btn-primary px-3 rounded-full transition-colors"
                 >
                   {p}
                 </button>
@@ -179,7 +246,7 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
               className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
                 msg.role === 'user'
                   ? 'bg-brand-60 text-white rounded-br-sm'
-                  : 'bg-brand-90 dark:bg-brand-90 text-primary-text rounded-bl-sm border border-gray-70'
+                  : 'bg-gray-20/60 dark:bg-gray-90/40 text-primary-text rounded-bl-sm border border-primary-border'
               }`}
             >
               {msg.role === 'assistant' ? (
@@ -195,17 +262,17 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
 
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-gray-80 border border-gray-70 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-2 text-secondary-text text-sm">
+            <div className="bg-gray-20 dark:bg-gray-80 border border-gray-20 dark:border-gray-70 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-2 text-secondary-text text-sm">
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Thinking…</span>
+              <span>{isBackgroundResuming ? 'Resuming from background…' : 'Thinking…'}</span>
             </div>
           </div>
         )}
 
         {/* Suggested links after last AI message */}
         {pendingLinks.length > 0 && (
-          <div className="rounded-md border border-brand-50/30 bg-brand-95/30 p-3 space-y-2">
-            <p className="text-xs font-semibold text-brand-30 uppercase tracking-wide">Suggested Resources</p>
+          <div className="rounded-md border border-primary-border bg-primary-background p-3 space-y-2">
+            <p className="text-xs font-semibold text-primary-text uppercase tracking-wide">Suggested Resources</p>
             {pendingLinks.map((link, i) => (
               <a
                 key={i}
@@ -216,9 +283,9 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
               >
                 <div>
                     <div>
-                        <span className="flex gap-2 text-sm text-brand-40 group-hover:text-brand-30 underline underline-offset-2">
+                        <span className="flex gap-2 text-sm text-primary-link group-hover:text-secondary-link underline underline-offset-2">
                             {link.label}
-                            <ExternalLink className="w-3.5 h-3.5 text-brand-40 mt-1 shrink-0" />
+                            <ExternalLink className="w-3.5 h-3.5 text-primary-link mt-1 shrink-0" />
                         </span>
                     <p className="text-xs text-secondary-text mt-0.5">{link.reason}</p>
                     </div>
@@ -230,8 +297,8 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
 
         {/* Suggested tasks after last AI message */}
         {pendingTasks.length > 0 && (
-          <div className="rounded-xl border border-emerald-50/30 bg-emerald-95/30 p-3 space-y-2">
-            <p className="text-xs font-semibold text-emerald-30 uppercase tracking-wide">Suggested Tasks to Capture</p>
+          <div className="rounded-md border border-primary-border bg-primary-background p-3 space-y-2">
+            <p className="text-xs font-semibold text-primary-text uppercase tracking-wide">Suggested Tasks to Capture</p>
             {pendingTasks.map((task, i) => {
               const added = addedTaskIds.has(task.title);
               return (
@@ -245,11 +312,11 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
                     disabled={added}
                     className={`shrink-0 flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md font-medium transition-colors ${
                       added
-                        ? 'bg-gray-70 text-gray-50 cursor-default'
+                        ? 'bg-gray-30 dark:bg-gray-70 text-gray-50 cursor-default'
                         : 'bg-emerald-60 hover:bg-emerald-70 text-white'
                     }`}
                   >
-                    {added ? 'Added' : <><Plus className="w-3 h-3" /> Add</>}
+                    {added ? 'Added' : <><Plus className="w-3 h-3" /> Capture</>}
                   </button>
                 </div>
               );
@@ -261,7 +328,7 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
       </div>
 
       {/* Input area */}
-      <div className="pt-3 border-t border-gray-80 flex gap-2 items-end">
+      <div className="pt-3 border-t border-gray-20 dark:border-gray-80 flex gap-2 items-end">
         <textarea
           ref={inputRef}
           value={input}
@@ -269,7 +336,7 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
           onKeyDown={handleKeyDown}
           placeholder="Ask anything… (Enter to send)"
           rows={2}
-          className="flex-1 rounded-md border border-gray-70 bg-gray-90 text-primary-text placeholder:text-secondary-text text-sm p-3 resize-none focus:outline-none focus:border-brand-50 transition-colors"
+          className="flex-1 rounded-md border border-gray-30 dark:border-gray-70 bg-gray-10 dark:bg-gray-90 text-primary-text placeholder:text-secondary-text text-sm p-3 resize-none focus:outline-none focus:border-brand-50 transition-colors"
         />
         <button
           onClick={() => send()}

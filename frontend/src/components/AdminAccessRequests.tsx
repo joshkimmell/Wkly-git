@@ -259,9 +259,11 @@ const AdminAccessRequests: React.FC = () => {
       <div className="flex justify-between items-center mb-6">
         <Typography variant="h4">Access Management</Typography>
         <Tooltip title="Refresh">
-          <IconButton onClick={() => activeTab === 0 ? fetchRequests() : fetchApprovedUsers()} disabled={loading}>
-            <RefreshCw className={loading ? 'animate-spin' : ''} />
-          </IconButton>
+          <span>
+            <IconButton onClick={() => activeTab === 0 ? fetchRequests() : fetchApprovedUsers()} disabled={loading}>
+              <RefreshCw className={loading ? 'animate-spin' : ''} />
+            </IconButton>
+          </span>
         </Tooltip>
       </div>
 

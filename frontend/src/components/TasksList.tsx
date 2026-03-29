@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import supabase from '@lib/supabase';
 import { Task } from '@utils/goalUtils';
 import { notifySuccess, notifyError, notifyWithUndo } from './ToastyNotification';
-import { TextField, ToggleButtonGroup, ToggleButton, Tooltip, IconButton, Collapse, Badge, Menu, MenuItem, Button, FormControl, InputLabel, Select, FormControlLabel, Switch, Alert } from '@mui/material';
-import { List, LayoutGrid, Calendar as CalendarIcon, Plus, X, CheckSquare2, SquareSlash, Kanban, Bell } from 'lucide-react';
+import { TextField, ToggleButtonGroup, ToggleButton, Tooltip, IconButton, Collapse, Badge, Menu, MenuItem, FormControl, InputLabel, Select, FormControlLabel, Switch } from '@mui/material';
+import { List, Calendar as CalendarIcon, Plus, X, CheckSquare2, SquareSlash, Kanban, Bell } from 'lucide-react';
 import { DatePicker, TimePicker, DateTimePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -23,11 +23,12 @@ interface TasksListProps {
   goalDescription: string;
   goalCategory?: string;
   onTaskCountChange?: (count: number) => void;
+  onBeforeFocusMode?: () => void; // Propagated to TaskCard — lets parent close overlapping dialogs
 }
 
 type ViewMode = 'list' | 'kanban' | 'calendar';
 
-const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescription, goalCategory, onTaskCountChange }) => {
+const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescription, goalCategory, onTaskCountChange, onBeforeFocusMode }) => {
   const { timezone } = useTimezone();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -427,7 +428,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
     }
   };
 
-  const rescheduleTask = async (taskId: string, newDate: string) => {
+  const rescheduleTask = async (taskId: string, newDate: string | null) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
@@ -960,6 +961,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
                 selectable
                 isSelected={selectedIds.has(task.id)}
                 onToggleSelect={toggleSelect}
+                onBeforeFocusMode={onBeforeFocusMode}
               />
             );
           })}
@@ -988,6 +990,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
           onEdit={startEdit}
           onDelete={deleteTask}
           onReschedule={rescheduleTask}
+          onUnschedule={(id) => rescheduleTask(id, null)}
         />
       )}
 

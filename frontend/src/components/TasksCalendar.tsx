@@ -4,7 +4,6 @@ import TaskCard from './TaskCard';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { IconButton, Tooltip } from '@mui/material';
 import { useTouchDrag } from '@hooks/useTouchDrag';
-import { useTimezone } from '@context/TimezoneContext';
 
 interface TasksCalendarProps {
   tasks: Task[];
@@ -13,6 +12,7 @@ interface TasksCalendarProps {
   onEdit?: (task: Task) => void;
   onDelete?: (taskId: string) => void;
   onReschedule?: (taskId: string, newDate: string) => void;
+  onUnschedule?: (taskId: string) => void;
 }
 
 const TasksCalendar: React.FC<TasksCalendarProps> = ({
@@ -22,6 +22,7 @@ const TasksCalendar: React.FC<TasksCalendarProps> = ({
   onEdit,
   onDelete,
   onReschedule,
+  onUnschedule,
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
@@ -200,6 +201,7 @@ const TasksCalendar: React.FC<TasksCalendarProps> = ({
                       onUpdate={onUpdate}
                       onEdit={onEdit}
                       onDelete={onDelete}
+                      onUnschedule={onUnschedule}
                       draggable
                       onDragStart={handleDragStart}
                       compact

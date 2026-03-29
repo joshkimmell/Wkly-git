@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Task } from '@utils/goalUtils';
+import { useGoalsContext } from '@context/GoalsContext';
 import TaskCard from './TaskCard';
 import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
-import { ChevronLeft, ChevronRight, Calendar, CalendarX } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import supabase from '@lib/supabase';
 import { useTouchDrag } from '@hooks/useTouchDrag';
 import { 
@@ -55,23 +56,60 @@ export default function AllTasksCalendar({
 }: AllTasksCalendarProps) {
   const [tasks, setTasks] = useState<TaskWithGoal[]>([]);
   const [loading, setLoading] = useState(true);
+  const { goals } = useGoalsContext();
+
+  // Build a stable category map from goals context
+  const goalCategoryMap = useMemo(() => {
+    const map = new Map<string, string>();
+    goals.forEach((g) => map.set(g.id, g.category));
+    return map;
+  }, [goals]);
+
+  // Track previous category map to detect changes
+  const prevCategoryMapRef = useRef<Map<string, string>>(new Map());
+
+  // Patch task.goal.category whenever a goal's category changes in the context
+  useEffect(() => {
+    const prev = prevCategoryMapRef.current;
+    let changed = false;
+    goalCategoryMap.forEach((newCat, goalId) => {
+      if (prev.get(goalId) !== newCat) changed = true;
+    });
+    if (!changed) return;
+    prevCategoryMapRef.current = new Map(goalCategoryMap);
+    setTasks((prevTasks) =>
+      prevTasks.map((t) => {
+        if (!t.goal) return t;
+        const latestCat = goalCategoryMap.get(t.goal.id);
+        if (latestCat === undefined || latestCat === t.goal.category) return t;
+        return { ...t, goal: { ...t.goal, category: latestCat } };
+      }),
+    );
+  }, [goalCategoryMap]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'day' | '3day' | 'week' | 'month'>(
-    () => window.matchMedia('(min-width: 900px)').matches ? 'week' : 'day'
+    () => {
+      if (window.matchMedia('(min-width: 1200px)').matches) return 'week';
+      if (window.matchMedia('(min-width: 900px)').matches) return '3day';
+      return 'day';
+    }
   );
   const [taskIdToEdit, setTaskIdToEdit] = useState<string | null>(null);
   
   const theme = useTheme();
   const isMdUp = useMediaQuery(theme.breakpoints.up('md'));
+  const isLgUp = useMediaQuery(theme.breakpoints.up('lg'));
 
-  // Responsive view mode: downgrade on small screens, upgrade on large screens
+  // Responsive view mode: small=day, md=3day, lg+=week
   useEffect(() => {
-    if (!isMdUp && (viewMode === 'week' || viewMode === 'month')) {
+    if (!isMdUp) {
       setViewMode('day');
-    } else if (isMdUp && (viewMode === 'day' || viewMode === '3day')) {
+    } else if (isMdUp && !isLgUp) {
+      setViewMode('3day');
+    } else if (isLgUp) {
       setViewMode('week');
     }
-  }, [isMdUp]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isMdUp, isLgUp]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch all tasks
   const fetchAllTasks = async () => {
@@ -619,12 +657,13 @@ export default function AllTasksCalendar({
                   <div className="text-sm font-medium mb-1 text-gray-70 dark:text-gray-30">{date.getDate()}</div>
                   <div className="space-y-1">
                     {dayTasks.map((task) => (
-                      <div key={task.id} className="relative group/cal-task" {...getTouchProps(task.id)}>
+                      <div key={task.id} {...getTouchProps(task.id)}>
                         <TaskCard
                           task={task as Task}
                           onStatusChange={(id, status) => handleStatusChange(id, status)}
                           onUpdate={handleUpdateTask}
                           onDelete={handleDeleteTask}
+                          onUnschedule={handleUnscheduleTask}
                           draggable
                           onDragStart={handleDragStart}
                           compact
@@ -636,16 +675,6 @@ export default function AllTasksCalendar({
                           onToggleSelect={onToggleSelect ? (id) => onToggleSelect(id, 'tasks') : undefined}
                           autoOpenEditModal={taskIdToEdit === task.id}
                         />
-                        <Tooltip title="Remove from calendar" placement="top" arrow>
-                          <button
-                            type="button"
-                            className="absolute top-3 right-12 z-10 opacity-0 group-hover/cal-task:opacity-100 transition-opacity btn-ghost !p-0.5"
-                            onClick={(e) => { e.stopPropagation(); handleUnscheduleTask(task.id); }}
-                            aria-label="Remove from calendar"
-                          >
-                            <CalendarX className="w-5 h-5" />
-                          </button>
-                        </Tooltip>
                       </div>
                     ))}
                   </div>
@@ -687,12 +716,13 @@ export default function AllTasksCalendar({
                 </div>
                 <div className="space-y-1">
                   {dayTasks.map((task) => (
-                    <div key={task.id} className="relative group/cal-task" {...getTouchProps(task.id)}>
+                    <div key={task.id} {...getTouchProps(task.id)}>
                       <TaskCard
                         task={task as Task}
                         onStatusChange={(id, status) => handleStatusChange(id, status)}
                         onUpdate={handleUpdateTask}
                         onDelete={handleDeleteTask}
+                        onUnschedule={handleUnscheduleTask}
                         draggable
                         onDragStart={handleDragStart}
                         compact
@@ -704,16 +734,6 @@ export default function AllTasksCalendar({
                         onToggleSelect={onToggleSelect ? (id) => onToggleSelect(id, 'tasks') : undefined}
                         autoOpenEditModal={taskIdToEdit === task.id}
                       />
-                      <Tooltip title="Remove from calendar" placement="top" arrow>
-                        <button
-                          type="button"
-                          className="absolute top-3 right-12 z-10 opacity-0 group-hover/cal-task:opacity-100 transition-opacity btn-ghost !p-0.5"
-                          onClick={(e) => { e.stopPropagation(); handleUnscheduleTask(task.id); }}
-                          aria-label="Remove from calendar"
-                        >
-                          <CalendarX className="w-5 h-5" />
-                        </button>
-                      </Tooltip>
                     </div>
                   ))}
                 </div>
@@ -745,12 +765,13 @@ export default function AllTasksCalendar({
                 </div>
                 <div className="space-y-1">
                   {dayTasks.map((task) => (
-                    <div key={task.id} className="relative group/cal-task" {...getTouchProps(task.id)}>
+                    <div key={task.id} {...getTouchProps(task.id)}>
                       <TaskCard
                         task={task as Task}
                         onStatusChange={(id, status) => handleStatusChange(id, status)}
                         onUpdate={handleUpdateTask}
                         onDelete={handleDeleteTask}
+                        onUnschedule={handleUnscheduleTask}
                         draggable
                         onDragStart={handleDragStart}
                         compact
@@ -762,16 +783,6 @@ export default function AllTasksCalendar({
                         onToggleSelect={onToggleSelect ? (id) => onToggleSelect(id, 'tasks') : undefined}
                         autoOpenEditModal={taskIdToEdit === task.id}
                       />
-                      <Tooltip title="Remove from calendar" placement="top" arrow>
-                        <button
-                          type="button"
-                          className="absolute top-3 right-12 z-10 btn-ghost !p-0.5"
-                          onClick={(e) => { e.stopPropagation(); handleUnscheduleTask(task.id); }}
-                          aria-label="Remove from calendar"
-                        >
-                          <CalendarX className="w-5 h-5" />
-                        </button>
-                      </Tooltip>
                     </div>
                   ))}
                 </div>
@@ -818,12 +829,13 @@ export default function AllTasksCalendar({
           </div>
           <div className="space-y-1">
             {selectedDayTasks.map((task) => (
-              <div key={task.id} className="relative group/cal-task" {...getTouchProps(task.id)}>
+              <div key={task.id} {...getTouchProps(task.id)}>
                 <TaskCard
                   task={task as Task}
                   onStatusChange={(id, status) => handleStatusChange(id, status)}
                   onUpdate={handleUpdateTask}
                   onDelete={handleDeleteTask}
+                  onUnschedule={handleUnscheduleTask}
                   draggable
                   onDragStart={handleDragStart}
                   compact
@@ -835,16 +847,6 @@ export default function AllTasksCalendar({
                   onToggleSelect={onToggleSelect ? (id) => onToggleSelect(id, 'tasks') : undefined}
                   autoOpenEditModal={taskIdToEdit === task.id}
                 />
-                <Tooltip title="Remove from calendar" placement="top" arrow>
-                  <button
-                    type="button"
-                    className="absolute top-2 right-12 z-10 transition-opacity btn-ghost !p-2"
-                    onClick={(e) => { e.stopPropagation(); handleUnscheduleTask(task.id); }}
-                    aria-label="Remove from calendar"
-                  >
-                    <CalendarX className="w-5 h-5" />
-                  </button>
-                </Tooltip>
               </div>
             ))}
           </div>

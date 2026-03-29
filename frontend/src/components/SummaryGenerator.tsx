@@ -19,7 +19,7 @@ interface SummaryGeneratorProps {
   summaryId: string;
   summaryTitle: string | null;
   selectedRange: Date;
-  filteredGoals: { title: string; description: string; category: string; accomplishments?: string[] }[];
+  filteredGoals: { title: string; description: string; category: string; wins?: string[] }[];
   content?: string | null;
   // summaryType: 'AI' | 'User';
   scope: 'week' | 'month' | 'year'; // Add scope to the props
@@ -110,13 +110,13 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
 
       const userId = user.id;
 
-      const goalsWithAccomplishments = filteredGoals.map(goal => ({
+      const goalsWithWins = filteredGoals.map(goal => ({
         title: goal.title,
         description: goal.description,
         category: goal.category || 'Technical skills',
-        accomplishments: (goal.accomplishments || []).map(accomplishment => ({
-          title: accomplishment,
-          description: accomplishment,
+        accomplishments: (goal.wins || []).map(win => ({
+          title: win,
+          description: win,
           impact: 'Medium',
         })),
         
@@ -131,8 +131,8 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
         const archivedGoals = await fetchGoalsForRange(weekStart, scopeEnd.toISOString().split('T')[0], true);
         const archived = archivedGoals.filter(g => g.is_archived);
         archived.forEach(g => {
-          if (!goalsWithAccomplishments.some(x => x.title === g.title && x.description === g.description)) {
-            goalsWithAccomplishments.push({ title: g.title, description: g.description, category: g.category || 'Technical skills', accomplishments: [] });
+          if (!goalsWithWins.some(x => x.title === g.title && x.description === g.description)) {
+            goalsWithWins.push({ title: g.title, description: g.description, category: g.category || 'Technical skills', accomplishments: [] });
           }
         });
       } catch (e) {
@@ -147,7 +147,7 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
         correctTitle,
         userId,
         weekStart,
-        goalsWithAccomplishments
+        goalsWithWins
       );
 
       setSummary(generatedSummary);
@@ -185,13 +185,13 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
       // Filter goals based on selection
       const selectedGoals = filteredGoals.filter((_, idx) => selectedGoalIds.has(idx.toString()));
       
-      const goalsWithAccomplishments = selectedGoals.map(goal => ({
+      const goalsWithWins = selectedGoals.map(goal => ({
         title: goal.title,
         description: goal.description,
         category: goal.category || 'Technical skills',
-        accomplishments: (goal.accomplishments || []).map(accomplishment => ({
-          title: accomplishment,
-          description: accomplishment,
+        accomplishments: (goal.wins || []).map(win => ({
+          title: win,
+          description: win,
           impact: 'Medium',
         })),
       }));
@@ -221,8 +221,8 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
           const archivedGoals = await fetchGoalsForRange(weekStart, scopeEnd, true);
           const archived = archivedGoals.filter(g => g.is_archived);
           archived.forEach(g => {
-            if (!goalsWithAccomplishments.some(x => x.title === g.title && x.description === g.description)) {
-              goalsWithAccomplishments.push({ title: g.title, description: g.description, category: g.category || 'Technical skills', accomplishments: [] });
+            if (!goalsWithWins.some(x => x.title === g.title && x.description === g.description)) {
+              goalsWithWins.push({ title: g.title, description: g.description, category: g.category || 'Technical skills', accomplishments: [] });
             }
           });
         } catch (e) {
@@ -236,7 +236,7 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
         summaryTitle || generateSummaryTitle(selectedScope, selectedRange),
         userId,
         weekStart,
-        goalsWithAccomplishments,
+        goalsWithWins,
         responseLength, // Pass the updated response length
         additionalContext // Pass additional context as separate parameter
       );

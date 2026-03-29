@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useGoalsContext } from '@context/GoalsContext';
 import supabase from '@lib/supabase'; // Ensure this is the correct path to your Supabase client
 // import { handleDeleteGoal } from '@utils/functions';
-import { Goal, Accomplishment, Task, calculateGoalCompletion } from '@utils/goalUtils'; // Adjust the import path as necessary
+import { Goal, Win, Task, calculateGoalCompletion } from '@utils/goalUtils'; // Adjust the import path as necessary
 import { Trash, Edit, Award, X as CloseButton, ChevronUp, ChevronDown, MoveHorizontal, ListTodo } from 'lucide-react';
 import { FileText as NotesIcon, Plus as PlusIcon, Save as SaveIcon } from 'lucide-react';
 import TasksList from './TasksList'; // Import TasksList component
 import GoalCompletionDonut from './GoalCompletionDonut';
-import { TextField, Tooltip, IconButton, Checkbox } from '@mui/material';
+import { TextField, Tooltip, IconButton } from '@mui/material';
 import type { ChangeEvent } from 'react';
 // import { STATUSES, STATUS_COLORS, type Status } from '../constants/statuses';
 import { cardClasses, modalClasses, objectCounter, overlayClasses } from '@styles/classes'; // Adjust the import path as necessary
@@ -15,8 +15,8 @@ import useGoalExtras from '@hooks/useGoalExtras';
 import { notifyError, notifySuccess } from './ToastyNotification';
 // import { Link } from 'react-router-dom';
 import { applyHighlight } from '@utils/functions'; // Adjust the import path as necessary
-import AccomplishmentEditor from './AccomplishmentEditor'; // Import the AccomplishmentEditor component
-import AccomplishmentsModal from './AccomplishmentsModal';
+import WinEditor from './WinEditor'; // Import the WinEditor component
+import WinsModal from './WinsModal';
 import ConfirmModal from './ConfirmModal';
 
 // interface GoalKanbanCardProps {
@@ -65,13 +65,13 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
   //   // Implement the edit logic here
     // console.log('Editing goal');
   // };
-  const [accomplishments, setAccomplishments] = useState<Accomplishment[]>([]);
-  const [isAccomplishmentModalOpen, setIsAccomplishmentModalOpen] = useState(false);
+  const [wins, setWins] = useState<Win[]>([]);
+  const [isWinModalOpen, setIsWinModalOpen] = useState(false);
   // expansion no longer used; kept out
-  // accomplishments handled via AccomplishmentsModal onCreate
-  const [isEditAccomplishmentModalOpen, setIsEditAccomplishmentModalOpen] = useState(false);
-  const [selectedAccomplishment, setSelectedAccomplishment] = useState<Accomplishment | null>(null);
-  const [isAccomplishmentLoading, setIsAccomplishmentLoading] = useState(false);
+  // wins handled via WinsModal onCreate
+  const [isEditWinModalOpen, setIsEditWinModalOpen] = useState(false);
+  const [selectedWin, setSelectedWin] = useState<Win | null>(null);
+  const [isWinLoading, setIsWinLoading] = useState(false);
   const [isNotesLoading, setIsNotesLoading] = useState(false);
   // Notes state
   const [notes, setNotes] = useState<Array<{ id: string; content: string; created_at: string; updated_at: string }>>([]);
@@ -93,21 +93,21 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
 
   // Cache the current authenticated user's id to avoid repeated supabase.auth.getUser() calls
   const userIdRef = React.useRef<string | null>(null);
-  const getCachedUserId = async () => {
-    if (userIdRef.current) return userIdRef.current;
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        userIdRef.current = user.id;
-        return user.id;
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
-  };
+  // const getCachedUserId = async () => {
+  //   if (userIdRef.current) return userIdRef.current;
+  //   try {
+  //     const { data: { user } } = await supabase.auth.getUser();
+  //     if (user) {
+  //       userIdRef.current = user.id;
+  //       return user.id;
+  //     }
+  //     return null;
+  //   } catch (e) {
+  //     return null;
+  //   }
+  // };
   // Shared counts and helpers
-  const { notesCountMap, accomplishmentCountMap, tasksCountMap, fetchNotesCount, fetchAccomplishmentsCount, refreshNotesAndCount, refreshAccomplishmentsAndCount } = useGoalExtras();
+  const { notesCountMap, winCountMap, tasksCountMap, fetchNotesCount, fetchWinsCount, refreshNotesAndCount, refreshWinsAndCount } = useGoalExtras();
 
   // Proactively prime counts for Kanban cards without waiting for user interaction.
   // Only fetch when we don't already have a cached value to avoid duplicate requests.
@@ -118,13 +118,13 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
     if (notesCountMap[goal.id] === undefined) {
       (async () => { try { await refreshNotesAndCount(goal.id); } catch (e) { /* ignore */ } })();
     }
-    if (accomplishmentCountMap[goal.id] === undefined) {
-      (async () => { try { await refreshAccomplishmentsAndCount(goal.id); } catch (e) { /* ignore */ } })();
+    if (winCountMap[goal.id] === undefined) {
+      (async () => { try { await refreshWinsAndCount(goal.id); } catch (e) { /* ignore */ } })();
     }
     // Intentionally only depend on goal id and the stable fetch helpers so this
     // effect doesn't re-run when unrelated goals' counts update (which would
     // otherwise cause all cards to refetch in response to any badge change).
-  }, [goal?.id, fetchNotesCount, fetchAccomplishmentsCount]);
+  }, [goal?.id, fetchNotesCount, fetchWinsCount]);
 
   // const [localStatus, setLocalStatus] = useState<string | undefined>(goal.status);
   // const [statusAnchorEl, setStatusAnchorEl] = useState<null | HTMLElement>(null);
@@ -135,34 +135,34 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
   const { subscribeToTempId } = useGoalsContext();
 
   const openModal = () => {
-    if (!isAccomplishmentModalOpen) {
-      setIsAccomplishmentModalOpen(true);
+    if (!isWinModalOpen) {
+      setIsWinModalOpen(true);
     }
   };
 
   const closeModal = () => {
-    if (isAccomplishmentModalOpen) {
-      setIsAccomplishmentModalOpen(false);
+    if (isWinModalOpen) {
+      setIsWinModalOpen(false);
     }
   };
 
-  const openEditAccomplishmentModal = (accomplishment: Accomplishment) => {
-    setSelectedAccomplishment(accomplishment);
-    setIsEditAccomplishmentModalOpen(true);
+  const openEditWinModal = (win: Win) => {
+    setSelectedWin(win);
+    setIsEditWinModalOpen(true);
   };
 
-  const closeEditAccomplishmentModal = () => {
-    setSelectedAccomplishment(null);
-    setIsEditAccomplishmentModalOpen(false);
+  const closeEditWinModal = () => {
+    setSelectedWin(null);
+    setIsEditWinModalOpen(false);
   };
 
-  // Fetch accomplishments from the backend
-  const fetchAccomplishments = async (idArg?: string) => {
+  // Fetch wins from the backend
+  const fetchWins = async (idArg?: string) => {
     try {
       const idToUse = idArg ?? goal.id;
       // If this goal is an optimistic temporary item (client-side id), skip server requests
       if (typeof idToUse === 'string' && idToUse.startsWith('temp-')) {
-        setAccomplishments([]);
+        setWins([]);
         return;
       }
       const { data, error } = await supabase
@@ -171,13 +171,13 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
         .eq('goal_id', idToUse);
 
       if (error) {
-        console.error('Error fetching accomplishments:', error.message);
+        console.error('Error fetching wins:', error.message);
         return;
       }
 
-      setAccomplishments(data || []);
+      setWins(data || []);
     } catch (err) {
-      console.error('Unexpected error fetching accomplishments:', err);
+      console.error('Unexpected error fetching wins:', err);
     }
   };
 
@@ -298,46 +298,46 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
     }
   };
 
-  const deleteAccomplishment = async (accomplishmentId: string) => {
+  const deleteWin = async (winId: string) => {
     // optimistic delete
-    const prior = accomplishments;
-    setAccomplishments((s) => s.filter((a) => a.id !== accomplishmentId));
-    setIsAccomplishmentLoading(true);
+    const prior = wins;
+    setWins((s) => s.filter((a) => a.id !== winId));
+    setIsWinLoading(true);
     try {
       const { error } = await supabase
         .from('accomplishments')
         .delete()
-        .eq('id', accomplishmentId);
+        .eq('id', winId);
 
       if (error) {
-        console.error('Error deleting accomplishment:', error.message);
+        console.error('Error deleting win:', error.message);
         // rollback
-        setAccomplishments(prior);
-        notifyError('Error deleting accomplishment.');
+        setWins(prior);
+        notifyError('Error deleting win.');
         return;
       }
 
-  notifySuccess('Accomplishment deleted successfully.');
-  // ensure shared accomplishments count is refreshed for this goal
-  try { await fetchAccomplishmentsCount?.(goal.id); } catch (e) { /* ignore */ }
+  notifySuccess('Win deleted successfully.');
+  // ensure shared wins count is refreshed for this goal
+  try { await fetchWinsCount?.(goal.id); } catch (e) { /* ignore */ }
     } catch (err) {
-      console.error('Unexpected error deleting accomplishment:', err);
-      setAccomplishments(prior);
-      notifyError('Error deleting accomplishment.');
+      console.error('Unexpected error deleting win:', err);
+      setWins(prior);
+      notifyError('Error deleting win.');
     } finally {
-      setIsAccomplishmentLoading(false);
+      setIsWinLoading(false);
     }
   };
 
-  const saveEditedAccomplishment = async (
+  const saveEditedWin = async (
     updatedDescription?: string,
     updatedTitle?: string,
     updatedImpact?: string
   ) => {
-    if (!selectedAccomplishment) return;
+    if (!selectedWin) return;
 
     try {
-      setIsAccomplishmentLoading(true);
+      setIsWinLoading(true);
       const { error } = await supabase
         .from('accomplishments')
         .update({
@@ -346,29 +346,29 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
           description: updatedDescription && updatedDescription.trim() ? updatedDescription : null,
           impact: updatedImpact || null,
         })
-        .eq('id', selectedAccomplishment.id);
+        .eq('id', selectedWin.id);
 
       if (error) {
-        console.error('Error saving edited accomplishment:', error.message);
-        notifyError('Error saving edited accomplishment.');
+        console.error('Error saving edited win:', error.message);
+        notifyError('Error saving edited win.');
         return;
       }
 
-      // Refresh the accomplishments list after saving
-      fetchAccomplishments();
-      notifySuccess('Accomplishment updated successfully.');
-      closeEditAccomplishmentModal();
+      // Refresh the wins list after saving
+      fetchWins();
+      notifySuccess('Win updated successfully.');
+      closeEditWinModal();
     } catch (err) {
-      console.error('Unexpected error saving edited accomplishment:', err);
-      notifyError('Error saving edited accomplishment.');
+      console.error('Unexpected error saving edited win:', err);
+      notifyError('Error saving edited win.');
     } finally {
-      setIsAccomplishmentLoading(false);
+      setIsWinLoading(false);
     }
   };
 
-  // Fetch accomplishments when the component mounts
+  // Fetch wins when the component mounts
   useEffect(() => {
-    fetchAccomplishments();
+    fetchWins();
 
     // Preload notes only after an authenticated user is available.
     // We no longer eagerly preload notes for every GoalCard on mount because that can
@@ -418,7 +418,7 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
   // }, [goal.status]);
 
   // Subscribe to temp-id replacement so this component can proactively fetch
-  // accomplishments and notes even if the parent doesn't re-render immediately.
+  // wins and notes even if the parent doesn't re-render immediately.
   useEffect(() => {
     // only subscribe for client-side temp ids
     if (!(typeof goal.id === 'string' && goal.id.startsWith('temp-'))) return;
@@ -426,8 +426,8 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
       // When the temp id is replaced, fetch related resources using the new id
       (async () => {
         try {
-          // fetch accomplishments and notes for the new server id
-          await fetchAccomplishments(_newId);
+          // fetch wins and notes for the new server id
+          await fetchWins(_newId);
         } catch (e) {
           // ignore
         }
@@ -442,7 +442,7 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
     return () => unsubscribe();
   }, [goal.id, subscribeToTempId]);
 
-  // accomplishment creation now handled via AccomplishmentsModal onCreate (optimistic updates)
+  // win creation now handled via WinsModal onCreate (optimistic updates)
 
    // Use shared HTML-producing highlight helper and render via dangerouslySetInnerHTML
       const renderHTML = (text?: string | null) => ({ __html: applyHighlight(text ?? '', filter) });
@@ -517,16 +517,16 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
           </>
         ) : null}
       </div>
-      {/* Footer with accomplishments and actions */}
+      {/* Footer with wins and actions */}
       <footer className="mt-2 text-sm text-gray-50 dark:text-gray-30 flex flex-col items-left justify-between">
           <div className='flex flex-row w-full justify-end items-end gap-2'>
-            <Tooltip title="Accomplishments" placement="top" arrow>
+            <Tooltip title="Wins" placement="top" arrow>
               <span>
-                <IconButton aria-label="Accomplishments" onClick={() => openModal()} size="small" className="btn-ghost">
-                  {(accomplishmentCountMap[goal.id] ?? accomplishments.length) > 0 && (
-                    <div className={objectCounter}>{accomplishmentCountMap[goal.id] ?? accomplishments.length}</div>
+                <IconButton aria-label="Wins" onClick={() => openModal()} size="small" className="btn-ghost">
+                  {(winCountMap[goal.id] ?? wins.length) > 0 && (
+                    <div className={objectCounter}>{winCountMap[goal.id] ?? wins.length}</div>
                   )}
-                  <Award className="w-5 h-5 inline" name="Add accomplishment" />
+                  <Award className="w-5 h-5 inline" name="Add win" />
                 </IconButton>
               </span>
             </Tooltip>
@@ -573,18 +573,18 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
 
       
         
-    {/* Accomplishments modal (extracted component) */}
-    <AccomplishmentsModal
+    {/* Wins modal (extracted component) */}
+    <WinsModal
       goalTitle={goal.title}
-      isOpen={isAccomplishmentModalOpen}
+      isOpen={isWinModalOpen}
       onClose={closeModal}
-      accomplishments={accomplishments}
+      wins={wins}
       onCreate={async ({ title, description, impact }) => {
         // optimistic create
         const tempId = `temp-${Date.now()}`;
-        const temp = { id: tempId, title, description, impact: impact || '', created_at: new Date().toISOString() } as Accomplishment;
-        setAccomplishments((s) => [temp, ...s]);
-        setIsAccomplishmentLoading(true);
+        const temp = { id: tempId, title, description, impact: impact || '', created_at: new Date().toISOString() } as Win;
+        setWins((s) => [temp, ...s]);
+        setIsWinLoading(true);
         try {
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) throw new Error('User not authenticated');
@@ -598,23 +598,23 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
           }).select();
           if (error) throw error;
           // refresh from server to replace temp with real rows
-          await fetchAccomplishments();
-          // update shared accomplishments count for this goal so badges update
-          try { await fetchAccomplishmentsCount?.(goal.id); } catch (e) { /* ignore */ }
+          await fetchWins();
+          // update shared wins count for this goal so badges update
+          try { await fetchWinsCount?.(goal.id); } catch (e) { /* ignore */ }
         } catch (err) {
-          console.error('Error creating accomplishment:', err);
+          console.error('Error creating win:', err);
           // rollback
-          setAccomplishments((s) => s.filter((a) => a.id !== tempId));
-          notifyError('Failed to create accomplishment.');
+          setWins((s) => s.filter((a) => a.id !== tempId));
+          notifyError('Failed to create win.');
         } finally {
-          setIsAccomplishmentLoading(false);
+          setIsWinLoading(false);
         }
       }}
       onDelete={async (id) => {
-        await deleteAccomplishment(id);
+        await deleteWin(id);
       }}
-      onEdit={(item) => openEditAccomplishmentModal(item)}
-      loading={isAccomplishmentLoading}
+      onEdit={(item) => openEditWinModal(item)}
+      loading={isWinLoading}
     />
     {/* Notes Modal */}
     {isNotesModalOpen && (
@@ -629,7 +629,7 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
         <div className={`${modalClasses} w-full max-w-2xl`}> 
           <div className='flex flex-row w-full justify-between items-start'>
               <h3 className="text-lg font-medium text-gray-90 mb-4">Notes for <br />"{goal.title}"</h3>
-              {/* <h4 className="text-md font-semibold mb-2">Existing accomplishments</h4> */}
+              {/* <h4 className="text-md font-semibold mb-2">Existing wins</h4> */}
               <div className="mb-4 flex justify-end">
                   <button className="btn-ghost" onClick={closeNotesModal}>
                     <CloseButton className="w-4 h-4" />
@@ -742,6 +742,7 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
               goalTitle={goal.title}
               goalDescription={goal.description}
               goalCategory={goal.category}
+              onBeforeFocusMode={() => setIsTasksModalOpen(false)}
             />
           </div>
         </div>
@@ -771,21 +772,21 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
     {/* Render children if provided */}
     {/* {children && <div className="goal-children">{children}</div>} */}
 
-    {/* Edit Accomplishment Modal */}
-    {isEditAccomplishmentModalOpen && selectedAccomplishment && (
+    {/* Edit Win Modal */}
+    {isEditWinModalOpen && selectedWin && (
       <div 
         className={`${overlayClasses} flex items-center justify-center`}
         onMouseDown={(e) => {
           // close when clicking the backdrop (only when clicking the overlay itself)
-          if (e.target === e.currentTarget) closeEditAccomplishmentModal();
+          if (e.target === e.currentTarget) closeEditWinModal();
         }}
       >
         <div className={`${modalClasses}`}>
-          <h3 className="text-lg font-medium text-gray-90 mb-4">Edit Accomplishment</h3>
-          <AccomplishmentEditor
-            accomplishment={selectedAccomplishment}
-            onSave={saveEditedAccomplishment}
-            onRequestClose={closeEditAccomplishmentModal}
+          <h3 className="text-lg font-medium text-gray-90 mb-4">Edit Win</h3>
+          <WinEditor
+            win={selectedWin}
+            onSave={saveEditedWin}
+            onRequestClose={closeEditWinModal}
           />
         </div>
       </div>
