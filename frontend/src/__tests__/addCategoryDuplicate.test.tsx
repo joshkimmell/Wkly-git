@@ -33,7 +33,7 @@ describe('addCategory duplicate handling', () => {
           headers: { get: () => 'application/json' },
         } as any;
       }
-        // Supabase REST fallback: return empty arrays for accomplishments/categories requests
+        // Supabase REST fallback: return empty arrays for wins/categories requests
         if (url.includes('.supabase.co/rest/v1')) {
           return { ok: true, status: 200, json: async () => ([]), text: async () => '[]' } as any;
         }

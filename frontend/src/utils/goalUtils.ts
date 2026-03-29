@@ -1,5 +1,5 @@
 // DO NOT USE STATE IN THIS FILE
-// This file contains utility functions for handling goals and accomplishments.
+// This file contains utility functions for handling goals and wins.
 // It should not contain any React state or hooks.
 // Instead, pass any necessary state and functions as parameters to the functions defined here.
 //
@@ -16,7 +16,7 @@ export interface FetchGoalsParams {
   supabase: SupabaseClient;
   session: Session | null;
 }
-// export interface Accomplishment {
+// export interface Win {
 //   id: string;
 //   title: string;
 //   description: string;
@@ -27,7 +27,7 @@ export interface FetchGoalsParams {
 // }
 
 
-export interface Accomplishment {
+export interface Win {
   id: string;
   title: string;
   description?: string;

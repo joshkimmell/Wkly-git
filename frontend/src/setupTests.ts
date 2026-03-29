@@ -29,7 +29,7 @@ if (!(globalThis as any).fetch) {
 			} as unknown as Response;
 		}
 
-		// Supabase REST endpoints used by hooks (categories, accomplishments)
+		// Supabase REST endpoints used by hooks (categories, wins)
 		if (url.includes('supabase.co/rest/v1')) {
 			// categories -> return array of categories
 			if (url.includes('/categories')) {
@@ -41,7 +41,7 @@ if (!(globalThis as any).fetch) {
 				} as unknown as Response;
 			}
 
-			// accomplishments -> return empty list or counts
+			// wins -> return empty list or counts
 			if (url.includes('/accomplishments')) {
 				return {
 					ok: true,

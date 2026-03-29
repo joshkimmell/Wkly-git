@@ -368,7 +368,7 @@ const Login = () => {
                     {[
                       { icon: <Target className="w-[8rem] h-[8rem] md:w-[10rem] md:h-[10rem]" />,   label: 'Prioritized goals', desc: 'Set focused goals each week' },
                       { icon: <CheckSquare className="w-[8rem] h-[8rem] md:w-[10rem] md:h-[10rem]" />, label: 'Task tracking', desc: 'Break goals into tasks' },
-                      { icon: <Award className="w-[8rem] h-[8rem] md:w-[10rem] md:h-[10rem]" />,   label: 'Accomplishments', desc: 'Capture what you achieved' },
+                      { icon: <Award className="w-[8rem] h-[8rem] md:w-[10rem] md:h-[10rem]" />,   label: 'Wins', desc: 'Capture what you achieved' },
                       { icon: <Sparkles className="w-[8rem] h-[8rem] md:w-[10rem] md:h-[10rem]" />, label: 'AI summaries', desc: 'Auto-generate progress reports' },
                     ].map(({ icon, label, desc }) => (
                       <div

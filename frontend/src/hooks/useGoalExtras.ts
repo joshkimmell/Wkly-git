@@ -1,15 +1,15 @@
 import { useState, useRef, useCallback } from 'react';
 import supabase from '@lib/supabase';
-import type { Accomplishment } from '@utils/goalUtils';
+import type { Win } from '@utils/goalUtils';
 import { notifyError, notifySuccess } from '@components/ToastyNotification';
 
 export default function useGoalExtras() {
-  const [accomplishments, setAccomplishments] = useState<Accomplishment[]>([]);
-  const [isAccomplishmentLoading, setIsAccomplishmentLoading] = useState(false);
-  const [isAccomplishmentModalOpen, setIsAccomplishmentModalOpen] = useState(false);
-  const [isEditAccomplishmentModalOpen, setIsEditAccomplishmentModalOpen] = useState(false);
-  const [selectedAccomplishment, setSelectedAccomplishment] = useState<Accomplishment | null>(null);
-  const [accomplishmentCountMap, setAccomplishmentCountMap] = useState<Record<string, number>>({});
+  const [wins, setWins] = useState<Win[]>([]);
+  const [isWinLoading, setIsWinLoading] = useState(false);
+  const [isWinModalOpen, setIsWinModalOpen] = useState(false);
+  const [isEditWinModalOpen, setIsEditWinModalOpen] = useState(false);
+  const [selectedWin, setSelectedWin] = useState<Win | null>(null);
+  const [winCountMap, setWinCountMap] = useState<Record<string, number>>({});
 
   const [notes, setNotes] = useState<Array<{ id: string; content: string; created_at: string; updated_at: string }>>([]);
   const [notesCountMap, setNotesCountMap] = useState<Record<string, number>>({});
@@ -24,13 +24,13 @@ export default function useGoalExtras() {
   const userIdRef = useRef<string | null>(null);
   const userIdAttemptedRef = useRef<boolean>(false);
   const notesCountCacheRef = useRef<Record<string, { count: number; expiresAt: number }>>({});
-  const accomplishmentsCountCacheRef = useRef<Record<string, { count: number; expiresAt: number }>>({});
+  const winsCountCacheRef = useRef<Record<string, { count: number; expiresAt: number }>>({});
   const tasksCountCacheRef = useRef<Record<string, { count: number; expiresAt: number }>>({});
   const inFlightNotesRef = useRef<Record<string, Promise<number | null>>>({});
-  const inFlightAccomplishmentsRef = useRef<Record<string, Promise<number | null>>>({});
-  const inFlightBatchRef = useRef<Record<string, Promise<{ notes: Record<string, number>; accomplishments: Record<string, number> } | null>>>({});
+  const inFlightWinsRef = useRef<Record<string, Promise<number | null>>>({});
+  const inFlightBatchRef = useRef<Record<string, Promise<{ notes: Record<string, number>; wins: Record<string, number> } | null>>>({});
   const NOTES_COUNT_TTL_MS = 30 * 1000;
-  const ACCOMPLISHMENT_COUNT_TTL_MS = 30 * 1000;
+  const WIN_COUNT_TTL_MS = 30 * 1000;
   const TASKS_COUNT_TTL_MS = 30 * 1000;
 
   const getCachedUserId = useCallback(async () => {
@@ -103,16 +103,16 @@ export default function useGoalExtras() {
     return await promise;
   }, [getCachedUserId]);
 
-  const fetchAccomplishmentsCount = useCallback(async (goalId?: string) => {
+  const fetchWinsCount = useCallback(async (goalId?: string) => {
     const idToUse = goalId;
     if (!idToUse) return null;
-    const cached = accomplishmentsCountCacheRef.current[idToUse];
+    const cached = winsCountCacheRef.current[idToUse];
     if (cached && cached.expiresAt > Date.now()) {
-      setAccomplishmentCountMap((s) => (s[idToUse] === cached.count ? s : ({ ...s, [idToUse]: cached.count })));
+      setWinCountMap((s) => (s[idToUse] === cached.count ? s : ({ ...s, [idToUse]: cached.count })));
       return cached.count;
     }
 
-    const existing = inFlightAccomplishmentsRef.current[idToUse];
+    const existing = inFlightWinsRef.current[idToUse];
     if (existing) return await existing;
 
     const promise = (async () => {
@@ -123,18 +123,18 @@ export default function useGoalExtras() {
           .eq('goal_id', idToUse);
         if (error) throw error;
         const count = (data && Array.isArray(data) ? data.length : 0) as number;
-        accomplishmentsCountCacheRef.current[idToUse] = { count, expiresAt: Date.now() + ACCOMPLISHMENT_COUNT_TTL_MS };
-        setAccomplishmentCountMap((s) => (s[idToUse] === count ? s : ({ ...s, [idToUse]: count })));
+        winsCountCacheRef.current[idToUse] = { count, expiresAt: Date.now() + WIN_COUNT_TTL_MS };
+        setWinCountMap((s) => (s[idToUse] === count ? s : ({ ...s, [idToUse]: count })));
         return count;
       } catch (err) {
-        console.error('useGoalExtras.fetchAccomplishmentsCount error', err);
+        console.error('useGoalExtras.fetchWinsCount error', err);
         return null;
       } finally {
-        try { delete inFlightAccomplishmentsRef.current[idToUse]; } catch (e) { /* ignore */ }
+        try { delete inFlightWinsRef.current[idToUse]; } catch (e) { /* ignore */ }
       }
     })();
 
-    inFlightAccomplishmentsRef.current[idToUse] = promise;
+    inFlightWinsRef.current[idToUse] = promise;
     return await promise;
   }, []);
 
@@ -153,7 +153,7 @@ export default function useGoalExtras() {
         const json = await res.json();
 
         const notes: Record<string, number> = json?.notes || {};
-        const accomplishments: Record<string, number> = json?.accomplishments || {};
+        const wins: Record<string, number> = json?.wins || {};
         const tasks: Record<string, number> = json?.tasks || {};
 
         const now = Date.now();
@@ -168,11 +168,11 @@ export default function useGoalExtras() {
           return next;
         });
 
-        setAccomplishmentCountMap((s) => {
+        setWinCountMap((s) => {
           const next = { ...s };
           for (const id of goalIds) {
-            const count = typeof accomplishments[id] === 'number' ? accomplishments[id] : (next[id] ?? 0);
-            accomplishmentsCountCacheRef.current[id] = { count, expiresAt: now + ACCOMPLISHMENT_COUNT_TTL_MS };
+            const count = typeof wins[id] === 'number' ? wins[id] : (next[id] ?? 0);
+            winsCountCacheRef.current[id] = { count, expiresAt: now + WIN_COUNT_TTL_MS };
             next[id] = count;
           }
           return next;
@@ -188,7 +188,7 @@ export default function useGoalExtras() {
           return next;
         });
 
-        return { notes, accomplishments, tasks };
+        return { notes, wins, tasks };
       })();
 
       inFlightBatchRef.current[key] = promise;
@@ -201,64 +201,64 @@ export default function useGoalExtras() {
     }
   }, []);
 
-  const fetchAccomplishments = useCallback(async (goalId?: string) => {
+  const fetchWins = useCallback(async (goalId?: string) => {
     try {
       const idToUse = goalId;
       if (!idToUse) return;
       if (typeof idToUse === 'string' && idToUse.startsWith('temp-')) {
-        setAccomplishments([]);
+        setWins([]);
         return;
       }
-      setIsAccomplishmentLoading(true);
+      setIsWinLoading(true);
       const { data, error } = await supabase
         .from('accomplishments')
         .select('*')
         .eq('goal_id', idToUse)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      setAccomplishments(data || []);
+      setWins(data || []);
     } catch (err) {
-      console.error('useGoalExtras.fetchAccomplishments error', err);
+      console.error('useGoalExtras.fetchWins error', err);
     } finally {
-      setIsAccomplishmentLoading(false);
+      setIsWinLoading(false);
     }
   }, []);
 
-  const deleteAccomplishment = useCallback(async (id: string, goalId?: string) => {
+  const deleteWin = useCallback(async (id: string, goalId?: string) => {
     // Skip DB call for optimistic temp records that never persisted
     if (id.startsWith('temp-')) {
-      setAccomplishments((s) => s.filter((a) => a.id !== id));
+      setWins((s) => s.filter((a) => a.id !== id));
       return;
     }
     try {
-      setIsAccomplishmentLoading(true);
+      setIsWinLoading(true);
       const { error } = await supabase.from('accomplishments').delete().eq('id', id);
       if (error) throw error;
       if (goalId) {
         // Use centralized refresh helper to keep behavior consistent (fire-and-forget)
-        void refreshAccomplishmentsAndCount(goalId);
+        void refreshWinsAndCount(goalId);
         // decrement count (update cache/state only if changed) -- helpers already attempt to set accurate count,
         // but keep this conservative decrement to preserve optimistic UX in case the server removes immediately
-        setAccomplishmentCountMap((s) => {
+        setWinCountMap((s) => {
           const prev = s[goalId] ?? 0;
           const next = Math.max(0, prev - 1);
-          accomplishmentsCountCacheRef.current[goalId] = { count: next, expiresAt: Date.now() + ACCOMPLISHMENT_COUNT_TTL_MS };
+          winsCountCacheRef.current[goalId] = { count: next, expiresAt: Date.now() + WIN_COUNT_TTL_MS };
           return s[goalId] === next ? s : { ...s, [goalId]: next };
         });
       }
     } catch (err) {
-      console.error('useGoalExtras.deleteAccomplishment error', err);
+      console.error('useGoalExtras.deleteWin error', err);
     } finally {
-      setIsAccomplishmentLoading(false);
+      setIsWinLoading(false);
     }
-  }, [fetchAccomplishments]);
+  }, [fetchWins]);
 
-  const createAccomplishment = useCallback(async (goalId: string, payload: { title: string; description?: string; impact?: string }) => {
+  const createWin = useCallback(async (goalId: string, payload: { title: string; description?: string; impact?: string }) => {
     const { title, description, impact } = payload;
     const tempId = `temp-${Date.now()}`;
-    const temp = { id: tempId, title, description, impact: impact || '', created_at: new Date().toISOString() } as Accomplishment;
-    setAccomplishments((s) => [temp, ...s]);
-    setIsAccomplishmentLoading(true);
+    const temp = { id: tempId, title, description, impact: impact || '', created_at: new Date().toISOString() } as Win;
+    setWins((s) => [temp, ...s]);
+    setIsWinLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
@@ -271,24 +271,24 @@ export default function useGoalExtras() {
       }).select();
       if (error) throw error;
       // Refresh list and counts asynchronously via centralized helper
-      void refreshAccomplishmentsAndCount(goalId);
+      void refreshWinsAndCount(goalId);
       // bump count optimistically
-      setAccomplishmentCountMap((s) => {
+      setWinCountMap((s) => {
         const next = (s[goalId] ?? 0) + 1;
-        accomplishmentsCountCacheRef.current[goalId] = { count: next, expiresAt: Date.now() + ACCOMPLISHMENT_COUNT_TTL_MS };
+        winsCountCacheRef.current[goalId] = { count: next, expiresAt: Date.now() + WIN_COUNT_TTL_MS };
         return s[goalId] === next ? s : { ...s, [goalId]: next };
       });
     } catch (err) {
-      console.error('useGoalExtras.createAccomplishment error', err);
-      setAccomplishments((s) => s.filter((a) => a.id !== tempId));
+      console.error('useGoalExtras.createWin error', err);
+      setWins((s) => s.filter((a) => a.id !== tempId));
     } finally {
-      setIsAccomplishmentLoading(false);
+      setIsWinLoading(false);
     }
-  }, [fetchAccomplishments]);
+  }, [fetchWins]);
 
-  const saveEditedAccomplishment = useCallback(async (accomplishmentId: string, updated: { title?: string; description?: string; impact?: string }, goalId?: string) => {
+  const saveEditedWin = useCallback(async (winId: string, updated: { title?: string; description?: string; impact?: string }, goalId?: string) => {
     try {
-      setIsAccomplishmentLoading(true);
+      setIsWinLoading(true);
       const { error } = await supabase
         .from('accomplishments')
         .update({
@@ -296,29 +296,29 @@ export default function useGoalExtras() {
           description: updated.description && updated.description.trim() ? updated.description : null,
           impact: updated.impact || null,
         })
-        .eq('id', accomplishmentId);
+        .eq('id', winId);
       if (error) throw error;
-      if (goalId) void refreshAccomplishmentsAndCount(goalId);
-      notifySuccess('Accomplishment updated successfully.');
+      if (goalId) void refreshWinsAndCount(goalId);
+      notifySuccess('Win updated successfully.');
     } catch (err) {
-      console.error('useGoalExtras.saveEditedAccomplishment error', err);
-      notifyError('Error saving edited accomplishment.');
+      console.error('useGoalExtras.saveEditedWin error', err);
+      notifyError('Error saving edited win.');
     } finally {
-      setIsAccomplishmentLoading(false);
+      setIsWinLoading(false);
     }
-  }, [fetchAccomplishments]);
+  }, [fetchWins]);
 
-  const openAccomplishments = useCallback((goal: any) => {
-    setIsAccomplishmentModalOpen(true);
-    fetchAccomplishments(goal?.id);
+  const openWins = useCallback((goal: any) => {
+    setIsWinModalOpen(true);
+    fetchWins(goal?.id);
     // fetch count so badges are accurate
-    fetchAccomplishmentsCount(goal?.id).catch(() => {});
-  }, [fetchAccomplishments]);
+    fetchWinsCount(goal?.id).catch(() => {});
+  }, [fetchWins]);
 
-  const closeAccomplishments = useCallback(() => {
-    setIsAccomplishmentModalOpen(false);
-    setAccomplishments([]);
-    setSelectedAccomplishment(null);
+  const closeWins = useCallback(() => {
+    setIsWinModalOpen(false);
+    setWins([]);
+    setSelectedWin(null);
   }, []);
 
   // Notes
@@ -456,37 +456,37 @@ export default function useGoalExtras() {
     });
   }, []);
 
-  // Helper: refresh accomplishments list and count for a goal
-  const refreshAccomplishmentsAndCount = useCallback(async (goalId?: string) => {
+  // Helper: refresh wins list and count for a goal
+  const refreshWinsAndCount = useCallback(async (goalId?: string) => {
     if (!goalId) return;
     try {
-      await fetchAccomplishments(goalId);
+      await fetchWins(goalId);
     } catch (e) {
       // ignore
     }
     try {
-      await fetchAccomplishmentsCount(goalId);
+      await fetchWinsCount(goalId);
     } catch (e) {
       // ignore
     }
-  }, [fetchAccomplishments, fetchAccomplishmentsCount]);
+  }, [fetchWins, fetchWinsCount]);
 
   return {
-    accomplishments,
-    accomplishmentCountMap,
-    isAccomplishmentLoading,
-    isAccomplishmentModalOpen,
-    isEditAccomplishmentModalOpen,
-    selectedAccomplishment,
-    setSelectedAccomplishment,
-    setIsEditAccomplishmentModalOpen,
-    fetchAccomplishments,
-    deleteAccomplishment,
-    createAccomplishment,
-    saveEditedAccomplishment,
-    openAccomplishments,
-    closeAccomplishments,
-    fetchAccomplishmentsCount,
+    wins,
+    winCountMap,
+    isWinLoading,
+    isWinModalOpen,
+    isEditWinModalOpen,
+    selectedWin,
+    setSelectedWin,
+    setIsEditWinModalOpen,
+    fetchWins,
+    deleteWin,
+    createWin,
+    saveEditedWin,
+    openWins,
+    closeWins,
+    fetchWinsCount,
     fetchCountsForMany,
 
   notes,
@@ -507,7 +507,7 @@ export default function useGoalExtras() {
     deleteNote,
     fetchNotesCount,
     refreshNotesAndCount,
-    refreshAccomplishmentsAndCount,
+    refreshWinsAndCount,
     bumpNotesCount,
     decrementNotesCount,
     tasksCountMap,

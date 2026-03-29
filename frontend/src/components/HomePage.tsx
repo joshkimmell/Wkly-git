@@ -161,7 +161,7 @@ function EmptyState({ onAddGoal, username }: { onAddGoal: () => void; username?:
         <div className='relative text-start z-10 max-w-7xl space-y-8'>
             <h2 className="text-4xl font-light mt-2 mb-3">Welcome{username ? `, ${username}` : ''}</h2>
             <p className="text-secondary-text mb-8 leading-relaxed max-w-2xl">
-                Wkly helps you stay focused week over week — track goals, manage tasks, log accomplishments, and generate AI-powered summaries of your progress.
+                Wkly helps you stay focused week over week — track goals, manage tasks, log wins, and generate AI-powered summaries of your progress.
             </p>
 
             {/* <button
@@ -186,7 +186,7 @@ function EmptyState({ onAddGoal, username }: { onAddGoal: () => void; username?:
                 {[
                     { icon: <Target className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />,   label: 'Prioritized goals', desc: 'Set focused goals each week' },
                     { icon: <CheckSquare className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />, label: 'Task tracking', desc: 'Break goals into tasks' },
-                    { icon: <Award className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />,   label: 'Accomplishments', desc: 'Capture what you achieved' },
+                    { icon: <Award className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />,   label: 'Wins', desc: 'Capture what you achieved' },
                     { icon: <Sparkles className="w-8 h-8 lg:w-[10rem] lg:h-[10rem]" />, label: 'AI summaries', desc: 'Auto-generate progress reports' },
                 ].map(({ icon, label, desc }) => (
                 <div

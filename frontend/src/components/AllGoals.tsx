@@ -9,9 +9,9 @@ import AllTasksCalendar from '@components/AllTasksCalendar';
 import TasksKanban from '@components/TasksKanban';
 import Modal from 'react-modal';
 import ConfirmModal from './ConfirmModal';
-import AccomplishmentsModal from './AccomplishmentsModal';
+import WinsModal from './WinsModal';
 import SummaryGenerator from '@components/SummaryGenerator';
-import AccomplishmentEditor from './AccomplishmentEditor';
+import WinEditor from './WinEditor';
 import SummaryEditor from '@components/SummaryEditor';
 import GoalEditor from '@components/GoalEditor';
 import { modalClasses, overlayClasses } from '@styles/classes';
@@ -137,23 +137,23 @@ const GoalsComponent = () => {
     // Delete confirm modal state
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState<boolean>(false);
     const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-    // shared accomplishments/notes hook
+    // shared wins/notes hook
     const goalExtras = useGoalExtras();
     const { timezone } = useTimezone();
     const {
-    accomplishments,
-    accomplishmentCountMap,
-    isAccomplishmentLoading,
-    isAccomplishmentModalOpen,
-    isEditAccomplishmentModalOpen,
-    selectedAccomplishment,
-    setSelectedAccomplishment,
-    setIsEditAccomplishmentModalOpen,
-    deleteAccomplishment,
-    createAccomplishment,
-    saveEditedAccomplishment,
-    openAccomplishments,
-    closeAccomplishments,
+    wins,
+    winCountMap,
+    isWinLoading,
+    isWinModalOpen,
+    isEditWinModalOpen,
+    selectedWin,
+    setSelectedWin,
+    setIsEditWinModalOpen,
+    deleteWin,
+    createWin,
+    saveEditedWin,
+    openWins,
+    closeWins,
     notes,
     notesCountMap,
     isNotesLoading,
@@ -170,7 +170,7 @@ const GoalsComponent = () => {
         updateNote,
         deleteNote,
         fetchNotesCount,
-        fetchAccomplishmentsCount,
+        fetchWinsCount,
         fetchCountsForMany,
     } = goalExtras;
     const [selectedSummary, setSelectedSummary] = useState<{ id: string; content?: string; type?: string; title?: string } | null>(null);
@@ -1571,7 +1571,7 @@ const GoalsComponent = () => {
                                 if (!mounted) break;
                                 try { await fetchNotesCount(id).catch(() => null); } catch { /* ignore */ }
                                 if (!mounted) break;
-                                try { if (fetchAccomplishmentsCount) await fetchAccomplishmentsCount(id).catch(() => null); } catch { /* ignore */ }
+                                try { if (fetchWinsCount) await fetchWinsCount(id).catch(() => null); } catch { /* ignore */ }
                                 await new Promise((res) => setTimeout(res, 25));
                             }
                         }
@@ -1586,7 +1586,7 @@ const GoalsComponent = () => {
             }
         })();
         return () => { mounted = false; };
-    }, [visibleIdsMemo, fetchCountsForMany, fetchNotesCount, fetchAccomplishmentsCount]);
+    }, [visibleIdsMemo, fetchCountsForMany, fetchNotesCount, fetchWinsCount]);
 
     // Filtered & sorted list across all indexed pages (for Kanban view)
 
@@ -2407,28 +2407,28 @@ const GoalsComponent = () => {
                                 </button>
                                 )}
                         
-                        {/* Edit Accomplishment Modal (reuses AccomplishmentEditor) */}
-                        {isEditAccomplishmentModalOpen && selectedAccomplishment && (
+                        {/* Edit Win Modal (reuses WinEditor) */}
+                        {isEditWinModalOpen && selectedWin && (
                             <div
                                 className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50"
                                 role="presentation"
                                 onMouseDown={(e) => {
                                     // close when clicking the backdrop (only trigger when clicking the overlay itself)
                                     if (e.target === e.currentTarget) {
-                                        setSelectedAccomplishment(null);
-                                        setIsEditAccomplishmentModalOpen(false);
+                                        setSelectedWin(null);
+                                        setIsEditWinModalOpen(false);
                                     }
                                 }}
                             >
                                 <div className={`${modalClasses}`}>
-                                    <h3 className="text-lg font-medium text-gray-90 mb-4">Edit Accomplishment</h3>
-                                    <AccomplishmentEditor
-                                        accomplishment={selectedAccomplishment}
+                                    <h3 className="text-lg font-medium text-gray-90 mb-4">Edit Win</h3>
+                                    <WinEditor
+                                        win={selectedWin}
                                         onSave={async (updatedDescription?: string, updatedTitle?: string, updatedImpact?: string) => {
-                                            if (!selectedAccomplishment) return;
-                                            await saveEditedAccomplishment(selectedAccomplishment.id, { title: updatedTitle, description: updatedDescription, impact: updatedImpact }, (selectedGoal as any)?.id);
+                                            if (!selectedWin) return;
+                                            await saveEditedWin(selectedWin.id, { title: updatedTitle, description: updatedDescription, impact: updatedImpact }, (selectedGoal as any)?.id);
                                         }}
-                                        onRequestClose={() => { setSelectedAccomplishment(null); setIsEditAccomplishmentModalOpen(false); }}
+                                        onRequestClose={() => { setSelectedWin(null); setIsEditWinModalOpen(false); }}
                                     />
                                 </div>
                             </div>
@@ -3138,7 +3138,7 @@ const GoalsComponent = () => {
                                                     }}
                                                 >
                                                     {/* Rotate chevron when open to indicate expanded state */}
-                                                { (accomplishmentCountMap[goal.id] || 0) > 0 || (notesCountMap[goal.id] || 0) > 0 ? (
+                                                { (winCountMap[goal.id] || 0) > 0 || (notesCountMap[goal.id] || 0) > 0 ? (
                                                     <Badge 
                                                         badgeContent="" 
                                                         color="primary"
@@ -3165,23 +3165,23 @@ const GoalsComponent = () => {
                                                     // PaperProps={{ sx: { bgcolor: 'var(--color-background)' } }}
                                                 >
                                                     <MenuItem 
-                                                        aria-label="Accomplishments" 
-                                                        onClick={() => { setSelectedGoal(goal); openAccomplishments(goal); }} 
+                                                        aria-label="Wins" 
+                                                        onClick={() => { setSelectedGoal(goal); openWins(goal); }} 
                                                     >
                                                     <Badge 
-                                                        badgeContent={accomplishmentCountMap[goal.id] ?? 0} 
+                                                        badgeContent={winCountMap[goal.id] ?? 0} 
                                                         color="primary"
                                                         anchorOrigin={{
                                                             vertical: 'top',
                                                             horizontal: 'right',
                                                         }}
                                                     >
-                                                        <Award className="w-4 h-4 mr-2" name="Add accomplishment" />
+                                                        <Award className="w-4 h-4 mr-2" name="Add win" />
                                                     </Badge>
-                                                    {/* {accomplishments.length > 0 && (
-                                                    <div className={objectCounter}>{accomplishments.length}</div>
+                                                    {/* {wins.length > 0 && (
+                                                    <div className={objectCounter}>{wins.length}</div>
                                                     )} */}
-                                                        Accomplishments
+                                                        Wins
                                                     </MenuItem>
                                         
                                                     <MenuItem 
@@ -3681,25 +3681,25 @@ const GoalsComponent = () => {
                         confirmLabel="Delete"
                         cancelLabel="Cancel"
                     />
-                    {/* Accomplishments modal used by mobile stacked rows */}
-                    <AccomplishmentsModal
+                    {/* Wins modal used by mobile stacked rows */}
+                    <WinsModal
                         goalTitle={(selectedGoal as any)?.title || ''}
-                        isOpen={isAccomplishmentModalOpen}
-                        onClose={() => closeAccomplishments()}
-                        accomplishments={accomplishments}
+                        isOpen={isWinModalOpen}
+                        onClose={() => closeWins()}
+                        wins={wins}
                         onCreate={async ({ title, description, impact }) => {
                             const gid = (selectedGoal as any)?.id;
                             if (!gid) return;
-                            await createAccomplishment(gid, { title, description, impact });
+                            await createWin(gid, { title, description, impact });
                         }}
                         onDelete={async (id) => {
-                            await deleteAccomplishment(id, (selectedGoal as any)?.id);
+                            await deleteWin(id, (selectedGoal as any)?.id);
                         }}
                         onEdit={(item) => {
-                            setSelectedAccomplishment(item);
-                            setIsEditAccomplishmentModalOpen(true);
+                            setSelectedWin(item);
+                            setIsEditWinModalOpen(true);
                         }}
-                        loading={isAccomplishmentLoading}
+                        loading={isWinLoading}
                     />
 
                     {/* Notes modal used by mobile stacked rows */}

@@ -182,7 +182,7 @@ import axe from 'axe-core';
 
 import AllGoals from '@components/AllGoals';
 import AllSummaries from '@components/AllSummaries';
-import AllAccomplishments from '@components/AllAccomplishments';
+import AllWins from '@components/AllWins';
 import Auth from '@components/Auth';
 import { MemoryRouter } from 'react-router-dom';
 import GoalEditor from '@components/GoalEditor';
@@ -228,8 +228,8 @@ describe('accessibility (axe)', () => {
     await runAxeOn(container);
   });
 
-  it('has no critical accessibility violations on AllAccomplishments', async () => {
-    const { container } = renderWithAxe(<AllAccomplishments />);
+  it('has no critical accessibility violations on AllWins', async () => {
+    const { container } = renderWithAxe(<AllWins />);
     await runAxeOn(container);
   });
 

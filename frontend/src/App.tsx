@@ -13,7 +13,7 @@ import useAuth from '@hooks/useAuth';
 import { useReminderService } from '@hooks/useReminderService';
 import Auth from '@components/Auth';
 import AllSummaries from '@components/AllSummaries';
-// import AllAccomplishments from '@components/AllAccomplishments';
+// import AllWins from '@components/AllWins';
 import LoadingSpinner from '@components/LoadingSpinner';
 import ProfileManagement from '@components/ProfileManagement';
 import NotificationsSettings from '@components/NotificationsSettings';
@@ -257,7 +257,7 @@ const App: React.FC = () => {
               <Route path="/" element={<HomePage />} />
               <Route path="/goals" element={<AllGoals />} />
               <Route path="/mui-demo" element={<MuiCompareDemo />} />
-              {/* <Route path="/accomplishments" element={<AllAccomplishments />} /> */}
+              {/* <Route path="/wins" element={<AllWins />} /> */}
               <Route path="/summaries" element={<AllSummaries />} />
               <Route path="/notifications" element={<NotificationsSettings />} />
               <Route path="/auth" element={<Navigate to="/" replace />} />

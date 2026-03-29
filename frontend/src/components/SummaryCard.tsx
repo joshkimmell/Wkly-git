@@ -53,7 +53,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
   const [isExpanded, setIsExpanded] = useState(false); // State to track expansion
   const [filter, setFilter] = useState<string>('');
   
-  // accomplishment creation now handled via AccomplishmentsModal onCreate (optimistic updates)
+  // win creation now handled via WinsModal onCreate (optimistic updates)
   
      // Use shared HTML-producing highlight helper and render via dangerouslySetInnerHTML
         const renderHTML = (text?: string | null) => ({ __html: applyHighlight(text ?? '', filter) });

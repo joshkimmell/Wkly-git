@@ -4,7 +4,7 @@ import { TrashIcon, EditIcon } from 'lucide-react';
 import { Tooltip, IconButton } from '@mui/material';
 import ConfirmModal from './ConfirmModal';
 
-interface AccomplishmentCardProps {
+interface WinCardProps {
   id: string;
   title: string;
   description?: string;
@@ -17,7 +17,7 @@ interface AccomplishmentCardProps {
   handleEdit: () => void;
 }
 
-const AccomplishmentCard: React.FC<AccomplishmentCardProps> = ({ id, title, description, impact, created_at, handleDelete, handleEdit }) => {
+const WinCard: React.FC<WinCardProps> = ({ id, title, description, impact, created_at, handleDelete, handleEdit }) => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   return (
@@ -31,14 +31,14 @@ const AccomplishmentCard: React.FC<AccomplishmentCardProps> = ({ id, title, desc
         <footer className="mt-2 text-sm text-gray-50 dark:text-gray-30 flex flex-row items-center justify-end space-x-2">
             <Tooltip title="Delete" placement="top" arrow>
               <span>
-                <IconButton className='btn-ghost' size="small" onClick={() => setConfirmOpen(true)} aria-label="Delete accomplishment">
+                <IconButton className='btn-ghost' size="small" onClick={() => setConfirmOpen(true)} aria-label="Delete win">
                   <TrashIcon className='w-5 h-5' />
                 </IconButton>
               </span>
             </Tooltip>
             <Tooltip title="Edit" placement="top" arrow>
               <span>
-                <IconButton className='btn-ghost' size="small" onClick={handleEdit} aria-label="Edit accomplishment">
+                <IconButton className='btn-ghost' size="small" onClick={handleEdit} aria-label="Edit win">
                   <EditIcon className='w-5 h-5' />
                 </IconButton>
               </span>
@@ -46,8 +46,8 @@ const AccomplishmentCard: React.FC<AccomplishmentCardProps> = ({ id, title, desc
         </footer>
         <ConfirmModal
           isOpen={confirmOpen}
-          title="Delete accomplishment?"
-          message={`Are you sure you want to delete this accomplishment? This action cannot be undone.`}
+          title="Delete win?"
+          message={`Are you sure you want to delete this win? This action cannot be undone.`}
           onCancel={() => setConfirmOpen(false)}
           onConfirm={async () => { try { setIsDeleting(true); await handleDelete(); } finally { setIsDeleting(false); setConfirmOpen(false); } }}
           confirmLabel="Delete"
@@ -78,13 +78,13 @@ const AccomplishmentCard: React.FC<AccomplishmentCardProps> = ({ id, title, desc
 //           </div>
 //         </div>
 //         <footer className="mt-2 text-sm text-gray-50 dark:text-gray-30 flex flex-col items-left justify-between">
-//           { accomplishments.length > 0 && ( 
+//           { wins.length > 0 && ( 
 //             <button
 //               onClick={() => setIsExpanded(!isExpanded)}
 //               className="px-0 text-gray-90 dark:text-gray-10 bg-transparent hover:bg-transparent border-none focus-visible:outline-none  flex flex-row items-center justify-between w-full"
 //             >
 //               <h4 className="text-sm font-semibold text-gray-90 dark:text-gray-10  flex flex-row items-center justify-between w-full">
-//               Accomplishments ({accomplishments.length})
+//               Wins ({wins.length})
 //             {isExpanded ? (
 //               <ChevronUp className="w-5 h-5" />
 //             ) : (
@@ -96,18 +96,18 @@ const AccomplishmentCard: React.FC<AccomplishmentCardProps> = ({ id, title, desc
 //             )} 
             
 //             {isExpanded && (
-//               <div className="goal-accomplishments mt-4">
-//                 {/* <h4 className="text-sm font-semibold text-gray-90">Accomplishments</h4> */}
+//               <div className="goal-wins mt-4">
+//                 {/* <h4 className="text-sm font-semibold text-gray-90">Wins</h4> */}
 //                 <ul className="list-none list-inside text-gray-70 mt-2 space-y-1">
-//                   {accomplishments.map((accomplishment) => (
-//                     <li key={accomplishment.id}>
+//                   {wins.map((win) => (
+//                     <li key={win.id}>
 //                       <h5 className="text-md font-semibold text-gray-80 dark:text-gray-20">
-//                         {accomplishment.title}
+//                         {win.title}
 //                       </h5>
 //                       <p className="text-md text-gray-60 dark:text-gray-40">
-//                         {accomplishment.description}
+//                         {win.description}
 //                       </p>
-//                       <label className="text-sm text-gray-40 dark:text-gray-50">Impact: {accomplishment.impact}</label>
+//                       <label className="text-sm text-gray-40 dark:text-gray-50">Impact: {win.impact}</label>
 //                     </li>
 //                   ))}
 //                 </ul>
@@ -118,7 +118,7 @@ const AccomplishmentCard: React.FC<AccomplishmentCardProps> = ({ id, title, desc
 //               onClick={() => setIsModalOpen(true)}
 //               className="mt-2 btn-ghost w-full border-none text-sm font-semibold text-brand-70 dark:text-brand-20 hover:text-brand-90 dark:hover:text-brand-10"
 //               >
-//               Add Accomplishment
+//               Add Win
 //             </button>
 //             <div className='flex flex-row w-full justify-end'>
 //               <button
@@ -143,15 +143,15 @@ const AccomplishmentCard: React.FC<AccomplishmentCardProps> = ({ id, title, desc
 //       {isModalOpen && (
 //         <div className="fixed inset-0 bg-gray-50 bg-opacity-75 flex items-center justify-center z-50">
 //           <div className={`${modalClasses}`}>
-//             <h3 className="text-lg font-medium text-gray-90 mb-4">Add Accomplishment</h3>
+//             <h3 className="text-lg font-medium text-gray-90 mb-4">Add Win</h3>
 //             <div className="space-y-4">
 //               <div>
 //                 <label className="block text-sm font-medium text-gray-70 dark:text-gray-40">Title</label>
 //                 <input
 //                   type="text"
-//                   value={newAccomplishment.title}
+//                   value={newWin.title}
 //                   onChange={(e) =>
-//                     setNewAccomplishment({ ...newAccomplishment, title: e.target.value })
+//                     setNewWin({ ...newWin, title: e.target.value })
 //                   }
 //                   className="block w-full rounded-md border-gray-30 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 //                 />
@@ -159,9 +159,9 @@ const AccomplishmentCard: React.FC<AccomplishmentCardProps> = ({ id, title, desc
 //               <div>
 //                 <label className="block text-sm font-medium text-gray-70 dark:text-gray-40">Description</label>
 //                 <textarea
-//                 value={newAccomplishment.description}
+//                 value={newWin.description}
 //                 onChange={(e) =>
-//                   setNewAccomplishment({ ...newAccomplishment, description: e.target.value })
+//                   setNewWin({ ...newWin, description: e.target.value })
 //                 }
 //                 rows={3}
 //                 className="block w-full rounded-md border-gray-30 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
@@ -171,9 +171,9 @@ const AccomplishmentCard: React.FC<AccomplishmentCardProps> = ({ id, title, desc
 //               <label className="block text-sm font-medium text-gray-70 dark:text-gray-40">Impact</label>
 //               <input
 //               type="text"
-//               value={newAccomplishment.impact}
+//               value={newWin.impact}
 //               onChange={(e) =>
-//                 setNewAccomplishment({ ...newAccomplishment, impact: e.target.value })
+//                 setNewWin({ ...newWin, impact: e.target.value })
 //               }
 //               className="block w-full rounded-md border-gray-30 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 //               />
@@ -187,7 +187,7 @@ const AccomplishmentCard: React.FC<AccomplishmentCardProps> = ({ id, title, desc
 //             Cancel
 //             </button>
 //             <button
-//             onClick={handleAddAccomplishment}
+//             onClick={handleAddWin}
 //             className="btn-primary"
 //             >
 //             Add
@@ -199,4 +199,4 @@ const AccomplishmentCard: React.FC<AccomplishmentCardProps> = ({ id, title, desc
 //     </div>
 //   </div>
 
-export default AccomplishmentCard;
+export default WinCard;
