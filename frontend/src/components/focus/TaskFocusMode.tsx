@@ -889,7 +889,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
           <aside
             style={{ width: notesWidth }}
             className={`
-            md:flex md:flex-col md:shrink-0
+            @container md:flex md:flex-col md:shrink-0 min-w-[350px]
             ${activePanel === 'notes' ? 'flex flex-col w-full' : 'hidden md:flex'}
             bg-background-color/40 dark:bg-background-color/40 overflow-hidden
           `}>
@@ -899,7 +899,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-secondary-text">Notes</h2>
               </div>
             </div>
-            <div className="flex-1 min-h-0 p-4 overflow-hidden">
+            <div className="flex-1 min-h-16 min-w-[240px] p-4 overflow-y-auto">
               <FocusNotes notes={notes} onChange={setNotes} onNoteAdded={handleNoteAdded} onNoteEdited={handleNoteEdited} onNoteRemoved={handleNoteRemoved} />
             </div>
           </aside>
