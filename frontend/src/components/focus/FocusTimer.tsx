@@ -48,7 +48,7 @@ const FocusTimer: React.FC<Props> = ({ elapsed, state, onStart, onPause, onResum
         </svg>
         {/* Time display */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="!text-2xl font-mono font-bold text-gray-90 dark:text-white tabular-nums">
+          <span className="!text-2xl font-light text-gray-90 dark:text-white tabular-nums">
             {formatTime(elapsed)}
           </span>
           <span className="text-xs text-secondary-text capitalize mt-0.5">{state === 'idle' ? 'ready' : state}</span>

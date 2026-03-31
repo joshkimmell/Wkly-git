@@ -161,15 +161,15 @@ const TasksKanban: React.FC<TasksKanbanProps> = ({
           <div
             key={status}
             data-drop-status={status}
-            className={`${!isCollapsed ? 'flex-1 min-w-80' : 'flex-0'} flex flex-col rounded-lg border-2 transition-all ${
+            className={`${!isCollapsed ? 'flex-1 min-w-80' : 'flex-0'} flex flex-col rounded-lg border-0 transition-all ${
               isDragOver ? 'border-blue-50 dark:border-blue-40' : getColumnBorderColor(status)
-            } ${getColumnColor(status)}`}
+            }`}
             onDragOver={(e) => handleDragOver(e, status)}
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, status)}
           >
             {/* Column header */}
-            <div className={`p-4 ${!isCollapsed ? 'border-b border-gray-20 dark:border-gray-70' : ''} flex items-center justify-between`}>
+            <div className={`p-4 ${!isCollapsed ? `border-b ${getColumnBorderColor(status)}` : ''} flex items-center justify-between rounded-md ${getColumnColor(status)}`}>
               {!isCollapsed && (
                 <div className="flex items-center space-x-2">
                   <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 6, background: STATUS_COLORS[status], marginRight: 8 }} />
@@ -233,7 +233,7 @@ const TasksKanban: React.FC<TasksKanbanProps> = ({
 
             {/* Tasks */}
             {!isCollapsed && (
-              <div className="flex-1 p-3 space-y-2 overflow-y-auto">
+              <div className="flex-1 p-3 space-y-4 overflow-y-auto">
                 {columnTasks.length === 0 && !addingToColumn ? (
                   <div className="text-center text-gray-40 dark:text-gray-60 py-8">
                     {draggedTaskId ? 'Drop task here' : 'No tasks'}

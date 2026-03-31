@@ -382,7 +382,7 @@ const PomodoroTimer: React.FC<Props> = ({
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-2xl font-mono font-bold text-primary-text tabular-nums">
+          <span className="text-2xl font-light text-primary-text tabular-nums">
             {formatTime(remaining)}
           </span>
           <span className={`text-xs font-medium capitalize mt-0.5 ${phaseColors.text}`}>
