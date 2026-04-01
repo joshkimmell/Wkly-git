@@ -10,6 +10,7 @@ import LoadingSpinner from '@components/LoadingSpinner';
 import GoalForm from '@components/GoalForm';
 import TasksList from '@components/TasksList';
 import ProfileManagement from '@components/ProfileManagement';
+import SummaryGenerator from '@components/SummaryGenerator';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
@@ -239,11 +240,10 @@ function ActionCard({
         }`}>
           {icon}
         </div>
-        <div className="min-w-0">
-          <p className="font-semibold text-base text-primary-text">{label}</p>
-          <p className="text-xs text-gray-50 dark:text-gray-40 mt-0.5">{description}</p>
+        <div className="flex flex-col gap-1 justify-center min-w-0">
+          <span className="font-semibold text-base text-primary-text">{label}</span>
+          <span className="text-xs text-gray-50 dark:text-gray-40 mt-0.5">{description}</span>
         </div>
-        {/* <ChevronRight className="w-4 h-4 text-gray-40 group-hover:text-primary ml-auto shrink-0 transition-colors" /> */}
       </div>
     </button>
   );
@@ -276,6 +276,7 @@ export default function HomePage() {
   const [goalsExpanded, setGoalsExpanded] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
+  const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
   const [standaloneNewTask, setStandaloneNewTask] = useState<Partial<Task>>({ title: '', description: '' });
   const [standaloneTaskGoalId, setStandaloneTaskGoalId] = useState('');
@@ -596,6 +597,12 @@ export default function HomePage() {
             description="Plan your next objective"
             onClick={openGoalModal}
           />
+          <ActionCard
+            icon={<Sparkles className="w-6 h-6" />}
+            label="Generate Weekly Summary"
+            description="AI recap of your progress"
+            onClick={() => setIsSummaryModalOpen(true)}
+          />
         </div>
       </section>
 
@@ -746,6 +753,19 @@ export default function HomePage() {
           />
         </div>
       )}
+
+      {/* Summary generator (controlled externally via isOpen) */}
+      <SummaryGenerator
+        summaryId=""
+        summaryTitle={null}
+        selectedRange={new Date()}
+        filteredGoals={goals}
+        scope="week"
+        isOpen={isSummaryModalOpen}
+        onClose={() => setIsSummaryModalOpen(false)}
+        onSummaryCreated={fetchTodayTasks}
+        className="hidden"
+      />
 
       {/* Add goal modal */}
       <Modal

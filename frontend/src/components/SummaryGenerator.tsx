@@ -25,6 +25,8 @@ interface SummaryGeneratorProps {
   scope: 'week' | 'month' | 'year'; // Add scope to the props
   className?: string; // Optional className for styling
   onSummaryCreated?: () => void; // Optional callback for when a summary is created/updated
+  isOpen?: boolean; // Optional external control of the modal
+  onClose?: () => void; // Optional callback when the modal closes
 }
 
 const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
@@ -36,6 +38,8 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
   scope,
   className,
   onSummaryCreated,
+  isOpen: externalIsOpen,
+  onClose: externalOnClose,
 }) => {
   const [summary, setSummary] = useState<string | null>(initialContent || null);
   const [localSummaryId, setLocalSummaryId] = useState<string | null>(summaryId || null);
@@ -89,6 +93,13 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
     setSummaryTitle(generateSummaryTitle(selectedScope, selectedRange));
   }, [selectedScope, selectedRange]);
 
+  // Sync external open state
+  useEffect(() => {
+    if (externalIsOpen !== undefined) {
+      setIsGenerateModalOpen(externalIsOpen);
+    }
+  }, [externalIsOpen]);
+
   const openGenerateModal = () => {
     setIsGenerateModalOpen(true);
   };
@@ -99,6 +110,7 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
     setAdditionalContext('');
     setSelectedScope(scope); // Reset scope to the passed prop
     setSelectedGoalIds(new Set(filteredGoals.map((_, idx) => idx.toString()))); // Reset to all goals
+    externalOnClose?.();
   };
 
   const handleGenerate = async () => {
