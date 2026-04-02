@@ -137,6 +137,10 @@ const GoalsComponent = () => {
     // Delete confirm modal state
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState<boolean>(false);
     const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+    // Archive confirm modal state
+    const [isArchiveConfirmOpen, setIsArchiveConfirmOpen] = useState<boolean>(false);
+    const [archiveTargetGoal, setArchiveTargetGoal] = useState<Goal | null>(null);
+    const [isArchiving, setIsArchiving] = useState(false);
     // shared wins/notes hook
     const goalExtras = useGoalExtras();
     const { timezone } = useTimezone();
@@ -1104,7 +1108,7 @@ const GoalsComponent = () => {
     //    }
     //};
 // Delete a goal
-    const { refreshGoals: ctxRefresh, removeGoalFromCache, lastUpdated, lastAddedIds, setLastAddedIds, goals: ctxGoals } = useGoalsContext();
+    const { refreshGoals: ctxRefresh, removeGoalFromCache, updateGoalInCache, lastUpdated, lastAddedIds, setLastAddedIds, goals: ctxGoals } = useGoalsContext();
 
     // Periodic refresh of fullGoals and refresh on background signals while Kanban is active
     useEffect(() => {
@@ -3218,17 +3222,28 @@ const GoalsComponent = () => {
                                                         Tasks
                                                     </MenuItem> */}
                                                     
-                                                    <MenuItem
-                                                        onClick={() => {
-                                                            setSelectedGoal(goal);
-                                                            setIsEditorOpen(true);
-                                                            setRowActionsAnchorEl(null);
-                                                            setRowActionsTargetId(null);
-                                                        }}
-                                                    >
-                                                        <Edit className="w-4 h-4 mr-2" />
-                                                        Edit goal
-                                                    </MenuItem>
+                                                        <MenuItem
+                                                            onClick={() => {
+                                                                setSelectedGoal(goal);
+                                                                setIsEditorOpen(true);
+                                                                setRowActionsAnchorEl(null);
+                                                                setRowActionsTargetId(null);
+                                                            }}
+                                                        >
+                                                            <Edit className="w-4 h-4 mr-2" />
+                                                            Edit goal
+                                                        </MenuItem>
+                                                        <MenuItem
+                                                            onClick={() => {
+                                                                setArchiveTargetGoal(goal);
+                                                                setIsArchiveConfirmOpen(true);
+                                                                setRowActionsAnchorEl(null);
+                                                                setRowActionsTargetId(null);
+                                                            }}
+                                                        >
+                                                            <Archive className="w-4 h-4 mr-2" />
+                                                            {goal.is_archived ? 'Restore goal' : 'Archive goal'}
+                                                        </MenuItem>
                                                         <MenuItem
                                                             onClick={() => {
                                                                 setRowActionsAnchorEl(null);
@@ -3663,6 +3678,38 @@ const GoalsComponent = () => {
                         />
                     )}
                 </Modal>
+                    {/* Confirm archive goal modal */}
+                    <ConfirmModal
+                        isOpen={isArchiveConfirmOpen}
+                        title={archiveTargetGoal?.is_archived ? 'Restore goal?' : 'Archive goal?'}
+                        message={
+                            archiveTargetGoal?.is_archived
+                                ? `Restore "${archiveTargetGoal?.title}"? It will reappear in all views.`
+                                : `Archive "${archiveTargetGoal?.title}"? It will be hidden from all views but included in summaries for its time range.`
+                        }
+                        onCancel={() => { setIsArchiveConfirmOpen(false); setArchiveTargetGoal(null); }}
+                        onConfirm={async () => {
+                            if (!archiveTargetGoal) return;
+                            const newArchived = !archiveTargetGoal.is_archived;
+                            setIsArchiving(true);
+                            try {
+                                await updateGoal(archiveTargetGoal.id, { is_archived: newArchived } as any);
+                                updateGoalInCache({ ...archiveTargetGoal, is_archived: newArchived });
+                                await ctxRefresh();
+                                notifySuccess(`Goal ${newArchived ? 'archived' : 'restored'}.`);
+                            } catch (err) {
+                                console.error('Error archiving goal:', err);
+                                notifyError(`Failed to ${newArchived ? 'archive' : 'restore'} goal.`);
+                            } finally {
+                                setIsArchiving(false);
+                                setIsArchiveConfirmOpen(false);
+                                setArchiveTargetGoal(null);
+                            }
+                        }}
+                        confirmLabel={archiveTargetGoal?.is_archived ? 'Restore' : 'Archive'}
+                        cancelLabel="Cancel"
+                        loading={isArchiving}
+                    />
                     {/* Confirm delete goal modal (shared for table/mobile actions) */}
                     <ConfirmModal
                         isOpen={isDeleteConfirmOpen}
