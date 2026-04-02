@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { GoalsProvider } from '@context/GoalsContext';
 import { TimezoneProvider } from '@context/TimezoneContext';
-import ToastNotification, { notifySuccess, notifyError } from '@components/ToastyNotification';
+import ToastNotification, { notifySuccess, notifyError, notifyReminder } from '@components/ToastyNotification';
 // import WeeklyGoals from '@components/WeeklyGoals';
 import AllGoals from '@components/AllGoals';
 import HomePage from '@components/HomePage';
@@ -27,6 +27,15 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Chip } from 
 import { Bell, Calendar, FileText } from 'lucide-react';
 import { loadSession, saveSession } from '@components/focus/useFocusSession';
 
+
+if (import.meta.env.DEV) {
+  (window as any).__notifyReminder = notifyReminder;
+  (window as any).__notifyReminders = (count = 3) => {
+    for (let i = 1; i <= count; i++) {
+      notifyReminder(`Debug Task ${i}`, `This is test reminder #${i}`, () => console.log(`View Task ${i} clicked`));
+    }
+  };
+}
 
 const App: React.FC = () => {
   const { session, isLoading } = useAuth();
