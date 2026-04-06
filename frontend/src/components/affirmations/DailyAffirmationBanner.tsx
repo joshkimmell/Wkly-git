@@ -180,7 +180,7 @@ const DailyAffirmationBanner: React.FC<DailyAffirmationBannerProps> = ({
               }`}
             >
               <Heart className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
-              {isSaved ? 'Saved' : 'Save'}
+              {isSaved ? 'Cherished' : 'Cherish'}
             </button>
             <button
               onClick={handleShare}

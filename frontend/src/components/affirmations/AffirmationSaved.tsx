@@ -72,13 +72,11 @@ const AffirmationSaved: React.FC = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-5xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <p className="text-xs tracking-[0.1em] uppercase text-secondary-text mb-1">
-          Archive of Your Existential Comfort
-        </p>
-        <h1 className="font-serif text-3xl sm:text-4xl italic text-primary-text leading-tight pb-1">
+        
+        <h1 className="font-serif font-normal text-3xl sm:text-4xl italic text-primary-text leading-tight pb-1">
           Curated Absurdities
         </h1>
         <p className="text-xs tracking-[0.08em] uppercase text-secondary-text mt-1">
@@ -108,11 +106,11 @@ const AffirmationSaved: React.FC = () => {
             return (
               <div
                 key={s.id}
-                className={`${isLarge ? 'md:col-span-2' : ''} ${tint} rounded-xl p-6 sm:p-8 group transition-colors duration-300 hover:bg-brand-10/60 dark:hover:bg-gray-80/50`}
+                className={`${isLarge ? 'md:col-span-2' : ''} ${tint} rounded-xl p-6 sm:p-8 group transition-colors duration-300 hover:bg-gray-10/60 dark:hover:bg-gray-80/50 hover:shadow-lg`}
               >
                 {/* Decorative quote mark for large cards */}
                 {isLarge && (
-                  <div className="text-brand-40/20 dark:text-brand-30/20 text-4xl font-serif leading-none mb-2 select-none">
+                  <div className="text-brand-50 dark:text-brand-30/20 text-4xl font-serif leading-none mb-2 select-none">
                     &#x201C;&#x201D;
                   </div>
                 )}

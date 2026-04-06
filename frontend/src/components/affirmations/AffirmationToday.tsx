@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, Share2, Sliders, ThumbsUp, MirrorRound, Calendar } from 'lucide-react';
+import { Heart, Share2, Sliders, ThumbsUp, MirrorRound, Calendar, Settings2, Edit2, Bird, Edit3 } from 'lucide-react';
 import { fetchDailyAffirmation, toggleSaveAffirmation, fetchSavedAffirmations } from '@utils/affirmationApi';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
 import type { Affirmation } from '../../types/affirmations';
@@ -87,7 +87,7 @@ const AffirmationToday: React.FC = () => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-5xl mx-auto">
       {/* Date Header */}
       <p className="flex gap-2 items-center text-xs tracking-[0.15em] uppercase text-secondary-text mb-2">
         <Calendar className="w-3.5 h-3.5" />
@@ -95,9 +95,9 @@ const AffirmationToday: React.FC = () => {
       </p>
 
       {/* Hero Quote Card */}
-      <div className="relative bg-brand-0 dark:bg-gray-80/40 rounded-xl p-8 sm:p-12 mt-4 mb-8">
+      <div className="relative bg-gray-10 dark:bg-gray-90/70 rounded-xl p-8 sm:p-12 mt-4 mb-8">
         {/* Decorative quote marks */}
-        <div className="text-brand-40 dark:text-brand-30 text-5xl font-serif leading-none opacity-40 mb-4 select-none">
+        <div className="text-brand-40 dark:text-brand-30 text-5xl font-serif leading-none opacity-100 mb-4 select-none">
           &#x201C;&#x201D;
         </div>
 
@@ -136,7 +136,7 @@ const AffirmationToday: React.FC = () => {
           }`}
         >
           <Heart className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
-          {isSaved ? 'Saved' : 'Save'}
+          {isSaved ? 'Cherished' : 'Cherish'}
         </button>
         <button
           onClick={handleShare}
@@ -166,7 +166,7 @@ const AffirmationToday: React.FC = () => {
 
         {/* Intent Card */}
         <div className="bg-brand-0/60 dark:bg-gray-80/30 rounded-xl p-6 hover:bg-brand-10/60 dark:hover:bg-gray-80/50 transition-colors duration-300">
-          <ThumbsUp className="w-5 h-5 text-brand-60 dark:text-brand-30 mb-3" />
+          <Sliders className="w-5 h-5 text-brand-60 dark:text-brand-30 mb-3" />
           <h3 className="font-serif text-base italic text-primary-text mb-1">Intent</h3>
           <p className="text-sm text-secondary-text leading-relaxed mb-4">
             Set your humor profile to receive more absurdity or mild existentialism.
@@ -192,7 +192,7 @@ const AffirmationToday: React.FC = () => {
             onClick={() => navigate('/affirmations/submit')}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold bg-gradient-to-br from-brand-60 to-brand-70 dark:from-brand-30 dark:to-brand-50 text-white hover:brightness-110 active:scale-95 transition-all duration-200 border-0 shadow-none whitespace-nowrap"
           >
-            <Sliders className="w-4 h-4" />
+            <Edit3 className="w-4 h-4" />
             Submit Wisdom
           </button>
         </div>

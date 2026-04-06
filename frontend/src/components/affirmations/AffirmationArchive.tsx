@@ -109,8 +109,8 @@ const AffirmationArchive: React.FC = () => {
     <div className="max-w-5xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="font-serif text-3xl sm:text-4xl italic text-primary-text leading-tight pb-1">
-          The Archive of Gentle Absurdities
+        <h1 className="font-serif font-normal text-3xl sm:text-4xl italic text-primary-text leading-tight pb-1">
+          Archive of Your Existential Comfort
         </h1>
         <p className="text-xs tracking-[0.1em] uppercase text-secondary-text">
           Chronological Reflections from the Void
@@ -125,8 +125,8 @@ const AffirmationArchive: React.FC = () => {
             onClick={() => { setCategory(cat); setPage(1); }}
             className={`px-4 py-1.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-all duration-200 border-0 shadow-none ${
               category === cat
-                ? 'bg-brand-60 dark:bg-brand-30 text-white dark:text-gray-90'
-                : 'bg-brand-0 dark:bg-gray-80 text-secondary-text hover:bg-brand-10 dark:hover:bg-gray-70'
+                ? 'bg-brand-60 hover:bg-brand-70 dark:bg-brand-30 dark:hover:bg-brand-40 text-white dark:text-gray-90'
+                : 'bg-gray-20 dark:bg-gray-80 text-secondary-text hover:bg-brand-20 dark:hover:bg-gray-70'
             }`}
           >
             {cat}
@@ -159,7 +159,7 @@ const AffirmationArchive: React.FC = () => {
             return (
               <div
                 key={a.id}
-                className={`${span} group bg-brand-0/80 dark:bg-gray-80/40 rounded-xl p-6 sm:p-8 hover:bg-brand-10 dark:hover:bg-gray-80/60 transition-all duration-300 ${rotation} hover:rotate-0`}
+                className={`${span} group bg-gray-10/80 dark:bg-gray-80/40 rounded-lg hover:shadow-lg p-6 sm:p-8 hover:bg-gray-10 dark:hover:bg-gray-80/60 transition-all duration-300 ${rotation} hover:rotate-0`}
               >
                 {/* Date */}
                 <p className="text-[10px] tracking-[0.12em] uppercase text-brand-60 dark:text-brand-30 mb-3">

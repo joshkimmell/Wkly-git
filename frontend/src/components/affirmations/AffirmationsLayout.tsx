@@ -14,7 +14,7 @@ const AffirmationsLayout: React.FC = () => {
   return (
     <div className="relative flex min-h-[calc(100vh-80px)] -mx-4 sm:-mx-8 lg:-mx-16 -my-8">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 shrink-0 border-r border-secondary-border bg-background-color/50 px-6 py-8">
+      <aside className="hidden md:flex flex-col w-64 shrink-0 border-r border-secondary-border bg-gray-20/50 dark:bg-gray-90/50 px-6 py-8">
         
         <nav className="fixed flex flex-col gap-1 flex-1">
           {navItems.map(({ to, label, icon: Icon, end }) => (
@@ -23,7 +23,7 @@ const AffirmationsLayout: React.FC = () => {
               to={to}
               end={end}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                `flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors duration-200 ${
                   isActive
                     ? 'text-primary-text bg-brand-20 dark:bg-brand-80 border-l-2 border-brand-60 dark:border-brand-30'
                     : 'text-secondary-text hover:text-primary-text hover:bg-brand-0 dark:hover:bg-gray-80 transition-colors duration-200 border-0'
@@ -45,7 +45,7 @@ const AffirmationsLayout: React.FC = () => {
       </div>
 
       {/* Mobile Bottom Nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/90 backdrop-blur-xl border-t border-secondary-border">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40  bg-gray-20/50 dark:bg-gray-90/50 backdrop-blur-xl border-t border-secondary-border">
         <div className="flex items-center justify-around px-2 py-2 pb-[env(safe-area-inset-bottom)]">
           {navItems.map(({ to, label, icon: Icon, end }) => (
             <NavLink

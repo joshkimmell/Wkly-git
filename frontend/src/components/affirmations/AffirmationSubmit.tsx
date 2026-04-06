@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Eye, EyeOff, ExternalLink } from 'lucide-react';
+import { Sparkles, Eye, EyeOff, ExternalLink, Wind } from 'lucide-react';
 import { submitAffirmation } from '@utils/affirmationApi';
 import { AFFIRMATION_CATEGORIES } from '../../types/affirmations';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
@@ -44,7 +44,7 @@ const AffirmationSubmit: React.FC = () => {
     return (
       <div className="max-w-2xl mx-auto text-center py-16">
         <div className="text-5xl mb-6 opacity-60">&#x2728;</div>
-        <h2 className="font-serif text-2xl italic text-primary-text mb-3">
+        <h2 className="font-serif font-normal text-2xl italic text-primary-text mb-3">
           Your wisdom has been absorbed.
         </h2>
         <p className="text-secondary-text mb-8">
@@ -67,7 +67,7 @@ const AffirmationSubmit: React.FC = () => {
         <p className="text-xs tracking-[0.15em] uppercase text-brand-60 dark:text-brand-30 mb-2">
           Editorial Department
         </p>
-        <h1 className="font-serif text-3xl sm:text-4xl italic text-primary-text leading-tight pb-1">
+        <h1 className="font-serif font-normal text-3xl sm:text-4xl italic text-primary-text leading-tight pb-1">
           Contribute to the Void
         </h1>
         <p className="text-secondary-text text-sm mt-2">
@@ -147,7 +147,7 @@ const AffirmationSubmit: React.FC = () => {
         disabled={!text.trim() || submitting}
         className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 rounded-md text-sm font-bold tracking-wider uppercase bg-gradient-to-br from-brand-60 to-brand-70 dark:from-brand-30 dark:to-brand-50 text-white hover:brightness-110 active:scale-95 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed border-0 shadow-none"
       >
-        <Sparkles className="w-4 h-4" />
+        <Wind className="w-4 h-4" />
         {submitting ? 'Releasing...' : 'Release Into the Void'}
       </button>
     </div>
