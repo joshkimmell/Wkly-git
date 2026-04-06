@@ -1,30 +1,22 @@
 import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Sparkles, Archive, Send, Heart, Settings } from 'lucide-react';
+import { Sparkles, Archive, Send, Heart, ThumbsUp } from 'lucide-react';
 
 const navItems = [
-  { to: '/affirmations', label: 'Today', icon: Sparkles, end: true },
+  { to: '/affirmations', label: 'Today', icon: ThumbsUp, end: true },
   { to: '/affirmations/archive', label: 'Archive', icon: Archive },
   { to: '/affirmations/submit', label: 'Submit', icon: Send },
   { to: '/affirmations/saved', label: 'Saved', icon: Heart },
-  { to: '/affirmations/settings', label: 'Settings', icon: Settings },
+//   { to: '/affirmations/settings', label: 'Settings', icon: Settings },
 ];
 
 const AffirmationsLayout: React.FC = () => {
   return (
-    <div className="flex min-h-[calc(100vh-80px)] -mx-4 sm:-mx-8 lg:-mx-16 -my-8">
+    <div className="relative flex min-h-[calc(100vh-80px)] -mx-4 sm:-mx-8 lg:-mx-16 -my-8">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-64 shrink-0 border-r border-secondary-border bg-background-color/50 px-6 py-8">
-        <div className="my-8">
-          <h2 className="font-serif text-2xl italic text-primary-text leading-tight">
-            The Sanctuary
-          </h2>
-          <p className="text-xs tracking-widest uppercase text-secondary-text mt-1">
-            Satirical Sanctuary
-          </p>
-        </div>
-
-        <nav className="flex flex-col gap-1 flex-1">
+        
+        <nav className="fixed flex flex-col gap-1 flex-1">
           {navItems.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}

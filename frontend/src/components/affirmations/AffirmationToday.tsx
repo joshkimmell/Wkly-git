@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, Share2, BookOpen, Sparkles, Sliders } from 'lucide-react';
+import { Heart, Share2, Sliders, ThumbsUp, MirrorRound } from 'lucide-react';
 import { fetchDailyAffirmation, toggleSaveAffirmation, fetchSavedAffirmations } from '@utils/affirmationApi';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
 import type { Affirmation } from '../../types/affirmations';
@@ -150,7 +150,7 @@ const AffirmationToday: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Reflect Card */}
         <div className="bg-brand-0/60 dark:bg-gray-80/30 rounded-xl p-6 hover:bg-brand-10/60 dark:hover:bg-gray-80/50 transition-colors duration-300">
-          <BookOpen className="w-5 h-5 text-brand-60 dark:text-brand-30 mb-3" />
+          <MirrorRound className="w-5 h-5 text-brand-60 dark:text-brand-30 mb-3" />
           <h3 className="font-serif text-base italic text-primary-text mb-1">Reflect</h3>
           <p className="text-sm text-secondary-text leading-relaxed mb-4">
             Yesterday's wisdom was about the existential dread of losing a single sock in the laundry.
@@ -165,7 +165,7 @@ const AffirmationToday: React.FC = () => {
 
         {/* Intent Card */}
         <div className="bg-brand-0/60 dark:bg-gray-80/30 rounded-xl p-6 hover:bg-brand-10/60 dark:hover:bg-gray-80/50 transition-colors duration-300">
-          <Sparkles className="w-5 h-5 text-brand-60 dark:text-brand-30 mb-3" />
+          <ThumbsUp className="w-5 h-5 text-brand-60 dark:text-brand-30 mb-3" />
           <h3 className="font-serif text-base italic text-primary-text mb-1">Intent</h3>
           <p className="text-sm text-secondary-text leading-relaxed mb-4">
             Set your humor profile to receive more absurdity or mild existentialism.

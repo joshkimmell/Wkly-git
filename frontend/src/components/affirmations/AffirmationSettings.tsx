@@ -5,7 +5,7 @@ import { AFFIRMATION_CATEGORIES } from '../../types/affirmations';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
 import type { AffirmationPreferences } from '../../types/affirmations';
 import LoadingSpinner from '@components/LoadingSpinner';
-import { Switch } from '@mui/material';
+import { Switch, Typography } from '@mui/material';
 
 const AffirmationSettings: React.FC = () => {
   const [prefs, setPrefs] = useState<AffirmationPreferences>({
@@ -72,15 +72,13 @@ const AffirmationSettings: React.FC = () => {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <section className="space-y-6 p-2">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="font-serif text-3xl sm:text-4xl text-primary-text leading-tight pb-1">
-          Preferences
-        </h1>
-        <p className="text-sm text-secondary-text mt-1">
-          Fine-tune your daily dose of existential dread and unearned confidence.
-        </p>
+        <Typography variant="h6" gutterBottom>Daily Affirmations</Typography>
+        <Typography variant="body2" color="text.secondary" gutterBottom>
+            Fine-tune your daily dose of existential dread and unearned confidence.
+        </Typography>
       </div>
 
       {/* Daily Dose Toggle */}
@@ -161,7 +159,7 @@ const AffirmationSettings: React.FC = () => {
           Reset all settings to factory apathy
         </button>
       </div>
-    </div>
+    </section>
   );
 };
 

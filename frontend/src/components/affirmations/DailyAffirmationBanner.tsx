@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, Share2, ArrowRight, Sparkles } from 'lucide-react';
+import { Heart, Share2, ArrowRight, Sparkles, ThumbsUp } from 'lucide-react';
 import { fetchDailyAffirmation, toggleSaveAffirmation, fetchSavedAffirmations } from '@utils/affirmationApi';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
 import type { Affirmation } from '../../types/affirmations';
@@ -224,7 +224,7 @@ const DailyAffirmationBanner: React.FC<DailyAffirmationBannerProps> = ({
     <div className="rounded-md border border-gray-20 dark:border-gray-70 bg-background-color p-5 group hover:border-primary transition-colors duration-200">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 text-secondary-text">
-          <Sparkles className="w-4 h-4 text-brand-60 dark:text-brand-30" />
+          <ThumbsUp className="w-4 h-4 text-brand-60 dark:text-brand-30" />
           <span className="text-xs tracking-[0.1em] uppercase">Today's Affirmation</span>
         </div>
         <div className="flex items-center gap-1.5">

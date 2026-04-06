@@ -35,6 +35,7 @@ import NotificationsSettings from './NotificationsSettings';
 import CalendarIntegration from './CalendarIntegration';
 import { COMMON_TIMEZONES, getBrowserTimezone } from '@utils/timezone';
 import { usePomodoroSettings } from '@hooks/usePomodoroSettings';
+import AffirmationSettings from '@components/affirmations/AffirmationSettings';
 
 interface ProfileManagementProps {
   onClose?: () => void;
@@ -61,7 +62,7 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
   const notificationsSaveRef = React.useRef<(() => Promise<void>) | null>(null);
 
   // Simple UI state: which panel is active
-  const [active, setActive] = useState<'profile' | 'appearance' | 'notifications' | 'calendar' | 'focus'>('profile');
+  const [active, setActive] = useState<'profile' | 'appearance' | 'notifications' | 'calendar' | 'focus' | 'affirmations'>('profile');
 
   const { settings: pomodoroSettings, updateSettings: updatePomodoroSettings } = usePomodoroSettings();
 
@@ -251,6 +252,9 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
             </ListItemButton>
             <ListItemButton selected={active === 'focus'} onClick={() => setActive('focus')}>
               <ListItemText primary="Focus" secondary="Timer mode & Pomodoro" />
+            </ListItemButton>
+            <ListItemButton selected={active === 'affirmations'} onClick={() => setActive('affirmations')}>
+              <ListItemText primary="Affirmations" secondary="Daily absurdity & submissions" />
             </ListItemButton>
           </List>
         </nav>
@@ -659,6 +663,11 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
                 </div>
               </>
             )}
+          </section>
+        )}
+        {active === 'affirmations' && (
+          <section>
+            <AffirmationSettings />
           </section>
         )}
 
