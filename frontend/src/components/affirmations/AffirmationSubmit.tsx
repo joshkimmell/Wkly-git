@@ -112,14 +112,18 @@ const AffirmationSubmit: React.FC = () => {
       {/* Anonymous Toggle */}
       <div className="bg-brand-0/60 dark:bg-gray-80/30 rounded-xl p-6 mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {isAnonymous ? (
+          
+          <div>
+            <p className="text-sm font-medium text-primary-text">Whisper Anonymously</p>
+            <p className="flex gap-2 text-xs text-secondary-text">
+                {isAnonymous ? (
             <EyeOff className="w-4 h-4 text-secondary-text" />
           ) : (
             <Eye className="w-4 h-4 text-secondary-text" />
           )}
-          <div>
-            <p className="text-sm font-medium text-primary-text">Whisper Anonymously</p>
-            <p className="text-xs text-secondary-text">Hide your identity from the void.</p>
+                Hide your identity from the void.
+                
+            </p>
           </div>
         </div>
         <Switch
@@ -130,18 +134,18 @@ const AffirmationSubmit: React.FC = () => {
       </div>
 
       {/* Guidelines Link */}
-      <div className="bg-brand-0/40 dark:bg-gray-80/20 rounded-xl p-4 mb-6 text-center">
+      {/* <div className="bg-brand-0/40 dark:bg-gray-80/20 rounded-xl p-4 mb-6 text-center">
         <button className="text-sm font-serif italic text-secondary-text hover:text-primary-text transition-colors duration-200 inline-flex items-center gap-1.5 bg-transparent border-0 shadow-none p-0">
           Review Submission Guidelines
           <ExternalLink className="w-3 h-3" />
         </button>
-      </div>
+      </div> */}
 
       {/* Submit Button */}
       <button
         onClick={handleSubmit}
         disabled={!text.trim() || submitting}
-        className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl text-sm font-bold tracking-wider uppercase bg-gradient-to-br from-brand-60 to-brand-70 dark:from-brand-30 dark:to-brand-50 text-white hover:brightness-110 active:scale-95 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed border-0 shadow-none"
+        className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 rounded-md text-sm font-bold tracking-wider uppercase bg-gradient-to-br from-brand-60 to-brand-70 dark:from-brand-30 dark:to-brand-50 text-white hover:brightness-110 active:scale-95 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed border-0 shadow-none"
       >
         <Sparkles className="w-4 h-4" />
         {submitting ? 'Releasing...' : 'Release Into the Void'}

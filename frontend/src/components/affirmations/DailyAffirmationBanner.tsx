@@ -95,7 +95,7 @@ const DailyAffirmationBanner: React.FC<DailyAffirmationBannerProps> = ({
 
   const handleShare = async () => {
     if (!affirmation) return;
-    const shareText = `"${affirmation.text}"${affirmation.author ? ` — ${affirmation.author}` : ''}`;
+    const shareText = `"${affirmation.text}"${affirmation.author ? `\n— ${affirmation.author}` : ''}\n\nSee more at Wkly -> https://wkly.me`;
     if (navigator.share) {
       try { await navigator.share({ text: shareText }); } catch { /* cancelled */ }
     } else {
@@ -255,7 +255,7 @@ const DailyAffirmationBanner: React.FC<DailyAffirmationBannerProps> = ({
       )}
 
       <button
-        onClick={() => navigate('/affirmations')}
+        onClick={() => navigate('/affirmations/archive')}
         className="text-xs font-serif italic text-brand-60 dark:text-brand-30 underline underline-offset-4 decoration-brand-60/30 dark:decoration-brand-30/30 hover:decoration-brand-60 dark:hover:decoration-brand-30 transition-all duration-200 bg-transparent border-0 shadow-none p-0"
       >
         View more affirmations →

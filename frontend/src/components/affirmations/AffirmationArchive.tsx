@@ -77,7 +77,7 @@ const AffirmationArchive: React.FC = () => {
   };
 
   const handleShare = async (a: Affirmation) => {
-    const shareText = `"${a.text}"${a.author ? ` — ${a.author}` : ''}`;
+    const shareText = `"${a.text}"${a.author ? `\n— ${a.author}` : ''}\n\nSee more at Wkly -> https://wkly.me`;
     if (navigator.share) {
       try { await navigator.share({ text: shareText }); } catch { /* cancelled */ }
     } else {

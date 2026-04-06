@@ -6,7 +6,7 @@ import useAuth from '@hooks/useAuth';
 import { getSessionToken, getWeekStartDate } from '@utils/functions';
 import { getTodayInTimezone, formatDateInTimezone, convertToUTC } from '@utils/timezone';
 import { Task, Goal, calculateGoalCompletion } from '@utils/goalUtils';
-import LoadingSpinner from '@components/LoadingSpinner';
+// import LoadingSpinner from '@components/LoadingSpinner';
 import GoalForm from '@components/GoalForm';
 import TasksList from '@components/TasksList';
 import ProfileManagement from '@components/ProfileManagement';
@@ -599,11 +599,11 @@ export default function HomePage() {
 
       {/* header */}
       <div>
-        <p className="text-sm text-gray-50 dark:text-gray-40 mb-1 flex items-center gap-1.5">
+        <p className="flex gap-2 text-xs tracking-[0.15em] uppercase text-secondary-text mb-2">
           <Calendar className="w-3.5 h-3.5" />
           {formatDisplayDate(today, timezone)}
         </p>
-        <h1 className="text-2xl font-medium md:text-4xl md:font-normal text-primary-text tracking-tight">{getGreeting()}{username ? `, ${username}!` : ''}</h1>
+        <h1 className="text-2xl italic font-medium md:text-4xl md:font-normal text-primary-text tracking-tight">{getGreeting()}{username ? `, ${username}!` : ''}</h1>
       </div>
 
       {/* ── quick actions ─────────────────────────────────────────────────── */}

@@ -229,6 +229,13 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
         return () => ro.disconnect();
     }, []);
 
+    // Listen for programmatic requests to open the preferences modal
+    useEffect(() => {
+        const handler = () => setIsProfileOpen(true);
+        window.addEventListener('wkly:open-preferences', handler);
+        return () => window.removeEventListener('wkly:open-preferences', handler);
+    }, []);
+
     const location = useLocation();
 
     return (

@@ -40,7 +40,7 @@ const AffirmationSaved: React.FC = () => {
   const handleShare = async (s: SavedAffirmation) => {
     const a = s.affirmation;
     if (!a) return;
-    const shareText = `"${a.text}"${a.author ? ` — ${a.author}` : ''}`;
+    const shareText = `"${a.text}"${a.author ? `\n— ${a.author}` : ''}\n\nSee more at Wkly -> https://wkly.me`;
     if (navigator.share) {
       try { await navigator.share({ text: shareText }); } catch { /* cancelled */ }
     } else {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, Share2, Sliders, ThumbsUp, MirrorRound } from 'lucide-react';
+import { Heart, Share2, Sliders, ThumbsUp, MirrorRound, Calendar } from 'lucide-react';
 import { fetchDailyAffirmation, toggleSaveAffirmation, fetchSavedAffirmations } from '@utils/affirmationApi';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
 import type { Affirmation } from '../../types/affirmations';
@@ -60,7 +60,7 @@ const AffirmationToday: React.FC = () => {
 
   const handleShare = async () => {
     if (!affirmation) return;
-    const shareText = `"${affirmation.text}"${affirmation.author ? ` — ${affirmation.author}` : ''}`;
+    const shareText = `"${affirmation.text}"${affirmation.author ? `\n— ${affirmation.author}` : ''}\n\nSee more at Wkly -> https://wkly.me`;
     if (navigator.share) {
       try {
         await navigator.share({ text: shareText });
@@ -89,8 +89,9 @@ const AffirmationToday: React.FC = () => {
   return (
     <div className="max-w-3xl mx-auto">
       {/* Date Header */}
-      <p className="text-xs tracking-[0.15em] uppercase text-secondary-text mb-2">
-        {dateStr} — The Daily Drift
+      <p className="flex gap-2 items-center text-xs tracking-[0.15em] uppercase text-secondary-text mb-2">
+        <Calendar className="w-3.5 h-3.5" />
+        {dateStr}
       </p>
 
       {/* Hero Quote Card */}
@@ -171,7 +172,10 @@ const AffirmationToday: React.FC = () => {
             Set your humor profile to receive more absurdity or mild existentialism.
           </p>
           <button
-            onClick={() => navigate('/affirmations/settings')}
+            onClick={() => {
+              try { sessionStorage.setItem('wkly_prefs_tab', 'affirmations'); } catch { /* ignore */ }
+              window.dispatchEvent(new Event('wkly:open-preferences'));
+            }}
             className="text-sm font-serif italic text-brand-60 dark:text-brand-30 underline underline-offset-4 decoration-brand-60/30 dark:decoration-brand-30/30 hover:decoration-brand-60 dark:hover:decoration-brand-30 transition-all duration-200 bg-transparent border-0 shadow-none p-0"
           >
             Adjust Vibes

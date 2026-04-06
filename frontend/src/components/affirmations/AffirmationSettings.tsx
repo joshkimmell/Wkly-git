@@ -119,7 +119,7 @@ const AffirmationSettings: React.FC = () => {
       {/* Preferred Categories */}
       <div className="bg-brand-0/60 dark:bg-gray-80/30 rounded-xl p-6 mb-6">
         <label className="text-[10px] tracking-[0.12em] uppercase font-bold text-secondary-text block mb-3">
-          Preferred Domains of Despair
+          Preferred Domains of Affirmation
         </label>
         <div className="flex flex-wrap gap-2">
           {AFFIRMATION_CATEGORIES.map((cat) => (
@@ -155,8 +155,19 @@ const AffirmationSettings: React.FC = () => {
 
       {/* Footer links */}
       <div className="mt-12 space-y-3">
-        <button className="text-xs font-serif italic text-secondary-text/60 hover:text-secondary-text underline underline-offset-4 transition-colors duration-200 bg-transparent border-0 shadow-none p-0 block">
-          Reset all settings to factory apathy
+        <button
+          onClick={() => {
+            setPrefs(prev => ({
+              ...prev,
+              daily_notification: true,
+              notification_time: '09:00',
+              preferred_categories: ['General'],
+            }));
+            setDirty(true);
+          }}
+          className="text-xs font-serif italic text-secondary-text/60 hover:text-secondary-text underline underline-offset-4 transition-colors duration-200 bg-transparent border-0 shadow-none p-0 block"
+        >
+          Reset all vibes to factory apathy
         </button>
       </div>
     </section>
