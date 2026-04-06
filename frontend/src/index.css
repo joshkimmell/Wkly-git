@@ -168,6 +168,9 @@
   .btn-summary {
     @apply bg-transparent border-none text-gray-90 dark:text-gray-30 hover:text-gray-100 dark:hover:text-gray-10 hover:bg-gray-10 dark:hover:bg-gray-80 focus:outline-none focus:bg-gray-20 focus:dark:bg-gray-70 focus:ring-offset-2 focus:ring-brand-70 font-normal text-base;
   }
+  .btn-link {
+    @apply !text-sm !font-serif italic text-brand-60 dark:text-brand-30 hover:underline underline-offset-4 decoration-brand-70 dark:decoration-brand-40 hover:decoration-brand-60 dark:hover:decoration-brand-30 transition-all duration-200 bg-transparent border-0 shadow-none p-0;
+  }
 
   /* Common text color utilities */
   .text-secondary {
@@ -269,24 +272,24 @@
   }
 
   /* Example animation: fade and slide down */
-.menu-enter {
-  opacity: 0;
-  transform: translateY(-10px);
-}
-.menu-enter-active {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 160ms ease, transform 160ms ease;
-}
-.menu-exit {
-  opacity: 1;
-  transform: translateY(0);
-}
-.menu-exit-active {
-  opacity: 0;
-  transform: translateY(-10px);
-  transition: opacity 160ms ease, transform 160ms ease;
-}
+  .menu-enter {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  .menu-enter-active {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 160ms ease, transform 160ms ease;
+  }
+  .menu-exit {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .menu-exit-active {
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity 160ms ease, transform 160ms ease;
+  }
 
   .ql-stroke {
     @apply stroke-gray-40 dark:stroke-gray-70 ;
@@ -301,10 +304,10 @@
     @apply flex flex-row bg-gray-90 dark:bg-gray-10 border border-gray-30 dark:border-gray-70 rounded shadow-sm justify-center items-center;
   } */
 
-.ql-tooltip {
+  .ql-tooltip {
     @apply bg-gray-90 dark:bg-gray-10;
   }
-.ql-bubble .ql-tooltip:not(.ql-flip) .ql-tooltip-arrow {
+  .ql-bubble .ql-tooltip:not(.ql-flip) .ql-tooltip-arrow {
     @apply border-gray-90 dark:border-b-gray-10;
     border-bottom: 6px;
   }
@@ -336,8 +339,4 @@
     }
   }
   
-  }
-  /* .profile-nav .MuiListItemButton-root.Mui-selected {
-    @apply text-brand-60 dark:text-brand-10;
-  }
-}  */
+}

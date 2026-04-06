@@ -1,9 +1,9 @@
 import { MenuBtnProps } from '@components/menu-btn';
 // import MenuBtn from '@components/menu-btn';
 import { useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 // import menuClosedIcon from '/images/button-menu.svg';
-import { Sun, Moon, Home, Text, Target, Sparkles, ThumbsUp } from 'lucide-react';
+import { Sun, Moon, Home, Text, Target, ThumbsUp, HomeIcon } from 'lucide-react';
 import { classTabItem } from '@styles/classes';
 // import { classMenuItem } from '@styles/classes';
 // supabase client not needed here; use useAuth hook's session instead
@@ -129,7 +129,14 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     // Sticky header scroll-shrink: toggle `scrolled` when crossing the scroll
     // threshold, then lock the handler for the transition duration so layout
     // changes from the animation cannot re-trigger it mid-flight.
+    // Only active on sm+ screens (≥640px) where the header is sticky.
     useEffect(() => {
+        const mq = window.matchMedia('(min-width: 640px)');
+        if (!mq.matches) {
+            setScrolled(false);
+            return;
+        }
+
         let rafId: number | null = null;
         // Timestamp (ms) before which scroll events are ignored.
         // Set to Date.now() + transition duration whenever scrolled changes.
@@ -150,8 +157,15 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
             });
         };
         window.addEventListener('scroll', onScroll, { passive: true });
+
+        const handleResize = () => {
+            if (!mq.matches) setScrolled(false);
+        };
+        mq.addEventListener('change', handleResize);
+
         return () => {
             window.removeEventListener('scroll', onScroll);
+            mq.removeEventListener('change', handleResize);
             if (rafId !== null) cancelAnimationFrame(rafId);
         };
     }, []);
@@ -235,6 +249,14 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
         window.addEventListener('wkly:open-preferences', handler);
         return () => window.removeEventListener('wkly:open-preferences', handler);
     }, []);
+
+    const navItems = [
+  { to: '/', label: 'Home', icon: HomeIcon, end: true },
+  { to: '/goals', label: 'Goals & Tasks', icon: Target },
+  { to: '/summaries', label: 'Summaries', icon: Text },
+  { to: '/affirmations', label: 'Affirmations', icon: ThumbsUp },
+//   { to: '/affirmations/settings', label: 'Settings', icon: Settings },
+];
 
     const location = useLocation();
 
@@ -326,6 +348,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                 )}
                 {/* Mobile drawer — only rendered on medium screens when authenticated */}
                 {isAuthenticated && (
+                    <>
                     <div ref={drawerContainerRef} className="relative md:hidden">
                         <PersistentDrawerRight
                             theme={props.theme}
@@ -334,6 +357,30 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                             handleLogout={props.handleLogout}
                         />
                     </div>
+
+                    {/* Mobile Bottom Nav */}
+                        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40  bg-brand-20/50 dark:bg-brand-70/70 backdrop-blur-xl border-t border-secondary-border">
+                            <div className="flex items-center justify-around px-2 py-2 pb-[env(safe-area-inset-bottom)]">
+                                {navItems.map(({ to, label, icon: Icon, end }) => (
+                                <NavLink
+                                    key={to}
+                                    to={to}
+                                    end={end}
+                                    className={({ isActive }) =>
+                                    `flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-medium transition-all duration-200 ${
+                                        isActive
+                                        ? 'text-brand-60 dark:text-brand-30 scale-105'
+                                        : 'text-secondary-text opacity-100 hover:opacity-60'
+                                    }`
+                                    }
+                                >
+                                    <Icon className="w-5 h-5" />
+                                    <span>{label}</span>
+                                </NavLink>
+                                ))}
+                            </div>
+                        </nav>
+                        </>
                 )}
 
                 {/* Desktop: avatar/menu + profile modal — authenticated only */}

@@ -6,6 +6,10 @@ import { notifySuccess, notifyError } from '@components/ToastyNotification';
 import type { AffirmationPreferences } from '../../types/affirmations';
 import LoadingSpinner from '@components/LoadingSpinner';
 import { Switch, Typography } from '@mui/material';
+import { TimePicker } from '@mui/x-date-pickers';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
 
 const AffirmationSettings: React.FC = () => {
   const [prefs, setPrefs] = useState<AffirmationPreferences>({
@@ -72,7 +76,7 @@ const AffirmationSettings: React.FC = () => {
   }
 
   return (
-    <section className="space-y-6 p-2">
+    <section className="space-y-2 p-2">
       {/* Header */}
       <div className="mb-8">
         <Typography variant="h6" gutterBottom>Daily Affirmations</Typography>
@@ -82,8 +86,8 @@ const AffirmationSettings: React.FC = () => {
       </div>
 
       {/* Daily Dose Toggle */}
-      <div className="bg-brand-0/60 dark:bg-gray-80/30 rounded-xl p-6 mb-4">
-        <div className="flex items-start justify-between">
+      <div className="bg-brand-0/60 dark:bg-gray-80/30 rounded-xl px-6 mb-0">
+        <div className="flex items-start w-1/2 justify-between">
           <div>
             <Bell className="w-5 h-5 text-brand-60 dark:text-brand-30 mb-2" />
             <h3 className="text-base font-bold text-primary-text">Daily Dose</h3>
@@ -100,21 +104,26 @@ const AffirmationSettings: React.FC = () => {
       </div>
 
       {/* Delivery Time */}
-      <div className="bg-brand-0/60 dark:bg-gray-80/30 rounded-xl p-6 mb-4">
-        <Clock className="w-5 h-5 text-brand-60 dark:text-brand-30 mb-2" />
-        <label className="text-[10px] tracking-[0.12em] uppercase font-bold text-secondary-text block mb-2">
-          Delivery Time
-        </label>
-        <input
-          type="time"
-          value={prefs.notification_time}
-          onChange={(e) => updatePref('notification_time', e.target.value)}
-          className="text-2xl text-primary-text bg-transparent border-0 border-b border-secondary-border focus:outline-none focus:ring-0 p-2 rounded-none w-auto"
-        />
-        <p className="text-xs italic text-secondary-text/60 mt-2">
-          Recommended: Between breakfast and the first existential crisis of the day.
-        </p>
-      </div>
+      {prefs.daily_notification && (
+        <div className="bg-brand-0/60 dark:bg-gray-80/30 rounded-xl p-6 mb-4">
+          <Clock className="w-5 h-5 text-brand-60 dark:text-brand-30 mb-2" />
+          <label className="text-[10px] tracking-[0.12em] uppercase font-bold text-secondary-text block mb-2">
+            Delivery Time
+          </label>
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <TimePicker
+              value={dayjs(`2000-01-01T${prefs.notification_time}`)}
+              onChange={(newValue) => {
+                if (newValue) updatePref('notification_time', newValue.format('HH:mm'));
+              }}
+              slotProps={{ textField: { size: 'small', fullWidth: false } }}
+            />
+          </LocalizationProvider>
+          <p className="text-xs italic text-secondary-text/60 mt-2">
+            Recommended: Between breakfast and the first existential crisis of the day.
+          </p>
+        </div>
+      )}
 
       {/* Preferred Categories */}
       <div className="bg-brand-0/60 dark:bg-gray-80/30 rounded-xl p-6 mb-6">

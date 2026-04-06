@@ -230,10 +230,10 @@ function ActionCard({
   return (
     <button
       onClick={onClick}
-      className={`group w-auto text-left rounded-md border p-4 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary ${
+      className={`group w-auto text-left rounded-md border p-4 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary group-hover:shadow-md ${
         variant === 'primary'
-          ? 'border-primary/40 bg-primary/5 group-hover:bg-brand-10 dark:bg-brand-90 dark:group-hover:bg-primary/20'
-          : 'border-gray-20 dark:border-gray-70 bg-transparent hover:border-primary hover:shadow-md'
+          ? 'border-brand-60 dark:border-brand-70 bg-brand-10 group-hover:bg-brand-20 dark:bg-brand-90 dark:group-hover:bg-primary/20'
+          : 'border-gray-20 dark:border-gray-70 bg-transparent group-hover:border-primary'
       }`}
     >
       <div className="flex w-auto pr-4 items-center justify-center gap-3">
@@ -628,6 +628,7 @@ export default function HomePage() {
             label="Create a goal with tasks"
             description="Plan your next objective"
             onClick={openGoalModal}
+            variant='primary'
           />
           <ActionCard
             icon={<Sparkles className="w-6 h-6" />}

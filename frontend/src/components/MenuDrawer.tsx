@@ -187,7 +187,7 @@ const toggleThemeInternal = (): void => {
                         </Modal>
                         
 
-                        <IconButton
+                        {/* <IconButton
                             color="inherit"
                             aria-label="open drawer"
                             edge="end"
@@ -196,7 +196,7 @@ const toggleThemeInternal = (): void => {
                             sx={[open && { display: 'none' }]}
                         >
                             <MenuIcon />
-                        </IconButton>
+                        </IconButton> */}
 
                     </div>        
         </Toolbar>

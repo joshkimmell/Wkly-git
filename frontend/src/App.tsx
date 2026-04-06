@@ -23,6 +23,7 @@ import { FocusTimerProvider } from '@components/focus/FocusTimerContext';
 import { FocusModeProvider } from '@context/FocusModeContext';
 import MuiCompareDemo from '@components/MuiCompareDemo';
 import AdminAccessRequests from '@components/AdminAccessRequests';
+import Footer from '@components/Footer';
 import AffirmationsLayout from '@components/affirmations/AffirmationsLayout';
 import AffirmationToday from '@components/affirmations/AffirmationToday';
 import AffirmationArchive from '@components/affirmations/AffirmationArchive';
@@ -287,6 +288,7 @@ const App: React.FC = () => {
               </Route>
             </Routes>
           </main>
+          <Footer />
         </GoalsProvider>
       </div>
     </div>

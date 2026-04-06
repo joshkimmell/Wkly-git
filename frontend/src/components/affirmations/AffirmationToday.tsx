@@ -158,7 +158,7 @@ const AffirmationToday: React.FC = () => {
           </p>
           <button
             onClick={() => navigate('/affirmations/archive')}
-            className="text-sm font-serif italic text-brand-60 dark:text-brand-30 underline underline-offset-4 decoration-brand-60/30 dark:decoration-brand-30/30 hover:decoration-brand-60 dark:hover:decoration-brand-30 transition-all duration-200 bg-transparent border-0 shadow-none p-0"
+            className="btn-link"
           >
             Read Archive
           </button>
@@ -176,7 +176,7 @@ const AffirmationToday: React.FC = () => {
               try { sessionStorage.setItem('wkly_prefs_tab', 'affirmations'); } catch { /* ignore */ }
               window.dispatchEvent(new Event('wkly:open-preferences'));
             }}
-            className="text-sm font-serif italic text-brand-60 dark:text-brand-30 underline underline-offset-4 decoration-brand-60/30 dark:decoration-brand-30/30 hover:decoration-brand-60 dark:hover:decoration-brand-30 transition-all duration-200 bg-transparent border-0 shadow-none p-0"
+            className="btn-link"
           >
             Adjust Vibes
           </button>

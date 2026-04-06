@@ -4,7 +4,7 @@ import { Heart, Share2, ArrowRight, Sparkles, ThumbsUp, X } from 'lucide-react';
 import { fetchDailyAffirmation, toggleSaveAffirmation, fetchSavedAffirmations } from '@utils/affirmationApi';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
 import type { Affirmation } from '../../types/affirmations';
-import { Tooltip } from '@mui/material';
+import { Button, Tooltip } from '@mui/material';
 
 interface DailyAffirmationBannerProps {
   /** 'interstitial' = full-screen overlay; 'inline' = compact card */
@@ -224,7 +224,7 @@ const DailyAffirmationBanner: React.FC<DailyAffirmationBannerProps> = ({
   if (!affirmation) return null;
 
   return (
-    <div className="rounded-xl border border-brand-40 dark:border-brand-60 bg-brand-20 dark:bg-brand-80 p-5 group hover:border-primary transition-colors duration-200">
+    <div className="rounded-xl border border-brand-40 dark:border-brand-60 bg-gray-0 dark:bg-gray-100 p-5 group hover:border-primary transition-colors duration-200">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 text-secondary-text">
           <ThumbsUp className="w-4 h-4 text-brand-60 dark:text-brand-30" />
@@ -257,9 +257,9 @@ const DailyAffirmationBanner: React.FC<DailyAffirmationBannerProps> = ({
         <p className="text-xs text-secondary-text mb-3">— {affirmation.author}</p>
       )}
 
-      <button
+      <button 
         onClick={() => navigate('/affirmations/archive')}
-        className="text-xs font-serif italic text-brand-60 dark:text-brand-30 underline underline-offset-4 decoration-brand-60/30 dark:decoration-brand-30/30 hover:decoration-brand-60 dark:hover:decoration-brand-30 transition-all duration-200 bg-transparent border-0 shadow-none p-0"
+        className="btn-link"
       >
         View more affirmations →
       </button>
