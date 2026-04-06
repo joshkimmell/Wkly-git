@@ -603,7 +603,17 @@ export default function HomePage() {
           <Calendar className="w-3.5 h-3.5" />
           {formatDisplayDate(today, timezone)}
         </p>
-        <h1 className="text-2xl font-serif italic font-medium md:text-4xl md:font-normal text-primary-text tracking-tight">{getGreeting()}{username ? `, ${username}!` : ''}</h1>
+        <div className="flex flex-col md:flex-row md:items-center items-start gap-0 mb-4">
+          <h1 className="flex w-full max-w-1/3 text-2xl font-serif italic font-medium md:text-4xl md:font-normal text-primary-text tracking-tight">{getGreeting()}{username ? `, ${username}!` : ''}</h1>
+          <span className="hidden md:flex items-center w-1/4 h-[1px] bg-brand-40 dark:bg-brand-60 max-w-1/4"></span>
+          <span className="flex ml-8 w-[1px] min-h-8 md:hidden max-h-1/3 bg-brand-40 dark:bg-brand-60 "></span>
+        
+          <DailyAffirmationBanner
+            mode="inline"
+            affirmation={loadedAffirmation}
+            onAffirmationLoaded={setLoadedAffirmation}
+          />
+        </div>
       </div>
 
       {/* ── quick actions ─────────────────────────────────────────────────── */}
@@ -720,13 +730,13 @@ export default function HomePage() {
       </div>
 
       {/* ── daily affirmation (inline) ───────────────────────────────────── */}
-      <section>
+      {/* <section>
         <DailyAffirmationBanner
           mode="inline"
           affirmation={loadedAffirmation}
           onAffirmationLoaded={setLoadedAffirmation}
         />
-      </section>
+      </section> */}
 
       {/* Profile modal (first-login auto-open) */}
       <Modal

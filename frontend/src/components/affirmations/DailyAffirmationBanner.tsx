@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, Share2, ArrowRight, Sparkles, ThumbsUp } from 'lucide-react';
+import { Heart, Share2, ArrowRight, Sparkles, ThumbsUp, X } from 'lucide-react';
 import { fetchDailyAffirmation, toggleSaveAffirmation, fetchSavedAffirmations } from '@utils/affirmationApi';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
 import type { Affirmation } from '../../types/affirmations';
+import { Tooltip } from '@mui/material';
 
 interface DailyAffirmationBannerProps {
   /** 'interstitial' = full-screen overlay; 'inline' = compact card */
@@ -119,7 +120,7 @@ const DailyAffirmationBanner: React.FC<DailyAffirmationBannerProps> = ({
   if (mode === 'interstitial') {
     return (
       <div
-        className={`fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-sm transition-opacity duration-700 ${
+        className={`fixed inset-4 z-50 flex items-center justify-center bg-background/95 backdrop-blur-sm transition-opacity duration-700 ${
           visible ? 'opacity-100' : 'opacity-0'
         }`}
       >
@@ -127,7 +128,7 @@ const DailyAffirmationBanner: React.FC<DailyAffirmationBannerProps> = ({
           visible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
         }`}>
           <p className="text-xs tracking-[0.15em] uppercase text-secondary-text mb-6">
-            {dateStr} — The Daily Drift
+            {dateStr}
           </p>
 
           {loading ? (
@@ -140,6 +141,14 @@ const DailyAffirmationBanner: React.FC<DailyAffirmationBannerProps> = ({
             </div>
           ) : (
             <>
+              <button
+                onClick={handleDismiss}
+                className="mt-12 btn-ghost inline-flex items-center gap-2 px-6 py-3 text-sm font-bold  hover:brightness-110 active:scale-95 transition-all duration-200 border-0 shadow-none"
+            >
+                <Tooltip title="Dismiss for today" placement="bottom" arrow>
+                <X className="w-4 h-4" />
+                </Tooltip>
+            </button>
               <div className="text-brand-40 dark:text-brand-30 text-6xl font-serif leading-none opacity-40 mb-6 select-none">
                 &#x201C;&#x201D;
               </div>
@@ -192,22 +201,16 @@ const DailyAffirmationBanner: React.FC<DailyAffirmationBannerProps> = ({
             </button>
           </div>
 
-          <button
-            onClick={handleDismiss}
-            className="mt-12 inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-bold bg-gradient-to-br from-brand-60 to-brand-70 dark:from-brand-30 dark:to-brand-50 text-white hover:brightness-110 active:scale-95 transition-all duration-200 border-0 shadow-none"
-          >
-            Continue to Dashboard
-            <ArrowRight className="w-4 h-4" />
-          </button>
+          
         </div>
       </div>
     );
   }
 
-  // ── Inline (compact card below goals) ───────────────────────────────────
+  // ── Inline (compact card beside welcome) ───────────────────────────────────
   if (loading) {
     return (
-      <div className="rounded-md border border-gray-20 dark:border-gray-70 bg-background-color p-5 animate-pulse">
+      <div className="flex w-full rounded-md border border-brand-40 dark:border-brand-60 bg-brand-20 dark:bg-brand-80 p-5 animate-pulse">
         <div className="flex items-center gap-2 mb-3">
           <div className="w-4 h-4 rounded bg-brand-10 dark:bg-gray-70" />
           <div className="h-4 w-32 bg-brand-10 dark:bg-gray-70 rounded" />
@@ -221,7 +224,7 @@ const DailyAffirmationBanner: React.FC<DailyAffirmationBannerProps> = ({
   if (!affirmation) return null;
 
   return (
-    <div className="rounded-md border border-gray-20 dark:border-gray-70 bg-background-color p-5 group hover:border-primary transition-colors duration-200">
+    <div className="rounded-xl border border-brand-40 dark:border-brand-60 bg-brand-20 dark:bg-brand-80 p-5 group hover:border-primary transition-colors duration-200">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 text-secondary-text">
           <ThumbsUp className="w-4 h-4 text-brand-60 dark:text-brand-30" />
