@@ -13,7 +13,7 @@ import List from '@mui/material/List';
 import ProfileManagement from './ProfileManagement';
 // import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
-import { Home, MenuIcon, Moon, Sun, Target, Text, X } from 'lucide-react';
+import { Home, MenuIcon, Moon, Sun, Target, Text, X, Sparkles } from 'lucide-react';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -109,6 +109,7 @@ const toggleThemeInternal = (): void => {
     { label: 'Home', href: '/', icon: <Home className='w-4 h-4' /> },
     { label: 'Goals & Tasks', href: '/goals', icon: <Target className='w-4 h-4' /> },
     { label: 'Summaries', href: '/summaries', icon: <Text className='w-4 h-4' /> },
+    { label: 'Affirmations', href: '/affirmations', icon: <Sparkles className='w-4 h-4' /> },
   ];
 
   return (

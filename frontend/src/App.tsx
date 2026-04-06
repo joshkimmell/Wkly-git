@@ -23,6 +23,12 @@ import { FocusTimerProvider } from '@components/focus/FocusTimerContext';
 import { FocusModeProvider } from '@context/FocusModeContext';
 import MuiCompareDemo from '@components/MuiCompareDemo';
 import AdminAccessRequests from '@components/AdminAccessRequests';
+import AffirmationsLayout from '@components/affirmations/AffirmationsLayout';
+import AffirmationToday from '@components/affirmations/AffirmationToday';
+import AffirmationArchive from '@components/affirmations/AffirmationArchive';
+import AffirmationSubmit from '@components/affirmations/AffirmationSubmit';
+import AffirmationSaved from '@components/affirmations/AffirmationSaved';
+import AffirmationSettings from '@components/affirmations/AffirmationSettings';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Chip } from '@mui/material';
 import { Bell, Calendar, FileText } from 'lucide-react';
 import { loadSession, saveSession } from '@components/focus/useFocusSession';
@@ -230,7 +236,7 @@ const App: React.FC = () => {
   
   if (isLoading && !testing) return 
     <div className="fixed top-0 mt-0 h-[100vh] w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center">
-      <div className="loader"><LoadingSpinner /></div>
+      <div className="loader"><LoadingSpinner variant="mui" /></div>
       {/* <span className="ml-2">Generating plan...</span> */}
     </div>
   if (!effectiveSession) {
@@ -272,6 +278,13 @@ const App: React.FC = () => {
               <Route path="/auth" element={<Navigate to="/" replace />} />
               <Route path="/profile" element={<ProfileManagement />} />
               <Route path="/admin/access" element={<AdminAccessRequests />} />
+              <Route path="/affirmations" element={<AffirmationsLayout />}>
+                <Route index element={<AffirmationToday />} />
+                <Route path="archive" element={<AffirmationArchive />} />
+                <Route path="submit" element={<AffirmationSubmit />} />
+                <Route path="saved" element={<AffirmationSaved />} />
+                <Route path="settings" element={<AffirmationSettings />} />
+              </Route>
             </Routes>
           </main>
         </GoalsProvider>
