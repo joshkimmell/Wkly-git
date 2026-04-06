@@ -6,7 +6,7 @@ import useAuth from '@hooks/useAuth';
 import { getSessionToken, getWeekStartDate } from '@utils/functions';
 import { getTodayInTimezone, formatDateInTimezone, convertToUTC } from '@utils/timezone';
 import { Task, Goal, calculateGoalCompletion } from '@utils/goalUtils';
-import LoadingSpinner from '@components/LoadingSpinner';
+// import LoadingSpinner from '@components/LoadingSpinner';
 import GoalForm from '@components/GoalForm';
 import TasksList from '@components/TasksList';
 import ProfileManagement from '@components/ProfileManagement';
@@ -41,6 +41,8 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type { Dayjs } from 'dayjs';
 import GoalCompletionDonut from './GoalCompletionDonut';
 import TaskCard from './TaskCard';
+import DailyAffirmationBanner, { shouldShowInterstitial, markInterstitialSeen } from './affirmations/DailyAffirmationBanner';
+import type { Affirmation } from '../types/affirmations';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -289,6 +291,15 @@ export default function HomePage() {
   const [standaloneReminderOffset, setStandaloneReminderOffset] = useState('30');
   const [standaloneReminderDatetime, setStandaloneReminderDatetime] = useState('');
   const [standaloneSelectedReminderDatetime, setStandaloneSelectedReminderDatetime] = useState<Dayjs | null>(null);
+
+  // ── daily affirmation interstitial ────────────────────────────────────────
+  const [showAffirmationInterstitial, setShowAffirmationInterstitial] = useState(() => shouldShowInterstitial());
+  const [loadedAffirmation, setLoadedAffirmation] = useState<Affirmation | null>(null);
+
+  const dismissInterstitial = useCallback(() => {
+    markInterstitialSeen();
+    setShowAffirmationInterstitial(false);
+  }, []);
 
   // ── first-login: auto-open profile modal once per session ─────────────────
   useEffect(() => {
@@ -572,16 +583,37 @@ export default function HomePage() {
   const doneTasks    = todayTasks.filter(t => t.status === 'Done').length;
   const totalTasks   = todayTasks.length;
 
+  // Show full-screen affirmation interstitial on first visit of the day
+  if (showAffirmationInterstitial) {
+    return (
+      <DailyAffirmationBanner
+        mode="interstitial"
+        onDismiss={dismissInterstitial}
+        onAffirmationLoaded={setLoadedAffirmation}
+      />
+    );
+  }
+
   return (
     <div className="space-y-8">
 
       {/* header */}
       <div>
-        <p className="text-sm text-gray-50 dark:text-gray-40 mb-1 flex items-center gap-1.5">
+        <p className="flex gap-2 text-xs tracking-[0.15em] uppercase text-secondary-text mb-2">
           <Calendar className="w-3.5 h-3.5" />
           {formatDisplayDate(today, timezone)}
         </p>
-        <h1 className="text-2xl font-medium md:text-4xl md:font-normal text-primary-text tracking-tight">{getGreeting()}{username ? `, ${username}!` : ''}</h1>
+        <div className="flex flex-col md:flex-row md:items-center items-start gap-0 mb-4">
+          <h1 className="flex w-full max-w-1/3 text-2xl font-serif italic font-medium md:text-4xl md:font-normal text-primary-text tracking-tight">{getGreeting()}{username ? `, ${username}!` : ''}</h1>
+          <span className="hidden md:flex items-center w-1/4 h-[1px] bg-brand-40 dark:bg-brand-60 max-w-1/4"></span>
+          <span className="flex ml-8 w-[1px] min-h-8 md:hidden max-h-1/3 bg-brand-40 dark:bg-brand-60 "></span>
+        
+          <DailyAffirmationBanner
+            mode="inline"
+            affirmation={loadedAffirmation}
+            onAffirmationLoaded={setLoadedAffirmation}
+          />
+        </div>
       </div>
 
       {/* ── quick actions ─────────────────────────────────────────────────── */}
@@ -696,6 +728,15 @@ export default function HomePage() {
           </div>
         </section>
       </div>
+
+      {/* ── daily affirmation (inline) ───────────────────────────────────── */}
+      {/* <section>
+        <DailyAffirmationBanner
+          mode="inline"
+          affirmation={loadedAffirmation}
+          onAffirmationLoaded={setLoadedAffirmation}
+        />
+      </section> */}
 
       {/* Profile modal (first-login auto-open) */}
       <Modal

@@ -3,7 +3,7 @@ import { MenuBtnProps } from '@components/menu-btn';
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 // import menuClosedIcon from '/images/button-menu.svg';
-import { Sun, Moon, Home, Text, Target } from 'lucide-react';
+import { Sun, Moon, Home, Text, Target, Sparkles, ThumbsUp } from 'lucide-react';
 import { classTabItem } from '@styles/classes';
 // import { classMenuItem } from '@styles/classes';
 // supabase client not needed here; use useAuth hook's session instead
@@ -229,6 +229,13 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
         return () => ro.disconnect();
     }, []);
 
+    // Listen for programmatic requests to open the preferences modal
+    useEffect(() => {
+        const handler = () => setIsProfileOpen(true);
+        window.addEventListener('wkly:open-preferences', handler);
+        return () => window.removeEventListener('wkly:open-preferences', handler);
+    }, []);
+
     const location = useLocation();
 
     return (
@@ -300,6 +307,17 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                                 >
                                     <Text className="w-4 h-4 mr-1.5" />
                                     <span className='hidden lg:inline'>Summaries</span>
+                                </Link>
+                                    </Tooltip>
+                            </li>
+                            <li>
+                                <Tooltip title="Affirmations" placement="bottom" arrow className='' disableHoverListener={isLarge}>
+                                <Link
+                                    to="/affirmations"
+                                    className={`${classTabItem}${location.pathname.startsWith('/affirmations') ? ' active' : ''}`}
+                                >
+                                    <ThumbsUp className="w-4 h-4 mr-1.5" />
+                                    <span className='hidden lg:inline'>Affirmations</span>
                                 </Link>
                                     </Tooltip>
                             </li>

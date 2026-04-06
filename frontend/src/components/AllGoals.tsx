@@ -3507,7 +3507,7 @@ const GoalsComponent = () => {
                                     {isScopeLoading ? (
                                         <div className="w-full flex items-center justify-center p-8">
                                             <div className="flex items-center space-x-3">
-                                                <LoadingSpinner />
+                                                <LoadingSpinner variant="mui" />
                                                 <span className="text-sm text-gray-60 dark:text-gray-30">Loading scope…</span>
                                             </div>
                                         </div>

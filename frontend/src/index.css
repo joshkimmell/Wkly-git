@@ -43,7 +43,7 @@
     @apply text-primary-text font-bold;
   }
   h1 { 
-  @apply text-2xl font-serif leading-tight pb-3; 
+  @apply text-2xl font-sans font-normal leading-tight pb-3; 
   }
   h2 { 
     @apply text-xl; 

@@ -13,7 +13,8 @@ module.exports = {
       // are also defined in `variables.scss` as fallbacks for builds.
       fontFamily: {
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
-        serif: ['Buenard', 'Georgia', 'serif'],
+        serif: ['Georgia', 'serif'],
+        // serif: ['Buenard', 'Georgia', 'serif'],
         // serif: ['Gentium Plus', 'Georgia', 'serif'],
         // serif: ['Neuton', 'Georgia', 'serif'],
       },

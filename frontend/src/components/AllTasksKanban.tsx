@@ -329,7 +329,7 @@ export default function AllTasksKanban({ onRefresh }: AllTasksKanbanProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <LoadingSpinner />
+        <LoadingSpinner variant="mui" />
       </div>
     );
   }

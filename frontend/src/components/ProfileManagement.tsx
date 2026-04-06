@@ -35,15 +35,19 @@ import NotificationsSettings from './NotificationsSettings';
 import CalendarIntegration from './CalendarIntegration';
 import { COMMON_TIMEZONES, getBrowserTimezone } from '@utils/timezone';
 import { usePomodoroSettings } from '@hooks/usePomodoroSettings';
+import AffirmationSettings from '@components/affirmations/AffirmationSettings';
+
+type PreferencesTab = 'profile' | 'appearance' | 'notifications' | 'calendar' | 'focus' | 'affirmations';
 
 interface ProfileManagementProps {
   onClose?: () => void;
+  initialTab?: PreferencesTab;
 }
 
 // Preferences is the new name for ProfileManagement. The file path remains
 // the same for backwards compatibility; exporting a renamed component keeps
 // imports simple while updating the UI to a multi-panel Preferences UX.
-const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
+const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) => {
   const { profile } = useAuth();
   // Profile form state
   const [username, setUsername] = useState(profile?.username || '');
@@ -61,7 +65,18 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
   const notificationsSaveRef = React.useRef<(() => Promise<void>) | null>(null);
 
   // Simple UI state: which panel is active
-  const [active, setActive] = useState<'profile' | 'appearance' | 'notifications' | 'calendar' | 'focus'>('profile');
+  const [active, setActive] = useState<PreferencesTab>(initialTab || 'profile');
+
+  // Read sessionStorage deep-link on mount (useEffect survives StrictMode double-mount)
+  useEffect(() => {
+    try {
+      const requested = sessionStorage.getItem('wkly_prefs_tab') as PreferencesTab | null;
+      if (requested) {
+        sessionStorage.removeItem('wkly_prefs_tab');
+        setActive(requested);
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   const { settings: pomodoroSettings, updateSettings: updatePomodoroSettings } = usePomodoroSettings();
 
@@ -251,6 +266,9 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
             </ListItemButton>
             <ListItemButton selected={active === 'focus'} onClick={() => setActive('focus')}>
               <ListItemText primary="Focus" secondary="Timer mode & Pomodoro" />
+            </ListItemButton>
+            <ListItemButton selected={active === 'affirmations'} onClick={() => setActive('affirmations')}>
+              <ListItemText primary="Affirmations" secondary="Daily absurdity & submissions" />
             </ListItemButton>
           </List>
         </nav>
@@ -659,6 +677,11 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
                 </div>
               </>
             )}
+          </section>
+        )}
+        {active === 'affirmations' && (
+          <section>
+            <AffirmationSettings />
           </section>
         )}
 
