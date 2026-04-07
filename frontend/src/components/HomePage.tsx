@@ -635,7 +635,7 @@ export default function HomePage() {
           />
           <ActionCard
             icon={<Sparkles className="w-6 h-6" />}
-            label="Generate Weekly Summary"
+            label="Generate a Summary"
             description="AI recap of your progress"
             onClick={() => setIsSummaryModalOpen(true)}
             className="w-full md:w-auto"

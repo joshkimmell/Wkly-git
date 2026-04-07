@@ -266,7 +266,7 @@ const App: React.FC = () => {
           handleLogout={handleLogout}
           />
         <GoalsProvider>
-          <main className="max-w-8xl md:h-[100vh] mx-auto px-4 sm:px-8 lg:px-16 py-8">
+          <main className="max-w-8xl min-h-[100vh] mx-auto px-4 sm:px-8 lg:px-16 py-8">
 
             <Routes>
               {/* <Route path="/" element={<WeeklyGoals />} /> */}
