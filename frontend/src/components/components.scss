@@ -44,6 +44,10 @@ svg {
         background: linear-gradient(180deg, var(--brand-90) 0%, var(--brand-70) 100%);
     }
 
+    &-mobile--nav {
+        background: linear-gradient(180deg, var(--brand-70) 0.1, var(--brand-90) 50%);
+    }
+
     &-brand {
         // Use runtime CSS variables from appColors
         background: linear-gradient(180deg, var(--brand-90) 0%, var(--brand-70) 100%);

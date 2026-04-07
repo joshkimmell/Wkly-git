@@ -214,23 +214,25 @@ function EmptyState({ onAddGoal, username }: { onAddGoal: () => void; username?:
 
 // ─── action prompt card ──────────────────────────────────────────────────────
 
-function ActionCard({
+export function ActionCard({
   icon,
   label,
   description,
   onClick,
   variant = 'default',
+  className = '',
 }: {
   icon: React.ReactNode;
   label: string;
   description: string;
   onClick: () => void;
   variant?: 'default' | 'primary';
+  className?: string;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`group w-auto text-left rounded-md border p-4 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary group-hover:shadow-md ${
+      className={`group w-auto text-left rounded-md border p-4 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary group-hover:shadow-md ${className || ''} ${
         variant === 'primary'
           ? 'border-brand-60 dark:border-brand-70 bg-brand-10 group-hover:bg-brand-20 dark:bg-brand-90 dark:group-hover:bg-primary/20'
           : 'border-gray-20 dark:border-gray-70 bg-transparent group-hover:border-primary'
@@ -598,13 +600,13 @@ export default function HomePage() {
     <div className="space-y-8">
 
       {/* header */}
-      <div>
+      <div className="w-full xl:w-[85vw] px-4">
         <p className="flex gap-2 text-xs tracking-[0.15em] uppercase text-secondary-text mb-2">
           <Calendar className="w-3.5 h-3.5" />
           {formatDisplayDate(today, timezone)}
         </p>
         <div className="flex flex-col md:flex-row md:items-center items-start gap-0 mb-4">
-          <h1 className="flex w-full max-w-1/3 text-2xl font-serif italic font-medium md:text-4xl md:font-normal text-primary-text tracking-tight">{getGreeting()}{username ? `, ${username}!` : ''}</h1>
+          <h1 className="flex text-wrap lg:text-nowrap w-auto pr-8 max-w-1/3 text-2xl font-serif italic font-medium md:text-4xl md:font-normal text-primary-text tracking-tight">{getGreeting()}{username ? `, ${username}!` : ''}</h1>
           <span className="hidden md:flex items-center w-1/4 h-[1px] bg-brand-40 dark:bg-brand-60 max-w-1/4"></span>
           <span className="flex ml-8 w-[1px] min-h-8 md:hidden max-h-1/3 bg-brand-40 dark:bg-brand-60 "></span>
         
@@ -622,19 +624,21 @@ export default function HomePage() {
           <Zap className="w-4 h-4 text-primary" />
           Quick actions
         </h2>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap md:flex-nowrap gap-3">
           <ActionCard
             icon={<Plus className="w-6 h-6" />}
             label="Create a goal with tasks"
             description="Plan your next objective"
             onClick={openGoalModal}
             variant='primary'
+            className="w-full md:w-auto"
           />
           <ActionCard
             icon={<Sparkles className="w-6 h-6" />}
             label="Generate Weekly Summary"
             description="AI recap of your progress"
             onClick={() => setIsSummaryModalOpen(true)}
+            className="w-full md:w-auto"
           />
         </div>
       </section>

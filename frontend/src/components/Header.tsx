@@ -359,7 +359,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                     </div>
 
                     {/* Mobile Bottom Nav */}
-                        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40  bg-brand-20/50 dark:bg-brand-70/70 backdrop-blur-xl border-t border-secondary-border">
+                        <nav className="header-brand--bg md:hidden fixed bottom-0 left-0 right-0 z-40 bg-brand-20 dark:bg-brand-60 backdrop-blur-xl border-t border-secondary-border pb-4">
                             <div className="flex items-center justify-around px-2 py-2 pb-[env(safe-area-inset-bottom)]">
                                 {navItems.map(({ to, label, icon: Icon, end }) => (
                                 <NavLink
@@ -369,8 +369,8 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                                     className={({ isActive }) =>
                                     `flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-medium transition-all duration-200 ${
                                         isActive
-                                        ? 'text-brand-60 dark:text-brand-30 scale-105'
-                                        : 'text-secondary-text opacity-100 hover:opacity-60'
+                                        ? 'header-mobile--nav text-brand-70 dark:text-brand-30 scale-105 border-y-2 border-x-1 border-brand-60 dark:border-brand-30'
+                                        : 'text-primary dark:text-gray-30 opacity-80 hover:opacity-100'
                                     }`
                                     }
                                 >
