@@ -131,8 +131,8 @@ const FocusFireworks: React.FC<{ onDone: () => void }> = ({ onDone }) => {
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
         <div className="text-center animate-bounce-in">
           <div className="text-6xl mb-4">🎉</div>
-          <h2 className="text-3xl font-bold text-white drop-shadow-lg">Task Complete!</h2>
-          <p className="text-lg text-brand-20 mt-2 drop-shadow">Great work — you nailed it!</p>
+          <h2 className="text-3xl font-bold text-primary-text drop-shadow-lg">Task Complete!</h2>
+          <p className="text-lg text-brand-80 dark:text-brand-20 mt-2 drop-shadow-lg">Great work — you nailed it!</p>
         </div>
       </div>
     </div>

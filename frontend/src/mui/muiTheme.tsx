@@ -114,6 +114,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
   // const input = readCssVar(['--brand-60', '--color-brand-60'], isDark ? '#FFFFFF' : '#383838', preferBody);
   // link token not used; reading from palette instead
   const fontFamily = readCssVar(['--font-family'], "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", preferBody);
+  const fontSerif = readCssVar(['--font-serif'], "'Meraki', -apple-system-serif, BlinkMacSystemFont, serif", preferBody);
   const fontSize = readCssVar(['--font-size-base'], '16px', preferBody);
   const borderRadius = readCssVar(['--border-radius'], '8px', preferBody);
   const boxShadow = readCssVar(['--box-shadow'], '0px 2px 4.9px rgba(0,0,0,0.6)', preferBody);

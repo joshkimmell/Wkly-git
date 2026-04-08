@@ -10,6 +10,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import { useTimezone } from '@context/TimezoneContext';
+import { useFireworks } from '@context/FireworksContext';
 import { convertToUTC } from '@utils/timezone';
 import TaskCard from './TaskCard';
 import TasksKanban from './TasksKanban';
@@ -31,6 +32,7 @@ type ViewMode = 'list' | 'kanban' | 'calendar';
 
 const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescription, goalCategory, onTaskCountChange, onBeforeFocusMode }) => {
   const { timezone } = useTimezone();
+  const { triggerFireworks } = useFireworks();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -499,6 +501,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
 
       const successCount = results.filter((r) => r.status === 'fulfilled').length;
       notifySuccess(`Updated ${successCount} of ${ids.length} tasks`);
+      if (status === 'Done' && successCount > 0) triggerFireworks();
       setBulkStatusAnchorEl(null);
       clearSelection();
       await fetchTasks();

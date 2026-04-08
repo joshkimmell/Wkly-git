@@ -22,6 +22,7 @@ import supabase from '@lib/supabase';
 import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
 import { enhanceLinks, applyHighlight } from '@utils/functions';
 import { useTimezone } from '@context/TimezoneContext';
+import { useFireworks } from '@context/FireworksContext';
 import { utcToDatetimeLocal, convertToUTC } from '@utils/timezone';
 import { clearNotifiedReminder } from '@hooks/useReminderService';
 
@@ -89,6 +90,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onBeforeFocusMode,
 }) => {
   const { timezone } = useTimezone();
+  const { triggerFireworks } = useFireworks();
   const focusTimer = useFocusTimer();
   const { settings: pomodoroSettings } = usePomodoroSettings();
   const isTimerActive = focusTimer.isActiveFor(task.id);
@@ -679,6 +681,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
     
     // Also call onStatusChange for components that only listen to that
     onStatusChange(task.id, 'Done');
+    
+    // Celebrate!
+    triggerFireworks();
     
     // Close dialog and reset
     setIsClosingRationaleDialogOpen(false);

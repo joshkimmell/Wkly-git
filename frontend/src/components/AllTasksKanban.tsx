@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Task } from '@utils/goalUtils';
 import { useGoalsContext } from '@context/GoalsContext';
+import { useFireworks } from '@context/FireworksContext';
 import TaskCard from './TaskCard';
 import LoadingSpinner from './LoadingSpinner';
 import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
@@ -33,6 +34,7 @@ export default function AllTasksKanban({ onRefresh }: AllTasksKanbanProps) {
   const [tasks, setTasks] = useState<TaskWithGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const { goals } = useGoalsContext();
+  const { triggerFireworks } = useFireworks();
 
   // Build a stable category map from goals context
   const goalCategoryMap = useMemo(() => {
@@ -291,12 +293,16 @@ export default function AllTasksKanban({ onRefresh }: AllTasksKanbanProps) {
     }
 
     handleStatusChange(draggedTaskId, newStatus);
+    if (newStatus === 'Done') triggerFireworks();
     setDraggedTaskId(null);
   };
 
   const handleTouchDrop = useCallback((taskId: string, dropTarget: HTMLElement) => {
     const newStatus = dropTarget.dataset.dropStatus as Task['status'] | undefined;
-    if (newStatus) handleStatusChange(taskId, newStatus);
+    if (newStatus) {
+      handleStatusChange(taskId, newStatus);
+      if (newStatus === 'Done') triggerFireworks();
+    }
   }, []);
 
   const { getTouchProps } = useTouchDrag({

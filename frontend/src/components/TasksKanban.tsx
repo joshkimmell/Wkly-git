@@ -4,6 +4,7 @@ import TaskCard from './TaskCard';
 import { Plus, Eye, EyeOff } from 'lucide-react';
 import { TextField, IconButton, Tooltip, Badge, useMediaQuery } from '@mui/material';
 import { useTouchDrag } from '@hooks/useTouchDrag';
+import { useFireworks } from '@context/FireworksContext';
 import { STATUS_COLORS } from '../constants/statuses';
 
 interface TasksKanbanProps {
@@ -30,6 +31,7 @@ const TasksKanban: React.FC<TasksKanbanProps> = ({
   selectedIds = new Set(),
   onToggleSelect,
 }) => {
+  const { triggerFireworks } = useFireworks();
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<Task['status'] | null>(null);
   const [addingToColumn, setAddingToColumn] = useState<Task['status'] | null>(null);
@@ -84,6 +86,7 @@ const TasksKanban: React.FC<TasksKanbanProps> = ({
       const draggedTask = tasks.find((t) => t.id === draggedTaskId);
       if (draggedTask && draggedTask.status !== newStatus) {
         onStatusChange(draggedTaskId, newStatus);
+        if (newStatus === 'Done') triggerFireworks();
       }
     }
     setDraggedTaskId(null);
@@ -94,6 +97,7 @@ const TasksKanban: React.FC<TasksKanbanProps> = ({
     const newStatus = dropTarget.dataset.dropStatus as Task['status'] | undefined;
     if (newStatus && onStatusChange) {
       onStatusChange(taskId, newStatus);
+      if (newStatus === 'Done') triggerFireworks();
     }
   }, [onStatusChange]);
 

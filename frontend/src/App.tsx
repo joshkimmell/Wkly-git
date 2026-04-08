@@ -21,6 +21,7 @@ import AppMuiThemeProvider from './mui/muiTheme';
 import appColors from '@styles/appColors';
 import { FocusTimerProvider } from '@components/focus/FocusTimerContext';
 import { FocusModeProvider } from '@context/FocusModeContext';
+import { FireworksProvider } from '@context/FireworksContext';
 import MuiCompareDemo from '@components/MuiCompareDemo';
 import AdminAccessRequests from '@components/AdminAccessRequests';
 import Footer from '@components/Footer';
@@ -257,6 +258,7 @@ const App: React.FC = () => {
     <TimezoneProvider>
     <FocusTimerProvider>
     <FocusModeProvider>
+    <FireworksProvider>
     <div className={`${current}`}>
       <div className={`min-h-screen bg-background text-primary-text ${current}`}>
         <Header   
@@ -292,6 +294,7 @@ const App: React.FC = () => {
         </GoalsProvider>
       </div>
     </div>
+    </FireworksProvider>
     </FocusModeProvider>
     </FocusTimerProvider>
     </TimezoneProvider>

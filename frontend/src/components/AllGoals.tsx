@@ -3199,7 +3199,7 @@ const GoalsComponent = () => {
                                                     }} checked={selectedIds.has(goal.id)} onChange={() => {}} inputProps={{ 'aria-label': `Select goal ${goal.title}` }}
                                                     />
                                                 <div>
-                                                        <Typography variant="body1"><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></Typography>
+                                                        <Typography variant="h6" className='!font-serif !font-semibold'><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></Typography>
                                                         <Typography variant="body2" className="text-gray-50">
                                                             <span dangerouslySetInnerHTML={renderHTML(((goal.description || '').substring(0, 100) + ((goal.description || '').length > 200 ? '...' : '')))} />
                                                         </Typography>
