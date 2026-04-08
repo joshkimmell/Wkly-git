@@ -25,6 +25,24 @@ export const handler: Handler = async (event) => {
       return { statusCode: 500, body: JSON.stringify({ error: 'Failed to fetch saved affirmations' }) };
     }
 
+    // Enrich author from submitter profile when missing and not anonymous
+    const affs = (data || []).map((s: any) => s.affirmation).filter(Boolean);
+    const needsAuthor = affs.filter((a: any) => !a.author && !a.is_anonymous && a.submitted_by);
+    if (needsAuthor.length > 0) {
+      const ids = [...new Set(needsAuthor.map((a: any) => a.submitted_by))];
+      const { data: profiles } = await supabase.from('profiles').select('id, username, email').in('id', ids);
+      const profileMap: Record<string, string> = {};
+      for (const p of profiles || []) {
+        profileMap[p.id] = p.username || p.email || '';
+      }
+      for (const s of data || []) {
+        const a = (s as any).affirmation;
+        if (a && !a.author && !a.is_anonymous && a.submitted_by && profileMap[a.submitted_by]) {
+          a.author = profileMap[a.submitted_by];
+        }
+      }
+    }
+
     return { statusCode: 200, body: JSON.stringify(data) };
   } catch (err: any) {
     console.error('Unexpected error getSavedAffirmations:', err);

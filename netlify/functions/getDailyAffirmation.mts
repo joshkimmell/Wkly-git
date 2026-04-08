@@ -86,6 +86,17 @@ export const handler: Handler = async (event) => {
       .single();
 
     if (existing) {
+      // Enrich author from submitter profile when missing and not anonymous
+      if (!existing.author && !existing.is_anonymous && existing.submitted_by) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('username, email')
+          .eq('id', existing.submitted_by)
+          .maybeSingle();
+        if (profile) {
+          existing.author = profile.username || profile.email || null;
+        }
+      }
       return { statusCode: 200, body: JSON.stringify(existing) };
     }
 

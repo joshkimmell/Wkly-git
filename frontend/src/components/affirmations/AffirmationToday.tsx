@@ -152,7 +152,7 @@ const AffirmationToday: React.FC = () => {
         {/* Reflect Card */}
         <div className="bg-brand-0/60 dark:bg-gray-80/30 rounded-xl p-6 hover:bg-brand-10/60 dark:hover:bg-gray-80/50 transition-colors duration-300">
           <MirrorRound className="w-5 h-5 text-brand-60 dark:text-brand-30 mb-3" />
-          <h3 className="font-serif text-base italic text-primary-text mb-1">Reflect</h3>
+          <h3 className="font-serif text-base text-primary-text mb-1">Reflect</h3>
           <p className="text-sm text-secondary-text leading-relaxed mb-4">
             Yesterday's wisdom was about the existential dread of losing a single sock in the laundry.
           </p>
@@ -167,7 +167,7 @@ const AffirmationToday: React.FC = () => {
         {/* Intent Card */}
         <div className="bg-brand-0/60 dark:bg-gray-80/30 rounded-xl p-6 hover:bg-brand-10/60 dark:hover:bg-gray-80/50 transition-colors duration-300">
           <Sliders className="w-5 h-5 text-brand-60 dark:text-brand-30 mb-3" />
-          <h3 className="font-serif text-base italic text-primary-text mb-1">Intent</h3>
+          <h3 className="font-serif text-base text-primary-text mb-1">Intent</h3>
           <p className="text-sm text-secondary-text leading-relaxed mb-4">
             Set your humor profile to receive more absurdity or mild existentialism.
           </p>
@@ -185,7 +185,7 @@ const AffirmationToday: React.FC = () => {
         {/* Submit CTA */}
         <div className="md:col-span-2 bg-brand-0/40 dark:bg-gray-80/20 rounded-xl p-6 flex items-center justify-between hover:bg-brand-10/40 dark:hover:bg-gray-80/40 transition-colors duration-300">
           <div>
-            <h3 className="font-serif text-base italic text-primary-text mb-1">Contribute to the Void</h3>
+            <h3 className="font-serif text-base text-primary-text mb-1">Contribute to the Void</h3>
             <p className="text-sm text-secondary-text">Share your most profound delusions with the universe.</p>
           </div>
           <button

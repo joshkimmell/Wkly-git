@@ -3,7 +3,7 @@ import { Sparkles, Eye, EyeOff, ExternalLink, Wind } from 'lucide-react';
 import { submitAffirmation } from '@utils/affirmationApi';
 import { AFFIRMATION_CATEGORIES } from '../../types/affirmations';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
-import { Switch } from '@mui/material';
+import { Switch, TextField } from '@mui/material';
 import RichTextEditor from '@components/RichTextEditor';
 
 const MAX_CHARS = 280;
@@ -44,7 +44,7 @@ const AffirmationSubmit: React.FC = () => {
     return (
       <div className="max-w-2xl mx-auto text-center py-16">
         <div className="text-5xl mb-6 opacity-60">&#x2728;</div>
-        <h2 className="font-serif font-normal text-2xl italic text-primary-text mb-3">
+        <h2 className="font-serif font-normal text-2xl text-primary-text mb-3">
           Your wisdom has been absorbed.
         </h2>
         <p className="text-secondary-text mb-8">
@@ -67,7 +67,7 @@ const AffirmationSubmit: React.FC = () => {
         <p className="text-xs tracking-[0.15em] uppercase text-brand-60 dark:text-brand-30 mb-2">
           Editorial Department
         </p>
-        <h1 className="font-serif font-normal text-3xl sm:text-4xl italic text-primary-text leading-tight pb-1">
+        <h1 className="font-serif font-normal text-3xl sm:text-4xl text-primary-text leading-tight pb-1">
           Contribute to the Void
         </h1>
         <p className="text-secondary-text text-sm mt-2">
@@ -77,12 +77,16 @@ const AffirmationSubmit: React.FC = () => {
 
       {/* Text Input */}
       <div className="bg-brand-0/60 dark:bg-gray-80/30 rounded-xl p-6 sm:p-8 mb-4">
-        <RichTextEditor
+        <TextField
           id="affirmation-text"
+          label="Your Positive Witticism"
+          multiline
+          minRows={4}
+          maxRows={8}
           value={text}
-          onChange={(val) => setText(val)}
+          onChange={(e) => setText(e.target.value)}
           placeholder="I am manifesting a reality where my inbox responds to itself..."
-          label="Daily Absurdity"
+          className="w-full bg-transparent text-primary-text text-base border-0 border-b border-secondary-border focus:outline-none focus:ring-0 p-2 rounded-none"
         />
         <div className="flex justify-end mt-2">
           <span className={`text-xs ${text.length > MAX_CHARS ? 'text-red-500' : 'text-secondary-text/60'}`}>

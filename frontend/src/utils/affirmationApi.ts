@@ -100,3 +100,29 @@ export async function updateAffirmationPreferences(
   if (!res.ok) throw new Error('Failed to update preferences');
   return res.json();
 }
+
+export async function fetchPendingAffirmations(status = 'pending'): Promise<Affirmation[]> {
+  const token = await getSessionToken();
+  const res = await fetch(`/api/getPendingAffirmations?status=${status}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to fetch pending affirmations');
+  return res.json();
+}
+
+export async function moderateAffirmation(
+  affirmationId: string,
+  action: 'approve' | 'reject' | 'toggle_anonymous' | 'delete'
+): Promise<Affirmation> {
+  const token = await getSessionToken();
+  const res = await fetch('/api/moderateAffirmation', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ affirmationId, action }),
+  });
+  if (!res.ok) throw new Error(`Failed to ${action} affirmation`);
+  return res.json();
+}

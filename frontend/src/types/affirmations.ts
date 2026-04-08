@@ -11,6 +11,8 @@ export interface Affirmation {
   featured_date: string | null;
   created_at: string;
   updated_at: string;
+  submitter_username?: string | null;
+  submitter_email?: string | null;
 }
 
 export interface SavedAffirmation {

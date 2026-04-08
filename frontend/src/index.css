@@ -1,6 +1,15 @@
 /* @import "./styles/theme.css"; */
 /* @import "./styles/richtext.scss"; */
 @import "./styles/variables.scss";
+
+@font-face {
+  font-family: 'Meraki';
+  src: url('/fonts/merakitrial-regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind theme;
@@ -169,7 +178,7 @@
     @apply bg-transparent border-none text-gray-90 dark:text-gray-30 hover:text-gray-100 dark:hover:text-gray-10 hover:bg-gray-10 dark:hover:bg-gray-80 focus:outline-none focus:bg-gray-20 focus:dark:bg-gray-70 focus:ring-offset-2 focus:ring-brand-70 font-normal text-base;
   }
   .btn-link {
-    @apply !text-sm !font-serif italic text-brand-60 dark:text-brand-30 hover:underline underline-offset-4 decoration-brand-70 dark:decoration-brand-40 hover:decoration-brand-60 dark:hover:decoration-brand-30 transition-all duration-200 bg-transparent border-0 shadow-none p-0;
+    @apply !text-sm !font-serif text-brand-60 dark:text-brand-30 hover:underline underline-offset-4 decoration-brand-70 dark:decoration-brand-40 hover:decoration-brand-60 dark:hover:decoration-brand-30 transition-all duration-200 bg-transparent border-0 shadow-none p-0;
   }
 
   /* Common text color utilities */

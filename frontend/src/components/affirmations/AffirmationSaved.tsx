@@ -76,7 +76,7 @@ const AffirmationSaved: React.FC = () => {
       {/* Header */}
       <div className="mb-8">
         
-        <h1 className="font-serif font-normal text-3xl sm:text-4xl italic text-primary-text leading-tight pb-1">
+        <h1 className="font-serif font-normal text-3xl sm:text-4xl text-primary-text leading-tight pb-1">
           Curated Absurdities
         </h1>
         <p className="text-xs tracking-[0.08em] uppercase text-secondary-text mt-1">

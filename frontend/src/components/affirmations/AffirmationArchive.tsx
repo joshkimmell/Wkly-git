@@ -109,7 +109,7 @@ const AffirmationArchive: React.FC = () => {
     <div className="max-w-5xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="font-serif font-normal text-3xl sm:text-4xl italic text-primary-text leading-tight pb-1">
+        <h1 className="font-serif font-normal text-3xl sm:text-4xl text-primary-text leading-tight pb-1">
           Archive of Your Existential Comfort
         </h1>
         <p className="text-xs tracking-[0.1em] uppercase text-secondary-text">
