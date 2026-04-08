@@ -162,7 +162,7 @@ function EmptyState({ onAddGoal, username }: { onAddGoal: () => void; username?:
     <div className="flex flex-1 flex-col items-center justify-center py-16 px-4 text-center max-w-7xl mx-auto">
       
         <div className='relative text-start z-10 max-w-7xl space-y-8'>
-            <h2 className="text-4xl font-light mt-2 mb-3">Welcome{username ? `, ${username}` : ''}</h2>
+            <h2 className="text-4xl font-serif font-normal mt-2 mb-3">Welcome{username ? `, ${username}` : ''}</h2>
             <p className="text-secondary-text mb-8 leading-relaxed max-w-2xl">
                 Wkly helps you stay focused week over week — track goals, manage tasks, log wins, and generate AI-powered summaries of your progress.
             </p>
@@ -181,7 +181,7 @@ function EmptyState({ onAddGoal, username }: { onAddGoal: () => void; username?:
                 // title={`Add a new goal for the current ${scope}`}
                 aria-label={`Add a new goal`}
                 >
-                <span className="block flex text-nowrap">Add Your First Goal</span>
+                <span className="block flex font-serif text-nowrap">Add Your First Goal</span>
                 <Target className="w-5 h-5" />
             </Button>
             {/* feature pills */}
@@ -198,9 +198,9 @@ function EmptyState({ onAddGoal, username }: { onAddGoal: () => void; username?:
                     >
                     <div className="flex items-start gap-3 text-brand-50 dark:text-brand-70 font-normal text-lg md:text-2xl">
                         {icon}
-                        <div className="flex flex-col text-brand-70 dark:text-brand-40">
+                        <div className="flex flex-col font-serif text-brand-70 dark:text-brand-40">
                             {label}
-                            <p className="text-sm text-gray-50 dark:text-gray-40">{desc}</p>
+                            <p className="font-sans text-sm text-gray-50 dark:text-gray-40">{desc}</p>
                         </div>
                     </div>
                 </div>
@@ -293,6 +293,7 @@ export default function HomePage() {
   const [standaloneReminderOffset, setStandaloneReminderOffset] = useState('30');
   const [standaloneReminderDatetime, setStandaloneReminderDatetime] = useState('');
   const [standaloneSelectedReminderDatetime, setStandaloneSelectedReminderDatetime] = useState<Dayjs | null>(null);
+  const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
 
   // ── daily affirmation interstitial ────────────────────────────────────────
   const [showAffirmationInterstitial, setShowAffirmationInterstitial] = useState(() => shouldShowInterstitial());
@@ -515,6 +516,52 @@ export default function HomePage() {
     }
   };
 
+  const generateStandaloneTasks = async () => {
+    if (!standaloneTaskGoalId) {
+      alert('Please select a goal first');
+      return;
+    }
+    const goal = goals.find(g => g.id === standaloneTaskGoalId);
+    if (!goal) {
+      alert('Selected goal not found');
+      return;
+    }
+    setIsGeneratingTasks(true);
+    try {
+      const token = await getSessionToken();
+      if (!token) throw new Error('Not authenticated');
+      const response = await fetch('/.netlify/functions/generatePlan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ title: goal.title, description: goal.description || '' }),
+      });
+      if (!response.ok) throw new Error(await response.text() || 'Failed to generate tasks');
+      const data = await response.json();
+      if (Array.isArray(data.tasks)) {
+        for (const task of data.tasks) {
+          await fetch('/.netlify/functions/createTask', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              goal_id: goal.id,
+              title: task.title,
+              description: task.description || null,
+              status: 'Not started',
+              order_index: 0,
+            }),
+          });
+        }
+        closeAddTaskModal();
+        fetchTodayTasks();
+      }
+    } catch (err) {
+      console.error('[HomePage] generateStandaloneTasks error:', err);
+      alert(err instanceof Error ? err.message : 'Failed to generate tasks');
+    } finally {
+      setIsGeneratingTasks(false);
+    }
+  };
+
   // ── loading ───────────────────────────────────────────────────────────────
   if (isRefreshing && goals.length === 0) {
     return (
@@ -606,7 +653,7 @@ export default function HomePage() {
           {formatDisplayDate(today, timezone)}
         </p>
         <div className="flex flex-col md:flex-row md:items-center items-start gap-0 mb-4">
-          <h1 className="flex text-wrap lg:text-nowrap w-auto pr-8 max-w-1/3 text-2xl font-serif italic font-medium md:text-4xl md:font-normal text-primary-text tracking-tight">{getGreeting()}{username ? `, ${username}!` : ''}</h1>
+          <h1 className="flex text-wrap lg:text-nowrap w-auto pr-8 max-w-1/3 text-2xl font-serif font-medium md:text-4xl md:font-normal text-primary-text tracking-tight">{getGreeting()}{username ? `, ${username}!` : ''}</h1>
           <span className="hidden md:flex items-center w-1/4 h-[1px] bg-brand-40 dark:bg-brand-60 max-w-1/4"></span>
           <span className="flex ml-8 w-[1px] min-h-8 md:hidden max-h-1/3 bg-brand-40 dark:bg-brand-60 "></span>
         
@@ -710,12 +757,21 @@ export default function HomePage() {
               <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
                 <Zap className="w-7 h-7 text-gray-30 dark:text-gray-60 mb-2" />
                 <p className="text-sm text-gray-40 dark:text-gray-50">No tasks scheduled for today</p>
-                <button
-                  onClick={() => setIsAddTaskModalOpen(true)}
-                  className="mt-3 btn-primary hover:underline"
-                >
-                  Add a task →
-                </button>
+                <div className="flex gap-3 mt-3 flex-wrap justify-center">
+                  <button
+                    onClick={() => setIsAddTaskModalOpen(true)}
+                    className="btn-primary hover:underline"
+                  >
+                    Add a task →
+                  </button>
+                  <button
+                    onClick={() => setIsAddTaskModalOpen(true)}
+                    className="btn-secondary"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Generate with AI
+                  </button>
+                </div>
               </div>
             ) : (
               <ul className="divide-y divide-gray-20 dark:divide-gray-70">
@@ -1018,6 +1074,13 @@ export default function HomePage() {
 
           <div className="flex justify-end gap-3 mt-6">
             <button className="btn-secondary" onClick={closeAddTaskModal}>Cancel</button>
+            <button
+              className="btn-secondary"
+              onClick={generateStandaloneTasks}
+              disabled={isGeneratingTasks || !standaloneTaskGoalId}
+            >
+              {isGeneratingTasks ? 'Generating...' : <><Sparkles className="w-4 h-4" /> Generate with AI</>}
+            </button>
             <button className="btn-primary" onClick={createStandaloneTask}>Add task</button>
           </div>
         </div>

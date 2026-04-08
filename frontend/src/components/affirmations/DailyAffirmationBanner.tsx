@@ -123,6 +123,7 @@ const DailyAffirmationBanner: React.FC<DailyAffirmationBannerProps> = ({
         className={`fixed inset-0 z-50 flex flex-col gap-4 items-center justify-center bg-background/95 backdrop-blur-sm overflow-auto transition-opacity duration-700 ${
           visible ? 'opacity-100 max-h-[100vh]' : 'opacity-0'
         }`}
+        onClick={handleDismiss}
       >
         <div className={`max-w-2xl w-full mx-4 text-center transition-all duration-700 space-y-4 ${
           visible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'

@@ -3,7 +3,7 @@ import supabase from '@lib/supabase';
 import { Task } from '@utils/goalUtils';
 import { notifySuccess, notifyError, notifyWithUndo } from './ToastyNotification';
 import { TextField, ToggleButtonGroup, ToggleButton, Tooltip, IconButton, Collapse, Badge, Menu, MenuItem, FormControl, InputLabel, Select, FormControlLabel, Switch } from '@mui/material';
-import { List, Calendar as CalendarIcon, Plus, X, CheckSquare2, SquareSlash, Kanban, Bell } from 'lucide-react';
+import { List, Calendar as CalendarIcon, Plus, X, CheckSquare2, SquareSlash, Kanban, Bell, Sparkles } from 'lucide-react';
 import { DatePicker, TimePicker, DateTimePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -16,6 +16,7 @@ import TasksKanban from './TasksKanban';
 import TasksCalendar from './TasksCalendar';
 import ConfirmModal from './ConfirmModal';
 import { STATUS_COLORS } from '../constants/statuses';
+import RichTextEditor from './RichTextEditor';
 
 interface TasksListProps {
   goalId: string;
@@ -570,16 +571,16 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
           </button>
         </div>
         {isAddingTask && (
-          <div className="mt-6 p-4 border rounded bg-background dark:border-gray-70">
+          <div className="mt-6 p-4 border rounded bg-background dark:border-gray-70 space-y-4">
             <h4 className="text-sm font-semibold mb-3 text-gray-90 dark:text-gray-10">Create a New Task</h4>
-            <textarea
+            <TextField
               placeholder="Task title..."
               value={newTask.title || ''}
               onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
               className="w-full p-2 border rounded mb-2 bg-background dark:border-gray-70 text-gray-90 dark:text-gray-10"
               rows={1}
             />
-            <textarea
+            <TextField
               placeholder="Task description (optional)..."
               value={newTask.description || ''}
               onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
@@ -630,6 +631,13 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
               <Plus className="w-5 h-5" /> <span>Add Task</span></>)}
             </button>
           {/* </Tooltip> */}
+            <button
+              onClick={generateTasks}
+              disabled={isGenerating}
+              className="btn-secondary gap-1 cursor-pointer"
+            >
+              {isGenerating ? 'Generating...' : <><Sparkles className="w-4 h-4" /> Generate with AI</>}
+            </button>
           
           {viewMode === 'list' && (
             <>

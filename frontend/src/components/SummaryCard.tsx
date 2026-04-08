@@ -103,7 +103,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
         }}
       >
         <div className={`flex flex-row w-full items-start justify-between gap-4 align-top`}>  
-          <h1 className="w-full text-primary-link" dangerouslySetInnerHTML={{ __html: title }}></h1>
+          <h1 className="w-full font-serif text-primary-link" dangerouslySetInnerHTML={{ __html: title }}></h1>
           <div className="flex flex-row justify-between">
             <Chip
               label={type}                

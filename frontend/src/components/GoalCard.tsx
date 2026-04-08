@@ -502,7 +502,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
         </div>
       </div>
       <div className="goal-content flex flex-col mt-2 flex-grow">
-        <h2 className={`text-xl font-normal leading-tight text-primary-link pb-3`} dangerouslySetInnerHTML={{ __html: applyHighlight(goal.title, filter) || 'Untitled Goal' }}>
+        <h2 className={`text-xl font-serif font-normal leading-tight text-primary-link pb-3`} dangerouslySetInnerHTML={{ __html: applyHighlight(goal.title, filter) || 'Untitled Goal' }}>
         </h2>
         <p className={`text-gray-60 dark:text-gray-40 mt-1`} dangerouslySetInnerHTML={{ __html: applyHighlight(goal.description, filter) || 'No description provided.' }}>
         </p>
