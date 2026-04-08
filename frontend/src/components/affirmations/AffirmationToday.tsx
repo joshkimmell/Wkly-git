@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, Share2, Sliders, ThumbsUp, MirrorRound, Calendar, Settings2, Edit2, Bird, Edit3 } from 'lucide-react';
+import { Heart, Share2, Sliders, ThumbsUp, MirrorRound, Calendar, Settings2, Edit2, Bird, Edit3, Brain } from 'lucide-react';
 import { fetchDailyAffirmation, toggleSaveAffirmation, fetchSavedAffirmations } from '@utils/affirmationApi';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
 import type { Affirmation } from '../../types/affirmations';
@@ -131,7 +131,7 @@ const AffirmationToday: React.FC = () => {
           disabled={saving}
           className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 border-0 shadow-none ${
             isSaved
-              ? 'bg-brand-60 dark:bg-brand-40 text-white dark:text-gray-90'
+              ? 'bg-brand-60 dark:bg-brand-40 text-inverse-text hover:text-primary-icon'
               : 'bg-brand-10 dark:bg-gray-80 text-brand-80 dark:text-brand-20 hover:bg-brand-20 dark:hover:bg-gray-70'
           }`}
         >
@@ -150,51 +150,51 @@ const AffirmationToday: React.FC = () => {
       {/* Bottom Cards - Bento Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Reflect Card */}
-        <div className="bg-brand-0/60 dark:bg-gray-80/30 rounded-xl p-6 hover:bg-brand-10/60 dark:hover:bg-gray-80/50 transition-colors duration-300">
+        <div onClick={() => navigate('/affirmations/archive')} className="group bg-brand-0/60 dark:bg-gray-80/30 rounded-xl p-6 hover:bg-brand-10/60 dark:hover:bg-gray-80/50 transition-colors duration-300 cursor-pointer">
           <MirrorRound className="w-5 h-5 text-brand-60 dark:text-brand-30 mb-3" />
           <h3 className="font-serif text-base text-primary-text mb-1">Reflect</h3>
           <p className="text-sm text-secondary-text leading-relaxed mb-4">
             Yesterday's wisdom was about the existential dread of losing a single sock in the laundry.
           </p>
-          <button
-            onClick={() => navigate('/affirmations/archive')}
-            className="btn-link"
+          <p
+            className="btn-link group-hover:underline"
           >
             Read Archive
-          </button>
+          </p>
         </div>
 
         {/* Intent Card */}
-        <div className="bg-brand-0/60 dark:bg-gray-80/30 rounded-xl p-6 hover:bg-brand-10/60 dark:hover:bg-gray-80/50 transition-colors duration-300">
+        <div 
+          onClick={() => {
+                try { sessionStorage.setItem('wkly_prefs_tab', 'affirmations'); } catch { /* ignore */ }
+                window.dispatchEvent(new Event('wkly:open-preferences'));
+              }} 
+          className="group bg-brand-0/60 dark:bg-gray-80/30 rounded-xl p-6 hover:bg-brand-10/60 dark:hover:bg-gray-80/50 transition-colors duration-300 cursor-pointer"
+          >
           <Sliders className="w-5 h-5 text-brand-60 dark:text-brand-30 mb-3" />
           <h3 className="font-serif text-base text-primary-text mb-1">Intent</h3>
           <p className="text-sm text-secondary-text leading-relaxed mb-4">
             Set your humor profile to receive more absurdity or mild existentialism.
           </p>
-          <button
-            onClick={() => {
-              try { sessionStorage.setItem('wkly_prefs_tab', 'affirmations'); } catch { /* ignore */ }
-              window.dispatchEvent(new Event('wkly:open-preferences'));
-            }}
-            className="btn-link"
+          <p
+            className="btn-link group-hover:underline"
           >
             Adjust Vibes
-          </button>
+          </p>
         </div>
 
         {/* Submit CTA */}
-        <div className="md:col-span-2 bg-brand-0/40 dark:bg-gray-80/20 rounded-xl p-6 flex items-center justify-between hover:bg-brand-10/40 dark:hover:bg-gray-80/40 transition-colors duration-300">
+        <div onClick={() => navigate('/affirmations/submit')} className="group md:col-span-2 bg-brand-0/40 dark:bg-gray-80/20 rounded-xl p-6 flex items-center justify-between hover:bg-brand-10/40 dark:hover:bg-gray-80/40 transition-colors duration-300 cursor-pointer">
           <div>
+            <Brain className="w-5 h-5 text-brand-60 dark:text-brand-30 mb-3" />
             <h3 className="font-serif text-base text-primary-text mb-1">Contribute to the Void</h3>
             <p className="text-sm text-secondary-text">Share your most profound delusions with the universe.</p>
           </div>
-          <button
-            onClick={() => navigate('/affirmations/submit')}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold bg-gradient-to-br from-brand-60 to-brand-70 dark:from-brand-30 dark:to-brand-50 text-white hover:brightness-110 active:scale-95 transition-all duration-200 border-0 shadow-none whitespace-nowrap"
+          <p
+            className="btn-link group-hover:underline flex items-center gap-1"
           >
-            <Edit3 className="w-4 h-4" />
             Submit Wisdom
-          </button>
+          </p>
         </div>
       </div>
     </div>

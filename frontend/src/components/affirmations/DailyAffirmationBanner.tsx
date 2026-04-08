@@ -187,7 +187,7 @@ const DailyAffirmationBanner: React.FC<DailyAffirmationBannerProps> = ({
               disabled={saving || loading}
               className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border-0 shadow-none ${
                 isSaved
-                  ? 'bg-brand-60 dark:bg-brand-40 text-white dark:text-gray-90'
+                  ? 'bg-brand-60 dark:bg-brand-40 text-inverse-text hover:text-primary-icon'
                   : 'bg-brand-10 dark:bg-gray-80 text-brand-80 dark:text-brand-20 hover:bg-brand-20 dark:hover:bg-gray-70'
               }`}
             >
