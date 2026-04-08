@@ -120,20 +120,29 @@ const DailyAffirmationBanner: React.FC<DailyAffirmationBannerProps> = ({
   if (mode === 'interstitial') {
     return (
       <div
-        className={`fixed inset-4 z-50 flex items-center justify-center bg-background/95 backdrop-blur-sm transition-opacity duration-700 ${
-          visible ? 'opacity-100' : 'opacity-0'
+        className={`fixed inset-0 z-50 flex flex-col gap-4 items-center justify-center bg-background/95 backdrop-blur-sm overflow-auto transition-opacity duration-700 ${
+          visible ? 'opacity-100 max-h-[100vh]' : 'opacity-0'
         }`}
       >
-        <div className={`max-w-2xl w-full mx-4 text-center transition-all duration-700 ${
+        <div className={`max-w-2xl w-full mx-4 text-center transition-all duration-700 space-y-4 ${
           visible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
         }`}>
+          <button
+              onClick={handleDismiss}
+              className="btn-link inline-flex items-center gap-2 px-6 py-3 text-sm  hover:brightness-110 active:scale-95 transition-all duration-200 border-0 shadow-none"
+          >
+              {/* <Tooltip title="Dismiss for today" placement="bottom" arrow> */}
+              <X className="w-4 h-4" /> <span className='font-normal'>Dismiss</span>
+              {/* </Tooltip> */}
+          </button>
+
           <p className="text-xs tracking-[0.15em] uppercase text-secondary-text mb-6">
             {dateStr}
           </p>
 
           {loading ? (
-            <div className="space-y-4 animate-pulse">
-              <div className="text-brand-40 dark:text-brand-30 text-6xl font-serif leading-none opacity-20 select-none">
+            <div className="space-y-2 animate-pulse">
+              <div className="text-brand-40 dark:text-brand-30 text-6xl font-serif leading-none opacity-20 select-none -mb-6">
                 &#x201C;&#x201D;
               </div>
               <div className="h-8 bg-brand-10 dark:bg-gray-70/50 rounded w-5/6 mx-auto" />
@@ -141,40 +150,33 @@ const DailyAffirmationBanner: React.FC<DailyAffirmationBannerProps> = ({
             </div>
           ) : (
             <>
-              <button
-                onClick={handleDismiss}
-                className="mt-12 btn-ghost inline-flex items-center gap-2 px-6 py-3 text-sm font-bold  hover:brightness-110 active:scale-95 transition-all duration-200 border-0 shadow-none"
-            >
-                <Tooltip title="Dismiss for today" placement="bottom" arrow>
-                <X className="w-4 h-4" />
-                </Tooltip>
-            </button>
-              <div className="text-brand-40 dark:text-brand-30 text-6xl font-serif leading-none opacity-40 mb-6 select-none">
+            <div className="space-y-1">
+              <div className="text-brand-40 dark:text-brand-30 text-6xl font-serif leading-none opacity-40 select-none -mb-6">
                 &#x201C;&#x201D;
               </div>
-
-              <blockquote className="font-serif text-3xl sm:text-4xl lg:text-5xl italic leading-snug text-primary-text mb-6">
+              <blockquote className="font-serif italic text-xl sm:text-3xl lg:text-5xl leading-snug text-primary-text mx-4 mb-4">
                 {affirmation?.text || 'The void awaits your arrival.'}
               </blockquote>
+            </div>
 
-              {affirmation?.author && (
-                <>
-                  <div className="w-10 h-[1px] bg-secondary-text/30 mx-auto my-6" />
-                  <p className="text-xs tracking-[0.1em] uppercase text-secondary-text">
-                    — {affirmation.author}
-                  </p>
-                </>
-              )}
+            {affirmation?.author && (
+              <>
+                <div className="w-10 h-[1px] bg-secondary-text/30 mx-auto my-6" />
+                <p className="text-xs tracking-[0.1em] uppercase text-secondary-text">
+                  — {affirmation.author}
+                </p>
+              </>
+            )}
 
-              {!affirmation?.author && (
-                <>
-                  <div className="w-10 h-[1px] bg-secondary-text/30 mx-auto my-6" />
-                  <p className="text-xs tracking-[0.1em] uppercase text-secondary-text">
-                    Deep Thoughts for Shallow Moments
-                  </p>
-                </>
-              )}
-            </>
+            {!affirmation?.author && (
+              <>
+                <div className="w-10 h-[1px] bg-secondary-text/30 mx-auto my-6" />
+                <p className="text-xs tracking-[0.1em] uppercase text-secondary-text">
+                  Deep Thoughts for Shallow Moments
+                </p>
+              </>
+            )}
+          </>
           )}
 
           {/* Actions */}

@@ -335,19 +335,19 @@ const Login = () => {
               <div className="flex w-full flex-col gap-6">
                 
                 <div className='relative text-start z-10 max-w-7xl'>
-                  <h1 className="text-4xl sm:text-5xl leading-tight mb-3">
+                  <h1 className="font-serif text-4xl sm:text-5xl leading-tight mb-3">
                     Welcome to{' '}
-                    <span className="text-brand-40 dark:text-brand-30">Wkly</span>
+                    <span className="text-brand-40 dark:text-brand-30">wk</span>ly
                   </h1>
                   <p className="text-lg mb-8" style={{ color: 'var(--secondary-text, currentColor)', opacity: 0.8 }}>
-                    Your weekly command center for goals, tasks, and progress — all in one place.
+                    Your command center for goals, tasks, and progress — all in one place.
                   </p>
 
                   <div className="pt-0 pb-4 flex flex-wrap md:flex-row gap-2">
                     <button
                       type="button"
                       onClick={() => setIsRequestAccessModalOpen(true)}
-                      className="btn-primary w-auto px-8 py-3 text-xl sm:text-2xl font-[300] text-nowrap"
+                      className="btn-primary w-auto px-8 py-3 text-lg sm:text-xl font-[300] text-nowrap"
                     >
                       Request Access
                     <ArrowRight className="w-8 h-8 ml-4" />
@@ -355,10 +355,11 @@ const Login = () => {
                     <div className="flex flex-col gap-2 justify-start items-center">
                       <button
                         type="button"
-                        onClick={openModal}
+                        // onClick={openModal}
+                        onClick={() => setIsLoginModalOpen(true)}
                         className="btn-ghost text-left !text-secondary-link px-8 py-1 text-base font-[400] hover:underline"
                       >
-                        <span className='flex-wrap'><span className='text-nowrap'>Already approved?</span> &nbsp; <span className='font-semibold text-nowrap'>Register here</span></span>
+                        <span className='flex-wrap'><span className='text-nowrap'>Already approved?</span> &nbsp; <span className='font-semibold text-nowrap'>Login here</span></span>
                       </button>
                     </div>
                   </div>
@@ -379,9 +380,9 @@ const Login = () => {
                           <div className='absolute bottom-[6rem] md:bottom-[8rem] -left-2 md:-left-8 w-full h-1 '>
                             {icon}
                           </div>
-                          <div className="pl-24 relative z-20 flex flex-col text-brand-60 dark:text-brand-30">
+                          <div className="font-serif pl-24 relative z-20 flex flex-col text-brand-60 dark:text-brand-30">
                             {label}
-                            <p className="text-sm text-gray-50 dark:text-gray-40">{desc}</p>
+                            <p className="font-sans text-sm text-gray-50 dark:text-gray-40">{desc}</p>
                           </div>
                         </div>
                       </div>
@@ -610,7 +611,7 @@ const Login = () => {
                         </Paper>
 
                         <div className='flex flex-row justify-end gap-4 pt-6'>
-                          <Button type="button"  variant="outlined" onClick={closeModal} sx={{ py: 0.8, px: 3, borderRadius: radius, color: muiTheme.palette.text.primary }}>
+                          <Button type="button"  variant="outlined" onClick={closeModal} className={`btn-secondary`}>
                             Cancel
                           </Button>
                           <div className='flex flex-col items-end'>
