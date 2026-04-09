@@ -16,6 +16,7 @@ import Avatar from '@components/Avatar';
 import PersistentDrawerRight from './MenuDrawer';
 import ProfileManagement from './ProfileManagement';
 import Logo from '@components/Logo';
+import { style } from 'happy-dom/lib/PropertySymbol';
 
 
 
@@ -366,13 +367,17 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                                     key={to}
                                     to={to}
                                     end={end}
+                                    style={({ isActive }) => ({
+                                        minWidth: '3.5rem',
+                                        background: isActive ? 'radial-gradient(circle, var(--brand-90) 0%, rgba(0,0,0,0.0) 80%)' : '',
+                                    })}
                                     className={({ isActive }) =>
                                     `flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-medium transition-all duration-200 ${
                                         isActive
-                                        ? 'header-mobile--nav text-brand-70 dark:text-brand-30 scale-105 border-y-2 border-x-1 border-brand-60 dark:border-brand-30'
-                                        : 'text-primary dark:text-gray-30 opacity-80 hover:opacity-100'
+                                        ? 'header-mobile--nav text-brand-70 dark:text-brand-40 scale-110 border-b-2 border-brand-60 dark:border-brand-40'
+                                        : 'text-white opacity-80 hover:opacity-100'
                                     }`
-                                    }
+                                }
                                 >
                                     <Icon className="w-5 h-5" />
                                     <span>{label}</span>
