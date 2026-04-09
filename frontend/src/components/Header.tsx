@@ -372,7 +372,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                                         background: isActive ? 'radial-gradient(circle, var(--brand-90) 0%, rgba(0,0,0,0.0) 80%)' : '',
                                     })}
                                     className={({ isActive }) =>
-                                    `flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-medium transition-all duration-200 ${
+                                    `flex flex-col items-center gap-0.5 px-3 py-1.5 text-[10px] uppercase tracking-wider font-medium transition-all duration-200 ${
                                         isActive
                                         ? 'header-mobile--nav text-brand-70 dark:text-brand-40 scale-110 border-b-2 border-brand-60 dark:border-brand-40'
                                         : 'text-white opacity-80 hover:opacity-100'
