@@ -17,6 +17,7 @@ import {
   InputLabel,
   Box,
   IconButton,
+  Switch,
   Tooltip,
   Tabs,
   Tab,
@@ -26,7 +27,8 @@ import supabase from '@lib/supabase';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
 import { fetchPendingAffirmations, moderateAffirmation } from '@utils/affirmationApi';
 import type { Affirmation } from '../types/affirmations';
-import { Switch } from '@mui/material';
+import { styled } from '@mui/material/styles';
+
 
 interface AccessRequest {
   id: string;
@@ -51,6 +53,52 @@ interface ApprovedUser {
   username?: string;
   fullName?: string;
 }
+
+interface StyledTabsProps extends React.ComponentProps<typeof Tabs> {
+  children?: React.ReactNode;
+  value: number;
+  onChange: (event: React.SyntheticEvent, newValue: number) => void;
+}
+
+const StyledTabs = styled((props: StyledTabsProps) => (
+  <Tabs
+    {...props}
+    slotProps={{
+      indicator: { children: <span className="MuiTabs-indicatorSpan" /> },
+    }}
+  />
+))({
+  '& .MuiTabs-indicator': {
+    display: 'flex',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  '& .MuiTabs-indicatorSpan': {
+    maxWidth: 60,
+    width: '100%',
+    backgroundColor: 'var(--primary-link)',
+  },
+});
+
+interface StyledTabProps extends React.ComponentProps<typeof Tab> {
+  label: string;
+}
+
+const StyledTab = styled((props: StyledTabProps) => (
+  <Tab disableRipple {...props} />
+))(({ theme }) => ({
+  textTransform: 'none',
+  fontWeight: theme.typography.fontWeightRegular,
+  fontSize: theme.typography.pxToRem(15),
+  marginRight: theme.spacing(1),
+  color: 'var(--primary-text)',
+  '&.Mui-selected': {
+    color: 'var(--primary-link)',
+  },
+  '&.Mui-focusVisible': {
+    backgroundColor: 'rgba(100, 95, 228, 0.32)',
+  },
+}));
 
 const AdminAccessRequests: React.FC = () => {
   const [requests, setRequests] = useState<AccessRequest[]>([]);
@@ -335,11 +383,19 @@ const AdminAccessRequests: React.FC = () => {
         </Tooltip>
       </div>
 
-      <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)} className="mb-6 focus-0 border-b-2 border-gray-200 dark:border-gray-700">
-        <Tab className='focus-0 border-x-0' label="Access Requests" icon={<CircleQuestionMark className="w-4 h-4" />} iconPosition="start" />
-        <Tab className='focus-0 border-x-0' label="Approved Users" icon={<UserCheck className="w-4 h-4" />} iconPosition="start" />
-        <Tab className='focus-0 border-x-0' label="Affirmation Submissions" icon={<ThumbsUpIcon className="w-4 h-4" />} iconPosition="start" />
-      </Tabs>
+      <StyledTabs 
+        value={activeTab} 
+        onChange={(_, newValue) => setActiveTab(newValue)} 
+        className="mb-6 focus:outline-none border-b-2 border-gray-20 dark:border-gray-80 overflow-x-auto"
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+        aria-label="Admin Tabs"
+        >
+        <StyledTab className='focus:ring-0 focus:ring-offset-0' label="Access Requests" icon={<CircleQuestionMark className="w-4 h-4" />} iconPosition="start" />
+        <StyledTab className='focus:ring-0 focus:ring-offset-0' label="Approved Users" icon={<UserCheck className="w-4 h-4" />} iconPosition="start" />
+        <StyledTab className='focus:ring-0 focus:ring-offset-0' label="Affirmation Submissions" icon={<ThumbsUpIcon className="w-4 h-4" />} iconPosition="start" />
+      </StyledTabs>
 
       {activeTab === 0 && (
         <>
