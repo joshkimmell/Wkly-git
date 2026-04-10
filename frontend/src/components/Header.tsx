@@ -372,7 +372,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                                 className="focus:ring-0 focus:ring-offset-0 lg:w-auto"
                                 label={label}
                                 icon={<Icon className="w-4 h-4" />}
-                                // iconPosition="start"
+                                iconPosition={isLarge ? 'start' : 'top'}
                                 wrapped
                             />
                         ))}
