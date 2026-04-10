@@ -358,27 +358,23 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                     <StyledTabs 
                         value={activeTab} 
                         onChange={() => {}} 
-                        className="hidden focus:outline-none overflow-x-auto md:flex self-end h-full"
-                        variant="scrollable"
-                        scrollButtons="auto"
-                        allowScrollButtonsMobile
+                        className="hidden focus:outline-none overflow-x-auto md:flex md:w-2/3 self-end h-full"
+                        // variant="scrollable"
+                        // scrollButtons="auto"
+                        // allowScrollButtonsMobile
                         aria-label="Navigation Tabs"
                         >
                         {navItems.map(({ to, label, icon: Icon, end }) => (
-                            <NavLink
+                            <StyledTab
                                 key={label}
-                                to={to}
-                                end={end}
-                            >
-                                {({ isActive }) => (
-                                    <StyledTab
-                                        className={`focus:ring-0 focus:ring-offset-0 ${isActive ? 'Mui-selected' : ''}`}
-                                        label={label}
-                                        icon={<Icon className="w-4 h-4" />}
-                                        wrapped
-                                    />
-                                )}
-                            </NavLink>
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                {...{ component: NavLink, to, end } as any}
+                                className="focus:ring-0 focus:ring-offset-0 lg:w-auto"
+                                label={label}
+                                icon={<Icon className="w-4 h-4" />}
+                                // iconPosition="start"
+                                wrapped
+                            />
                         ))}
                     </StyledTabs>
                     {/* <nav className="tabs hidden sm:flex items-end self-end ml-6 h-full">
