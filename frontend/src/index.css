@@ -17,6 +17,10 @@
 
 
 @layer base {
+  html {
+    /* Prevent native browser pull-to-bounce competing with our custom pull-to-refresh */
+    overscroll-behavior-y: none;
+  }
   body {
     @apply antialiased text-primary-text;
   }

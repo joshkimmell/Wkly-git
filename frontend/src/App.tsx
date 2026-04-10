@@ -25,6 +25,7 @@ import { FireworksProvider } from '@context/FireworksContext';
 import MuiCompareDemo from '@components/MuiCompareDemo';
 import AdminAccessRequests from '@components/AdminAccessRequests';
 import Footer from '@components/Footer';
+import PullToRefresh from '@components/PullToRefresh';
 import AffirmationsLayout from '@components/affirmations/AffirmationsLayout';
 import AffirmationToday from '@components/affirmations/AffirmationToday';
 import AffirmationArchive from '@components/affirmations/AffirmationArchive';
@@ -268,6 +269,7 @@ const App: React.FC = () => {
           handleLogout={handleLogout}
           />
         <GoalsProvider>
+          <PullToRefresh>
           <main className="max-w-8xl min-h-[100vh] mx-auto px-4 sm:px-8 lg:px-16 py-8">
 
             <Routes>
@@ -291,6 +293,7 @@ const App: React.FC = () => {
             </Routes>
           </main>
           <Footer />
+          </PullToRefresh>
         </GoalsProvider>
       </div>
     </div>
