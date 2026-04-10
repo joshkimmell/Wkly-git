@@ -194,6 +194,33 @@ const PomodoroTimer: React.FC<Props> = ({
     savePhaseState(taskId, s);
   }, [taskId, phase, remaining, sessionCount, timerState]);
 
+  // ── Sync with external timer state ──────────────────────────
+  // When the FocusTimerContext state changes (e.g. timer started/paused/stopped
+  // from a sibling PomodoroTimer in TaskFocusMode), re-read localStorage and
+  // sync our internal state so the card's pomodoro pill stays in sync.
+  const prevExternalRef = useRef(_externalTimerState);
+  useEffect(() => {
+    const prev = prevExternalRef.current;
+    prevExternalRef.current = _externalTimerState;
+    if (prev === _externalTimerState) return; // no change
+
+    const stored = loadPhaseState(taskId);
+    if (!stored) return;
+
+    const computedRem = computeRemaining(stored);
+    setPhase(stored.phase);
+    setRemaining(computedRem);
+    setSessionCount(stored.sessionCount);
+
+    if (_externalTimerState === 'running') {
+      setTimerState('running');
+    } else if (_externalTimerState === 'paused') {
+      setTimerState('paused');
+    } else {
+      setTimerState(stored.timerState === 'running' ? 'paused' : stored.timerState);
+    }
+  }, [_externalTimerState, taskId]);
+
   // Request notification permission on mount
   useEffect(() => {
     if (settings.notificationsEnabled) {

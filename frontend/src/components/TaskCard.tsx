@@ -749,7 +749,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
             {/* Status toggle */}
             <IconButton
               onClick={cycleStatus}
-              className="text-tertiary-button mt-0.5 hover:scale-110 transition-transform"
+              className="btn-ghost  md:!rounded-full text-tertiary-button mt-0.5 hover:scale-110 transition-transform"
               title={`${displayStatus === 'Done' ? 'Reopen' : 'Mark as done'} `}
             >
               <Tooltip title={`${displayStatus === 'Done' ? 'Reopen' : 'Mark as done'}  `} placement="top" arrow>
@@ -764,7 +764,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 aria-label="Focus Mode"
                 size="small"
                 onClick={handleOpenFocusMode}
-                className={`btn-ghost px-0 !rounded-full ${isTimerRunning ? '!bg-brand-60 transition-all animate-pulse duration-300' : ''}`}
+                className={`btn-ghost px-0 md:!rounded-full ${isTimerRunning ? '!bg-brand-60 transition-all animate-pulse duration-300' : ''}`}
               >
               <Tooltip title={`${
                 isTimerActive
