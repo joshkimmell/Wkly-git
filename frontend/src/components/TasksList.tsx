@@ -973,6 +973,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
                 isSelected={selectedIds.has(task.id)}
                 onToggleSelect={toggleSelect}
                 onBeforeFocusMode={onBeforeFocusMode}
+                allowInlineEdit
               />
             );
           })}

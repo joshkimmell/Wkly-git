@@ -113,7 +113,7 @@ const AffirmationArchive: React.FC = () => {
           Archive of Your Existential Comfort
         </h1>
         <p className="text-xs tracking-[0.1em] uppercase text-secondary-text">
-          Chronological Reflections from the Void
+          Chronological Reflections from The Vibe
         </p>
       </div>
 
@@ -137,7 +137,7 @@ const AffirmationArchive: React.FC = () => {
       {/* Affirmation Cards - Asymmetric Bento Grid */}
       {affirmations.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-secondary-text font-serif italic text-lg">The void is empty... for now.</p>
+          <p className="text-secondary-text font-serif italic text-lg">The Vibe is empty... for now.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
@@ -217,7 +217,7 @@ const AffirmationArchive: React.FC = () => {
             className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-xs font-bold tracking-wider uppercase bg-brand-0 dark:bg-gray-80 text-secondary-text hover:bg-brand-10 dark:hover:bg-gray-70 transition-all duration-200 border-0 shadow-none"
           >
             {loadingMore ? <LoadingSpinner variant="mui" /> : <ChevronDown className="w-4 h-4" />}
-            {loadingMore ? 'Loading...' : 'Load Older Absurdities'}
+            {loadingMore ? 'Loading...' : 'Load Older Affirmations'}
           </button>
         </div>
       )}

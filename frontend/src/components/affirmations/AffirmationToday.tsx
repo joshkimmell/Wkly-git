@@ -102,7 +102,7 @@ const AffirmationToday: React.FC = () => {
         </div>
 
         <blockquote className="font-serif text-2xl sm:text-3xl lg:text-4xl italic leading-snug text-primary-text">
-          {affirmation?.text || 'The void is loading...'}
+          {affirmation?.text || 'The Vibe is loading...'}
         </blockquote>
 
         {affirmation?.author && (
@@ -187,7 +187,7 @@ const AffirmationToday: React.FC = () => {
         <div onClick={() => navigate('/affirmations/submit')} className="group md:col-span-2 bg-brand-0/40 dark:bg-gray-80/20 rounded-xl p-6 flex items-center justify-between hover:bg-brand-10/40 dark:hover:bg-gray-80/40 transition-colors duration-300 cursor-pointer">
           <div>
             <Brain className="w-5 h-5 text-brand-60 dark:text-brand-30 mb-3" />
-            <h3 className="font-serif text-base text-primary-text mb-1">Contribute to the Void</h3>
+            <h3 className="font-serif text-base text-primary-text mb-1">Contribute to The Vibe</h3>
             <p className="text-sm text-secondary-text">Share your most profound delusions with the universe.</p>
           </div>
           <p

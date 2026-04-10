@@ -76,7 +76,7 @@ export interface HeaderProps {
 
 interface StyledTabsProps extends React.ComponentProps<typeof Tabs> {
   children?: React.ReactNode;
-  value: number;
+  value: number | false;
   onChange: (event: React.SyntheticEvent, newValue: number) => void;
 }
 
@@ -316,6 +316,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     const activeTab = navItems.findIndex(({ to, end }) =>
         end ? location.pathname === to : location.pathname.startsWith(to)
     );
+    const tabValue = activeTab === -1 ? false : activeTab;
 
     return (
         <div ref={headerRef} className={`header flex items-end dark relative${menuOpen ? ' header-expanded' : ''}${scrolled ? ' header--scrolled' : ''}`}>
@@ -356,7 +357,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                 {isAuthenticated && !isMenuHidden() && !drawerVisible && (
                     <>
                     <StyledTabs 
-                        value={activeTab} 
+                        value={tabValue} 
                         onChange={() => {}} 
                         className="hidden focus:outline-none overflow-x-auto md:flex md:w-2/3 self-end h-full"
                         // variant="scrollable"
@@ -452,7 +453,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                                         background: isActive ? 'radial-gradient(circle, var(--brand-90) 0%, rgba(0,0,0,0.0) 80%)' : '',
                                     })}
                                     className={({ isActive }) =>
-                                    `flex flex-col items-center gap-0.5 px-3 py-1.5 text-[10px] uppercase tracking-wider font-medium transition-all duration-200 ${
+                                    `flex flex-col items-center justify-center text-center gap-0.5 px-3 py-1.5 text-[10px] uppercase tracking-wider font-medium transition-all duration-200 ${
                                         isActive
                                         ? 'header-mobile--nav text-brand-70 dark:text-brand-40 scale-110 border-b-2 border-brand-60 dark:border-brand-40'
                                         : 'text-white opacity-80 hover:opacity-100'

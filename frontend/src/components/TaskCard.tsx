@@ -593,9 +593,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   const handleDateClick = () => {
-    if (onUpdate) {
+    // if (onUpdate) {
       setIsDateTimeDialogOpen(true);
-    }
+    // }
   };
 
   const handleTimeClick = () => {
@@ -906,22 +906,23 @@ const TaskCard: React.FC<TaskCardProps> = ({
             )}
             {task.scheduled_date && !hideCategory && (
               <>
-                <Tooltip arrow placement="top" title="Edit date and time"><Chip
-                  size="medium"
-                  icon={<Calendar className="w-3 h-3" />}
-                  label={
-                    <span className="flex items-center">
-                      <span className="flex items-center text-interactive-text gap-2 pl-2 py-1">
-                        {formattedDate}{task.scheduled_time ? ` ${task.scheduled_time}` : ''}
-                        {task.reminder_enabled ? <><span className='min-w-3 h-auto'></span><span className='absolute right-0 bg-background rounded-full p-1'><Bell className="w-3 h-3 text-secondary-icon" /></span></> : null}
+                <Tooltip arrow placement="top" title="Edit date and time">
+                  <Chip
+                    size="medium"
+                    icon={<Calendar className="w-3 h-3" />}
+                    label={
+                      <span className="flex items-center">
+                        <span className="flex items-center text-interactive-text gap-2 pl-2 py-1">
+                          {formattedDate}{task.scheduled_time ? ` ${task.scheduled_time}` : ''}
+                          {task.reminder_enabled ? <><span className='min-w-3 h-auto'></span><span className='absolute right-0 bg-background rounded-full p-1'><Bell className="w-3 h-3 text-secondary-icon" /></span></> : null}
+                        </span>
                       </span>
-                    </span>
-                  }
-                  className="relative flex text-xs max-h-7"
-                  onClick={handleDateClick}
-                  variant="outlined"
-                  sx={{ cursor: onUpdate ? 'pointer' : 'default' }}
-                />
+                    }
+                    className="relative flex text-xs max-h-7 cursor-pointer"
+                    onClick={handleDateClick}
+                    variant="outlined"
+                    // sx={{ cursor: onUpdate ? 'pointer' : 'default' }}
+                  />
                 </Tooltip>
               </>
             )}
@@ -938,7 +939,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                     </span>
                     </>
                   }
-                  className="relative text-xs min-h-7 max-h-7"
+                  className="relative text-xs min-h-7 max-h-7 cursor-pointer"
                   variant='outlined'
                   onClick={handleTimeClick}
                   sx={{ cursor: onUpdate ? 'pointer' : 'default' }}

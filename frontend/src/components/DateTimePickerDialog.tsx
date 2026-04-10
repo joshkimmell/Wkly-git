@@ -162,7 +162,10 @@ const DateTimePickerDialog: React.FC<DateTimePickerDialogProps> = ({
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle>{title}</DialogTitle>
+            <DialogTitle><div className='text-xl'>
+                {title}
+            </div>
+            </DialogTitle>
             <DialogContent>
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
                     <div className="flex flex-col space-y-4 mt-2">

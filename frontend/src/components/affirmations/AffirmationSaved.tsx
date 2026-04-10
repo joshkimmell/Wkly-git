@@ -77,7 +77,7 @@ const AffirmationSaved: React.FC = () => {
       <div className="mb-8">
         
         <h1 className="font-serif font-normal text-3xl sm:text-4xl text-primary-text leading-tight pb-1">
-          Curated Absurdities
+          Curated Affirmations
         </h1>
         <p className="text-xs tracking-[0.08em] uppercase text-secondary-text mt-1">
           A Collection of Your Most Valued Delusions
@@ -164,7 +164,7 @@ const AffirmationSaved: React.FC = () => {
       {saved.length > 0 && (
         <div className="text-center mt-10">
           <p className="text-xs tracking-[0.1em] uppercase text-secondary-text/50">
-            End of your curated absurdities.
+            End of your curated Affirmations.
           </p>
         </div>
       )}

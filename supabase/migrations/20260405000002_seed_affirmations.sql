@@ -1,7 +1,7 @@
 -- Seed initial affirmations with humorous content
 
 insert into public.affirmations (text, category, author, status, is_featured, featured_date) values
-  ('Your relentless pursuit of productivity is the most efficient way to ensure you never actually experience your own life.', 'Productivity', 'The Void Curator', 'approved', true, current_date),
+  ('Your relentless pursuit of productivity is the most efficient way to ensure you never actually experience your own life.', 'Productivity', 'The Vibe Curator', 'approved', true, current_date),
   ('I am like a fine wine. I get more complex and harder to swallow with every passing year of my existence.', 'Self-Awareness', null, 'approved', false, current_date - interval '1 day'),
   ('You are like a majestic cactus: beautiful to look at, but generally better off when left entirely alone in a desert.', 'Relationships', null, 'approved', false, current_date - interval '2 days'),
   ('Your mediocrity is so consistent it has become a form of excellence.', 'Achievement', null, 'approved', false, current_date - interval '3 days'),

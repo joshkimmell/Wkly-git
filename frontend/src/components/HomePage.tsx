@@ -81,11 +81,13 @@ function TodayTaskRow({
   onStatusChange,
   onUpdate,
   onDelete,
+  onEdit,
 }: {
   task: Task;
   onStatusChange: (taskId: string, newStatus: Task['status'], closingRationale?: string) => void;
   onUpdate?: (taskId: string, updates: Partial<Task>) => void;
   onDelete?: (taskId: string) => void;
+  onEdit?: (task: Task) => void;
 }) {
   return (
     <li className="flex flex-wrap w-full items-center gap-3 px-4 py-3">
@@ -98,7 +100,8 @@ function TodayTaskRow({
         onStatusChange={onStatusChange}
         onUpdate={onUpdate}
         onDelete={onDelete}
-        // allowInlineEdit
+        onEdit={onEdit}
+        allowInlineEdit
       />
     </li>
   );

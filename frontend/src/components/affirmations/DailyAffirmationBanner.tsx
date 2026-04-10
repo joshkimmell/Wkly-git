@@ -156,7 +156,7 @@ const DailyAffirmationBanner: React.FC<DailyAffirmationBannerProps> = ({
                 &#x201C;&#x201D;
               </div>
               <blockquote className="font-serif italic text-xl sm:text-3xl lg:text-5xl leading-snug text-primary-text mx-4 mb-4">
-                {affirmation?.text || 'The void awaits your arrival.'}
+                {affirmation?.text || 'The Vibe awaits your arrival.'}
               </blockquote>
             </div>
 

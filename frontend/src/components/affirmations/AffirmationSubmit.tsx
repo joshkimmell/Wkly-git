@@ -24,7 +24,7 @@ const AffirmationSubmit: React.FC = () => {
     setSubmitting(true);
     try {
       await submitAffirmation({ text: text.trim(), category, is_anonymous: isAnonymous });
-      notifySuccess('Your wisdom has been released into the void');
+      notifySuccess('Your wisdom has been released into The Vibe');
       setSubmitted(true);
     } catch (err: any) {
       notifyError(err.message || 'Submission failed');
@@ -68,7 +68,7 @@ const AffirmationSubmit: React.FC = () => {
           Editorial Department
         </p>
         <h1 className="font-serif font-normal text-3xl sm:text-4xl text-primary-text leading-tight pb-1">
-          Contribute to the Void
+          Contribute to The Vibe
         </h1>
         <p className="text-secondary-text text-sm mt-2">
           Share your most profound delusions with the universe. We promise to judge them fairly.
@@ -125,7 +125,7 @@ const AffirmationSubmit: React.FC = () => {
           ) : (
             <Eye className="w-4 h-4 text-secondary-text" />
           )}
-                Hide your identity from the void.
+                Hide your identity from The Vibe.
                 
             </p>
           </div>
@@ -152,7 +152,7 @@ const AffirmationSubmit: React.FC = () => {
         className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 rounded-md text-sm font-bold tracking-wider uppercase bg-gradient-to-br from-brand-60 to-brand-70 dark:from-brand-30 dark:to-brand-50 text-white hover:brightness-110 active:scale-95 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed border-0 shadow-none"
       >
         <Wind className="w-4 h-4" />
-        {submitting ? 'Releasing...' : 'Release Into the Void'}
+        {submitting ? 'Releasing...' : 'Release Into The Vibe'}
       </button>
     </div>
   );
