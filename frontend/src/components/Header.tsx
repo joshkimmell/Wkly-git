@@ -3,12 +3,12 @@ import { MenuBtnProps } from '@components/menu-btn';
 import { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 // import menuClosedIcon from '/images/button-menu.svg';
-import { Sun, Moon, Home, Text, Target, ThumbsUp, HomeIcon } from 'lucide-react';
+import { Sun, Moon, Home, Text, Target, ThumbsUp, HomeIcon, CircleQuestionMark, UserCheck, ThumbsUpIcon } from 'lucide-react';
 import { classTabItem } from '@styles/classes';
 // import { classMenuItem } from '@styles/classes';
 // supabase client not needed here; use useAuth hook's session instead
 import useAuth from '@hooks/useAuth';
-import { Menu, MenuItem, Tooltip, useMediaQuery } from '@mui/material';
+import { Menu, MenuItem, Tabs, Tab, Tooltip, useMediaQuery } from '@mui/material';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP, useOverlayDebug } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
@@ -16,7 +16,7 @@ import Avatar from '@components/Avatar';
 import PersistentDrawerRight from './MenuDrawer';
 import ProfileManagement from './ProfileManagement';
 import Logo from '@components/Logo';
-import { style } from 'happy-dom/lib/PropertySymbol';
+import { styled } from '@mui/material/styles';
 
 
 
@@ -73,6 +73,54 @@ export interface HeaderProps {
 //     isOpen: boolean;
 // }
 
+
+interface StyledTabsProps extends React.ComponentProps<typeof Tabs> {
+  children?: React.ReactNode;
+  value: number;
+  onChange: (event: React.SyntheticEvent, newValue: number) => void;
+}
+
+const StyledTabs = styled((props: StyledTabsProps) => (
+  <Tabs
+    {...props}
+    slotProps={{
+      indicator: { children: <span className="MuiTabs-indicatorSpan" /> },
+    }}
+  />
+))({
+  '& .MuiTabs-indicator': {
+    display: 'flex',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  '& .MuiTabs-indicatorSpan': {
+    maxWidth: 80,
+    width: '100%',
+    backgroundColor: 'var(--primary-link)',
+  },
+});
+
+interface StyledTabProps extends React.ComponentProps<typeof Tab> {
+  label: string;
+}
+
+const StyledTab = styled((props: StyledTabProps) => (
+  <Tab disableRipple {...props} />
+))(({ theme }) => ({
+  textTransform: 'none',
+  fontWeight: theme.typography.fontWeightRegular,
+  fontSize: theme.typography.pxToRem(12),
+  marginRight: theme.spacing(1),
+  color: 'var(--primary-text)',
+  '&.Mui-selected': {
+    color: 'var(--primary-text)',
+    // fontWeight: theme.typography.fontWeightMedium,
+  },
+  '&.Mui-focusVisible': {
+    backgroundColor: 'rgba(100, 95, 228, 0.32)',
+  },
+}));
+
 // Update the `Header` component to conditionally require `handleLogout`
 const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     // navigation not required in this component
@@ -86,6 +134,8 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     const [scrolled, setScrolled] = useState(false);
     const { session, profile } = useAuth();
     const isLarge = useMediaQuery('(min-width: 1024px)');
+    const [activeTab, setActiveTab] = useState(0);
+
     // use the module-level `isMenuHidden` exported above
 
     // const handleLogoutInternal = async (): Promise<void> => {
@@ -298,7 +348,34 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                     </div>
                 )}
                 {isAuthenticated && !isMenuHidden() && !drawerVisible && (
-                    <nav className="tabs hidden sm:flex items-end self-end ml-6 h-full">
+                    <>
+                    <StyledTabs 
+                        value={activeTab} 
+                        onChange={(_, newValue) => setActiveTab(newValue)} 
+                        className="focus:outline-none overflow-x-auto"
+                        variant="scrollable"
+                        scrollButtons="auto"
+                        allowScrollButtonsMobile
+                        aria-label="Admin Tabs"
+                        >
+                        {navItems.map(({ to, label, icon: Icon, end }) => (
+                            <NavLink
+                                key={label}
+                                to={to}
+                                end={end}
+                            >
+                                {({ isActive }) => (
+                                    <StyledTab
+                                        className={`focus:ring-0 focus:ring-offset-0 ${isActive ? 'Mui-selected' : ''}`}
+                                        label={label}
+                                        icon={<Icon className="w-4 h-4" />}
+                                        iconPosition="start"
+                                    />
+                                )}
+                            </NavLink>
+                        ))}
+                    </StyledTabs>
+                    {/* <nav className="tabs hidden sm:flex items-end self-end ml-6 h-full">
                         <ul className="flex -mb-px text-sm font-medium">
                             <li>
                                 <Tooltip title="Home" placement="bottom" arrow className='' disableHoverListener={isLarge}>
@@ -345,7 +422,8 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                                     </Tooltip>
                             </li>
                         </ul>
-                    </nav>
+                    </nav> */}
+                    </>
                 )}
                 {/* Mobile drawer — only rendered on medium screens when authenticated */}
                 {isAuthenticated && (

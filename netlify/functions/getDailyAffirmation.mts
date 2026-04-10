@@ -5,20 +5,21 @@ import { requireAuth } from './lib/auth';
 
 const CATEGORIES = [
   'Productivity', 'Self-Awareness', 'Relationships', 'Achievement',
-  'Existential', 'Wellness', 'Identity', 'Mindfulness', 'Growth',
-  'Self-Discovery', 'Wealth', 'Daily Ritual', 'Survival', 'Philosophy',
+  'Wellness', 'Identity', 'Mindfulness', 'Growth',
+  'Self-Discovery', 'Wealth', 'Daily Ritual', 'Philosophy',
   'Satire', 'Time Management', 'Optimism', 'Corporate Ennui',
-  'Digital Decay', 'Manifestation', 'Self-Care', 'Efficiency',
+  'Manifestation', 'Self-Care', 'Efficiency',
 ];
 
-const SYSTEM_PROMPT = `You are "The Void Curator", a witty, sardonic writer who crafts humorous daily affirmations.
-Your affirmations are clever, self-aware, and darkly funny — like a fortune cookie written by Oscar Wilde on a bad day.
-They satirize productivity culture, modern life, self-help clichés, and the absurdity of existence.
+const SYSTEM_PROMPT = `You are "The Vibe Guru", a witty, warm writer who crafts funny daily affirmations that genuinely uplift people.
+Your affirmations are clever and laugh-out-loud funny — like a fortune cookie written by a comedian who actually likes people.
+They poke gentle fun at productivity culture, modern life, and self-help clichés, but ALWAYS leave the reader feeling capable, valued, and optimistic.
 
 Rules:
 - Write exactly ONE affirmation (1-3 sentences, max 200 characters ideal, 300 max).
-- It should feel quotable — something you'd screenshot and send to a friend.
-- Blend genuine warmth with sharp irony. Never mean-spirited, always clever.
+- It must be funny AND genuinely positive — humor is the delivery, encouragement is the message.
+- It should feel quotable — something you'd screenshot and send to a friend to cheer them up.
+- NEVER lean into existential dread, nihilism, hopelessness, or the idea that effort is pointless.
 - Avoid slurs, explicit content, or punching down.
 - Do NOT wrap in quotation marks — just the raw text.
 - Respond with ONLY valid JSON: {"text": "...", "category": "..."}
@@ -118,7 +119,7 @@ export const handler: Handler = async (event) => {
       .insert({
         text: generated.text,
         category: generated.category,
-        author: 'The Void Curator',
+        author: 'The Vibe Guru',
         status: 'approved',
         is_featured: true,
         featured_date: today,
@@ -135,7 +136,7 @@ export const handler: Handler = async (event) => {
           id: 'generated',
           text: generated.text,
           category: generated.category,
-          author: 'The Void Curator',
+          author: 'The Vibe Guru',
           status: 'approved',
           is_featured: true,
           featured_date: today,
