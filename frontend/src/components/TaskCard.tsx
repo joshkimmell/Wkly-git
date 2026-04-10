@@ -774,8 +774,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   : ''
               }${hasFocusSession ? 'Resume Task' : 'Start Task'}`} placement="top" arrow>
                 <Zap className={`w-5 h-5 ${hasFocusSession || isTimerActive ? 'text-interactive-icon' : ''}`} />
-              </Tooltip>
-                <span className=' md:hidden text-xs text-primary-text px-2 md:px-0'>{`${hasFocusSession ? "Resume Task" : "Start Task"}`}</span>
+                </Tooltip>
+                  <span className=' md:hidden text-xs text-primary-text text-nowrap px-2 md:px-0'>{`${hasFocusSession ? "Resume Task" : "Start Task"}`}</span>
               </IconButton>
               {/* Basic timer floating countdown */}
               {isTimerActive && pomodoroSettings.timerMode !== 'pomodoro' && (

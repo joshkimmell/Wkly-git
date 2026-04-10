@@ -677,12 +677,12 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
                 </div>
               )}
                   <div className="flex items-center gap-1.5 min-w-0 flex-1">
-              <Zap className="w-7 h-7 text-interactive-icon shrink-0" />
-              <h1 className="text-primary-text truncate max-w-xs md:max-w-md lg:max-w-2xl">
-                {task.title}
-              </h1>
+                    <Zap className="w-7 h-7 pb-2 text-interactive-icon" />
+                    <h1 className="pb-2 text-primary-text font-serif text-xl sm:text-2xl md:text-3xl max-w-xs md:max-w-md lg:max-w-2xl truncate text-ellipsis">
+                      {task.title}
+                    </h1>
+                  </div>
               </div>
-            </div>
           </div>
 
           {/* Timer compact pill (visible on md+) */}
