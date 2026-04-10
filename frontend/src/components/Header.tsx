@@ -112,6 +112,10 @@ const StyledTab = styled((props: StyledTabProps) => (
   fontSize: theme.typography.pxToRem(12),
   marginRight: theme.spacing(1),
   color: 'var(--primary-text)',
+  '&.MuiButtonBase-root.MuiTab-root:hover': {
+    backgroundColor: 'transparent',
+    color: 'var(--primary-link)',
+  },
   '&.Mui-selected': {
     color: 'var(--primary-text)',
     // fontWeight: theme.typography.fontWeightMedium,
@@ -134,7 +138,6 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     const [scrolled, setScrolled] = useState(false);
     const { session, profile } = useAuth();
     const isLarge = useMediaQuery('(min-width: 1024px)');
-    const [activeTab, setActiveTab] = useState(0);
 
     // use the module-level `isMenuHidden` exported above
 
@@ -310,16 +313,19 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
 ];
 
     const location = useLocation();
+    const activeTab = navItems.findIndex(({ to, end }) =>
+        end ? location.pathname === to : location.pathname.startsWith(to)
+    );
 
     return (
         <div ref={headerRef} className={`header flex items-end dark relative${menuOpen ? ' header-expanded' : ''}${scrolled ? ' header--scrolled' : ''}`}>
             
             <div className="header-brand">
                 {!drawerVisible && (
-                    <div className="header-brand--logo-container relative pr-6 flex items-end ">
+                    <div className="header-brand--logo-container w-1/4 lg:w-auto relative pr-6  items-end ">
                         <button
                             onClick={toggleThemeInternal}
-                            className="header-brand--theme-btn btn-ghost ml-4 p-2 rounded absolute top-0 right-0"
+                            className="header-brand--theme-btn btn-ghost ml-4 p-2 rounded absolute -top-4 lg:top-0 right-0"
                             aria-label="Toggle theme"
                         >
                             {props.theme === 'theme-dark' ? (
@@ -330,16 +336,16 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                         </button>
                         <Link
                             to="/"
-                            className="header-brand--logo relative overflow-hidden w-auto flex items-end justify-center h-full"
+                            className="header-brand--logo relative overflow-hidden w-full lg:w-auto flex items-end justify-center h-full"
                             style={{ minHeight: '3rem' }} // optional: ensures height
                         >
 
                             {/* <span className="mask-clip-border absolute bottom-0 left-1/2 -translate-x-1/2 h-8 sm:h-12 w-auto"> */}
-                            <span className="mask-clip-border top-0 left-0 h-24 w-full md:w-auto">
+                            <span className="mask-clip-border top-0 left-0 h-16 lg:h-24 w-full items-end">
                             <Logo
                                 aria-label="Wkly logo"
                                 style={{ color: 'var(--brand-30)' }}
-                                className="w-full h-auto md:w-auto"
+                                className="w-full h-auto lg:w-auto"
                             />
                             </span>
                             
@@ -351,12 +357,12 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                     <>
                     <StyledTabs 
                         value={activeTab} 
-                        onChange={(_, newValue) => setActiveTab(newValue)} 
-                        className="focus:outline-none overflow-x-auto"
+                        onChange={() => {}} 
+                        className="hidden focus:outline-none overflow-x-auto md:flex self-end h-full"
                         variant="scrollable"
                         scrollButtons="auto"
                         allowScrollButtonsMobile
-                        aria-label="Admin Tabs"
+                        aria-label="Navigation Tabs"
                         >
                         {navItems.map(({ to, label, icon: Icon, end }) => (
                             <NavLink
@@ -369,7 +375,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                                         className={`focus:ring-0 focus:ring-offset-0 ${isActive ? 'Mui-selected' : ''}`}
                                         label={label}
                                         icon={<Icon className="w-4 h-4" />}
-                                        iconPosition="start"
+                                        wrapped
                                     />
                                 )}
                             </NavLink>
