@@ -211,7 +211,7 @@ FROM public.notification_preferences;
 
 CREATE OR REPLACE VIEW masked.categories AS
 SELECT
-  id,
+  cat_id,
   user_id,
   is_default,
   created_at,
