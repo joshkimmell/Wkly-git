@@ -10,7 +10,7 @@ export const handler: Handler = async (event) => {
   try {
     const { data, error } = await supabase
       .from('categories')
-      .select('id, name')
+      .select('cat_id, name')
       .or(`user_id.eq.${userId},is_default.eq.true`)
       .order('name', { ascending: true });
 
