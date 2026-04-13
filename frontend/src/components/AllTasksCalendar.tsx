@@ -335,7 +335,7 @@ export default function AllTasksCalendar({
 
   const getViewTitle = () => {
     if (viewMode === 'day') {
-      return currentDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      return currentDate.toLocaleDateString(undefined, { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' });
     } else if (viewMode === '3day') {
       const endDate = threeDayDates[2];
       return `${currentDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
@@ -575,7 +575,7 @@ export default function AllTasksCalendar({
     <div className="flex flex-col h-full">
       {/* View mode toggle and navigation */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-        <h2 className="text-2xl font-normal">{getViewTitle()}</h2>
+        <h2 className="text-2xl font-serif font-normal">{getViewTitle()}</h2>
         <div className="flex items-center gap-3 flex-wrap">
           <ToggleButtonGroup
             value={viewMode}

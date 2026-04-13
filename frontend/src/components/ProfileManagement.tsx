@@ -23,27 +23,32 @@ import {
   Select,
   FormControl,
   InputLabel,
+  ListItemIcon,
 } from '@mui/material';
 import Avatar from '@components/Avatar';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
 import supabase from '@lib/supabase';
 import useAuth from '@hooks/useAuth';
 // import { sendPasswordReset } from '@lib/authHelpers';
-import { Eye, EyeOff } from 'lucide-react';
+import { Bell, Calendar, Eye, EyeOff, Palette, ThumbsUp, User2, Zap } from 'lucide-react';
 import appColors, { PaletteKey } from '@styles/appColors';
 import NotificationsSettings from './NotificationsSettings';
 import CalendarIntegration from './CalendarIntegration';
 import { COMMON_TIMEZONES, getBrowserTimezone } from '@utils/timezone';
 import { usePomodoroSettings } from '@hooks/usePomodoroSettings';
+import AffirmationSettings from '@components/affirmations/AffirmationSettings';
+
+type PreferencesTab = 'profile' | 'appearance' | 'notifications' | 'calendar' | 'focus' | 'affirmations';
 
 interface ProfileManagementProps {
   onClose?: () => void;
+  initialTab?: PreferencesTab;
 }
 
 // Preferences is the new name for ProfileManagement. The file path remains
 // the same for backwards compatibility; exporting a renamed component keeps
 // imports simple while updating the UI to a multi-panel Preferences UX.
-const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
+const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) => {
   const { profile } = useAuth();
   // Profile form state
   const [username, setUsername] = useState(profile?.username || '');
@@ -61,7 +66,18 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
   const notificationsSaveRef = React.useRef<(() => Promise<void>) | null>(null);
 
   // Simple UI state: which panel is active
-  const [active, setActive] = useState<'profile' | 'appearance' | 'notifications' | 'calendar' | 'focus'>('profile');
+  const [active, setActive] = useState<PreferencesTab>(initialTab || 'profile');
+
+  // Read sessionStorage deep-link on mount (useEffect survives StrictMode double-mount)
+  useEffect(() => {
+    try {
+      const requested = sessionStorage.getItem('wkly_prefs_tab') as PreferencesTab | null;
+      if (requested) {
+        sessionStorage.removeItem('wkly_prefs_tab');
+        setActive(requested);
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   const { settings: pomodoroSettings, updateSettings: updatePomodoroSettings } = usePomodoroSettings();
 
@@ -232,25 +248,40 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="profile-management p-0 flex flex-col sm:flex-row gap-4">
+    <div className="profile-management p-0 m-0 flex flex-col sm:flex-row gap-4">
       {/* Left: vertical menu */}
       <aside className="w-full sm:w-1/4">
         <nav aria-label="Preferences">
-          <List className='profile-nav w-full flex flex-row sm:flex-col'>
-            <ListItemButton selected={active === 'profile'} onClick={() => setActive('profile')}>
-              <ListItemText primary="Profile" secondary="Username, avatar, email" />
+          <List className='profile-nav w-full flex flex-row gap-0 sm:flex-col'>
+            <ListItemButton className='flex flex-col items-center justify-center sm:flex-row' selected={active === 'profile'} onClick={() => setActive('profile')}>
+              <ListItemText className='hidden sm:flex sm:flex-col' primary="Profile" secondary="Username, avatar, email" />
+              <ListItemIcon className='flex justify-center sm:hidden'><User2 /></ListItemIcon>
+              <ListItemText className='sm:hidden flex text-[0.65em]' primary="Profile" />
             </ListItemButton>
-            <ListItemButton selected={active === 'appearance'} onClick={() => setActive('appearance')}>
-              <ListItemText primary="Appearance" secondary="Theme & primary color" />
+            <ListItemButton className='flex flex-col items-center justify-center sm:flex-row' selected={active === 'appearance'} onClick={() => setActive('appearance')}>
+              <ListItemText className='hidden sm:flex sm:flex-col' primary="Appearance" secondary="Theme & primary color" />
+              <ListItemIcon className='flex justify-center sm:hidden'><Palette /></ListItemIcon>
+              <ListItemText className='sm:hidden flex text-[0.65em]' primary="Appearance" />
             </ListItemButton>
-            <ListItemButton selected={active === 'notifications'} onClick={() => setActive('notifications')}>
-              <ListItemText primary="Notifications" secondary="Slack & Email reminders" />
+            <ListItemButton className='flex flex-col items-center justify-center sm:flex-row' selected={active === 'notifications'} onClick={() => setActive('notifications')}>
+              <ListItemText className='hidden sm:flex sm:flex-col' primary="Notifications" secondary="Slack & Email reminders" />
+              <ListItemIcon className='flex justify-center sm:hidden'><Bell /></ListItemIcon>
+              <ListItemText className='sm:hidden flex text-[0.65em]' primary="Notifications" />
             </ListItemButton>
-            <ListItemButton selected={active === 'calendar'} onClick={() => setActive('calendar')}>
-              <ListItemText primary="Calendar" secondary="iCal / Google Calendar sync" />
+            <ListItemButton className='flex flex-col items-center justify-center sm:flex-row' selected={active === 'calendar'} onClick={() => setActive('calendar')}>
+              <ListItemText className='hidden sm:flex sm:flex-col' primary="Calendar" secondary="iCal / Google Calendar sync" />
+              <ListItemIcon className='flex justify-center sm:hidden'><Calendar /></ListItemIcon>
+              <ListItemText className='sm:hidden flex text-[0.65em]' primary="Calendar" />
             </ListItemButton>
-            <ListItemButton selected={active === 'focus'} onClick={() => setActive('focus')}>
-              <ListItemText primary="Focus" secondary="Timer mode & Pomodoro" />
+            <ListItemButton className='flex flex-col items-center justify-center sm:flex-row' selected={active === 'focus'} onClick={() => setActive('focus')}>
+              <ListItemText className='hidden sm:flex sm:flex-col' primary="Focus" secondary="Timer mode & Pomodoro" />
+              <ListItemIcon className='flex justify-center sm:hidden'><Zap /></ListItemIcon>
+              <ListItemText className='sm:hidden flex text-[0.65em]' primary="Focus" />
+            </ListItemButton>
+            <ListItemButton className='flex flex-col items-center justify-center sm:flex-row' selected={active === 'affirmations'} onClick={() => setActive('affirmations')}>
+              <ListItemText className='hidden sm:flex sm:flex-col' primary="Affirmations" secondary="Daily absurdity & submissions" />
+              <ListItemIcon className='flex justify-center sm:hidden'><ThumbsUp /></ListItemIcon>
+              <ListItemText className='sm:hidden flex text-[0.65em]' primary="Affirmations" />
             </ListItemButton>
           </List>
         </nav>
@@ -659,6 +690,11 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose }) => {
                 </div>
               </>
             )}
+          </section>
+        )}
+        {active === 'affirmations' && (
+          <section>
+            <AffirmationSettings />
           </section>
         )}
 

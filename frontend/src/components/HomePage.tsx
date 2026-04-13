@@ -6,10 +6,11 @@ import useAuth from '@hooks/useAuth';
 import { getSessionToken, getWeekStartDate } from '@utils/functions';
 import { getTodayInTimezone, formatDateInTimezone, convertToUTC } from '@utils/timezone';
 import { Task, Goal, calculateGoalCompletion } from '@utils/goalUtils';
-import LoadingSpinner from '@components/LoadingSpinner';
+// import LoadingSpinner from '@components/LoadingSpinner';
 import GoalForm from '@components/GoalForm';
 import TasksList from '@components/TasksList';
 import ProfileManagement from '@components/ProfileManagement';
+import SummaryGenerator from '@components/SummaryGenerator';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
@@ -40,6 +41,8 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type { Dayjs } from 'dayjs';
 import GoalCompletionDonut from './GoalCompletionDonut';
 import TaskCard from './TaskCard';
+import DailyAffirmationBanner, { shouldShowInterstitial, markInterstitialSeen } from './affirmations/DailyAffirmationBanner';
+import type { Affirmation } from '../types/affirmations';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -78,11 +81,13 @@ function TodayTaskRow({
   onStatusChange,
   onUpdate,
   onDelete,
+  onEdit,
 }: {
   task: Task;
   onStatusChange: (taskId: string, newStatus: Task['status'], closingRationale?: string) => void;
   onUpdate?: (taskId: string, updates: Partial<Task>) => void;
   onDelete?: (taskId: string) => void;
+  onEdit?: (task: Task) => void;
 }) {
   return (
     <li className="flex flex-wrap w-full items-center gap-3 px-4 py-3">
@@ -95,7 +100,8 @@ function TodayTaskRow({
         onStatusChange={onStatusChange}
         onUpdate={onUpdate}
         onDelete={onDelete}
-        // allowInlineEdit
+        onEdit={onEdit}
+        allowInlineEdit
       />
     </li>
   );
@@ -159,7 +165,7 @@ function EmptyState({ onAddGoal, username }: { onAddGoal: () => void; username?:
     <div className="flex flex-1 flex-col items-center justify-center py-16 px-4 text-center max-w-7xl mx-auto">
       
         <div className='relative text-start z-10 max-w-7xl space-y-8'>
-            <h2 className="text-4xl font-light mt-2 mb-3">Welcome{username ? `, ${username}` : ''}</h2>
+            <h2 className="text-4xl font-serif font-normal mt-2 mb-3">Welcome{username ? `, ${username}` : ''}</h2>
             <p className="text-secondary-text mb-8 leading-relaxed max-w-2xl">
                 Wkly helps you stay focused week over week — track goals, manage tasks, log wins, and generate AI-powered summaries of your progress.
             </p>
@@ -178,7 +184,7 @@ function EmptyState({ onAddGoal, username }: { onAddGoal: () => void; username?:
                 // title={`Add a new goal for the current ${scope}`}
                 aria-label={`Add a new goal`}
                 >
-                <span className="block flex text-nowrap">Add Your First Goal</span>
+                <span className="block flex font-serif text-nowrap">Add Your First Goal</span>
                 <Target className="w-5 h-5" />
             </Button>
             {/* feature pills */}
@@ -195,9 +201,9 @@ function EmptyState({ onAddGoal, username }: { onAddGoal: () => void; username?:
                     >
                     <div className="flex items-start gap-3 text-brand-50 dark:text-brand-70 font-normal text-lg md:text-2xl">
                         {icon}
-                        <div className="flex flex-col text-brand-70 dark:text-brand-40">
+                        <div className="flex flex-col font-serif text-brand-70 dark:text-brand-40">
                             {label}
-                            <p className="text-sm text-gray-50 dark:text-gray-40">{desc}</p>
+                            <p className="font-sans text-sm text-gray-50 dark:text-gray-40">{desc}</p>
                         </div>
                     </div>
                 </div>
@@ -211,26 +217,28 @@ function EmptyState({ onAddGoal, username }: { onAddGoal: () => void; username?:
 
 // ─── action prompt card ──────────────────────────────────────────────────────
 
-function ActionCard({
+export function ActionCard({
   icon,
   label,
   description,
   onClick,
   variant = 'default',
+  className = '',
 }: {
   icon: React.ReactNode;
   label: string;
   description: string;
   onClick: () => void;
   variant?: 'default' | 'primary';
+  className?: string;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`group w-auto text-left rounded-md border p-4 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary ${
+      className={`group w-auto text-left rounded-md border p-4 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary group-hover:shadow-md ${className || ''} ${
         variant === 'primary'
-          ? 'border-primary/40 bg-primary/5 group-hover:bg-brand-10 dark:bg-brand-90 dark:group-hover:bg-primary/20'
-          : 'border-gray-20 dark:border-gray-70 bg-transparent hover:border-primary hover:shadow-md'
+          ? 'border-brand-60 dark:border-brand-70 bg-brand-10 group-hover:bg-brand-20 dark:bg-brand-90 dark:group-hover:bg-primary/20'
+          : 'border-gray-20 dark:border-gray-70 bg-transparent group-hover:border-primary'
       }`}
     >
       <div className="flex w-auto pr-4 items-center justify-center gap-3">
@@ -239,11 +247,10 @@ function ActionCard({
         }`}>
           {icon}
         </div>
-        <div className="min-w-0">
-          <p className="font-semibold text-base text-primary-text">{label}</p>
-          <p className="text-xs text-gray-50 dark:text-gray-40 mt-0.5">{description}</p>
+        <div className="flex flex-col gap-1 justify-center min-w-0">
+          <span className="font-semibold text-base text-primary-text">{label}</span>
+          <span className="text-xs text-gray-50 dark:text-gray-40 mt-0.5">{description}</span>
         </div>
-        {/* <ChevronRight className="w-4 h-4 text-gray-40 group-hover:text-primary ml-auto shrink-0 transition-colors" /> */}
       </div>
     </button>
   );
@@ -276,6 +283,7 @@ export default function HomePage() {
   const [goalsExpanded, setGoalsExpanded] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
+  const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
   const [standaloneNewTask, setStandaloneNewTask] = useState<Partial<Task>>({ title: '', description: '' });
   const [standaloneTaskGoalId, setStandaloneTaskGoalId] = useState('');
@@ -288,6 +296,16 @@ export default function HomePage() {
   const [standaloneReminderOffset, setStandaloneReminderOffset] = useState('30');
   const [standaloneReminderDatetime, setStandaloneReminderDatetime] = useState('');
   const [standaloneSelectedReminderDatetime, setStandaloneSelectedReminderDatetime] = useState<Dayjs | null>(null);
+  const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
+
+  // ── daily affirmation interstitial ────────────────────────────────────────
+  const [showAffirmationInterstitial, setShowAffirmationInterstitial] = useState(() => shouldShowInterstitial());
+  const [loadedAffirmation, setLoadedAffirmation] = useState<Affirmation | null>(null);
+
+  const dismissInterstitial = useCallback(() => {
+    markInterstitialSeen();
+    setShowAffirmationInterstitial(false);
+  }, []);
 
   // ── first-login: auto-open profile modal once per session ─────────────────
   useEffect(() => {
@@ -501,6 +519,52 @@ export default function HomePage() {
     }
   };
 
+  const generateStandaloneTasks = async () => {
+    if (!standaloneTaskGoalId) {
+      alert('Please select a goal first');
+      return;
+    }
+    const goal = goals.find(g => g.id === standaloneTaskGoalId);
+    if (!goal) {
+      alert('Selected goal not found');
+      return;
+    }
+    setIsGeneratingTasks(true);
+    try {
+      const token = await getSessionToken();
+      if (!token) throw new Error('Not authenticated');
+      const response = await fetch('/.netlify/functions/generatePlan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ title: goal.title, description: goal.description || '' }),
+      });
+      if (!response.ok) throw new Error(await response.text() || 'Failed to generate tasks');
+      const data = await response.json();
+      if (Array.isArray(data.tasks)) {
+        for (const task of data.tasks) {
+          await fetch('/.netlify/functions/createTask', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              goal_id: goal.id,
+              title: task.title,
+              description: task.description || null,
+              status: 'Not started',
+              order_index: 0,
+            }),
+          });
+        }
+        closeAddTaskModal();
+        fetchTodayTasks();
+      }
+    } catch (err) {
+      console.error('[HomePage] generateStandaloneTasks error:', err);
+      alert(err instanceof Error ? err.message : 'Failed to generate tasks');
+    } finally {
+      setIsGeneratingTasks(false);
+    }
+  };
+
   // ── loading ───────────────────────────────────────────────────────────────
   if (isRefreshing && goals.length === 0) {
     return (
@@ -571,16 +635,37 @@ export default function HomePage() {
   const doneTasks    = todayTasks.filter(t => t.status === 'Done').length;
   const totalTasks   = todayTasks.length;
 
+  // Show full-screen affirmation interstitial on first visit of the day
+  if (showAffirmationInterstitial) {
+    return (
+      <DailyAffirmationBanner
+        mode="interstitial"
+        onDismiss={dismissInterstitial}
+        onAffirmationLoaded={setLoadedAffirmation}
+      />
+    );
+  }
+
   return (
     <div className="space-y-8">
 
       {/* header */}
-      <div>
-        <p className="text-sm text-gray-50 dark:text-gray-40 mb-1 flex items-center gap-1.5">
+      <div className="w-full xl:w-[85vw] px-4">
+        <p className="flex gap-2 text-xs tracking-[0.15em] uppercase text-secondary-text mb-2">
           <Calendar className="w-3.5 h-3.5" />
           {formatDisplayDate(today, timezone)}
         </p>
-        <h1 className="text-2xl font-medium md:text-4xl md:font-normal text-primary-text tracking-tight">{getGreeting()}{username ? `, ${username}!` : ''}</h1>
+        <div className="flex flex-col md:flex-row md:items-center items-start gap-0 mb-4">
+          <h1 className="flex text-wrap lg:text-nowrap w-auto pr-8 max-w-1/3 text-2xl font-serif font-medium md:text-4xl md:font-normal text-primary-text tracking-tight">{getGreeting()}{username ? `, ${username}!` : ''}</h1>
+          <span className="hidden md:flex items-center w-1/4 h-[1px] bg-brand-40 dark:bg-brand-60 max-w-1/4"></span>
+          <span className="flex ml-8 w-[1px] min-h-8 md:hidden max-h-1/3 bg-brand-40 dark:bg-brand-60 "></span>
+        
+          <DailyAffirmationBanner
+            mode="inline"
+            affirmation={loadedAffirmation}
+            onAffirmationLoaded={setLoadedAffirmation}
+          />
+        </div>
       </div>
 
       {/* ── quick actions ─────────────────────────────────────────────────── */}
@@ -589,12 +674,21 @@ export default function HomePage() {
           <Zap className="w-4 h-4 text-primary" />
           Quick actions
         </h2>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap md:flex-nowrap gap-3">
           <ActionCard
             icon={<Plus className="w-6 h-6" />}
             label="Create a goal with tasks"
             description="Plan your next objective"
             onClick={openGoalModal}
+            variant='primary'
+            className="w-full md:w-auto"
+          />
+          <ActionCard
+            icon={<Sparkles className="w-6 h-6" />}
+            label="Generate a Summary"
+            description="AI recap of your progress"
+            onClick={() => setIsSummaryModalOpen(true)}
+            className="w-full md:w-auto"
           />
         </div>
       </section>
@@ -666,12 +760,21 @@ export default function HomePage() {
               <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
                 <Zap className="w-7 h-7 text-gray-30 dark:text-gray-60 mb-2" />
                 <p className="text-sm text-gray-40 dark:text-gray-50">No tasks scheduled for today</p>
-                <button
-                  onClick={() => setIsAddTaskModalOpen(true)}
-                  className="mt-3 btn-primary hover:underline"
-                >
-                  Add a task →
-                </button>
+                <div className="flex gap-3 mt-3 flex-wrap justify-center">
+                  <button
+                    onClick={() => setIsAddTaskModalOpen(true)}
+                    className="btn-primary hover:underline"
+                  >
+                    Add a task →
+                  </button>
+                  <button
+                    onClick={() => setIsAddTaskModalOpen(true)}
+                    className="btn-secondary"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Generate with AI
+                  </button>
+                </div>
               </div>
             ) : (
               <ul className="divide-y divide-gray-20 dark:divide-gray-70">
@@ -689,6 +792,15 @@ export default function HomePage() {
           </div>
         </section>
       </div>
+
+      {/* ── daily affirmation (inline) ───────────────────────────────────── */}
+      {/* <section>
+        <DailyAffirmationBanner
+          mode="inline"
+          affirmation={loadedAffirmation}
+          onAffirmationLoaded={setLoadedAffirmation}
+        />
+      </section> */}
 
       {/* Profile modal (first-login auto-open) */}
       <Modal
@@ -746,6 +858,19 @@ export default function HomePage() {
           />
         </div>
       )}
+
+      {/* Summary generator (controlled externally via isOpen) */}
+      <SummaryGenerator
+        summaryId=""
+        summaryTitle={null}
+        selectedRange={new Date()}
+        filteredGoals={goals}
+        scope="week"
+        isOpen={isSummaryModalOpen}
+        onClose={() => setIsSummaryModalOpen(false)}
+        onSummaryCreated={fetchTodayTasks}
+        className="hidden"
+      />
 
       {/* Add goal modal */}
       <Modal
@@ -952,6 +1077,13 @@ export default function HomePage() {
 
           <div className="flex justify-end gap-3 mt-6">
             <button className="btn-secondary" onClick={closeAddTaskModal}>Cancel</button>
+            <button
+              className="btn-secondary"
+              onClick={generateStandaloneTasks}
+              disabled={isGeneratingTasks || !standaloneTaskGoalId}
+            >
+              {isGeneratingTasks ? 'Generating...' : <><Sparkles className="w-4 h-4" /> Generate with AI</>}
+            </button>
             <button className="btn-primary" onClick={createStandaloneTask}>Add task</button>
           </div>
         </div>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { GoalsProvider } from '@context/GoalsContext';
 import { TimezoneProvider } from '@context/TimezoneContext';
-import ToastNotification, { notifySuccess, notifyError } from '@components/ToastyNotification';
+import ToastNotification, { notifySuccess, notifyError, notifyReminder } from '@components/ToastyNotification';
 // import WeeklyGoals from '@components/WeeklyGoals';
 import AllGoals from '@components/AllGoals';
 import HomePage from '@components/HomePage';
@@ -21,12 +21,30 @@ import AppMuiThemeProvider from './mui/muiTheme';
 import appColors from '@styles/appColors';
 import { FocusTimerProvider } from '@components/focus/FocusTimerContext';
 import { FocusModeProvider } from '@context/FocusModeContext';
+import { FireworksProvider } from '@context/FireworksContext';
 import MuiCompareDemo from '@components/MuiCompareDemo';
 import AdminAccessRequests from '@components/AdminAccessRequests';
+import Footer from '@components/Footer';
+import PullToRefresh from '@components/PullToRefresh';
+import AffirmationsLayout from '@components/affirmations/AffirmationsLayout';
+import AffirmationToday from '@components/affirmations/AffirmationToday';
+import AffirmationArchive from '@components/affirmations/AffirmationArchive';
+import AffirmationSubmit from '@components/affirmations/AffirmationSubmit';
+import AffirmationSaved from '@components/affirmations/AffirmationSaved';
+import AffirmationSettings from '@components/affirmations/AffirmationSettings';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Chip } from '@mui/material';
 import { Bell, Calendar, FileText } from 'lucide-react';
 import { loadSession, saveSession } from '@components/focus/useFocusSession';
 
+
+if (import.meta.env.DEV) {
+  (window as any).__notifyReminder = notifyReminder;
+  (window as any).__notifyReminders = (count = 3) => {
+    for (let i = 1; i <= count; i++) {
+      notifyReminder(`Debug Task ${i}`, `This is test reminder #${i}`, () => console.log(`View Task ${i} clicked`));
+    }
+  };
+}
 
 const App: React.FC = () => {
   const { session, isLoading } = useAuth();
@@ -221,7 +239,7 @@ const App: React.FC = () => {
   
   if (isLoading && !testing) return 
     <div className="fixed top-0 mt-0 h-[100vh] w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center">
-      <div className="loader"><LoadingSpinner /></div>
+      <div className="loader"><LoadingSpinner variant="mui" /></div>
       {/* <span className="ml-2">Generating plan...</span> */}
     </div>
   if (!effectiveSession) {
@@ -241,6 +259,7 @@ const App: React.FC = () => {
     <TimezoneProvider>
     <FocusTimerProvider>
     <FocusModeProvider>
+    <FireworksProvider>
     <div className={`${current}`}>
       <div className={`min-h-screen bg-background text-primary-text ${current}`}>
         <Header   
@@ -250,7 +269,8 @@ const App: React.FC = () => {
           handleLogout={handleLogout}
           />
         <GoalsProvider>
-          <main className="max-w-8xl mx-auto px-4 sm:px-8 lg:px-16 py-8">
+          <PullToRefresh>
+          <main className="max-w-8xl min-h-[100vh] mx-auto px-4 sm:px-8 lg:px-16 py-8">
 
             <Routes>
               {/* <Route path="/" element={<WeeklyGoals />} /> */}
@@ -263,11 +283,21 @@ const App: React.FC = () => {
               <Route path="/auth" element={<Navigate to="/" replace />} />
               <Route path="/profile" element={<ProfileManagement />} />
               <Route path="/admin/access" element={<AdminAccessRequests />} />
+              <Route path="/affirmations" element={<AffirmationsLayout />}>
+                <Route index element={<AffirmationToday />} />
+                <Route path="archive" element={<AffirmationArchive />} />
+                <Route path="submit" element={<AffirmationSubmit />} />
+                <Route path="saved" element={<AffirmationSaved />} />
+                <Route path="settings" element={<AffirmationSettings />} />
+              </Route>
             </Routes>
           </main>
+          <Footer />
+          </PullToRefresh>
         </GoalsProvider>
       </div>
     </div>
+    </FireworksProvider>
     </FocusModeProvider>
     </FocusTimerProvider>
     </TimezoneProvider>

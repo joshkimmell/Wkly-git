@@ -44,6 +44,10 @@ svg {
         background: linear-gradient(180deg, var(--brand-90) 0%, var(--brand-70) 100%);
     }
 
+    &-mobile--nav {
+        background: linear-gradient(180deg, var(--brand-70) 0.1, var(--brand-90) 50%);
+    }
+
     &-brand {
         // Use runtime CSS variables from appColors
         background: linear-gradient(180deg, var(--brand-90) 0%, var(--brand-70) 100%);
@@ -55,15 +59,15 @@ svg {
         gap: 8px;
         box-shadow: 0px 2px 4.9px 0px rgba(0, 0, 0, 0.60);
         // Animate box-shadow + padding on scroll (sm+ only)
-        @media (min-width: 640px) {
-            transition: padding 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-                        box-shadow 0.35s ease;
-            will-change: box-shadow;
-        }
+        // @media (min-width: 640px) {
+        //     transition: padding 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+        //                 box-shadow 0.35s ease;
+        //     will-change: box-shadow;
+        // }
         
         &--logo {
             display: flex;
-            // width: auto;
+            // width: 100%;
             // height: auto;
             flex-direction: column;
             align-items: flex-start;
@@ -115,35 +119,35 @@ svg {
         }
 
         &--logo-container {
-            @media (min-width: 640px) {
-                transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-                will-change: transform;
-            }
+            // @media (min-width: 640px) {
+            //     transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            //     will-change: transform;
+            // }
         }
 
         // The logo link only — scaled independently so the button isn't affected
         &--logo {
-            @media (min-width: 640px) {
-                transform-origin: right bottom;
-                transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-                will-change: transform;
-            }
+            // @media (min-width: 640px) {
+            //     transform-origin: right bottom;
+            //     transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            //     will-change: transform;
+            // }
         }
 
         &--theme-btn {
-            @media (min-width: 640px) {
-                transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-                            position 0.35s;
-                will-change: transform;
-            }
+            // @media (min-width: 640px) {
+            //     transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+            //                 position 0.35s;
+            //     will-change: transform;
+            // }
         }
 
         &--avatar-wrapper {
             // translateY keeps the avatar in place as the bar compresses
-            @media (min-width: 640px) {
-                transition: transform 0.35s cubic-bezier(0.4, 0, 0, 1);
-                will-change: transform;
-            }
+            // @media (min-width: 640px) {
+            //     transition: transform 0.35s cubic-bezier(0.4, 0, 0, 1);
+            //     will-change: transform;
+            // }
         }
         
     }
@@ -152,28 +156,28 @@ svg {
     // Applied by the scroll listener in Header.tsx when window.scrollY > 24px.
     // Only transform + box-shadow — no layout-reflow props (padding/height/top)
     // so transitions can't get stuck mid-animation.
-    @media (min-width: 640px) {
-        &--scrolled {
-            .header-brand {
-                padding: 0.4rem 1rem 0rem 1rem;
-                box-shadow: 0px 4px 12px 0px rgba(0, 0, 0, 0.45);
-
-                &--logo {
-                    // Scale only the logo link; button stays absolute-positioned and static
-                    transform: scale(0.75);
-                }
-
-                &--theme-btn {
-                    // Move the theme toggle up to stay aligned with the smaller logo
-                    transform: translateY(0.5rem);
-                }
-
-                &--avatar-wrapper {
-                    transform: translateY(-1.25rem) translateX(-2.5rem) scale(0.75);
-                }
-            }
-        }
-    }
+    // @media (min-width: 640px) {
+    //     &--scrolled {
+    //         .header-brand {
+    //             padding: 0.4rem 1rem 0rem 1rem;
+    //             box-shadow: 0px 4px 12px 0px rgba(0, 0, 0, 0.45);
+    //
+    //             &--logo {
+    //                 // Scale only the logo link; button stays absolute-positioned and static
+    //                 transform: scale(0.75);
+    //             }
+    //
+    //             &--theme-btn {
+    //                 // Move the theme toggle up to stay aligned with the smaller logo
+    //                 transform: translateY(0.5rem);
+    //             }
+    //
+    //             &--avatar-wrapper {
+    //                 transform: translateY(-1.25rem) translateX(-2.5rem) scale(0.75);
+    //             }
+    //         }
+    //     }
+    // }
     & .menu {
         align-self: stretch;
        

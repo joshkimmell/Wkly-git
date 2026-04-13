@@ -22,6 +22,7 @@ import supabase from '@lib/supabase';
 import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
 import { enhanceLinks, applyHighlight } from '@utils/functions';
 import { useTimezone } from '@context/TimezoneContext';
+import { useFireworks } from '@context/FireworksContext';
 import { utcToDatetimeLocal, convertToUTC } from '@utils/timezone';
 import { clearNotifiedReminder } from '@hooks/useReminderService';
 
@@ -89,6 +90,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onBeforeFocusMode,
 }) => {
   const { timezone } = useTimezone();
+  const { triggerFireworks } = useFireworks();
   const focusTimer = useFocusTimer();
   const { settings: pomodoroSettings } = usePomodoroSettings();
   const isTimerActive = focusTimer.isActiveFor(task.id);
@@ -591,9 +593,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   const handleDateClick = () => {
-    if (onUpdate) {
+    // if (onUpdate) {
       setIsDateTimeDialogOpen(true);
-    }
+    // }
   };
 
   const handleTimeClick = () => {
@@ -680,6 +682,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
     // Also call onStatusChange for components that only listen to that
     onStatusChange(task.id, 'Done');
     
+    // Celebrate!
+    triggerFireworks();
+    
     // Close dialog and reset
     setIsClosingRationaleDialogOpen(false);
     setClosingRationale('');
@@ -744,7 +749,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
             {/* Status toggle */}
             <IconButton
               onClick={cycleStatus}
-              className="text-tertiary-button mt-0.5 hover:scale-110 transition-transform"
+              className="btn-ghost  md:!rounded-full text-tertiary-button mt-0.5 hover:scale-110 transition-transform"
               title={`${displayStatus === 'Done' ? 'Reopen' : 'Mark as done'} `}
             >
               <Tooltip title={`${displayStatus === 'Done' ? 'Reopen' : 'Mark as done'}  `} placement="top" arrow>
@@ -759,7 +764,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 aria-label="Focus Mode"
                 size="small"
                 onClick={handleOpenFocusMode}
-                className={`btn-ghost px-0 !rounded-full ${isTimerRunning ? '!bg-brand-60 transition-all animate-pulse duration-300' : ''}`}
+                className={`btn-ghost px-0 md:!rounded-full ${isTimerRunning ? '!bg-brand-60 transition-all animate-pulse duration-300' : ''}`}
               >
               <Tooltip title={`${
                 isTimerActive
@@ -769,8 +774,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   : ''
               }${hasFocusSession ? 'Resume Task' : 'Start Task'}`} placement="top" arrow>
                 <Zap className={`w-5 h-5 ${hasFocusSession || isTimerActive ? 'text-interactive-icon' : ''}`} />
-              </Tooltip>
-                <span className=' md:hidden text-xs text-primary-text px-2 md:px-0'>{`${hasFocusSession ? "Resume Task" : "Start Task"}`}</span>
+                </Tooltip>
+                  <span className=' md:hidden text-xs text-primary-text text-nowrap px-2 md:px-0'>{`${hasFocusSession ? "Resume Task" : "Start Task"}`}</span>
               </IconButton>
               {/* Basic timer floating countdown */}
               {isTimerActive && pomodoroSettings.timerMode !== 'pomodoro' && (
@@ -901,22 +906,23 @@ const TaskCard: React.FC<TaskCardProps> = ({
             )}
             {task.scheduled_date && !hideCategory && (
               <>
-                <Tooltip arrow placement="top" title="Edit date and time"><Chip
-                  size="medium"
-                  icon={<Calendar className="w-3 h-3" />}
-                  label={
-                    <span className="flex items-center">
-                      <span className="flex items-center text-interactive-text gap-2 pl-2 py-1">
-                        {formattedDate}{task.scheduled_time ? ` ${task.scheduled_time}` : ''}
-                        {task.reminder_enabled ? <><span className='min-w-3 h-auto'></span><span className='absolute right-0 bg-background rounded-full p-1'><Bell className="w-3 h-3 text-secondary-icon" /></span></> : null}
+                <Tooltip arrow placement="top" title="Edit date and time">
+                  <Chip
+                    size="medium"
+                    icon={<Calendar className="w-3 h-3" />}
+                    label={
+                      <span className="flex items-center">
+                        <span className="flex items-center text-interactive-text gap-2 pl-2 py-1">
+                          {formattedDate}{task.scheduled_time ? ` ${task.scheduled_time}` : ''}
+                          {task.reminder_enabled ? <><span className='min-w-3 h-auto'></span><span className='absolute right-0 bg-background rounded-full p-1'><Bell className="w-3 h-3 text-secondary-icon" /></span></> : null}
+                        </span>
                       </span>
-                    </span>
-                  }
-                  className="relative flex text-xs max-h-7"
-                  onClick={handleDateClick}
-                  variant="outlined"
-                  sx={{ cursor: onUpdate ? 'pointer' : 'default' }}
-                />
+                    }
+                    className="relative flex text-xs max-h-7 cursor-pointer"
+                    onClick={handleDateClick}
+                    variant="outlined"
+                    // sx={{ cursor: onUpdate ? 'pointer' : 'default' }}
+                  />
                 </Tooltip>
               </>
             )}
@@ -933,7 +939,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                     </span>
                     </>
                   }
-                  className="relative text-xs min-h-7 max-h-7"
+                  className="relative text-xs min-h-7 max-h-7 cursor-pointer"
                   variant='outlined'
                   onClick={handleTimeClick}
                   sx={{ cursor: onUpdate ? 'pointer' : 'default' }}

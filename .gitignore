@@ -32,3 +32,4 @@ node_modules/@esbuild/darwin-arm64/bin/esbuild
 node_modules/.package-lock.json
 frontend/package-lock.json
 .vscode/settings.json
+node_modules

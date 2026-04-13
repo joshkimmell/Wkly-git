@@ -300,7 +300,7 @@ const AllSummaries = () => {
   return (
     <div className="p-4">
       <div className="flex justify-between items-center">
-        <h1 className="mt-4 block sm:hidden">Summaries</h1>
+        <h1 className="font-serif mt-4 block sm:hidden">Summaries</h1>
       </div> 
     {summaries.length !== 0 ? (
       <>

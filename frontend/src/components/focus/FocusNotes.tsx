@@ -131,14 +131,14 @@ const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded, onNoteEdite
       </div>
 
       {notes.length > 0 && (
-        <ul className="flex flex-col gap-2 overflow-y-auto flex-1 min-h-0 pr-1 mt-4 border-t border-gray-20 dark:border-gray-80 pt-8">
+        <ul className="flex flex-col w-full gap-2 flex-1 min-h-0 pr-1 mt-4 border-t border-gray-20 dark:border-gray-80 pt-8">
           {notes.map((note) => (
             <li
               key={note.id}
               className="group flex items-start gap-2 rounded-none p-3 bg-gray-20/40 dark:bg-gray-90/70 border-t border-gray-20 dark:border-gray-90 text-sm text-primary-text"
             >
               {editingId === note.id ? (
-                <div className="flex flex-col gap-2 flex-1 min-w-0 w-full">
+                <div className="flex flex-col gap-2 flex-1 min-w-0 w-full @max-sm:(w-auto)">
                   <div onKeyDown={handleEditKeyDown}>
                     <RichTextEditor
                       id={`edit-note-${note.id}`}
@@ -147,7 +147,7 @@ const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded, onNoteEdite
                       onChange={setEditDraft}
                     />
                   </div>
-                  <div className="flex gap-2 justify-end">
+                  <div className="flex pt-2 gap-2 justify-end w-auto">
                     <button
                       onClick={cancelEdit}
                       className="btn-secondary px-2.5 py-1 rounded-md text-xs transition-colors"
@@ -168,20 +168,22 @@ const FocusNotes: React.FC<Props> = ({ notes, onChange, onNoteAdded, onNoteEdite
                   <div className="flex-1 min-w-0 break-words prose prose-sm dark:prose-invert max-w-none">
                     <NoteContent content={note.content} />
                   </div>
-                  <button
-                    onClick={() => startEdit(note)}
-                    className="btn-ghost opacity-0 group-hover:opacity-100 text-secondary-text hover:text-brand-40 transition-opacity mt-0.5"
-                    title="Edit note"
-                  >
-                    <Edit className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => removeNote(note.id)}
-                    className="btn-ghost opacity-0 group-hover:opacity-100 text-secondary-text hover:text-red-40 transition-opacity mt-0.5"
-                    title="Remove note"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex flex-col @sm:(flex-row) items-center ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => startEdit(note)}
+                      className="btn-ghost opacity-0 group-hover:opacity-100 text-secondary-text hover:text-brand-40 transition-opacity mt-0.5"
+                      title="Edit note"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => removeNote(note.id)}
+                      className="btn-ghost opacity-0 group-hover:opacity-100 text-secondary-text hover:text-red-40 transition-opacity mt-0.5"
+                      title="Remove note"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </>
               )}
             </li>

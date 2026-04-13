@@ -1,7 +1,7 @@
 {
-  "name": "Wkly — Weekly Goal Tracker",
+  "name": "Wkly — AI-Powered Goal Tracker",
   "short_name": "Wkly",
-  "description": "Your weekly command center for goals, tasks, and progress.",
+  "description": "Your AI-powered command center for motivation andprogress.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
@@ -19,6 +19,12 @@
     {
       "src": "/icon-512.svg",
       "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-1024.svg",
+      "sizes": "1024x1024",
       "type": "image/svg+xml",
       "purpose": "any maskable"
     },

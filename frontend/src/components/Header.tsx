@@ -1,14 +1,14 @@
 import { MenuBtnProps } from '@components/menu-btn';
 // import MenuBtn from '@components/menu-btn';
 import { useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 // import menuClosedIcon from '/images/button-menu.svg';
-import { Sun, Moon, Home, Text, Target } from 'lucide-react';
+import { Sun, Moon, Home, Text, Target, ThumbsUp, HomeIcon, CircleQuestionMark, UserCheck, ThumbsUpIcon } from 'lucide-react';
 import { classTabItem } from '@styles/classes';
 // import { classMenuItem } from '@styles/classes';
 // supabase client not needed here; use useAuth hook's session instead
 import useAuth from '@hooks/useAuth';
-import { Menu, MenuItem, Tooltip, useMediaQuery } from '@mui/material';
+import { Menu, MenuItem, Tabs, Tab, Tooltip, useMediaQuery } from '@mui/material';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP, useOverlayDebug } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
@@ -16,6 +16,7 @@ import Avatar from '@components/Avatar';
 import PersistentDrawerRight from './MenuDrawer';
 import ProfileManagement from './ProfileManagement';
 import Logo from '@components/Logo';
+import { styled } from '@mui/material/styles';
 
 
 
@@ -72,6 +73,58 @@ export interface HeaderProps {
 //     isOpen: boolean;
 // }
 
+
+interface StyledTabsProps extends React.ComponentProps<typeof Tabs> {
+  children?: React.ReactNode;
+  value: number | false;
+  onChange: (event: React.SyntheticEvent, newValue: number) => void;
+}
+
+const StyledTabs = styled((props: StyledTabsProps) => (
+  <Tabs
+    {...props}
+    slotProps={{
+      indicator: { children: <span className="MuiTabs-indicatorSpan" /> },
+    }}
+  />
+))({
+  '& .MuiTabs-indicator': {
+    display: 'flex',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  '& .MuiTabs-indicatorSpan': {
+    maxWidth: 80,
+    width: '100%',
+    backgroundColor: 'var(--primary-link)',
+  },
+});
+
+interface StyledTabProps extends React.ComponentProps<typeof Tab> {
+  label: string;
+}
+
+const StyledTab = styled((props: StyledTabProps) => (
+  <Tab disableRipple {...props} />
+))(({ theme }) => ({
+  textTransform: 'none',
+  fontWeight: theme.typography.fontWeightRegular,
+  fontSize: theme.typography.pxToRem(12),
+  marginRight: theme.spacing(1),
+  color: 'var(--primary-text)',
+  '&.MuiButtonBase-root.MuiTab-root:hover': {
+    backgroundColor: 'transparent',
+    color: 'var(--primary-link)',
+  },
+  '&.Mui-selected': {
+    color: 'var(--primary-text)',
+    // fontWeight: theme.typography.fontWeightMedium,
+  },
+  '&.Mui-focusVisible': {
+    backgroundColor: 'rgba(100, 95, 228, 0.32)',
+  },
+}));
+
 // Update the `Header` component to conditionally require `handleLogout`
 const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     // navigation not required in this component
@@ -85,6 +138,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     const [scrolled, setScrolled] = useState(false);
     const { session, profile } = useAuth();
     const isLarge = useMediaQuery('(min-width: 1024px)');
+
     // use the module-level `isMenuHidden` exported above
 
     // const handleLogoutInternal = async (): Promise<void> => {
@@ -129,7 +183,14 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
     // Sticky header scroll-shrink: toggle `scrolled` when crossing the scroll
     // threshold, then lock the handler for the transition duration so layout
     // changes from the animation cannot re-trigger it mid-flight.
+    // Only active on sm+ screens (≥640px) where the header is sticky.
     useEffect(() => {
+        const mq = window.matchMedia('(min-width: 640px)');
+        if (!mq.matches) {
+            setScrolled(false);
+            return;
+        }
+
         let rafId: number | null = null;
         // Timestamp (ms) before which scroll events are ignored.
         // Set to Date.now() + transition duration whenever scrolled changes.
@@ -150,8 +211,15 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
             });
         };
         window.addEventListener('scroll', onScroll, { passive: true });
+
+        const handleResize = () => {
+            if (!mq.matches) setScrolled(false);
+        };
+        mq.addEventListener('change', handleResize);
+
         return () => {
             window.removeEventListener('scroll', onScroll);
+            mq.removeEventListener('change', handleResize);
             if (rafId !== null) cancelAnimationFrame(rafId);
         };
     }, []);
@@ -229,17 +297,36 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
         return () => ro.disconnect();
     }, []);
 
+    // Listen for programmatic requests to open the preferences modal
+    useEffect(() => {
+        const handler = () => setIsProfileOpen(true);
+        window.addEventListener('wkly:open-preferences', handler);
+        return () => window.removeEventListener('wkly:open-preferences', handler);
+    }, []);
+
+    const navItems = [
+  { to: '/', label: 'Home', icon: HomeIcon, end: true },
+  { to: '/goals', label: 'Goals & Tasks', icon: Target },
+  { to: '/summaries', label: 'Summaries', icon: Text },
+  { to: '/affirmations', label: 'Affirmations', icon: ThumbsUp },
+//   { to: '/affirmations/settings', label: 'Settings', icon: Settings },
+];
+
     const location = useLocation();
+    const activeTab = navItems.findIndex(({ to, end }) =>
+        end ? location.pathname === to : location.pathname.startsWith(to)
+    );
+    const tabValue = activeTab === -1 ? false : activeTab;
 
     return (
         <div ref={headerRef} className={`header flex items-end dark relative${menuOpen ? ' header-expanded' : ''}${scrolled ? ' header--scrolled' : ''}`}>
             
             <div className="header-brand">
                 {!drawerVisible && (
-                    <div className="header-brand--logo-container relative pr-6 flex items-end ">
+                    <div className="header-brand--logo-container w-1/4 lg:w-auto relative pr-6  items-end ">
                         <button
                             onClick={toggleThemeInternal}
-                            className="header-brand--theme-btn btn-ghost ml-4 p-2 rounded absolute top-0 right-0"
+                            className="header-brand--theme-btn btn-ghost ml-4 p-2 rounded absolute -top-4 lg:top-0 right-0"
                             aria-label="Toggle theme"
                         >
                             {props.theme === 'theme-dark' ? (
@@ -250,16 +337,16 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                         </button>
                         <Link
                             to="/"
-                            className="header-brand--logo relative overflow-hidden w-auto flex items-end justify-center h-full"
+                            className="header-brand--logo relative overflow-hidden w-full lg:w-auto flex items-end justify-center h-full"
                             style={{ minHeight: '3rem' }} // optional: ensures height
                         >
 
                             {/* <span className="mask-clip-border absolute bottom-0 left-1/2 -translate-x-1/2 h-8 sm:h-12 w-auto"> */}
-                            <span className="mask-clip-border top-0 left-0 h-24 w-full md:w-auto">
+                            <span className="mask-clip-border top-0 left-0 h-16 lg:h-24 w-full items-end">
                             <Logo
                                 aria-label="Wkly logo"
                                 style={{ color: 'var(--brand-30)' }}
-                                className="w-full h-auto md:w-auto"
+                                className="w-full h-auto lg:w-auto"
                             />
                             </span>
                             
@@ -268,7 +355,30 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                     </div>
                 )}
                 {isAuthenticated && !isMenuHidden() && !drawerVisible && (
-                    <nav className="tabs hidden sm:flex items-end self-end ml-6 h-full">
+                    <>
+                    <StyledTabs 
+                        value={tabValue} 
+                        onChange={() => {}} 
+                        className="hidden focus:outline-none overflow-x-auto md:flex md:w-2/3 self-end h-full"
+                        // variant="scrollable"
+                        // scrollButtons="auto"
+                        // allowScrollButtonsMobile
+                        aria-label="Navigation Tabs"
+                        >
+                        {navItems.map(({ to, label, icon: Icon, end }) => (
+                            <StyledTab
+                                key={label}
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                {...{ component: NavLink, to, end } as any}
+                                className="focus:ring-0 focus:ring-offset-0 lg:w-auto"
+                                label={label}
+                                icon={<Icon className="w-4 h-4" />}
+                                iconPosition={isLarge ? 'start' : 'top'}
+                                wrapped
+                            />
+                        ))}
+                    </StyledTabs>
+                    {/* <nav className="tabs hidden sm:flex items-end self-end ml-6 h-full">
                         <ul className="flex -mb-px text-sm font-medium">
                             <li>
                                 <Tooltip title="Home" placement="bottom" arrow className='' disableHoverListener={isLarge}>
@@ -303,11 +413,24 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                                 </Link>
                                     </Tooltip>
                             </li>
+                            <li>
+                                <Tooltip title="Affirmations" placement="bottom" arrow className='' disableHoverListener={isLarge}>
+                                <Link
+                                    to="/affirmations"
+                                    className={`${classTabItem}${location.pathname.startsWith('/affirmations') ? ' active' : ''}`}
+                                >
+                                    <ThumbsUp className="w-4 h-4 mr-1.5" />
+                                    <span className='hidden lg:inline'>Affirmations</span>
+                                </Link>
+                                    </Tooltip>
+                            </li>
                         </ul>
-                    </nav>
+                    </nav> */}
+                    </>
                 )}
                 {/* Mobile drawer — only rendered on medium screens when authenticated */}
                 {isAuthenticated && (
+                    <>
                     <div ref={drawerContainerRef} className="relative md:hidden">
                         <PersistentDrawerRight
                             theme={props.theme}
@@ -316,6 +439,34 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                             handleLogout={props.handleLogout}
                         />
                     </div>
+
+                    {/* Mobile Bottom Nav */}
+                        <nav className="header-brand--bg md:hidden fixed bottom-0 left-0 right-0 z-40 bg-brand-20 dark:bg-brand-60 backdrop-blur-xl border-t border-secondary-border pb-4">
+                            <div className="flex items-center justify-around px-2 py-2 pb-[env(safe-area-inset-bottom)]">
+                                {navItems.map(({ to, label, icon: Icon, end }) => (
+                                <NavLink
+                                    key={to}
+                                    to={to}
+                                    end={end}
+                                    style={({ isActive }) => ({
+                                        minWidth: '3.5rem',
+                                        background: isActive ? 'radial-gradient(circle, var(--brand-90) 0%, rgba(0,0,0,0.0) 80%)' : '',
+                                    })}
+                                    className={({ isActive }) =>
+                                    `flex flex-col items-center justify-center text-center gap-0.5 px-3 py-1.5 text-[10px] uppercase tracking-wider font-medium transition-all duration-200 ${
+                                        isActive
+                                        ? 'header-mobile--nav text-brand-70 dark:text-brand-40 scale-110 border-b-2 border-brand-60 dark:border-brand-40'
+                                        : 'text-white opacity-80 hover:opacity-100'
+                                    }`
+                                }
+                                >
+                                    <Icon className="w-5 h-5" />
+                                    <span>{label}</span>
+                                </NavLink>
+                                ))}
+                            </div>
+                        </nav>
+                        </>
                 )}
 
                 {/* Desktop: avatar/menu + profile modal — authenticated only */}

@@ -657,7 +657,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
   
   return (
     <>
-    <form id="goalForm" className="space-y-4">
+    <form id="goalForm" className="hidden space-y-4">
       <div className="mt-6 flex justify-end space-x-4 items-center">
         <label className="block text-sm font-medium text-gray-70">Generate goals</label>
         <FormControlLabel

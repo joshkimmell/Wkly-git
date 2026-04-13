@@ -21,7 +21,7 @@ import { mapPageForScope, loadPageByScope, savePageByScope } from '@utils/pagina
 import 'react-datepicker/dist/react-datepicker.css';
 // import * as goalUtils from '@utils/goalUtils';
 import 'react-datepicker/dist/react-datepicker.css';
-import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, CalendarDays, Edit, Trash, ChevronRight, ChevronDown, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash, ListTodo, MoreVertical, Expand, Shrink, XCircleIcon, Target, Bell, Archive } from 'lucide-react';
+import { X as CloseButton, Search as SearchIcon, Filter as FilterIcon, PlusIcon, ArrowUp, ArrowDown, CalendarIcon, Check, TagIcon, Table2Icon, LayoutGrid, Kanban, CalendarDays, Edit, Trash, ChevronRight, ChevronDown, Award, FileText as NotesIcon, Save as SaveIcon, CheckSquare2, SquareSlash, ListTodo, MoreVertical, Expand, Shrink, XCircleIcon, Target, Bell, Archive, Sparkles } from 'lucide-react';
 import { useGoalsContext } from '@context/GoalsContext';
 import { useTimezone } from '@context/TimezoneContext';
 import { convertToUTC } from '@utils/timezone';
@@ -101,6 +101,7 @@ const GoalsComponent = () => {
     const [standaloneReminderOffset, setStandaloneReminderOffset] = useState('30');
     const [standaloneReminderDatetime, setStandaloneReminderDatetime] = useState('');
     const [standaloneSelectedReminderDatetime, setStandaloneSelectedReminderDatetime] = useState<Dayjs | null>(null);
+    const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
     const [newGoal, setNewGoal] = useState<Goal>({
         id: '',
         title: '',
@@ -137,6 +138,10 @@ const GoalsComponent = () => {
     // Delete confirm modal state
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState<boolean>(false);
     const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+    // Archive confirm modal state
+    const [isArchiveConfirmOpen, setIsArchiveConfirmOpen] = useState<boolean>(false);
+    const [archiveTargetGoal, setArchiveTargetGoal] = useState<Goal | null>(null);
+    const [isArchiving, setIsArchiving] = useState(false);
     // shared wins/notes hook
     const goalExtras = useGoalExtras();
     const { timezone } = useTimezone();
@@ -794,6 +799,99 @@ const GoalsComponent = () => {
         }
     };
 
+    const generateStandaloneTasks = async () => {
+        if (!standaloneTaskGoalId) {
+            notifyError('Please select a goal first');
+            return;
+        }
+        const allGoals = Object.values(indexedGoals).flat();
+        const goal = allGoals.find(g => g.id === standaloneTaskGoalId);
+        if (!goal) {
+            notifyError('Selected goal not found');
+            return;
+        }
+        setIsGeneratingTasks(true);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) throw new Error('Not authenticated');
+            const response = await fetch('/.netlify/functions/generatePlan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ title: goal.title, description: goal.description || '' }),
+            });
+            if (!response.ok) throw new Error(await response.text() || 'Failed to generate tasks');
+            const data = await response.json();
+            if (Array.isArray(data.tasks)) {
+                for (const task of data.tasks) {
+                    await fetch('/.netlify/functions/createTask', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({
+                            goal_id: goal.id,
+                            title: task.title,
+                            description: task.description || null,
+                            status: 'Not started',
+                            order_index: 0,
+                        }),
+                    });
+                }
+                notifySuccess(`Generated ${data.tasks.length} tasks`);
+                closeAddTaskModal();
+                await fetchTasksForGoal(goal.id);
+            }
+        } catch (err) {
+            console.error('[AllGoals] generateStandaloneTasks error:', err);
+            notifyError(err instanceof Error ? err.message : 'Failed to generate tasks');
+        } finally {
+            setIsGeneratingTasks(false);
+        }
+    };
+
+    const generateTasksForGoal = async (goalId: string) => {
+        const allGoals = Object.values(indexedGoals).flat();
+        const goal = allGoals.find(g => g.id === goalId);
+        if (!goal) {
+            notifyError('Goal not found');
+            return;
+        }
+        setIsGeneratingTasks(true);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) throw new Error('Not authenticated');
+            const response = await fetch('/.netlify/functions/generatePlan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ title: goal.title, description: goal.description || '' }),
+            });
+            if (!response.ok) throw new Error(await response.text() || 'Failed to generate tasks');
+            const data = await response.json();
+            if (Array.isArray(data.tasks)) {
+                for (const task of data.tasks) {
+                    await fetch('/.netlify/functions/createTask', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({
+                            goal_id: goal.id,
+                            title: task.title,
+                            description: task.description || null,
+                            status: 'Not started',
+                            order_index: 0,
+                        }),
+                    });
+                }
+                notifySuccess(`Generated ${data.tasks.length} tasks`);
+                await fetchTasksForGoal(goal.id);
+            }
+        } catch (err) {
+            console.error('[AllGoals] generateTasksForGoal error:', err);
+            notifyError(err instanceof Error ? err.message : 'Failed to generate tasks');
+        } finally {
+            setIsGeneratingTasks(false);
+        }
+    };
+
     // Sets the selected summary ID and opens the editor modal
     function setLocalSummaryId(id: string): void {
         setSelectedSummary((prev) => prev ? { ...prev, id } : prev);
@@ -1104,7 +1202,7 @@ const GoalsComponent = () => {
     //    }
     //};
 // Delete a goal
-    const { refreshGoals: ctxRefresh, removeGoalFromCache, lastUpdated, lastAddedIds, setLastAddedIds, goals: ctxGoals } = useGoalsContext();
+    const { refreshGoals: ctxRefresh, removeGoalFromCache, updateGoalInCache, lastUpdated, lastAddedIds, setLastAddedIds, goals: ctxGoals } = useGoalsContext();
 
     // Periodic refresh of fullGoals and refresh on background signals while Kanban is active
     useEffect(() => {
@@ -1880,7 +1978,7 @@ const GoalsComponent = () => {
     <div className={`space-y-6`}>
         <div className="flex justify-between items-center w-full">
             {/* <h1 className="text-2xl font-bold text-gray-90 block sm:hidden">{scope.charAt(0).toUpperCase() + scope.slice(1)}ly goals</h1> */}
-            <h1 className="mt-4 block sm:hidden">Goals & Tasks</h1>
+            <h1 className="font-serif mt-4 block sm:hidden">Goals & Tasks</h1>
         </div>
 
     {(allLoadedGoals.length > 0) ? (
@@ -3101,7 +3199,7 @@ const GoalsComponent = () => {
                                                     }} checked={selectedIds.has(goal.id)} onChange={() => {}} inputProps={{ 'aria-label': `Select goal ${goal.title}` }}
                                                     />
                                                 <div>
-                                                        <Typography variant="body1"><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></Typography>
+                                                        <Typography variant="h6" className='!font-serif !font-semibold'><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></Typography>
                                                         <Typography variant="body2" className="text-gray-50">
                                                             <span dangerouslySetInnerHTML={renderHTML(((goal.description || '').substring(0, 100) + ((goal.description || '').length > 200 ? '...' : '')))} />
                                                         </Typography>
@@ -3218,17 +3316,28 @@ const GoalsComponent = () => {
                                                         Tasks
                                                     </MenuItem> */}
                                                     
-                                                    <MenuItem
-                                                        onClick={() => {
-                                                            setSelectedGoal(goal);
-                                                            setIsEditorOpen(true);
-                                                            setRowActionsAnchorEl(null);
-                                                            setRowActionsTargetId(null);
-                                                        }}
-                                                    >
-                                                        <Edit className="w-4 h-4 mr-2" />
-                                                        Edit goal
-                                                    </MenuItem>
+                                                        <MenuItem
+                                                            onClick={() => {
+                                                                setSelectedGoal(goal);
+                                                                setIsEditorOpen(true);
+                                                                setRowActionsAnchorEl(null);
+                                                                setRowActionsTargetId(null);
+                                                            }}
+                                                        >
+                                                            <Edit className="w-4 h-4 mr-2" />
+                                                            Edit goal
+                                                        </MenuItem>
+                                                        <MenuItem
+                                                            onClick={() => {
+                                                                setArchiveTargetGoal(goal);
+                                                                setIsArchiveConfirmOpen(true);
+                                                                setRowActionsAnchorEl(null);
+                                                                setRowActionsTargetId(null);
+                                                            }}
+                                                        >
+                                                            <Archive className="w-4 h-4 mr-2" />
+                                                            {goal.is_archived ? 'Restore goal' : 'Archive goal'}
+                                                        </MenuItem>
                                                         <MenuItem
                                                             onClick={() => {
                                                                 setRowActionsAnchorEl(null);
@@ -3341,13 +3450,22 @@ const GoalsComponent = () => {
                                                             </div>
                                                         </div>
                                                     ) : (
-                                                        <button
-                                                            onClick={() => setAddingTaskForGoal(goal.id)}
-                                                            className="btn-ghost w-full p-2 text-sm text-brand-60 dark:text-brand-30 hover:underline hover:bg-background-color rounded border border-dashed border-gray-30 dark:border-gray-60 hover:border-primary transition-colors flex items-center justify-start w-auto gap-2"
-                                                        >
-                                                            <PlusIcon className="w-4 h-4" />
-                                                            Add task
-                                                        </button>
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                onClick={() => setAddingTaskForGoal(goal.id)}
+                                                                className="btn-ghost p-2 text-sm text-brand-60 dark:text-brand-30 hover:underline hover:bg-background-color rounded border border-dashed border-gray-30 dark:border-gray-60 hover:border-primary transition-colors flex items-center justify-start gap-2"
+                                                            >
+                                                                <PlusIcon className="w-4 h-4" />
+                                                                Add task
+                                                            </button>
+                                                            <button
+                                                                onClick={() => generateTasksForGoal(goal.id)}
+                                                                disabled={isGeneratingTasks}
+                                                                className="btn-ghost p-2 text-sm text-brand-60 dark:text-brand-30 hover:underline hover:bg-background-color rounded border border-dashed border-gray-30 dark:border-gray-60 hover:border-primary transition-colors flex items-center justify-start gap-2"
+                                                            >
+                                                                {isGeneratingTasks ? 'Generating...' : <><Sparkles className="w-4 h-4" /> Generate with AI</>}
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </TableCell>
                                             </TableRow>
@@ -3492,7 +3610,7 @@ const GoalsComponent = () => {
                                     {isScopeLoading ? (
                                         <div className="w-full flex items-center justify-center p-8">
                                             <div className="flex items-center space-x-3">
-                                                <LoadingSpinner />
+                                                <LoadingSpinner variant="mui" />
                                                 <span className="text-sm text-gray-60 dark:text-gray-30">Loading scope…</span>
                                             </div>
                                         </div>
@@ -3663,6 +3781,38 @@ const GoalsComponent = () => {
                         />
                     )}
                 </Modal>
+                    {/* Confirm archive goal modal */}
+                    <ConfirmModal
+                        isOpen={isArchiveConfirmOpen}
+                        title={archiveTargetGoal?.is_archived ? 'Restore goal?' : 'Archive goal?'}
+                        message={
+                            archiveTargetGoal?.is_archived
+                                ? `Restore "${archiveTargetGoal?.title}"? It will reappear in all views.`
+                                : `Archive "${archiveTargetGoal?.title}"? It will be hidden from all views but included in summaries for its time range.`
+                        }
+                        onCancel={() => { setIsArchiveConfirmOpen(false); setArchiveTargetGoal(null); }}
+                        onConfirm={async () => {
+                            if (!archiveTargetGoal) return;
+                            const newArchived = !archiveTargetGoal.is_archived;
+                            setIsArchiving(true);
+                            try {
+                                await updateGoal(archiveTargetGoal.id, { is_archived: newArchived } as any);
+                                updateGoalInCache({ ...archiveTargetGoal, is_archived: newArchived });
+                                await ctxRefresh();
+                                notifySuccess(`Goal ${newArchived ? 'archived' : 'restored'}.`);
+                            } catch (err) {
+                                console.error('Error archiving goal:', err);
+                                notifyError(`Failed to ${newArchived ? 'archive' : 'restore'} goal.`);
+                            } finally {
+                                setIsArchiving(false);
+                                setIsArchiveConfirmOpen(false);
+                                setArchiveTargetGoal(null);
+                            }
+                        }}
+                        confirmLabel={archiveTargetGoal?.is_archived ? 'Restore' : 'Archive'}
+                        cancelLabel="Cancel"
+                        loading={isArchiving}
+                    />
                     {/* Confirm delete goal modal (shared for table/mobile actions) */}
                     <ConfirmModal
                         isOpen={isDeleteConfirmOpen}
@@ -4029,6 +4179,14 @@ const GoalsComponent = () => {
 
                         <div className="flex justify-end gap-3 mt-6">
                             <button className="btn-secondary" onClick={closeAddTaskModal}>Cancel</button>
+                            <button
+                              className="btn-secondary"
+                              onClick={generateStandaloneTasks}
+                              disabled={isGeneratingTasks || !standaloneTaskGoalId}
+                            >
+                              
+                              {isGeneratingTasks ? 'Generating...' : <><Sparkles className="w-4 h-4" /> Generate with AI</>}
+                            </button>
                             <button className="btn-primary" onClick={createStandaloneTask}>Add task</button>
                         </div>
                     </div>
