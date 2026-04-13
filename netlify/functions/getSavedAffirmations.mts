@@ -14,6 +14,8 @@ export const handler: Handler = async (event) => {
       .from('saved_affirmations')
       .select(`
         id,
+        user_id,
+        affirmation_id,
         saved_at,
         affirmation:affirmations (*)
       `)
