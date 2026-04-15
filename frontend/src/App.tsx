@@ -3,7 +3,6 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { GoalsProvider } from '@context/GoalsContext';
 import { TimezoneProvider } from '@context/TimezoneContext';
 import ToastNotification, { notifySuccess, notifyError, notifyReminder } from '@components/ToastyNotification';
-// import WeeklyGoals from '@components/WeeklyGoals';
 import AllGoals from '@components/AllGoals';
 import HomePage from '@components/HomePage';
 import Header from '@components/Header';
@@ -273,7 +272,6 @@ const App: React.FC = () => {
           <main className="max-w-8xl min-h-[100vh] mx-auto px-4 sm:px-8 lg:px-16 py-8">
 
             <Routes>
-              {/* <Route path="/" element={<WeeklyGoals />} /> */}
               <Route path="/" element={<HomePage />} />
               <Route path="/goals" element={<AllGoals />} />
               <Route path="/mui-demo" element={<MuiCompareDemo />} />

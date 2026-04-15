@@ -1068,7 +1068,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
               {generatedPlan.map((step, index) => (
                 <li
                   key={`${step.title ?? 'step'}-${index}`}
-                  className="flex gap-4 bg-gray-10 hover:bg-gray-30 dark:bg-gray-90 dark:hover:bg-gray-80 p-4 items-start space-x-2 text-gray-90 dark:text-gray-20 cursor-pointer"
+                  className="flex gap-4 bg-gray-10 hover:bg-gray-30 dark:bg-gray-90 dark:hover:bg-gray-80 p-4 items-start space-x-2 text-secondary-text cursor-pointer"
                   onClick={() => toggleStepSelection(index)}
                 >
                   <div className="flex items-start w-full">

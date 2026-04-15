@@ -129,7 +129,7 @@ export default function WinsModal({ goalTitle, isOpen, onClose, wins, onCreate, 
     >
       <div className={`${modalClasses} w-full max-w-2xl`}>
         <div className='flex flex-row w-full justify-between'>
-                <h3 className="text-lg font-medium text-gray-90 mb-4">Wins for "{goalTitle}"</h3>
+                <h3 className="text-lg font-medium text-primary-text mb-4">Wins for "{goalTitle}"</h3>
                 <div className="mb-2 flex justify-end">
                     <Tooltip title="Close" placement="top" arrow>
                       <span>

@@ -628,7 +628,7 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
       >
         <div className={`${modalClasses} w-full max-w-2xl`}> 
           <div className='flex flex-row w-full justify-between items-start'>
-              <h3 className="text-lg font-medium text-gray-90 mb-4">Notes for <br />"{goal.title}"</h3>
+              <h3 className="text-lg font-medium text-primary-text mb-4">Notes for <br />"{goal.title}"</h3>
               {/* <h4 className="text-md font-semibold mb-2">Existing wins</h4> */}
               <div className="mb-4 flex justify-end">
                   <button className="btn-ghost" onClick={closeNotesModal}>
@@ -728,7 +728,7 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
       >
         <div className={`${modalClasses} w-full max-w-3xl`}>
           <div className='flex flex-row w-full justify-between items-start mb-4'>
-            <h3 className="text-lg font-medium text-gray-90">
+            <h3 className="text-lg font-medium text-primary-text">
               Tasks for <br />"{goal.title}"
             </h3>
             <button className="btn-ghost" onClick={() => setIsTasksModalOpen(false)}>
@@ -782,7 +782,7 @@ const GoalKanbanCard: React.FC<GoalKanbanCardProps> = ({
         }}
       >
         <div className={`${modalClasses}`}>
-          <h3 className="text-lg font-medium text-gray-90 mb-4">Edit Win</h3>
+          <h3 className="text-lg font-medium text-primary-text mb-4">Edit Win</h3>
           <WinEditor
             win={selectedWin}
             onSave={saveEditedWin}

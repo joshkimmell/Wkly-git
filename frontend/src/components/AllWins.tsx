@@ -197,7 +197,7 @@ const AllWins = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-90 block sm:hidden whitespace-nowrap">All wins</h1>
+        <h1 className="text-2xl font-bold text-secondary-text block sm:hidden whitespace-nowrap">All wins</h1>
         <div className="space-x-4 py-4 w-full justify-end flex">
           <button
             onClick={() => openModal()}
@@ -259,7 +259,7 @@ const AllWins = () => {
         <div className={`${modalClasses}`}>
           {isModalOpen && (
             <>
-              <h3 className="text-lg font-medium text-gray-90 mb-4">Add Win</h3>
+              <h3 className="text-lg font-medium text-secondary-text mb-4">Add Win</h3>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-70">Title</label>
