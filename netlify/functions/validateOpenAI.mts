@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Dev-only endpoint to validate OpenAI API key without exposing the key
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   // Disallow in production to avoid accidental exposure
   if ((process.env.NODE_ENV || '').toLowerCase() === 'production') {
     return {
@@ -48,4 +48,4 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({ valid: false, message: 'Server error during validation.' }),
     };
   }
-};
+});

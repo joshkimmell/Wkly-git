@@ -1,7 +1,7 @@
 import { Handler } from '@netlify/functions';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
-import { requireAuth } from './lib/auth';
+import { requireAuth, withCors } from './lib/auth';
 
 // Load .env from working directory if present (use default behaviour)
 dotenv.config();
@@ -29,7 +29,7 @@ interface Task {
   estimated_duration?: string; // e.g., "2 hours", "30 minutes"
 }
 
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -195,4 +195,4 @@ Ensure the response is a valid JSON array only.`;
       body: JSON.stringify({ error: 'Failed to generate plan.' }),
     };
   }
-};
+});

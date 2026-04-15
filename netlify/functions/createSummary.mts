@@ -1,9 +1,9 @@
 import { Handler } from '@netlify/functions';
 import { v4 as uuidv4 } from 'uuid';
 import supabase from './lib/supabase';
-import { requireAuth } from './lib/auth';
+import { requireAuth, withCors } from './lib/auth';
 
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -65,4 +65,4 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({ error: err.message }),
     };
   }
-};
+});

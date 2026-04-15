@@ -91,7 +91,7 @@ const AffirmationSaved: React.FC = () => {
             Your collection is empty.
           </p>
           <p className="text-sm text-secondary-text">
-            Save affirmations from the daily feed or archive to build your personal void.
+            Save affirmations from the daily feed or archive to build your personal vibe.
           </p>
         </div>
       ) : (

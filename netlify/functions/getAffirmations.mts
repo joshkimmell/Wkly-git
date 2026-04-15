@@ -1,8 +1,8 @@
 import { Handler } from '@netlify/functions';
 import supabase from './lib/supabase';
-import { requireAuth, CORS_HEADERS } from './lib/auth';
+import { requireAuth, CORS_HEADERS, withCors } from './lib/auth';
 
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS_HEADERS, body: '' };
   if (event.httpMethod !== 'GET') return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
 
@@ -58,4 +58,4 @@ export const handler: Handler = async (event) => {
     console.error('Unexpected error getAffirmations:', err);
     return { statusCode: 500, body: JSON.stringify({ error: err.message || 'Unexpected error' }) };
   }
-};
+});

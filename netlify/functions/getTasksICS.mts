@@ -65,7 +65,7 @@ function foldLine(line: string): string {
   return chunks.join('\r\n');
 }
 
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type',
@@ -236,4 +236,4 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({ error: 'Failed to generate calendar feed' }),
     };
   }
-};
+});

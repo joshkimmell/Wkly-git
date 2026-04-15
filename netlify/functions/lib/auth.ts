@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { HandlerEvent } from '@netlify/functions';
+import type { Handler, HandlerEvent, HandlerResponse } from '@netlify/functions';
 
 const supabaseUrl = process.env.SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -59,4 +59,23 @@ export async function requireAuth(event: HandlerEvent): Promise<AuthResult> {
   }
 
   return { userId: user.id, error: null };
+}
+
+/**
+ * Higher-order function that wraps a Netlify handler to automatically:
+ * - Handle CORS preflight OPTIONS requests (returns 204 with CORS headers)
+ * - Inject `Access-Control-Allow-Origin: *` into ALL responses
+ *
+ * Usage:
+ *   export const handler = withCors(async (event) => { ... });
+ */
+export function withCors(fn: Handler): Handler {
+  return async (event, context) => {
+    if (event.httpMethod === 'OPTIONS') {
+      return { statusCode: 204, headers: CORS_HEADERS, body: '' };
+    }
+    const response = (await fn(event, context)) as HandlerResponse;
+    response.headers = { ...CORS_HEADERS, ...(response.headers ?? {}) };
+    return response;
+  };
 }

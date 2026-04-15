@@ -1,6 +1,5 @@
-import { Handler } from '@netlify/functions';
 import supabase from './lib/supabase';
-import { requireAuth } from './lib/auth';
+import { requireAuth, withCors } from './lib/auth';
 
 interface CategoryRequestBody {
   name: string;
@@ -11,14 +10,9 @@ interface Category {
   user_id: string | null;
 }
 
-interface HandlerResponse {
-  statusCode: number;
-  body: string;
-}
-
-export const handler: Handler = async (event): Promise<HandlerResponse> => {
+export const handler = withCors(async (event) => {
   const auth = await requireAuth(event);
-  if (auth.error) return auth.error as HandlerResponse;
+  if (auth.error) return auth.error;
   const user_id = auth.userId;
 
   const { name }: CategoryRequestBody = JSON.parse(event.body as string);
@@ -101,4 +95,4 @@ export const handler: Handler = async (event): Promise<HandlerResponse> => {
     statusCode: 200,
     body: JSON.stringify({ message: 'Category added successfully.' }),
   };
-};
+});

@@ -1,7 +1,7 @@
 import { Handler } from '@netlify/functions';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
-import { requireAuth } from './lib/auth';
+import { requireAuth, withCors } from './lib/auth';
 
 dotenv.config();
 
@@ -9,7 +9,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   const auth = await requireAuth(event);
   if (auth.error) return auth.error;
 
@@ -114,4 +114,4 @@ Ensure the response is valid JSON only.`;
       body: JSON.stringify({ error: 'Failed to refine goal.' }),
     };
   }
-};
+});

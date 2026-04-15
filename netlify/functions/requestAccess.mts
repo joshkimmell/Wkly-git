@@ -9,7 +9,7 @@ const adminClient = createClient(supabaseUrl, supabaseServiceKey);
  * Public endpoint for users to request access to Wkly.
  * No authentication required - this is for prospective users.
  */
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -146,4 +146,4 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({ error: err?.message || 'Internal server error' }),
     };
   }
-};
+});

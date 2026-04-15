@@ -1,7 +1,7 @@
 import { Handler } from '@netlify/functions';
 import { OpenAI } from 'openai';
 import dotenv from 'dotenv';
-import { requireAuth } from './lib/auth';
+import { requireAuth, withCors } from './lib/auth';
 
 // Load local .env for netlify dev
 dotenv.config();
@@ -93,7 +93,7 @@ const generateSummary = async (prompt: string) => {
   }
 };
 
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -217,4 +217,4 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({ error: 'Failed to generate summary.' }),
     };
   }
-};
+});

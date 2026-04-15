@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Capacitor native platform folders (generated; check in or exclude per team preference)
+ios/
+android/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

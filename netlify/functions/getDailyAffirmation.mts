@@ -1,7 +1,7 @@
 import { Handler } from '@netlify/functions';
 import OpenAI from 'openai';
 import supabase from './lib/supabase';
-import { requireAuth } from './lib/auth';
+import { requireAuth, withCors } from './lib/auth';
 
 const CATEGORIES = [
   'Productivity', 'Self-Awareness', 'Relationships', 'Achievement',
@@ -66,7 +66,7 @@ async function generateAffirmation(recentTexts: string[]): Promise<{ text: strin
   }
 }
 
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   const auth = await requireAuth(event);
   if (auth.error) return auth.error;
 
@@ -151,4 +151,4 @@ export const handler: Handler = async (event) => {
     console.error('Unexpected error getDailyAffirmation:', err);
     return { statusCode: 500, body: JSON.stringify({ error: err.message || 'Unexpected error' }) };
   }
-};
+});

@@ -1,8 +1,8 @@
 import { Handler } from '@netlify/functions';
 import supabase from './lib/supabase';
-import { requireAuth } from './lib/auth';
+import { requireAuth, withCors } from './lib/auth';
 
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   const auth = await requireAuth(event);
   if (auth.error) return auth.error;
   const { userId } = auth;
@@ -22,4 +22,4 @@ export const handler: Handler = async (event) => {
   } catch (err: any) {
     return { statusCode: 500, body: JSON.stringify({ error: 'An unexpected error occurred.' }) };
   }
-};
+});

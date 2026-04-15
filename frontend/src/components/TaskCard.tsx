@@ -257,12 +257,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
   }, [task.status]);
 
   // Load notes on component mount to display count
-  useEffect(() => {
-    if (notes.length === 0) {
-      loadNotes();
-    }
-  }, [task.id]);
-
   // Load notes when modal opens (if they haven't been loaded yet)
   useEffect(() => {
     if (isNotesModalOpen && notes.length === 0) {
@@ -285,7 +279,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
       const data = await res.json();
       setNotes(data || []);
     } catch (err) {
-      console.error('Error loading task notes:', err);
+      console.error('Error loading task notes:', err instanceof Error ? err.message : err);
       notifyError('Failed to load notes');
     } finally {
       setIsNotesLoading(false);

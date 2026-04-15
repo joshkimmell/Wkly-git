@@ -1,6 +1,6 @@
 import { Handler } from '@netlify/functions';
 import OpenAI from 'openai';
-import { requireAuth } from './lib/auth';
+import { requireAuth, withCors } from './lib/auth';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -20,7 +20,7 @@ interface SuggestedLink {
   reason: string;
 }
 
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   }
@@ -122,4 +122,4 @@ Only include the SUGGESTIONS block when you have genuinely relevant suggestions.
     console.error('[focusChat] OpenAI error:', err);
     return { statusCode: 500, body: JSON.stringify({ error: 'AI request failed' }) };
   }
-};
+});
