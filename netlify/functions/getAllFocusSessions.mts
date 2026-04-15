@@ -1,5 +1,5 @@
 import type { Handler } from '@netlify/functions';
-import { requireAuth } from './lib/auth';
+import { requireAuth, CORS_HEADERS } from './lib/auth';
 import { supabase } from './lib/supabase';
 
 /**
@@ -8,6 +8,7 @@ import { supabase } from './lib/supabase';
  * are available on first open without having to visit the focus view first.
  */
 export const handler: Handler = async (event) => {
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS_HEADERS, body: '' };
   if (event.httpMethod !== 'GET') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   }

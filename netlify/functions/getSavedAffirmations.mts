@@ -3,10 +3,10 @@ import supabase from './lib/supabase';
 import { requireAuth } from './lib/auth';
 
 export const handler: Handler = async (event) => {
-  if (event.httpMethod !== 'GET') return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
-
   const auth = await requireAuth(event);
   if (auth.error) return auth.error;
+
+  if (event.httpMethod !== 'GET') return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   const { userId } = auth;
 
   try {

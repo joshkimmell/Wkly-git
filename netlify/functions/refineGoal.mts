@@ -10,15 +10,15 @@ const openai = new OpenAI({
 });
 
 export const handler: Handler = async (event) => {
+  const auth = await requireAuth(event);
+  if (auth.error) return auth.error;
+
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
       body: JSON.stringify({ error: 'Method Not Allowed' }),
     };
   }
-
-  const auth = await requireAuth(event);
-  if (auth.error) return auth.error;
 
   try {
     const body = JSON.parse(event.body || '{}');

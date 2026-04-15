@@ -7,13 +7,20 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 // Shared admin client used only for JWT verification — never passed to callers
 const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
+export const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+};
+
 type AuthSuccess = { userId: string; error: null };
-type AuthFailure = { userId: null; error: { statusCode: number; body: string } };
+type AuthFailure = { userId: null; error: { statusCode: number; headers: Record<string, string>; body: string } };
 export type AuthResult = AuthSuccess | AuthFailure;
 
 /**
  * Verifies the Supabase JWT from the Authorization header.
  * Returns the verified userId, or a ready-to-return error response.
+ * Also handles CORS preflight (OPTIONS) automatically.
  *
  * Usage:
  *   const auth = await requireAuth(event);
@@ -21,13 +28,21 @@ export type AuthResult = AuthSuccess | AuthFailure;
  *   const { userId } = auth;
  */
 export async function requireAuth(event: HandlerEvent): Promise<AuthResult> {
+  // Handle CORS preflight — return early before any auth logic
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      userId: null,
+      error: { statusCode: 204, headers: CORS_HEADERS, body: '' },
+    };
+  }
+
   const authHeader = event.headers?.authorization || event.headers?.Authorization || '';
   const token = authHeader.replace(/^Bearer\s*/i, '').trim();
 
   if (!token) {
     return {
       userId: null,
-      error: { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) },
+      error: { statusCode: 401, headers: CORS_HEADERS, body: JSON.stringify({ error: 'Unauthorized' }) },
     };
   }
 
@@ -39,7 +54,7 @@ export async function requireAuth(event: HandlerEvent): Promise<AuthResult> {
   if (error || !user) {
     return {
       userId: null,
-      error: { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) },
+      error: { statusCode: 401, headers: CORS_HEADERS, body: JSON.stringify({ error: 'Unauthorized' }) },
     };
   }
 

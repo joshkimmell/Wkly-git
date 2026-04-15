@@ -67,10 +67,10 @@ async function generateAffirmation(recentTexts: string[]): Promise<{ text: strin
 }
 
 export const handler: Handler = async (event) => {
-  if (event.httpMethod !== 'GET') return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
-
   const auth = await requireAuth(event);
   if (auth.error) return auth.error;
+
+  if (event.httpMethod !== 'GET') return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
 
   try {
     // Use the client's local date if provided, otherwise fall back to UTC
