@@ -22,7 +22,7 @@ import {
   Tabs,
   Tab,
 } from '@mui/material';
-import { Check, X, RefreshCw, UserMinus, CircleQuestionMark, UserCheck, ThumbsUpIcon, Trash2 } from 'lucide-react';
+import { Check, X, RefreshCw, UserMinus, CircleQuestionMark, UserCheck, ThumbsUpIcon, Trash2, Mail } from 'lucide-react';
 import supabase from '@lib/supabase';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
 import { fetchPendingAffirmations, moderateAffirmation } from '@utils/affirmationApi';
@@ -311,6 +311,38 @@ const AdminAccessRequests: React.FC = () => {
     }
   };
 
+  const handleResendInvitation = async (approvedUserId: string, email: string) => {
+    setProcessingId(approvedUserId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        notifyError('Not authenticated');
+        return;
+      }
+
+      const response = await fetch('/.netlify/functions/resendInvitation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ approvedUserId, email }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || 'Failed to resend invitation');
+      }
+
+      notifySuccess(`Invitation email resent to ${email}`);
+    } catch (err: any) {
+      console.error('Error resending invitation:', err);
+      notifyError(err?.message || 'Failed to resend invitation');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   const handleRevoke = async (approvedUserId: string, email: string) => {
     if (!confirm(`Are you sure you want to revoke access for ${email}? This will prevent them from registering new accounts.`)) {
       return;
@@ -539,7 +571,19 @@ const AdminAccessRequests: React.FC = () => {
                       <TableCell>{user.username || '—'}</TableCell>
                       <TableCell>{user.fullName || '—'}</TableCell>
                       <TableCell>{formatDate(user.approved_at)}</TableCell>
-                      <TableCell align="right">
+                      <TableCell className='flex -row flex gap-3' align="right">
+                        <Tooltip title="Resend invitation">
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            size="small"
+                            onClick={() => handleResendInvitation(user.id, user.email)}
+                            disabled={processingId === user.id}
+                            startIcon={processingId === user.id ? <CircularProgress size={16} /> : <Mail className="w-4 h-4" />}
+                          >
+                            Resend
+                          </Button>
+                        </Tooltip>
                         <Tooltip title="Revoke access">
                           <Button
                             variant="outlined"
