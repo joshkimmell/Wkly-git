@@ -1,6 +1,6 @@
 import { Handler } from '@netlify/functions';
 import OpenAI from 'openai';
-import { requireAuth, withCors } from './lib/auth';
+import { requireAuth, withCors, getUserTier, tierLimitResponse } from './lib/auth';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -27,6 +27,13 @@ export const handler = withCors(async (event) => {
 
   const auth = await requireAuth(event);
   if (auth.error) return auth.error;
+  const { userId } = auth;
+
+  // ── Tier check: free users cannot use AI focus chat ──
+  const { tier, limits } = await getUserTier(userId);
+  if (tier === 'free') {
+    return tierLimitResponse('AI Focus Chat is a paid feature. Upgrade to access it.');
+  }
 
   if (!process.env.OPENAI_API_KEY) {
     return { statusCode: 500, body: JSON.stringify({ error: 'Missing OpenAI API key' }) };

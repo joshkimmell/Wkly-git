@@ -78,7 +78,7 @@ export function useReminderService() {
           .from('notification_preferences')
           .select('settings')
           .eq('user_id', session.user.id)
-          .single();
+          .maybeSingle();
         if (data?.settings) {
           return data.settings as NotificationSettings;
         }

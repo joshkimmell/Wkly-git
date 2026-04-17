@@ -31,6 +31,8 @@ import AffirmationArchive from '@components/affirmations/AffirmationArchive';
 import AffirmationSubmit from '@components/affirmations/AffirmationSubmit';
 import AffirmationSaved from '@components/affirmations/AffirmationSaved';
 import AffirmationSettings from '@components/affirmations/AffirmationSettings';
+import { TierProvider } from '@context/TierContext';
+import PricingPage from '@components/PricingPage';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Chip } from '@mui/material';
 import { Bell, Calendar, FileText } from 'lucide-react';
 import { loadSession, saveSession } from '@components/focus/useFocusSession';
@@ -255,6 +257,7 @@ const App: React.FC = () => {
   return (
     <SessionContextProvider supabaseClient={supabase}>
     <AppMuiThemeProvider mode={theme}>
+    <TierProvider>
     <TimezoneProvider>
     <FocusTimerProvider>
     <FocusModeProvider>
@@ -280,6 +283,7 @@ const App: React.FC = () => {
               <Route path="/notifications" element={<NotificationsSettings />} />
               <Route path="/auth" element={<Navigate to="/" replace />} />
               <Route path="/profile" element={<ProfileManagement />} />
+              <Route path="/pricing" element={<PricingPage />} />
               <Route path="/admin/access" element={<AdminAccessRequests />} />
               <Route path="/affirmations" element={<AffirmationsLayout />}>
                 <Route index element={<AffirmationToday />} />
@@ -299,6 +303,7 @@ const App: React.FC = () => {
     </FocusModeProvider>
     </FocusTimerProvider>
     </TimezoneProvider>
+    </TierProvider>
 
       {/* ── Task Reminder Dialog ───────────────────────────────────────── */}
       <Dialog open={!!pendingReminderTask} onClose={dismissReminderTask} maxWidth="sm" fullWidth>

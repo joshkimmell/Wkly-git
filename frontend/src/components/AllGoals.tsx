@@ -32,12 +32,14 @@ import { TextField, InputAdornment, IconButton, FormControl, InputLabel, Select,
 import { useTheme } from '@mui/material/styles';
 import supabase from '@lib/supabase';
 import { STATUS_COLORS, STATUSES } from '../constants/statuses';
-import { notifyError, notifySuccess, notifyWithUndo } from '@components/ToastyNotification';
+import { notifyError, notifySuccess, notifyWithUndo, notifyTierLimit } from '@components/ToastyNotification';
 import { DatePicker, DateTimePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type { Dayjs } from 'dayjs';
 import type { ChangeEvent } from 'react';
 import LoadingSpinner from './LoadingSpinner';
+import { useTier } from '@hooks/useTier';
+import UpgradePrompt from '@components/UpgradePrompt';
 // import { Tab } from '@headlessui/react';
 type Goal = GoalUtilsGoal & {
   created_at?: string;
@@ -57,6 +59,7 @@ const InlineStatus: React.FC<{ tasks?: Task[] }> = ({ tasks = [] }) => {
 };
 
 const GoalsComponent = () => {
+    const { canCreateGoal, remainingGoals, isFree } = useTier();
     // helper to toggle table sorting from header clicks
     const toggleSort = (field: 'date' | 'category' | 'status' | 'title') => {
         if (sortBy === field) {
@@ -697,6 +700,10 @@ const GoalsComponent = () => {
             // Mirror pageByScope into a ref to avoid re-running the fetch effect on its changes
             useEffect(() => { pageByScopeRef.current = pageByScope; }, [pageByScope]);
     const openGoalModal = () => {
+        if (!canCreateGoal) {
+            notifyTierLimit(`Goal limit reached (${remainingGoals === 0 ? 'max' : remainingGoals} remaining). Upgrade to create more goals.`);
+            return;
+        }
         if (!isGoalModalOpen) {
         setNewGoal((prev) => ({
             ...prev,
@@ -735,20 +742,26 @@ const GoalsComponent = () => {
             if (!token) throw new Error('Not authenticated');
             let goalId = standaloneTaskGoalId;
             if (standaloneCreateNewGoal) {
-                const { data: { user } } = await supabase.auth.getUser();
-                const { data: createdGoal, error: goalErr } = await supabase
-                    .from('goals')
-                    .insert({
+                const goalRes = await fetch('/.netlify/functions/createGoal', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({
                         title: standaloneNewGoalTitle.trim(),
                         week_start: getWeekStartDate(),
-                        user_id: user?.id,
                         status: 'Not started',
                         description: '',
-                        category: '',
-                    })
-                    .select()
-                    .single();
-                if (goalErr || !createdGoal) throw new Error(goalErr?.message || 'Failed to create goal');
+                        category: 'General',
+                    }),
+                });
+                if (!goalRes.ok) {
+                    const errBody = await goalRes.json().catch(() => ({})) as { error?: string; message?: string };
+                    if (errBody?.error === 'tier_limit') {
+                        notifyTierLimit(errBody.message || 'Upgrade to create more goals.');
+                        throw new Error('tier_limit');
+                    }
+                    throw new Error(errBody.error || 'Failed to create goal');
+                }
+                const createdGoal = await goalRes.json() as { id: string };
                 goalId = createdGoal.id;
                 await refreshGoals();
             }
@@ -789,7 +802,15 @@ const GoalsComponent = () => {
                     order_index: 0,
                 }),
             });
-            if (!response.ok) throw new Error('Failed to create task');
+            if (!response.ok) {
+                let errBody: any = {};
+                try { errBody = await response.json(); } catch {}
+                if (errBody?.error === 'tier_limit') {
+                    notifyTierLimit(errBody.message || 'Upgrade to create more tasks.');
+                    throw new Error(errBody.message || 'tier_limit');
+                }
+                throw new Error('Failed to create task');
+            }
             notifySuccess('Task created');
             closeAddTaskModal();
             if (goalId) await fetchTasksForGoal(goalId);
@@ -820,7 +841,15 @@ const GoalsComponent = () => {
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ title: goal.title, description: goal.description || '' }),
             });
-            if (!response.ok) throw new Error(await response.text() || 'Failed to generate tasks');
+            if (!response.ok) {
+                let errBody: any = {};
+                try { errBody = await response.json(); } catch {}
+                if (errBody?.error === 'tier_limit') {
+                    notifyTierLimit(errBody.message || 'Upgrade to generate plans.');
+                    throw new Error(errBody.message || 'tier_limit');
+                }
+                throw new Error('Failed to generate tasks');
+            }
             const data = await response.json();
             if (Array.isArray(data.tasks)) {
                 for (const task of data.tasks) {
@@ -865,7 +894,15 @@ const GoalsComponent = () => {
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ title: goal.title, description: goal.description || '' }),
             });
-            if (!response.ok) throw new Error(await response.text() || 'Failed to generate tasks');
+            if (!response.ok) {
+                let errBody: any = {};
+                try { errBody = await response.json(); } catch {}
+                if (errBody?.error === 'tier_limit') {
+                    notifyTierLimit(errBody.message || 'Upgrade to generate plans.');
+                    throw new Error(errBody.message || 'tier_limit');
+                }
+                throw new Error('Failed to generate tasks');
+            }
             const data = await response.json();
             if (Array.isArray(data.tasks)) {
                 for (const task of data.tasks) {
@@ -1059,7 +1096,24 @@ const GoalsComponent = () => {
                 body: JSON.stringify({ id: taskId, status: newStatus }),
             });
 
-            if (!response.ok) throw new Error('Failed to update task status');
+            if (!response.ok) {
+                const errBody = await response.json().catch(() => ({}));
+                if (errBody?.error === 'tier_limit') {
+                    notifyTierLimit(errBody.message || 'Upgrade to activate more goals simultaneously.');
+                    // Revert optimistic update
+                    setKanbanTasks((prev) => {
+                        const updated = { ...prev };
+                        if (updated[goalId]) {
+                            updated[goalId] = updated[goalId].map(t =>
+                                t.id === taskId ? { ...t, status: oldStatus } : t
+                            );
+                        }
+                        return updated;
+                    });
+                    return;
+                }
+                throw new Error('Failed to update task status');
+            }
             notifySuccess('Task status updated');
         } catch (error) {
             console.error('Error updating task status:', error);
@@ -2634,9 +2688,10 @@ const GoalsComponent = () => {
                             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                             transformOrigin={{ vertical: 'top', horizontal: 'right' }}
                         >
-                            <MenuItem onClick={() => { setAddMenuAnchorEl(null); openGoalModal(); }}>
+                            <MenuItem onClick={() => { setAddMenuAnchorEl(null); openGoalModal(); }} disabled={!canCreateGoal}>
                                 <Target className="w-4 h-4 mr-2 text-primary" />
                                 Add a goal
+                                {!canCreateGoal && <span className="ml-2 text-xs text-gray-400">(limit reached)</span>}
                             </MenuItem>
                             <MenuItem onClick={() => { setAddMenuAnchorEl(null); setIsAddTaskModalOpen(true); }}>
                                 <ListTodo className="w-4 h-4 mr-2 text-primary" />
@@ -3498,7 +3553,14 @@ const GoalsComponent = () => {
                                                                     body: JSON.stringify({ id: taskId, status: newStatus }),
                                                                 });
 
-                                                                if (!response.ok) throw new Error('Failed to update task status');
+                                                                if (!response.ok) {
+                                                                    const errBody = await response.json().catch(() => ({}));
+                                                                    if (errBody?.error === 'tier_limit') {
+                                                                        notifyTierLimit(errBody.message || 'Upgrade to activate more goals simultaneously.');
+                                                                        return;
+                                                                    }
+                                                                    throw new Error('Failed to update task status');
+                                                                }
                                                                 notifySuccess('Task status updated');
                                                                 await fetchTasksForGoal(goal.id);
                                                             } catch (error) {
@@ -3987,12 +4049,17 @@ const GoalsComponent = () => {
                     onClick={openGoalModal}
                     variant='contained'
                     className="btn-primary gap-3 flex"
-                    // title={`Add a new goal for the current ${scope}`}
+                    disabled={!canCreateGoal}
                     aria-label={`Add a new goal`}
                     >
                     <span className="block flex text-nowrap">Add a Goal</span>
                     <Target className="w-5 h-5" />
                 </Button>
+                {!canCreateGoal && (
+                    <div className="mt-4 w-full max-w-md">
+                        <UpgradePrompt message="You've reached the free goal limit. Upgrade for unlimited goals." />
+                    </div>
+                )}
                 
             </div>
         )}
@@ -4316,7 +4383,14 @@ const GoalsComponent = () => {
                                     body: JSON.stringify({ id: taskId, status: newStatus }),
                                 });
                                 
-                                if (!response.ok) throw new Error('Failed to update task status');
+                                if (!response.ok) {
+                                    const errBody = await response.json().catch(() => ({}));
+                                    if (errBody?.error === 'tier_limit') {
+                                        notifyTierLimit(errBody.message || 'Upgrade to activate more goals simultaneously.');
+                                        return;
+                                    }
+                                    throw new Error('Failed to update task status');
+                                }
                                 
                                 const updatedTask = await response.json();
                                 setNotificationTask(updatedTask);

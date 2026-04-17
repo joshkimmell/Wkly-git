@@ -1,15 +1,18 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getWeekStartDate, fetchCategories } from '@utils/functions'; // Import fetchCategories from functions.ts
 import { Category, Goal, Task } from '@utils/goalUtils'; // Import Task type
 import supabase from '@lib/supabase'; // Import Supabase client
 import { useGoalsContext } from '@context/GoalsContext';
 import LoadingSpinner from '@components/LoadingSpinner';
-import { SearchIcon, RefreshCw, CheckCircle, Edit2, Calendar, Clock, Bell } from 'lucide-react';
+import { SearchIcon, RefreshCw, CheckCircle, Edit2, Calendar, Clock, Bell, Sparkles } from 'lucide-react';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
 import RichTextEditor from '@components/RichTextEditor';
-import { notifySuccess, notifyError } from '@components/ToastyNotification';
+import { notifySuccess, notifyError, notifyTierLimit } from '@components/ToastyNotification';
+import { useTier } from '@hooks/useTier';
+import UpgradePrompt from '@components/UpgradePrompt';
 import { TextField, MenuItem, Checkbox, FormControlLabel, Switch, Select, InputLabel, FormControl } from '@mui/material';
 import { DatePicker, TimePicker, DateTimePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -25,6 +28,8 @@ export interface AddGoalProps {
 
 const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, refreshGoals }) => {
   const [categories, setCategories] = useState<Category[]>([]);
+  const navigate = useNavigate();
+  const { canCreateGoal, canGeneratePlan, canRefineGoal, isFree } = useTier();
   
   // New workflow state
   const [draftGoal, setDraftGoal] = useState(''); // Step 1: User's draft input
@@ -153,8 +158,13 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       });
 
       if (!response.ok) {
-        const errorMessage = await response.text();
-        throw new Error(errorMessage || 'Failed to generate tasks');
+        let errBody: any = {};
+        try { errBody = await response.json(); } catch {}
+        if (errBody?.error === 'tier_limit') {
+          notifyTierLimit(errBody.message || 'Upgrade to generate plans.');
+          throw new Error(errBody.message || 'tier_limit');
+        }
+        throw new Error('Failed to generate tasks');
       }
 
       const data = await response.json();
@@ -209,8 +219,13 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       });
 
       if (!response.ok) {
-        const errorMessage = await response.text();
-        throw new Error(errorMessage || 'Failed to generate plan');
+        let errBody: any = {};
+        try { errBody = await response.json(); } catch {}
+        if (errBody?.error === 'tier_limit') {
+          notifyTierLimit(errBody.message || 'Upgrade to generate plans.');
+          throw new Error(errBody.message || 'tier_limit');
+        }
+        throw new Error('Failed to generate plan');
       }
 
       const data = await response.json();
@@ -324,8 +339,12 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       });
 
       if (!goalRes.ok) {
-        const errBody = await goalRes.json().catch(() => ({}));
-        throw new Error(`Failed to create goal: ${(errBody as { error?: string }).error || goalRes.statusText}`);
+        const errBody = await goalRes.json().catch(() => ({})) as { error?: string; message?: string };
+        if (errBody?.error === 'tier_limit') {
+          notifyTierLimit(errBody.message || 'Upgrade to create more goals.');
+          throw new Error(errBody.message || 'tier_limit');
+        }
+        throw new Error(`Failed to create goal: ${errBody.error || goalRes.statusText}`);
       }
 
       const createdGoal = await goalRes.json() as { id: string };
@@ -657,6 +676,11 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
   
   return (
     <>
+    {!canCreateGoal && (
+      <div className="mb-4">
+        <UpgradePrompt message="You've reached the free goal limit. Upgrade for unlimited goals." />
+      </div>
+    )}
     <form id="goalForm" className="hidden space-y-4">
       <div className="mt-6 flex justify-end space-x-4 items-center">
         <label className="block text-sm font-medium text-gray-70">Generate goals</label>
@@ -694,14 +718,36 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
               <button type="button" onClick={handleClose} className="btn-secondary">
                 Cancel
               </button>
-              <button 
-                type="button" 
-                onClick={handleRefineGoal} 
-                disabled={!draftGoal.trim() || isGenerating}
-                className="btn-primary mt-4"
-              >
-                {isGenerating ? 'Refining...' : 'Refine Goal'}
-              </button>
+              {canRefineGoal ? (
+                <button 
+                  type="button" 
+                  onClick={handleRefineGoal} 
+                  disabled={!draftGoal.trim() || isGenerating}
+                  className="btn-primary mt-4"
+                >
+                  {isGenerating ? 'Refining...' : 'Refine Goal'}
+                </button>
+              ) : (
+                <><button
+                  type="button"
+                  onClick={() => navigate('/pricing')}
+                  className="btn-primary mt-4 gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Upgrade to Refine Goal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRefinedGoal({ title: draftGoal, description: '', feedback: 'Refining is an AI-powered feature that provides suggestions to make your goal clearer and more actionable. Upgrade to access this feature!' });
+                    setCurrentStep(2);
+                  }}
+                  className="btn-secondary mt-4 gap-2"
+                >
+                  Continue without Refinement
+                </button>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -773,16 +819,27 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                 Back
               </button>
               <button type="button" onClick={createGoalWithTasks} disabled={isGenerating} className="btn-secondary">
-                {isGenerating ? 'Creating...' : 'Add goal'}
+                {isGenerating ? 'Adding goal...' : 'Add goal'}
               </button>
-              <button 
-                type="button" 
-                onClick={handleGenerateTasks}
-                disabled={!newGoal.title || isGenerating}
-                className="btn-primary"
-              >
-                {isGenerating ? 'Generating Tasks...' : 'Generate Tasks'}
-              </button>
+              {canGeneratePlan ? (
+                <button 
+                  type="button" 
+                  onClick={handleGenerateTasks}
+                  disabled={!newGoal.title || isGenerating}
+                  className="btn-primary"
+                >
+                  {isGenerating ? 'Generating Tasks...' : 'Generate Tasks'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => navigate('/pricing')}
+                  className="btn-primary gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Upgrade to Generate Tasks
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -795,7 +852,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
             {isGenerating && (
               <div className="w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center my-4">
                 <div className="loader"><LoadingSpinner variant='mui' /></div>
-                <span className="ml-2">Generating tasks...</span>
+                {/* <span className="ml-2">Generating tasks...</span> */}
               </div>
             )}
 
@@ -1016,7 +1073,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
             {isGenerating && (
               <div className="w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center my-4">
                 <div className="loader"><LoadingSpinner variant='mui' /></div>
-                <span className="ml-2">Generating tasks...</span>
+                {/* <span className="ml-2">Generating tasks...</span> */}
               </div>
             )}
             {error && (
