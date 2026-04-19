@@ -52,6 +52,8 @@ interface ApprovedUser {
   profileId?: string;
   username?: string;
   fullName?: string;
+  tier: string | null;
+  isAdmin: boolean;
 }
 
 interface StyledTabsProps extends React.ComponentProps<typeof Tabs> {
@@ -553,6 +555,7 @@ const AdminAccessRequests: React.FC = () => {
                     <TableCell>Registered</TableCell>
                     <TableCell>Username</TableCell>
                     <TableCell>Full Name</TableCell>
+                    <TableCell>Tier</TableCell>
                     <TableCell>Approved</TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
@@ -570,29 +573,44 @@ const AdminAccessRequests: React.FC = () => {
                       </TableCell>
                       <TableCell>{user.username || '—'}</TableCell>
                       <TableCell>{user.fullName || '—'}</TableCell>
+                      <TableCell>
+                        {!user.hasProfile ? (
+                          <Typography variant="caption" color="text.secondary">—</Typography>
+                        ) : user.isAdmin ? (
+                          <Chip label="Admin" color="secondary" size="small" />
+                        ) : user.tier === 'subscription' ? (
+                          <Chip label="Pro" color="success" size="small" />
+                        ) : user.tier === 'one_time' ? (
+                          <Chip label="Lifetime" color="info" size="small" />
+                        ) : (
+                          <Chip label="Free" size="small" />
+                        )}
+                      </TableCell>
                       <TableCell>{formatDate(user.approved_at)}</TableCell>
-                      <TableCell className='flex -row flex gap-3' align="right">
-                        <Tooltip title="Resend invitation">
+                      <TableCell className='flex flex-wrap w-40 gap-4 items-start justify-start space-x-2' align="right">
+                        <Tooltip className='w-auto' title="Resend invitation" arrow placement="top">
                           <Button
-                            variant="outlined"
+                            // variant="outlined"
+                            className='button-ghost'
                             color="error"
                             size="small"
                             onClick={() => handleResendInvitation(user.id, user.email)}
                             disabled={processingId === user.id}
                             startIcon={processingId === user.id ? <CircularProgress size={16} /> : <Mail className="w-4 h-4" />}
-                          >
+                            >
                             Resend
                           </Button>
                         </Tooltip>
-                        <Tooltip title="Revoke access">
+                        <Tooltip className='w-auto' title="Revoke access" arrow placement="top">
                           <Button
-                            variant="outlined"
+                            // variant="outlined"
+                            className='button-ghost'
                             color="error"
                             size="small"
                             onClick={() => handleRevoke(user.id, user.email)}
                             disabled={processingId === user.id}
                             startIcon={processingId === user.id ? <CircularProgress size={16} /> : <UserMinus className="w-4 h-4" />}
-                          >
+                            >
                             Revoke
                           </Button>
                         </Tooltip>

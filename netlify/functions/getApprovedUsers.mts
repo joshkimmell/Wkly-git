@@ -85,9 +85,25 @@ export const handler = withCors(async (event) => {
       (approvedUsers || []).map(async (user) => {
         const { data: profile } = await adminClient
           .from('profiles')
-          .select('id, username, full_name')
+          .select('id, username, full_name, subscription_tier, subscription_status, tier_expires_at, is_admin')
           .eq('email', user.email)
           .maybeSingle();
+
+        // Compute effective tier (mirrors getUserTier logic)
+        let effectiveTier: string | null = null;
+        if (profile) {
+          if (profile.is_admin) {
+            effectiveTier = 'subscription';
+          } else {
+            effectiveTier = profile.subscription_tier || 'free';
+            if (effectiveTier === 'one_time' && profile.tier_expires_at && new Date(profile.tier_expires_at) < new Date()) {
+              effectiveTier = 'free';
+            }
+            if (effectiveTier === 'subscription' && profile.subscription_status && !['active', 'trialing'].includes(profile.subscription_status)) {
+              effectiveTier = 'free';
+            }
+          }
+        }
 
         return {
           ...user,
@@ -95,6 +111,8 @@ export const handler = withCors(async (event) => {
           profileId: profile?.id,
           username: profile?.username,
           fullName: profile?.full_name,
+          tier: effectiveTier,
+          isAdmin: profile?.is_admin ?? false,
         };
       })
     );

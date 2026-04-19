@@ -97,13 +97,18 @@ export interface UserTierInfo {
 export async function getUserTier(userId: string): Promise<UserTierInfo> {
   const { data, error } = await adminClient
     .from('profiles')
-    .select('subscription_tier, subscription_status, tier_expires_at')
+    .select('subscription_tier, subscription_status, tier_expires_at, is_admin')
     .eq('id', userId)
     .maybeSingle();
 
   if (error || !data) {
     // Default to free if profile not found
     return { tier: 'free', limits: TIER_LIMITS.free, subscription_status: null, tier_expires_at: null };
+  }
+
+  // Admins always get full subscription access
+  if (data.is_admin === true) {
+    return { tier: 'subscription', limits: TIER_LIMITS.subscription, subscription_status: 'active', tier_expires_at: null };
   }
 
   let tier: SubscriptionTier = (data.subscription_tier as SubscriptionTier) || 'free';
