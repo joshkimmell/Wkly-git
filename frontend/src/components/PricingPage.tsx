@@ -151,13 +151,13 @@ const PricingPage: React.FC = () => {
         <div className="inline-flex rounded-full border border-gray-20 dark:border-gray-70 p-1 bg-gray-10 dark:bg-gray-80">
           <button
             onClick={() => setBillingCycle('monthly')}
-            className={`px-4 py-2 rounded-l-full text-sm font-medium transition-all ${billingCycle === 'monthly' ? 'opacity-100 text-white bg-primary hover:bg-primary cursor-none shadow-sm' : 'opacity-75 bg-secondary text-white hover:text-primary-text'}`}
+            className={`px-4 py-2 rounded-l-full text-sm font-medium transition-all ${billingCycle === 'monthly' ? 'opacity-100 text-primary bg-background hover:bg-background-color cursor-arrow shadow-sm' : 'opacity-75 bg-secondary text-white hover:text-primary-text'}`}
           >
             Monthly
           </button>
           <button
             onClick={() => setBillingCycle('yearly')}
-            className={`px-4 py-2 rounded-r-full text-sm font-medium transition-all ${billingCycle === 'yearly' ? 'opacity-100 text-white bg-primary hover:bg-primary cursor-none shadow-sm' : 'opacity-75 bg-secondary text-white hover:text-primary-text'}`}
+            className={`px-4 py-2 rounded-r-full text-sm font-medium transition-all ${billingCycle === 'yearly' ? 'opacity-100 text-primary bg-background hover:bg-background-color cursor-arrow shadow-sm' : 'opacity-75 bg-secondary text-white hover:text-primary-text'}`}
           >
             Yearly <span className="text-xs opacity-75">&nbsp;– Save 33%</span>
           </button>
