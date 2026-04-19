@@ -30,9 +30,9 @@ const useAuth = () => {
       if (session?.user?.id) {
         const { data, error } = await supabase
           .from('profiles')
-          .select('*', { head: false, count: 'exact' })
+          .select('*')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle();
 
         if (!error) {
           setProfile(data);

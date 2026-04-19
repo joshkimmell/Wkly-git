@@ -48,7 +48,7 @@ export default function NotificationsSettings({ registerSave }: Props) {
             .from('notification_preferences')
             .select('settings')
             .eq('user_id', session.user.id)
-            .single();
+            .maybeSingle();
           if (!error && data?.settings && mounted) {
             // Merge with defaults to ensure all fields are defined
             setSettings({ ...defaultSettings, ...data.settings });

@@ -1,4 +1,5 @@
 import { Handler } from '@netlify/functions';
+import { withCors } from './lib/auth';
 import dotenv from 'dotenv';
 
 // Load local .env when running netlify dev

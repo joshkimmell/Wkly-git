@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Send, Loader2, ExternalLink, Plus } from 'lucide-react';
 import supabase from '@lib/supabase';
+import { notifyTierLimit } from '@components/ToastyNotification';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -129,7 +130,15 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ taskTitle, taskDescription, goalTitle, messages: currentMessages }),
       });
-      if (!res.ok) throw new Error('Request failed');
+      if (!res.ok) {
+        let errBody: any = {};
+        try { errBody = await res.json(); } catch {}
+        if (errBody?.error === 'tier_limit') {
+          notifyTierLimit(errBody.message || 'Upgrade to use AI Focus Chat.');
+          throw new Error('tier_limit');
+        }
+        throw new Error('Request failed');
+      }
       const data = await res.json();
       const assistantMsg: ChatMessage = { role: 'assistant', content: data.message };
       const updated = [...currentMessages, assistantMsg];
@@ -137,11 +146,13 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
       onMessagesChange?.(updated);
       if (data.suggestedTasks?.length) setPendingTasks(data.suggestedTasks);
       if (data.suggestedLinks?.length) setPendingLinks(data.suggestedLinks);
-    } catch {
-      const errMsg: ChatMessage = { role: 'assistant', content: "Sorry, I couldn't connect. Please try again." };
-      const updated = [...currentMessages, errMsg];
-      setMessages(updated);
-      onMessagesChange?.(updated);
+    } catch (err) {
+      if ((err as Error)?.message !== 'tier_limit') {
+        const errMsg: ChatMessage = { role: 'assistant', content: "Sorry, I couldn't connect. Please try again." };
+        const updated = [...currentMessages, errMsg];
+        setMessages(updated);
+        onMessagesChange?.(updated);
+      }
     } finally {
       setLoading(false);
       setIsBackgroundResuming(false);
@@ -186,7 +197,15 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
         }),
       });
 
-      if (!res.ok) throw new Error('Request failed');
+      if (!res.ok) {
+        let errBody: any = {};
+        try { errBody = await res.json(); } catch {}
+        if (errBody?.error === 'tier_limit') {
+          notifyTierLimit(errBody.message || 'Upgrade to use AI Focus Chat.');
+          throw new Error('tier_limit');
+        }
+        throw new Error('Request failed');
+      }
       const data = await res.json();
 
       const assistantMsg = { role: 'assistant' as const, content: data.message };
@@ -196,10 +215,12 @@ const FocusAIChat: React.FC<Props> = ({ taskTitle, taskDescription, goalTitle, o
       if (data.suggestedTasks?.length) setPendingTasks(data.suggestedTasks);
       if (data.suggestedLinks?.length) setPendingLinks(data.suggestedLinks);
     } catch (err) {
-      const errorMsg = { role: 'assistant' as const, content: "Sorry, I couldn't connect. Please try again." };
-      const updatedWithError = [...newMessages, errorMsg];
-      setMessages(updatedWithError);
-      onMessagesChange?.(updatedWithError);
+      if ((err as Error)?.message !== 'tier_limit') {
+        const errorMsg = { role: 'assistant' as const, content: "Sorry, I couldn't connect. Please try again." };
+        const updatedWithError = [...newMessages, errorMsg];
+        setMessages(updatedWithError);
+        onMessagesChange?.(updatedWithError);
+      }
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,6 @@
 import { Handler } from '@netlify/functions';
 import supabase from './lib/supabase';
-import { requireAuth, withCors } from './lib/auth';
+import { requireAuth, withCors, getUserTier, tierLimitResponse } from './lib/auth';
 
 export const handler = withCors(async (event) => {
   const auth = await requireAuth(event);
@@ -15,6 +15,31 @@ export const handler = withCors(async (event) => {
       statusCode: 400,
       body: JSON.stringify({ error: 'goal_id and title are required.' }),
     };
+  }
+
+  // ── Tier check: free users limited to 6 tasks per goal + 7-day scheduling ──
+  const { tier, limits } = await getUserTier(userId);
+  if (limits.max_tasks_per_goal !== null) {
+    const { count } = await supabase
+      .from('tasks')
+      .select('id', { count: 'exact', head: true })
+      .eq('goal_id', goal_id)
+      .eq('user_id', userId);
+    if ((count ?? 0) >= limits.max_tasks_per_goal) {
+      return tierLimitResponse(
+        `Free plan is limited to ${limits.max_tasks_per_goal} tasks per goal. Upgrade to add more.`
+      );
+    }
+  }
+  if (limits.task_scheduling_days !== null && scheduled_date) {
+    const schedDate = new Date(scheduled_date);
+    const maxDate = new Date();
+    maxDate.setDate(maxDate.getDate() + limits.task_scheduling_days);
+    if (schedDate > maxDate) {
+      return tierLimitResponse(
+        `Free plan can only schedule tasks within ${limits.task_scheduling_days} days. Upgrade for unlimited scheduling.`
+      );
+    }
   }
 
   try {

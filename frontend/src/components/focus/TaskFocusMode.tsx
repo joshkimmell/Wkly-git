@@ -10,7 +10,8 @@ import FocusNotes, { FocusNote } from './FocusNotes';
 import FocusFireworks from './FocusFireworks';
 import { Task } from '@utils/goalUtils';
 import supabase from '@lib/supabase';
-import { notifySuccess, notifyError } from '@components/ToastyNotification';
+import { notifySuccess, notifyError, notifyTierLimit } from '@components/ToastyNotification';
+import { useTier } from '@hooks/useTier';
 import { loadSession, saveSession, clearSession, isSessionStale, extendSession } from './useFocusSession';
 
 interface Props {
@@ -27,6 +28,7 @@ type Panel = 'timer' | 'ai' | 'notes';
 const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }) => {
   const focusTimer = useFocusTimer();
   const { settings: pomodoroSettings } = usePomodoroSettings();
+  const { canUseFocusChat } = useTier();
 
   // Derived timer values from global context
   const elapsed = focusTimer.isActiveFor(task.id) ? focusTimer.elapsed : 0;
@@ -512,7 +514,15 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
           order_index: 999,
         }),
       });
-      if (!res.ok) throw new Error('Failed to create task');
+      if (!res.ok) {
+        let errBody: any = {};
+        try { errBody = await res.json(); } catch {}
+        if (errBody?.error === 'tier_limit') {
+          notifyTierLimit(errBody.message || 'Upgrade to create more tasks.');
+          throw new Error(errBody.message || 'tier_limit');
+        }
+        throw new Error('Failed to create task');
+      }
       setAddedTaskTitles((prev) => new Set([...prev, key]));
       notifySuccess(`Task "${st.title}" added to goal`);
     } catch (err) {
@@ -861,18 +871,32 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
               </div>
             </div>
             <div className="flex-1 min-h-0 p-4">
-              <FocusAIChat
-                taskTitle={task.title}
-                taskDescription={task.description}
-                goalTitle={goalTitle}
-                onAddSuggestedTask={handleAddSuggestedTask}
-                initialMessages={chatMessages}
-                onMessagesChange={setChatMessages}
-                initialPendingTasks={pendingChatTasks}
-                initialPendingLinks={pendingChatLinks}
-                onPendingTasksChange={setPendingChatTasks}
-                onPendingLinksChange={setPendingChatLinks}
-              />
+              {canUseFocusChat ? (
+                <FocusAIChat
+                  taskTitle={task.title}
+                  taskDescription={task.description}
+                  goalTitle={goalTitle}
+                  onAddSuggestedTask={handleAddSuggestedTask}
+                  initialMessages={chatMessages}
+                  onMessagesChange={setChatMessages}
+                  initialPendingTasks={pendingChatTasks}
+                  initialPendingLinks={pendingChatLinks}
+                  onPendingTasksChange={setPendingChatTasks}
+                  onPendingLinksChange={setPendingChatLinks}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-4">
+                  <Sparkles className="w-8 h-8 text-brand-40" />
+                  <p className="text-sm text-secondary-text">AI Assistant is available on paid plans.</p>
+                  <button
+                    onClick={() => { window.location.href = '/pricing'; }}
+                    className="btn-primary gap-2"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Upgrade to Use AI Chat
+                  </button>
+                </div>
+              )}
             </div>
           </main>
 

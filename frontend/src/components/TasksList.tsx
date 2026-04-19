@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import supabase from '@lib/supabase';
 import { Task } from '@utils/goalUtils';
-import { notifySuccess, notifyError, notifyWithUndo } from './ToastyNotification';
+import { notifySuccess, notifyError, notifyWithUndo, notifyTierLimit } from './ToastyNotification';
 import { TextField, ToggleButtonGroup, ToggleButton, Tooltip, IconButton, Collapse, Badge, Menu, MenuItem, FormControl, InputLabel, Select, FormControlLabel, Switch } from '@mui/material';
 import { List, Calendar as CalendarIcon, Plus, X, CheckSquare2, SquareSlash, Kanban, Bell, Sparkles } from 'lucide-react';
 import { DatePicker, TimePicker, DateTimePicker } from '@mui/x-date-pickers';
@@ -18,6 +19,7 @@ import TasksCalendar from './TasksCalendar';
 import ConfirmModal from './ConfirmModal';
 import { STATUS_COLORS } from '../constants/statuses';
 import RichTextEditor from './RichTextEditor';
+import { useTier } from '@hooks/useTier';
 
 interface TasksListProps {
   goalId: string;
@@ -31,6 +33,8 @@ interface TasksListProps {
 type ViewMode = 'list' | 'kanban' | 'calendar';
 
 const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescription, goalCategory, onTaskCountChange, onBeforeFocusMode }) => {
+  const navigate = useNavigate();
+  const { canGeneratePlan } = useTier();
   const { timezone } = useTimezone();
   const { triggerFireworks } = useFireworks();
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -254,6 +258,13 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
       });
 
       if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        if (errBody?.error === 'tier_limit') {
+          notifyTierLimit(errBody.message || 'Upgrade to activate more goals simultaneously.');
+          // Revert the optimistic update
+          fetchTasks();
+          return;
+        }
         throw new Error('Failed to update task');
       }
 
@@ -284,7 +295,15 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
         body: JSON.stringify({ id: taskId, ...updates }),
       });
 
-      if (!response.ok) throw new Error('Failed to update task');
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        if (errBody?.error === 'tier_limit') {
+          notifyTierLimit(errBody.message || 'Upgrade to activate more goals simultaneously.');
+          fetchTasks();
+          return;
+        }
+        throw new Error('Failed to update task');
+      }
 
       notifySuccess('Task updated');
     } catch (error) {
@@ -558,13 +577,23 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
       <div className="p-8 text-center text-gray-50">
         <p className="mb-4">No tasks yet. Tasks help you break down your goal into actionable steps.</p>
         <div className="flex gap-3 justify-center flex-wrap">
-          <button
-            onClick={generateTasks}
-            disabled={isGenerating}
-            className="btn-primary"
-          >
-            {isGenerating ? 'Generating...' : 'Generate Tasks with AI'}
-          </button>
+          {canGeneratePlan ? (
+            <button
+              onClick={generateTasks}
+              disabled={isGenerating}
+              className="btn-primary"
+            >
+              {isGenerating ? 'Generating...' : 'Generate Tasks with AI'}
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate('/pricing')}
+              className="btn-primary gap-2"
+            >
+              <Sparkles className="w-4 h-4" />
+              Upgrade to Generate Tasks
+            </button>
+          )}
           <button
             onClick={() => setIsAddingTask(true)}
             className="btn-secondary"
@@ -634,13 +663,22 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
               <Plus className="w-5 h-5" /> <span>Add Task</span></>)}
             </button>
           {/* </Tooltip> */}
-            <button
-              onClick={generateTasks}
-              disabled={isGenerating}
-              className="btn-secondary gap-1 cursor-pointer"
-            >
-              {isGenerating ? 'Generating...' : <><Sparkles className="w-4 h-4" /> Generate with AI</>}
-            </button>
+            {canGeneratePlan ? (
+              <button
+                onClick={generateTasks}
+                disabled={isGenerating}
+                className="btn-secondary gap-1 cursor-pointer"
+              >
+                {isGenerating ? 'Generating...' : <><Sparkles className="w-4 h-4" /> Generate with AI</>}
+              </button>
+            ) : (
+              <button
+                onClick={() => navigate('/pricing')}
+                className="btn-secondary gap-1 cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4" /> Upgrade to Generate
+              </button>
+            )}
           
           {viewMode === 'list' && (
             <>

@@ -1,11 +1,36 @@
 import { Handler } from '@netlify/functions';
 import supabase from './lib/supabase';
-import { requireAuth, withCors } from './lib/auth';
+import { requireAuth, withCors, getUserTier, tierLimitResponse } from './lib/auth';
 
 export const handler = withCors(async (event) => {
   const auth = await requireAuth(event);
   if (auth.error) return auth.error;
   const { userId } = auth;
+
+  // ── Tier check: free users limited to 3 active goals ──
+  // Active = goals with at least one task "In progress" or with a scheduled date
+  const { tier, limits } = await getUserTier(userId);
+  if (limits.max_active_goals !== null) {
+    const { data: userGoalIds } = await supabase
+      .from('goals')
+      .select('id')
+      .eq('user_id', userId);
+    const goalIdList = (userGoalIds ?? []).map((g: { id: string }) => g.id);
+    let activeCount = 0;
+    if (goalIdList.length > 0) {
+      const { data: activeTasks } = await supabase
+        .from('tasks')
+        .select('goal_id')
+        .in('goal_id', goalIdList)
+        .or('status.eq.In progress,scheduled_date.not.is.null');
+      activeCount = new Set((activeTasks ?? []).map((t: { goal_id: string }) => t.goal_id)).size;
+    }
+    if (activeCount >= limits.max_active_goals) {
+      return tierLimitResponse(
+        `Free plan is limited to ${limits.max_active_goals} active goals. Upgrade to work on more goals simultaneously.`
+      );
+    }
+  }
 
   const body = JSON.parse(event.body || '{}');
   const { title, description, category, week_start, status, status_notes, status_set_at } = body;

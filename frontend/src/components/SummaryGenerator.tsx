@@ -2,6 +2,7 @@
 // This component allows users to generate summaries based on a selected period (weekly, quarterly, yearly).
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { TextField, Tooltip, ToggleButtonGroup, ToggleButton, Checkbox, FormControlLabel, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 import { saveSummary, deleteSummary, getWeekStartDate, generateSummary, fetchGoalsForRange } from '@utils/functions';
 import { notifyWithUndo } from '@components/ToastyNotification';
@@ -14,6 +15,7 @@ import SummaryCard from '@components/SummaryCard';
 import { modalClasses, overlayClasses } from '@styles/classes';
 import RichTextEditor from './RichTextEditor';
 import { RefreshCcw, SparklesIcon, ChevronDown } from 'lucide-react';
+import { useTier } from '@hooks/useTier';
 
 interface SummaryGeneratorProps {
   summaryId: string;
@@ -41,6 +43,8 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
   isOpen: externalIsOpen,
   onClose: externalOnClose,
 }) => {
+  const navigate = useNavigate();
+  const { canCreateSummary } = useTier();
   const [summary, setSummary] = useState<string | null>(initialContent || null);
   const [localSummaryId, setLocalSummaryId] = useState<string | null>(summaryId || null);
   const [summaryType, setSummaryType] = useState<string>('AI'); // Default to 'AI' if not provided
@@ -470,9 +474,16 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
                 <button onClick={closeGenerateModal} className="btn-secondary">
                   Cancel
                 </button>
-                <button onClick={handleGenerateWithParams} className="btn-primary">
-                  Generate
-                </button>
+                {canCreateSummary ? (
+                  <button onClick={handleGenerateWithParams} className="btn-primary">
+                    Generate
+                  </button>
+                ) : (
+                  <button onClick={() => navigate('/pricing')} className="btn-primary">
+                    <SparklesIcon className="w-4 h-4 mr-2" />
+                    Upgrade to Generate
+                  </button>
+                )}
               </div>
             </div>
         </div>
@@ -536,11 +547,18 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
         )}
       </Modal>
 
-      <Tooltip title="Generate Summary" placement="top" arrow>
-        <button onClick={openGenerateModal} className="btn-primary gap-2 flex w-auto">
-          <SparklesIcon className="w-5 h-5" /> 
-          <span className="hidden md:inline text-nowrap">Generate Summary</span>
-        </button>
+      <Tooltip title={canCreateSummary ? 'Generate Summary' : 'Upgrade to generate summaries'} placement="top" arrow>
+        {canCreateSummary ? (
+          <button onClick={openGenerateModal} className="btn-primary gap-2 flex w-auto">
+            <SparklesIcon className="w-5 h-5" /> 
+            <span className="hidden md:inline text-nowrap">Generate Summary</span>
+          </button>
+        ) : (
+          <button onClick={() => navigate('/pricing')} className="btn-primary gap-2 flex w-auto">
+            <SparklesIcon className="w-5 h-5" />
+            <span className="hidden md:inline text-nowrap">Upgrade to Generate Summary</span>
+          </button>
+        )}
       </Tooltip>
 
     </div>

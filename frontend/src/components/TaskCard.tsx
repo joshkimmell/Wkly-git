@@ -19,7 +19,7 @@ import ConfirmModal from './ConfirmModal';
 import RichTextEditor from './RichTextEditor';
 import { objectCounter, modalClasses, overlayClasses } from '@styles/classes';
 import supabase from '@lib/supabase';
-import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
+import { notifyError, notifySuccess, notifyWithUndo, notifyTierLimit } from './ToastyNotification';
 import { enhanceLinks, applyHighlight } from '@utils/functions';
 import { useTimezone } from '@context/TimezoneContext';
 import { useFireworks } from '@context/FireworksContext';
@@ -171,11 +171,19 @@ const TaskCard: React.FC<TaskCardProps> = ({
           const { data: { session: authSess } } = await supabase.auth.getSession();
           const token = authSess?.access_token;
           if (token) {
-            await fetch('/.netlify/functions/updateTask', {
+            const fallbackResp = await fetch('/.netlify/functions/updateTask', {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
               body: JSON.stringify({ id: task.id, status: 'In progress' }),
             });
+            if (!fallbackResp.ok) {
+              const errBody = await fallbackResp.json().catch(() => ({}));
+              if (errBody?.error === 'tier_limit') {
+                notifyTierLimit(errBody.message || 'Upgrade to activate more goals simultaneously.');
+                setDisplayStatus(task.status);
+                return;
+              }
+            }
           }
         } catch { /* non-critical */ }
       }
