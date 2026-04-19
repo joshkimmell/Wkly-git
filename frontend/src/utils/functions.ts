@@ -1,7 +1,7 @@
 import React from "react";
 import supabase from "@lib/supabase";
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { notifyError, notifySuccess } from "@components/ToastyNotification";
+import { notifyError, notifySuccess, notifyTierLimit } from "@components/ToastyNotification";
 import { v4 as uuidv4 } from "uuid";
 import { Category, Goal, Summary, Win } from "@utils/goalUtils"; // Adjust the import path as necessary
 // import { error } from "console";
@@ -432,9 +432,13 @@ export const addGoal = async (newGoal: Partial<Goal>) => {
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Error adding goal:', errorText);
-    // console.log('error response:', errorText);
+    let errBody: any = {};
+    try { errBody = await response.json(); } catch {}
+    if (errBody?.error === 'tier_limit') {
+      notifyTierLimit(errBody.message || 'Upgrade to create more goals.');
+      throw new Error(errBody.message || 'tier_limit');
+    }
+    console.error('Error adding goal:', errBody);
     notifyError('Failed to add goal');
     throw new Error('Failed to add goal');
   }
@@ -810,8 +814,13 @@ export const generateSummary = async (
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Error generating summary:', errorText);
+    let errBody: any = {};
+    try { errBody = await response.json(); } catch {}
+    if (errBody?.error === 'tier_limit') {
+      notifyTierLimit(errBody.message || 'Upgrade to generate summaries.');
+      throw new Error(errBody.message || 'tier_limit');
+    }
+    console.error('Error generating summary:', errBody);
     throw new Error('Failed to generate summary');
   }
 
@@ -898,8 +907,13 @@ export const createSummary = async (newSummary: Record<string, unknown>) => {
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Error adding summary:', errorText);
+    let errBody: any = {};
+    try { errBody = await response.json(); } catch {}
+    if (errBody?.error === 'tier_limit') {
+      notifyTierLimit(errBody.message || 'Upgrade to create more summaries.');
+      throw new Error(errBody.message || 'tier_limit');
+    }
+    console.error('Error adding summary:', errBody);
     throw new Error('Failed to add summary');
   }
 

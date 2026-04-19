@@ -1,9 +1,9 @@
 import { Handler } from '@netlify/functions';
 import { v4 as uuidv4 } from 'uuid';
 import supabase from './lib/supabase';
-import { requireAuth } from './lib/auth';
+import { requireAuth, withCors, getUserTier, checkUsageLimit, incrementUsage, tierLimitResponse } from './lib/auth';
 
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -24,6 +24,17 @@ export const handler: Handler = async (event) => {
         statusCode: 400,
         body: JSON.stringify({ error: 'Missing required fields.' }),
       };
+    }
+
+    // ── Tier check: free users limited to 1 summary/week ──
+    const { tier, limits } = await getUserTier(userId);
+    if (limits.summaries_per_week !== null) {
+      const withinLimit = await checkUsageLimit(userId, 'summary_generation', limits.summaries_per_week);
+      if (!withinLimit) {
+        return tierLimitResponse(
+          `Free plan allows ${limits.summaries_per_week} summary per week. Upgrade for unlimited.`
+        );
+      }
     }
 
     const summary_id = uuidv4();
@@ -55,6 +66,9 @@ export const handler: Handler = async (event) => {
       type: data.summary_type,
     };
 
+    // Track usage for free tier limits
+    await incrementUsage(userId, 'summary_generation');
+
     return {
       statusCode: 200,
       body: JSON.stringify(mapped),
@@ -65,4 +79,4 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({ error: err.message }),
     };
   }
-};
+});

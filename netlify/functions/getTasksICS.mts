@@ -1,5 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
+import { withCors } from './lib/auth';
 
 const supabaseUrl = process.env.SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -65,7 +66,7 @@ function foldLine(line: string): string {
   return chunks.join('\r\n');
 }
 
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type',
@@ -236,4 +237,4 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({ error: 'Failed to generate calendar feed' }),
     };
   }
-};
+});

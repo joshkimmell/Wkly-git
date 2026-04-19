@@ -1,7 +1,7 @@
 import { Handler } from '@netlify/functions';
 import OpenAI from 'openai';
 import supabase from './lib/supabase';
-import { requireAuth } from './lib/auth';
+import { requireAuth, withCors } from './lib/auth';
 
 const CATEGORIES = [
   'Productivity', 'Self-Awareness', 'Relationships', 'Achievement',
@@ -66,11 +66,11 @@ async function generateAffirmation(recentTexts: string[]): Promise<{ text: strin
   }
 }
 
-export const handler: Handler = async (event) => {
-  if (event.httpMethod !== 'GET') return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
-
+export const handler = withCors(async (event) => {
   const auth = await requireAuth(event);
   if (auth.error) return auth.error;
+
+  if (event.httpMethod !== 'GET') return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
 
   try {
     // Use the client's local date if provided, otherwise fall back to UTC
@@ -151,4 +151,4 @@ export const handler: Handler = async (event) => {
     console.error('Unexpected error getDailyAffirmation:', err);
     return { statusCode: 500, body: JSON.stringify({ error: err.message || 'Unexpected error' }) };
   }
-};
+});

@@ -21,4 +21,20 @@
 
 [build.environment]
   SECRETS_SCAN_OMIT_PATHS = "frontend/dist/assets/"
-  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_SERVICE_ROLE_KEY"
+  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_SERVICE_ROLE_KEY,STRIPE_PRICE_MONTHLY,STRIPE_PRICE_YEARLY,STRIPE_PRICE_ONE_TIME"
+
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Headers = "Authorization, Content-Type"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+
+# Fallback: apply CORS to the /api/* rewrite path too (Capacitor native builds
+# that still reach this path before the interceptor can translate the URL).
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Headers = "Authorization, Content-Type"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"

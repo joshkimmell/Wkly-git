@@ -3,7 +3,6 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { GoalsProvider } from '@context/GoalsContext';
 import { TimezoneProvider } from '@context/TimezoneContext';
 import ToastNotification, { notifySuccess, notifyError, notifyReminder } from '@components/ToastyNotification';
-// import WeeklyGoals from '@components/WeeklyGoals';
 import AllGoals from '@components/AllGoals';
 import HomePage from '@components/HomePage';
 import Header from '@components/Header';
@@ -32,6 +31,8 @@ import AffirmationArchive from '@components/affirmations/AffirmationArchive';
 import AffirmationSubmit from '@components/affirmations/AffirmationSubmit';
 import AffirmationSaved from '@components/affirmations/AffirmationSaved';
 import AffirmationSettings from '@components/affirmations/AffirmationSettings';
+import { TierProvider } from '@context/TierContext';
+import PricingPage from '@components/PricingPage';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Chip } from '@mui/material';
 import { Bell, Calendar, FileText } from 'lucide-react';
 import { loadSession, saveSession } from '@components/focus/useFocusSession';
@@ -256,6 +257,7 @@ const App: React.FC = () => {
   return (
     <SessionContextProvider supabaseClient={supabase}>
     <AppMuiThemeProvider mode={theme}>
+    <TierProvider>
     <TimezoneProvider>
     <FocusTimerProvider>
     <FocusModeProvider>
@@ -273,7 +275,6 @@ const App: React.FC = () => {
           <main className="max-w-8xl min-h-[100vh] mx-auto px-4 sm:px-8 lg:px-16 py-8">
 
             <Routes>
-              {/* <Route path="/" element={<WeeklyGoals />} /> */}
               <Route path="/" element={<HomePage />} />
               <Route path="/goals" element={<AllGoals />} />
               <Route path="/mui-demo" element={<MuiCompareDemo />} />
@@ -282,6 +283,7 @@ const App: React.FC = () => {
               <Route path="/notifications" element={<NotificationsSettings />} />
               <Route path="/auth" element={<Navigate to="/" replace />} />
               <Route path="/profile" element={<ProfileManagement />} />
+              <Route path="/pricing" element={<PricingPage />} />
               <Route path="/admin/access" element={<AdminAccessRequests />} />
               <Route path="/affirmations" element={<AffirmationsLayout />}>
                 <Route index element={<AffirmationToday />} />
@@ -301,6 +303,7 @@ const App: React.FC = () => {
     </FocusModeProvider>
     </FocusTimerProvider>
     </TimezoneProvider>
+    </TierProvider>
 
       {/* ── Task Reminder Dialog ───────────────────────────────────────── */}
       <Dialog open={!!pendingReminderTask} onClose={dismissReminderTask} maxWidth="sm" fullWidth>

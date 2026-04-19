@@ -1,5 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
+import { withCors } from './lib/auth';
 
 const supabaseUrl = process.env.SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -9,7 +10,7 @@ const adminClient = createClient(supabaseUrl, supabaseServiceKey);
  * Public endpoint to check if an email is approved for registration
  * Query param: email
  */
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -97,4 +98,4 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({ error: err?.message || 'Internal server error' }),
     };
   }
-};
+});

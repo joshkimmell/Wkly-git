@@ -1,7 +1,7 @@
 import { Handler } from '@netlify/functions';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
-import { requireAuth } from './lib/auth';
+import { requireAuth, withCors, getUserTier, checkUsageLimit, incrementUsage, tierLimitResponse } from './lib/auth';
 
 // Load .env from working directory if present (use default behaviour)
 dotenv.config();
@@ -29,7 +29,7 @@ interface Task {
   estimated_duration?: string; // e.g., "2 hours", "30 minutes"
 }
 
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -39,6 +39,18 @@ export const handler: Handler = async (event) => {
 
   const auth = await requireAuth(event);
   if (auth.error) return auth.error;
+  const { userId } = auth;
+
+  // ── Tier check: free users limited to 1 plan generation per goal ──
+  const { tier, limits } = await getUserTier(userId);
+  if (limits.plan_generations_per_goal !== null) {
+    const withinLimit = await checkUsageLimit(userId, 'plan_generation', limits.plan_generations_per_goal);
+    if (!withinLimit) {
+      return tierLimitResponse(
+        `Free plan allows ${limits.plan_generations_per_goal} AI plan generation per goal. Upgrade for unlimited.`
+      );
+    }
+  }
 
   try {
     // Log raw incoming body for debugging (helps catch unexpected shapes)
@@ -179,6 +191,9 @@ Ensure the response is a valid JSON array only.`;
       };
     }
 
+    // Track usage for free tier limits
+    await incrementUsage(userId, 'plan_generation');
+
     return {
       statusCode: 200,
       body: JSON.stringify({ tasks }),
@@ -195,4 +210,4 @@ Ensure the response is a valid JSON array only.`;
       body: JSON.stringify({ error: 'Failed to generate plan.' }),
     };
   }
-};
+});

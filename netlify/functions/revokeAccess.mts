@@ -1,6 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
-import { requireAuth } from './lib/auth';
+import { requireAuth, withCors } from './lib/auth';
 
 const supabaseUrl = process.env.SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -23,7 +23,7 @@ async function isAdmin(userId: string): Promise<boolean> {
  * Admin-only endpoint to revoke access for a user
  * POST body: { email: string } or { approvedUserId: string }
  */
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type',
@@ -134,4 +134,4 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({ error: err?.message || 'Internal server error' }),
     };
   }
-};
+});

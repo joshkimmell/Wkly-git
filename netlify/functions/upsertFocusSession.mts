@@ -1,5 +1,5 @@
 import type { Handler } from '@netlify/functions';
-import { requireAuth } from './lib/auth';
+import { requireAuth, withCors } from './lib/auth';
 import { supabase } from './lib/supabase';
 
 interface SessionBody {
@@ -13,7 +13,7 @@ interface SessionBody {
   pending_chat_links: unknown[];
 }
 
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   }
@@ -72,4 +72,4 @@ export const handler: Handler = async (event) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   };
-};
+});

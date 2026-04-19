@@ -4,6 +4,7 @@ import { useGoalsContext } from '@context/GoalsContext';
 import { useTimezone } from '@context/TimezoneContext';
 import useAuth from '@hooks/useAuth';
 import { getSessionToken, getWeekStartDate } from '@utils/functions';
+import { notifyTierLimit } from '@components/ToastyNotification';
 import { getTodayInTimezone, formatDateInTimezone, convertToUTC } from '@utils/timezone';
 import { Task, Goal, calculateGoalCompletion } from '@utils/goalUtils';
 // import LoadingSpinner from '@components/LoadingSpinner';
@@ -373,16 +374,27 @@ export default function HomePage() {
 
   // ── task status update ─────────────────────────────────────────────────────
   const handleTaskStatusChange = async (taskId: string, newStatus: Task['status'], closingRationale?: string) => {
+    const prevTasks = todayTasks;
     setTodayTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
     try {
       const token = await getSessionToken();
-      await fetch('/.netlify/functions/updateTask', {
+      const response = await fetch('/.netlify/functions/updateTask', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: taskId, status: newStatus, ...(closingRationale ? { closing_rationale: closingRationale } : {}) }),
       });
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        if (errBody?.error === 'tier_limit') {
+          notifyTierLimit(errBody.message || 'Upgrade to activate more goals simultaneously.');
+          setTodayTasks(prevTasks);
+          return;
+        }
+        throw new Error('Failed to update task status');
+      }
     } catch (err) {
       console.error('[HomePage] handleTaskStatusChange error', err);
+      setTodayTasks(prevTasks);
     }
   };
 
@@ -509,7 +521,15 @@ export default function HomePage() {
           order_index: 0,
         }),
       });
-      if (!response.ok) throw new Error('Failed to create task');
+      if (!response.ok) {
+        let errBody: any = {};
+        try { errBody = await response.json(); } catch {}
+        if (errBody?.error === 'tier_limit') {
+          notifyTierLimit(errBody.message || 'Upgrade to create more tasks.');
+          throw new Error(errBody.message || 'tier_limit');
+        }
+        throw new Error('Failed to create task');
+      }
       
       closeAddTaskModal();
       fetchTodayTasks();
@@ -538,7 +558,15 @@ export default function HomePage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ title: goal.title, description: goal.description || '' }),
       });
-      if (!response.ok) throw new Error(await response.text() || 'Failed to generate tasks');
+      if (!response.ok) {
+        let errBody: any = {};
+        try { errBody = await response.json(); } catch {}
+        if (errBody?.error === 'tier_limit') {
+          notifyTierLimit(errBody.message || 'Upgrade to generate plans.');
+          throw new Error(errBody.message || 'tier_limit');
+        }
+        throw new Error('Failed to generate tasks');
+      }
       const data = await response.json();
       if (Array.isArray(data.tasks)) {
         for (const task of data.tasks) {

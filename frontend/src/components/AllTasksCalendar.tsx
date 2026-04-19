@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Task } from '@utils/goalUtils';
 import { useGoalsContext } from '@context/GoalsContext';
 import TaskCard from './TaskCard';
-import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
+import { notifyError, notifySuccess, notifyWithUndo, notifyTierLimit } from './ToastyNotification';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import supabase from '@lib/supabase';
 import { useTouchDrag } from '@hooks/useTouchDrag';
@@ -371,7 +371,15 @@ export default function AllTasksCalendar({
         body: JSON.stringify({ id: taskId, status: newStatus }),
       });
 
-      if (!response.ok) throw new Error('Failed to update task status');
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        if (errBody?.error === 'tier_limit') {
+          notifyTierLimit(errBody.message || 'Upgrade to activate more goals simultaneously.');
+          setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: oldStatus } : t)));
+          return;
+        }
+        throw new Error('Failed to update task status');
+      }
       notifySuccess('Task status updated');
       if (onRefresh) onRefresh();
     } catch (error) {

@@ -295,9 +295,6 @@ describe('accessibility (axe)', () => {
     await runAxeOn(container);
   });
 
-  // WeeklyGoals is not exported as a default component in the codebase (file is commented out),
-  // so we skip a direct axe test here. AllGoals covers the primary list UI.
-
   it('has no critical accessibility violations on Header', async () => {
     const { container } = renderWithAxe(
       <MemoryRouter>

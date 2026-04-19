@@ -1,12 +1,12 @@
 import { Handler } from '@netlify/functions';
 import supabase from './lib/supabase';
-import { requireAuth } from './lib/auth';
+import { requireAuth, withCors } from './lib/auth';
 
-export const handler: Handler = async (event) => {
-  if (event.httpMethod !== 'GET') return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
-
+export const handler = withCors(async (event) => {
   const auth = await requireAuth(event);
   if (auth.error) return auth.error;
+
+  if (event.httpMethod !== 'GET') return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   const { userId } = auth;
 
   try {
@@ -50,4 +50,4 @@ export const handler: Handler = async (event) => {
     console.error('Unexpected error getSavedAffirmations:', err);
     return { statusCode: 500, body: JSON.stringify({ error: err.message || 'Unexpected error' }) };
   }
-};
+});

@@ -1,7 +1,7 @@
 import { Handler } from '@netlify/functions';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
-import { requireAuth } from './lib/auth';
+import { requireAuth, withCors, getUserTier, checkDailyUsageLimit, incrementDailyUsage, tierLimitResponse } from './lib/auth';
 
 dotenv.config();
 
@@ -9,7 +9,11 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
+  const auth = await requireAuth(event);
+  if (auth.error) return auth.error;
+  const { userId } = auth;
+
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -17,8 +21,16 @@ export const handler: Handler = async (event) => {
     };
   }
 
-  const auth = await requireAuth(event);
-  if (auth.error) return auth.error;
+  // ── Tier check: free users limited to 3 goal refinements per day ──
+  const { limits } = await getUserTier(userId);
+  if (limits.goal_refinements_per_day !== null) {
+    const withinLimit = await checkDailyUsageLimit(userId, 'goal_refinement', limits.goal_refinements_per_day);
+    if (!withinLimit) {
+      return tierLimitResponse(
+        `Free plan allows ${limits.goal_refinements_per_day} goal refinements per day. Upgrade for unlimited.`
+      );
+    }
+  }
 
   try {
     const body = JSON.parse(event.body || '{}');
@@ -93,6 +105,8 @@ Ensure the response is valid JSON only.`;
         throw new Error('Invalid response structure');
       }
 
+      await incrementDailyUsage(userId, 'goal_refinement');
+
       return {
         statusCode: 200,
         body: JSON.stringify(result),
@@ -114,4 +128,4 @@ Ensure the response is valid JSON only.`;
       body: JSON.stringify({ error: 'Failed to refine goal.' }),
     };
   }
-};
+});

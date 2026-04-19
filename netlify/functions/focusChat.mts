@@ -1,6 +1,6 @@
 import { Handler } from '@netlify/functions';
 import OpenAI from 'openai';
-import { requireAuth } from './lib/auth';
+import { requireAuth, withCors, getUserTier, tierLimitResponse } from './lib/auth';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -20,13 +20,20 @@ interface SuggestedLink {
   reason: string;
 }
 
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   }
 
   const auth = await requireAuth(event);
   if (auth.error) return auth.error;
+  const { userId } = auth;
+
+  // ── Tier check: free users cannot use AI focus chat ──
+  const { tier, limits } = await getUserTier(userId);
+  if (tier === 'free') {
+    return tierLimitResponse('AI Focus Chat is a paid feature. Upgrade to access it.');
+  }
 
   if (!process.env.OPENAI_API_KEY) {
     return { statusCode: 500, body: JSON.stringify({ error: 'Missing OpenAI API key' }) };
@@ -122,4 +129,4 @@ Only include the SUGGESTIONS block when you have genuinely relevant suggestions.
     console.error('[focusChat] OpenAI error:', err);
     return { statusCode: 500, body: JSON.stringify({ error: 'AI request failed' }) };
   }
-};
+});

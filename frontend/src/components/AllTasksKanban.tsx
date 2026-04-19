@@ -4,7 +4,7 @@ import { useGoalsContext } from '@context/GoalsContext';
 import { useFireworks } from '@context/FireworksContext';
 import TaskCard from './TaskCard';
 import LoadingSpinner from './LoadingSpinner';
-import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
+import { notifyError, notifySuccess, notifyWithUndo, notifyTierLimit } from './ToastyNotification';
 import supabase from '@lib/supabase';
 import { useTouchDrag } from '@hooks/useTouchDrag';
 import { 
@@ -195,7 +195,15 @@ export default function AllTasksKanban({ onRefresh }: AllTasksKanbanProps) {
         body: JSON.stringify({ id: taskId, status: newStatus }),
       });
 
-      if (!response.ok) throw new Error('Failed to update task status');
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        if (errBody?.error === 'tier_limit') {
+          notifyTierLimit(errBody.message || 'Upgrade to activate more goals simultaneously.');
+          setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: oldStatus } : t)));
+          return;
+        }
+        throw new Error('Failed to update task status');
+      }
       notifySuccess('Task status updated');
       if (onRefresh) onRefresh();
     } catch (error) {

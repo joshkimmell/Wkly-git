@@ -1,5 +1,5 @@
 import { Handler } from '@netlify/functions';
-import { requireAuth } from './lib/auth';
+import { requireAuth, withCors } from './lib/auth';
 
 const MAILGUN_API_BASE = 'https://api.mailgun.net/v3';
 
@@ -9,7 +9,7 @@ type Body = {
   content: string;
 };
 
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   try {
     console.log('[sendTestEmail] Function called');
     const auth = await requireAuth(event);
@@ -91,4 +91,4 @@ export const handler: Handler = async (event) => {
     console.error('[sendTestEmail] Error:', err);
     return { statusCode: 500, body: JSON.stringify({ error: String(err?.message || err) }) };
   }
-};
+});

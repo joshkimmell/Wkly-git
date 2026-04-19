@@ -1,12 +1,12 @@
 import { Handler } from '@netlify/functions';
 import supabase from './lib/supabase';
-import { requireAuth } from './lib/auth';
+import { requireAuth, withCors } from './lib/auth';
 
 /**
  * Finds all incomplete tasks with a scheduled_date before today
  * and updates their scheduled_date to today.
  */
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   const auth = await requireAuth(event);
   if (auth.error) return auth.error;
   const { userId } = auth;
@@ -66,4 +66,4 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({ error: 'Failed to reschedule overdue tasks.' }),
     };
   }
-};
+});

@@ -1,7 +1,7 @@
 import { Handler } from '@netlify/functions';
 import { OpenAI } from 'openai';
 import dotenv from 'dotenv';
-import { requireAuth } from './lib/auth';
+import { requireAuth, withCors, getUserTier, checkUsageLimit, incrementUsage, tierLimitResponse } from './lib/auth';
 
 // Load local .env for netlify dev
 dotenv.config();
@@ -93,7 +93,7 @@ const generateSummary = async (prompt: string) => {
   }
 };
 
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -103,10 +103,29 @@ export const handler: Handler = async (event) => {
 
   const auth = await requireAuth(event);
   if (auth.error) return auth.error;
+  const { userId } = auth;
+
+  // ── Tier check: free users limited to 1 summary/week, week scope only ──
+  const { tier, limits } = await getUserTier(userId);
 
   try {
     const parsedBody = JSON.parse(event.body || '{}');
     const { summary_id, week_start, goalsWithAccomplishments, summaryTitle, scope, responseLength, additionalContext } = parsedBody;
+
+    // ── Tier enforcement: scope + usage limit ──
+    if (!limits.summary_scopes.includes(scope)) {
+      return tierLimitResponse(
+        `Free plan only supports ${limits.summary_scopes.join(', ')} summaries. Upgrade for month and year summaries.`
+      );
+    }
+    if (limits.summaries_per_week !== null) {
+      const withinLimit = await checkUsageLimit(userId, 'summary_generation', limits.summaries_per_week);
+      if (!withinLimit) {
+        return tierLimitResponse(
+          `Free plan allows ${limits.summaries_per_week} summary per week. Upgrade for unlimited.`
+        );
+      }
+    }
 
     // Defensive server-side logging to help debug mismatches between client and server.
     try {
@@ -206,6 +225,9 @@ export const handler: Handler = async (event) => {
 
     const summary = await limiter.schedule(() => generateSummary(prompt));
 
+    // Track usage for free tier limits
+    await incrementUsage(userId, 'summary_generation');
+
     return {
       statusCode: 200,
       body: JSON.stringify({ summary, summary_id }),
@@ -217,4 +239,4 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({ error: 'Failed to generate summary.' }),
     };
   }
-};
+});

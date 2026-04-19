@@ -19,7 +19,7 @@ import ConfirmModal from './ConfirmModal';
 import RichTextEditor from './RichTextEditor';
 import { objectCounter, modalClasses, overlayClasses } from '@styles/classes';
 import supabase from '@lib/supabase';
-import { notifyError, notifySuccess, notifyWithUndo } from './ToastyNotification';
+import { notifyError, notifySuccess, notifyWithUndo, notifyTierLimit } from './ToastyNotification';
 import { enhanceLinks, applyHighlight } from '@utils/functions';
 import { useTimezone } from '@context/TimezoneContext';
 import { useFireworks } from '@context/FireworksContext';
@@ -171,11 +171,19 @@ const TaskCard: React.FC<TaskCardProps> = ({
           const { data: { session: authSess } } = await supabase.auth.getSession();
           const token = authSess?.access_token;
           if (token) {
-            await fetch('/.netlify/functions/updateTask', {
+            const fallbackResp = await fetch('/.netlify/functions/updateTask', {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
               body: JSON.stringify({ id: task.id, status: 'In progress' }),
             });
+            if (!fallbackResp.ok) {
+              const errBody = await fallbackResp.json().catch(() => ({}));
+              if (errBody?.error === 'tier_limit') {
+                notifyTierLimit(errBody.message || 'Upgrade to activate more goals simultaneously.');
+                setDisplayStatus(task.status);
+                return;
+              }
+            }
           }
         } catch { /* non-critical */ }
       }
@@ -257,12 +265,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
   }, [task.status]);
 
   // Load notes on component mount to display count
-  useEffect(() => {
-    if (notes.length === 0) {
-      loadNotes();
-    }
-  }, [task.id]);
-
   // Load notes when modal opens (if they haven't been loaded yet)
   useEffect(() => {
     if (isNotesModalOpen && notes.length === 0) {
@@ -285,7 +287,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
       const data = await res.json();
       setNotes(data || []);
     } catch (err) {
-      console.error('Error loading task notes:', err);
+      console.error('Error loading task notes:', err instanceof Error ? err.message : err);
       notifyError('Failed to load notes');
     } finally {
       setIsNotesLoading(false);
@@ -1194,7 +1196,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
         >
           <div className={`${modalClasses} w-full max-w-2xl`}>
             <div className='flex flex-row w-full justify-between items-start'>
-              <h3 className="text-lg font-medium text-gray-90 mb-4">
+              <h3 className="text-lg font-medium text-primary-text mb-4">
                 Notes for <br />"{task.title}"
               </h3>
               <div className="mb-4 flex justify-end">

@@ -22,7 +22,7 @@ import {
   Tabs,
   Tab,
 } from '@mui/material';
-import { Check, X, RefreshCw, UserMinus, CircleQuestionMark, UserCheck, ThumbsUpIcon, Trash2 } from 'lucide-react';
+import { Check, X, RefreshCw, UserMinus, CircleQuestionMark, UserCheck, ThumbsUpIcon, Trash2, Mail } from 'lucide-react';
 import supabase from '@lib/supabase';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
 import { fetchPendingAffirmations, moderateAffirmation } from '@utils/affirmationApi';
@@ -52,6 +52,8 @@ interface ApprovedUser {
   profileId?: string;
   username?: string;
   fullName?: string;
+  tier: string | null;
+  isAdmin: boolean;
 }
 
 interface StyledTabsProps extends React.ComponentProps<typeof Tabs> {
@@ -311,6 +313,38 @@ const AdminAccessRequests: React.FC = () => {
     }
   };
 
+  const handleResendInvitation = async (approvedUserId: string, email: string) => {
+    setProcessingId(approvedUserId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        notifyError('Not authenticated');
+        return;
+      }
+
+      const response = await fetch('/.netlify/functions/resendInvitation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ approvedUserId, email }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || 'Failed to resend invitation');
+      }
+
+      notifySuccess(`Invitation email resent to ${email}`);
+    } catch (err: any) {
+      console.error('Error resending invitation:', err);
+      notifyError(err?.message || 'Failed to resend invitation');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   const handleRevoke = async (approvedUserId: string, email: string) => {
     if (!confirm(`Are you sure you want to revoke access for ${email}? This will prevent them from registering new accounts.`)) {
       return;
@@ -521,6 +555,7 @@ const AdminAccessRequests: React.FC = () => {
                     <TableCell>Registered</TableCell>
                     <TableCell>Username</TableCell>
                     <TableCell>Full Name</TableCell>
+                    <TableCell>Tier</TableCell>
                     <TableCell>Approved</TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
@@ -538,17 +573,44 @@ const AdminAccessRequests: React.FC = () => {
                       </TableCell>
                       <TableCell>{user.username || '—'}</TableCell>
                       <TableCell>{user.fullName || '—'}</TableCell>
+                      <TableCell>
+                        {!user.hasProfile ? (
+                          <Typography variant="caption" color="text.secondary">—</Typography>
+                        ) : user.isAdmin ? (
+                          <Chip label="Admin" color="secondary" size="small" />
+                        ) : user.tier === 'subscription' ? (
+                          <Chip label="Pro" color="success" size="small" />
+                        ) : user.tier === 'one_time' ? (
+                          <Chip label="Lifetime" color="info" size="small" />
+                        ) : (
+                          <Chip label="Free" size="small" />
+                        )}
+                      </TableCell>
                       <TableCell>{formatDate(user.approved_at)}</TableCell>
-                      <TableCell align="right">
-                        <Tooltip title="Revoke access">
+                      <TableCell className='flex flex-wrap w-40 gap-4 items-start justify-start space-x-2' align="right">
+                        <Tooltip className='w-auto' title="Resend invitation" arrow placement="top">
                           <Button
-                            variant="outlined"
+                            // variant="outlined"
+                            className='button-ghost'
+                            color="error"
+                            size="small"
+                            onClick={() => handleResendInvitation(user.id, user.email)}
+                            disabled={processingId === user.id}
+                            startIcon={processingId === user.id ? <CircularProgress size={16} /> : <Mail className="w-4 h-4" />}
+                            >
+                            Resend
+                          </Button>
+                        </Tooltip>
+                        <Tooltip className='w-auto' title="Revoke access" arrow placement="top">
+                          <Button
+                            // variant="outlined"
+                            className='button-ghost'
                             color="error"
                             size="small"
                             onClick={() => handleRevoke(user.id, user.email)}
                             disabled={processingId === user.id}
                             startIcon={processingId === user.id ? <CircularProgress size={16} /> : <UserMinus className="w-4 h-4" />}
-                          >
+                            >
                             Revoke
                           </Button>
                         </Tooltip>

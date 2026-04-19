@@ -1,12 +1,12 @@
 import { Handler } from '@netlify/functions';
-import { requireAuth } from './lib/auth';
+import { requireAuth, withCors } from './lib/auth';
 
 type EventBody = {
   message: string;
   webhookUrl?: string;
 };
 
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   try {
     const auth = await requireAuth(event);
     if (auth.error) return auth.error;
@@ -34,4 +34,4 @@ export const handler: Handler = async (event) => {
   } catch (err: any) {
     return { statusCode: 500, body: JSON.stringify({ error: String(err?.message || err) }) };
   }
-};
+});

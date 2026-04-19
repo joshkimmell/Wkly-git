@@ -1,6 +1,6 @@
 import { Handler } from '@netlify/functions';
 import supabase from './lib/supabase';
-import { requireAuth } from './lib/auth';
+import { requireAuth, withCors } from './lib/auth';
 
 async function isAdmin(userId: string): Promise<boolean> {
   const { data } = await supabase
@@ -12,7 +12,7 @@ async function isAdmin(userId: string): Promise<boolean> {
   return data?.is_admin === true || data?.email === 'jkimmell@gmail.com';
 }
 
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type',
@@ -155,4 +155,4 @@ export const handler: Handler = async (event) => {
     console.error('Unexpected error moderateAffirmation:', err);
     return { statusCode: 500, headers, body: JSON.stringify({ error: err.message || 'Unexpected error' }) };
   }
-};
+});

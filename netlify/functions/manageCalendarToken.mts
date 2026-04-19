@@ -1,13 +1,13 @@
 import { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
-import { requireAuth } from './lib/auth';
+import { requireAuth, withCors } from './lib/auth';
 
 const adminClient = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
-export const handler: Handler = async (event) => {
+export const handler = withCors(async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type',
@@ -70,7 +70,7 @@ export const handler: Handler = async (event) => {
   }
 
   return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
-};
+});
 
 function generateToken(): string {
   const arr = new Uint8Array(24);

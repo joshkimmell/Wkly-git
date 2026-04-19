@@ -30,28 +30,127 @@ import { notifySuccess, notifyError } from '@components/ToastyNotification';
 import supabase from '@lib/supabase';
 import useAuth from '@hooks/useAuth';
 // import { sendPasswordReset } from '@lib/authHelpers';
-import { Bell, Calendar, Eye, EyeOff, Palette, ThumbsUp, User2, Zap } from 'lucide-react';
+import { Bell, Calendar, CreditCard, Eye, EyeOff, Palette, ThumbsUp, User2, Zap } from 'lucide-react';
 import appColors, { PaletteKey } from '@styles/appColors';
 import NotificationsSettings from './NotificationsSettings';
 import CalendarIntegration from './CalendarIntegration';
 import { COMMON_TIMEZONES, getBrowserTimezone } from '@utils/timezone';
 import { usePomodoroSettings } from '@hooks/usePomodoroSettings';
 import AffirmationSettings from '@components/affirmations/AffirmationSettings';
+import { useTier } from '@hooks/useTier';
 
-type PreferencesTab = 'profile' | 'appearance' | 'notifications' | 'calendar' | 'focus' | 'affirmations';
+type PreferencesTab = 'profile' | 'appearance' | 'notifications' | 'calendar' | 'focus' | 'affirmations' | 'subscription';
 
 interface ProfileManagementProps {
   onClose?: () => void;
   initialTab?: PreferencesTab;
 }
 
+// ── Subscription Panel ──────────────────────────────────────────────
+const SubscriptionPanel: React.FC = () => {
+  const { status, isPaid, isFree, refresh } = useTier();
+  const [portalLoading, setPortalLoading] = useState(false);
+  const navigate = (path: string) => { window.location.href = path; };
+
+  const handleManageBilling = async () => {
+    setPortalLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+      const res = await fetch('/.netlify/functions/createPortalSession', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    } catch {
+      notifyError('Failed to open billing portal');
+    } finally {
+      setPortalLoading(false);
+    }
+  };
+
+  const tierLabel = status.tier === 'one_time' ? 'Lifetime (1 Year)' : status.tier === 'subscription' ? 'Subscription' : 'Free';
+
+  return (
+    <section className="space-y-6">
+      <h2 className="text-xl font-semibold text-primary-text">Subscription & Billing</h2>
+
+      <div className="rounded-lg border border-gray-20 dark:border-gray-70 p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-secondary-text">Current Plan</p>
+            <p className="text-lg font-semibold text-primary-text">{tierLabel}</p>
+          </div>
+          {isPaid && status.subscription_status && (
+            <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+              status.subscription_status === 'active' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
+              status.subscription_status === 'past_due' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' :
+              'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+            }`}>
+              {status.subscription_status}
+            </span>
+          )}
+        </div>
+
+        {status.tier_expires_at && (
+          <p className="text-sm text-secondary-text">
+            {status.tier === 'one_time' ? 'Updates included until' : 'Renews on'}: {new Date(status.tier_expires_at).toLocaleDateString()}
+          </p>
+        )}
+
+        {isPaid && (
+          <Button variant="outlined" size="small" className="!normal-case" disabled={portalLoading} onClick={handleManageBilling}>
+            {portalLoading ? 'Loading...' : 'Manage Billing'}
+          </Button>
+        )}
+
+        {isFree && (
+          <Button variant="contained" size="small" className="!normal-case btn-primary" onClick={() => navigate('/pricing')}>
+            Upgrade Plan
+          </Button>
+        )}
+      </div>
+
+      {/* Usage summary */}
+      <div className="rounded-lg border border-gray-20 dark:border-gray-70 p-5 space-y-3">
+        <h3 className="font-medium text-primary-text">Usage This Period</h3>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <p className="text-secondary-text">Active Goals</p>
+            <p className="text-primary-text font-medium">
+              {status.active_goal_count}{status.limits.max_active_goals !== null ? ` / ${status.limits.max_active_goals}` : ''}
+            </p>
+          </div>
+          <div>
+            <p className="text-secondary-text">Summaries This Week</p>
+            <p className="text-primary-text font-medium">
+              {status.usage.summary_generation ?? 0}{status.limits.summaries_per_week !== null ? ` / ${status.limits.summaries_per_week}` : ''}
+            </p>
+          </div>
+          <div>
+            <p className="text-secondary-text">Plan Generations</p>
+            <p className="text-primary-text font-medium">
+              {status.usage.plan_generation ?? 0}{status.limits.plan_generations_per_goal !== null ? ` / ${status.limits.plan_generations_per_goal}` : ''}
+            </p>
+          </div>
+          <div>
+            <p className="text-secondary-text">AI Focus Chat</p>
+            <p className="text-primary-text font-medium">{isPaid ? 'Included' : 'Upgrade required'}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 // Preferences is the new name for ProfileManagement. The file path remains
 // the same for backwards compatibility; exporting a renamed component keeps
 // imports simple while updating the UI to a multi-panel Preferences UX.
 const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) => {
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   // Profile form state
-  const [username, setUsername] = useState(profile?.username || '');
+  const [username, setUsername] = useState(profile?.username || profile?.email || session?.user?.email || '');
   const [email, setEmail] = useState(profile?.email || '');
   const [timezone, setTimezone] = useState(profile?.timezone || getBrowserTimezone());
   const [loading, setLoading] = useState(false);
@@ -92,7 +191,7 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) 
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
     if (profile) {
-      setUsername(profile.username || '');
+      setUsername(profile.username || profile.email || session?.user?.email || '');
       setEmail(profile.email || '');
       setTimezone(profile.timezone || getBrowserTimezone());
       setPreviewSrc(profile.avatar_url || undefined);
@@ -175,12 +274,13 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) 
         if (publicUrlData?.publicUrl) avatarPublicUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`;
       }
 
-      const { error } = await supabase.from('profiles').update({
+      const { error } = await supabase.from('profiles').upsert({
+        id: session.user.id,
         username,
         email,
         timezone,
         avatar_url: avatarPublicUrl || profile?.avatar_url,
-      }).eq('id', session.user.id);
+      }, { onConflict: 'id' });
 
       if (error) throw error;
 
@@ -188,14 +288,10 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) 
       if (avatarPublicUrl) {
         window.dispatchEvent(new CustomEvent('avatar:updated', { detail: { avatarUrl: avatarPublicUrl } }));
       }
-
-      // notifySuccess('Profile updated successfully!');
-
-      // Optionally close the modal
-      if (onClose) onClose();
     } catch (err) {
       console.error('Error updating profile:', err);
       notifyError('Failed to update profile.');
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -217,7 +313,7 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) 
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user?.id) throw new Error('User not authenticated');
-      const { error } = await supabase.from('profiles').update({ primary_color: toSave }).eq('id', session.user.id);
+      const { error } = await supabase.from('profiles').upsert({ id: session.user.id, primary_color: toSave }, { onConflict: 'id' });
       if (error) throw error;
       // apply globally only when saved
       appColors.applyPaletteToRoot(toSave);
@@ -282,6 +378,11 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) 
               <ListItemText className='hidden sm:flex sm:flex-col' primary="Affirmations" secondary="Daily absurdity & submissions" />
               <ListItemIcon className='flex justify-center sm:hidden'><ThumbsUp /></ListItemIcon>
               <ListItemText className='sm:hidden flex text-[0.65em]' primary="Affirmations" />
+            </ListItemButton>
+            <ListItemButton className='flex flex-col items-center justify-center sm:flex-row' selected={active === 'subscription'} onClick={() => setActive('subscription')}>
+              <ListItemText className='hidden sm:flex sm:flex-col' primary="Subscription" secondary="Plan, billing & usage" />
+              <ListItemIcon className='flex justify-center sm:hidden'><CreditCard /></ListItemIcon>
+              <ListItemText className='sm:hidden flex text-[0.65em]' primary="Plan" />
             </ListItemButton>
           </List>
         </nav>
@@ -696,6 +797,9 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) 
           <section>
             <AffirmationSettings />
           </section>
+        )}
+        {active === 'subscription' && (
+          <SubscriptionPanel />
         )}
 
         {/* Footer: single Save All / Cancel */}
