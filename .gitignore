@@ -28,3 +28,5 @@ frontend/.env
 
 # Ignore platform-specific node_modules (installed fresh in CI)
 netlify/functions/node_modules
+frontend/.env.stripe
+frontend/.env.production.native
