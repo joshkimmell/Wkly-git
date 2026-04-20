@@ -1,3 +1,6 @@
+# Claude worktrees
+.claude/
+
 # Local Netlify folder
 .netlify
 .DS_Store
