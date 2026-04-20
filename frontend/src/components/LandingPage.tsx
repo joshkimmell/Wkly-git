@@ -839,7 +839,7 @@ const LandingPage = () => {
                   }
                   label={
                     <span className="text-sm">
-                      I acknowledge that Wkly is currently a <strong>free proof-of-concept</strong>.
+                      I acknowledge that Wkly is currently a <strong>proof-of-concept</strong>.
                       Neither Josh Kimmell nor anyone associated with Wkly.me can be held responsible
                       for the safety, privacy, or persistence of any data I add to this application. *
                     </span>
