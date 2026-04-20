@@ -69,16 +69,15 @@ export const handler = withCors(async (event) => {
   }
 
   const isSubscription = plan_type !== 'one_time';
-  const successUrl = `${event.headers.origin || 'https://wkly.netlify.app'}/pricing?success=true`;
-  const cancelUrl = `${event.headers.origin || 'https://wkly.netlify.app'}/pricing?canceled=true`;
+  const origin = event.headers.origin || 'https://wkly.netlify.app';
 
   const sessionConfig: Stripe.Checkout.SessionCreateParams = {
     customer: customerId,
     payment_method_types: ['card'],
     mode: isSubscription ? 'subscription' : 'payment',
+    ui_mode: 'embedded_page',
     line_items: [{ price: priceId, quantity: 1 }],
-    success_url: successUrl,
-    cancel_url: cancelUrl,
+    return_url: `${origin}/pricing?session_id={CHECKOUT_SESSION_ID}`,
     metadata: { user_id: userId },
   };
 
@@ -86,6 +85,6 @@ export const handler = withCors(async (event) => {
 
   return {
     statusCode: 200,
-    body: JSON.stringify({ sessionId: session.id, url: session.url }),
+    body: JSON.stringify({ clientSecret: session.client_secret }),
   };
 });
