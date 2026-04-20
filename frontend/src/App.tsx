@@ -1,39 +1,39 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { GoalsProvider } from '@context/GoalsContext';
 import { TimezoneProvider } from '@context/TimezoneContext';
 import ToastNotification, { notifySuccess, notifyError, notifyReminder } from '@components/ToastyNotification';
-import AllGoals from '@components/AllGoals';
-import HomePage from '@components/HomePage';
-import Header from '@components/Header';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import supabase from '@lib/supabase';
 import useAuth from '@hooks/useAuth';
 import { useReminderService } from '@hooks/useReminderService';
-import Auth from '@components/Auth'; // keep for backup
 import LandingPage from '@components/LandingPage';
-import AllSummaries from '@components/AllSummaries';
-// import AllWins from '@components/AllWins';
 import LoadingSpinner from '@components/LoadingSpinner';
-import ProfileManagement from '@components/ProfileManagement';
-import NotificationsSettings from '@components/NotificationsSettings';
 import AppMuiThemeProvider from './mui/muiTheme';
 import appColors from '@styles/appColors';
 import { FocusTimerProvider } from '@components/focus/FocusTimerContext';
 import { FocusModeProvider } from '@context/FocusModeContext';
 import { FireworksProvider } from '@context/FireworksContext';
-import MuiCompareDemo from '@components/MuiCompareDemo';
-import AdminAccessRequests from '@components/AdminAccessRequests';
-import Footer from '@components/Footer';
-import PullToRefresh from '@components/PullToRefresh';
-import AffirmationsLayout from '@components/affirmations/AffirmationsLayout';
-import AffirmationToday from '@components/affirmations/AffirmationToday';
-import AffirmationArchive from '@components/affirmations/AffirmationArchive';
-import AffirmationSubmit from '@components/affirmations/AffirmationSubmit';
-import AffirmationSaved from '@components/affirmations/AffirmationSaved';
-import AffirmationSettings from '@components/affirmations/AffirmationSettings';
 import { TierProvider } from '@context/TierContext';
-import PricingPage from '@components/PricingPage';
+
+// Lazy-loaded authenticated routes — not downloaded until the user logs in
+const AllGoals = lazy(() => import('@components/AllGoals'));
+const HomePage = lazy(() => import('@components/HomePage'));
+const Header = lazy(() => import('@components/Header'));
+const AllSummaries = lazy(() => import('@components/AllSummaries'));
+const ProfileManagement = lazy(() => import('@components/ProfileManagement'));
+const NotificationsSettings = lazy(() => import('@components/NotificationsSettings'));
+const MuiCompareDemo = lazy(() => import('@components/MuiCompareDemo'));
+const AdminAccessRequests = lazy(() => import('@components/AdminAccessRequests'));
+const Footer = lazy(() => import('@components/Footer'));
+const PullToRefresh = lazy(() => import('@components/PullToRefresh'));
+const PricingPage = lazy(() => import('@components/PricingPage'));
+const AffirmationsLayout = lazy(() => import('@components/affirmations/AffirmationsLayout'));
+const AffirmationToday = lazy(() => import('@components/affirmations/AffirmationToday'));
+const AffirmationArchive = lazy(() => import('@components/affirmations/AffirmationArchive'));
+const AffirmationSubmit = lazy(() => import('@components/affirmations/AffirmationSubmit'));
+const AffirmationSaved = lazy(() => import('@components/affirmations/AffirmationSaved'));
+const AffirmationSettings = lazy(() => import('@components/affirmations/AffirmationSettings'));
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Chip } from '@mui/material';
 import { Bell, Calendar, FileText } from 'lucide-react';
 import { loadSession, saveSession } from '@components/focus/useFocusSession';
@@ -268,6 +268,7 @@ const App: React.FC = () => {
     <FireworksProvider>
     <div className={`${current}`}>
       <div className={`min-h-screen bg-background text-primary-text ${current}`}>
+        <Suspense fallback={null}>
         <Header   
           theme={theme}
           toggleTheme={toggleTheme}
@@ -278,6 +279,7 @@ const App: React.FC = () => {
           <PullToRefresh>
           <main className="max-w-8xl min-h-[100vh] mx-auto px-4 sm:px-8 lg:px-16 py-8">
 
+            <Suspense fallback={<div className="flex justify-center items-center h-64"><LoadingSpinner variant="mui" /></div>}>
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/goals" element={<AllGoals />} />
@@ -297,10 +299,12 @@ const App: React.FC = () => {
                 <Route path="settings" element={<AffirmationSettings />} />
               </Route>
             </Routes>
+            </Suspense>
           </main>
           <Footer />
           </PullToRefresh>
         </GoalsProvider>
+        </Suspense>
       </div>
     </div>
     </FireworksProvider>

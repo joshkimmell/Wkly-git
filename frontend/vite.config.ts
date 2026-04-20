@@ -8,7 +8,19 @@ export default defineConfig({
       outDir: 'dist',
       emptyOutDir: true,
       rollupOptions: {
-         input:  path.resolve(__dirname, 'index.html'),
+         input: path.resolve(__dirname, 'index.html'),
+         output: {
+            manualChunks: {
+               // Core React runtime
+               'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+               // MUI component library (large — ~400 KB)
+               'vendor-mui': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
+               // Supabase auth + JS client
+               'vendor-supabase': ['@supabase/supabase-js', '@supabase/auth-helpers-react'],
+               // Stripe checkout
+               'vendor-stripe': ['@stripe/stripe-js'],
+            },
+         },
       },
    },
    base: '/',

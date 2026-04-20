@@ -426,8 +426,7 @@ const LandingPage = () => {
 
             {/* ── How It Works ── */}
             <section
-              className="py-24"
-              style={{ background: 'var(--background-subtle, var(--wkly-background))' }}
+              className="py-24 bg-background-color"
             >
               <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-16">
                 <div className="text-center mb-16">
@@ -459,8 +458,8 @@ const LandingPage = () => {
                   ].map(({ step, title, desc }) => (
                     <div key={step} className="flex flex-col gap-4">
                       <div
-                        className="font-serif text-6xl font-bold leading-none"
-                        style={{ color: 'var(--brand-20)', opacity: 0.6 }}
+                        className="font-serif text-brand-30 text-6xl font-bold leading-none"
+                        // style={{ color: 'var(--brand-30)', opacity: 0.9 }}
                       >
                         {step}
                       </div>
