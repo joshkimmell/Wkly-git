@@ -14,7 +14,7 @@ export default defineConfig({
                // Core React runtime
                'vendor-react': ['react', 'react-dom', 'react-router-dom'],
                // MUI component library (large — ~400 KB)
-               'vendor-mui': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
+               'vendor-mui': ['@mui/material', '@emotion/react', '@emotion/styled'],
                // Supabase auth + JS client
                'vendor-supabase': ['@supabase/supabase-js', '@supabase/auth-helpers-react'],
                // Stripe checkout
