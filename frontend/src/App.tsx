@@ -10,7 +10,8 @@ import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import supabase from '@lib/supabase';
 import useAuth from '@hooks/useAuth';
 import { useReminderService } from '@hooks/useReminderService';
-import Auth from '@components/Auth';
+import Auth from '@components/Auth'; // keep for backup
+import LandingPage from '@components/LandingPage';
 import AllSummaries from '@components/AllSummaries';
 // import AllWins from '@components/AllWins';
 import LoadingSpinner from '@components/LoadingSpinner';
@@ -86,14 +87,15 @@ const App: React.FC = () => {
         return;
       }
 
-      // Clear all localStorage except theme and palette preferences
+      // Clear all localStorage except theme preference
       const themePreference = localStorage.getItem('theme');
-      const palettePreference = localStorage.getItem('wkly:primary_palette');
       
-      // Clear localStorage (preserving theme/palette)
+      // Clear localStorage (preserving only theme, not palette — reset to default on logout)
       localStorage.clear();
       if (themePreference) localStorage.setItem('theme', themePreference);
-      if (palettePreference) localStorage.setItem('wkly:primary_palette', palettePreference);
+
+      // Reset brand colour to default
+      appColors.applyPaletteToRoot('purple');
 
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
@@ -246,8 +248,10 @@ const App: React.FC = () => {
   if (!effectiveSession) {
     return (
       <Routes>
-        <Route path="/auth" element={<Auth />} />
-        <Route path="*" element={<Auth />} />
+        {/* <Route path="/auth" element={<Auth />} />
+        <Route path="*" element={<Auth />} /> */}
+        <Route path="/auth" element={<LandingPage />} />
++        <Route path="*" element={<LandingPage />} />
       </Routes>
     );
   }
