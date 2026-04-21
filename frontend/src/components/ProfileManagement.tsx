@@ -195,8 +195,10 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) 
       setUsername(profile.username || profile.email || session?.user?.email || '');
       setEmail(profile.email || '');
       setTimezone(profile.timezone || getBrowserTimezone());
-      setPreviewSrc(profile.avatar_url || undefined);
-      setRemoveAvatar(false);
+      // Don't overwrite removeAvatar state if the user has explicitly removed their avatar
+      if (!removeAvatar) {
+        setPreviewSrc(profile.avatar_url || undefined);
+      }
       try {
         const pref: PaletteKey | undefined = profile.primary_color;
         if (pref) setSelectedPalette(pref);
@@ -210,7 +212,7 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) 
         // ignore
       }
     }
-  }, [profile]);
+  }, [profile, removeAvatar]);
 
   const passwordsMatch = !!password && !!passwordReEnter && password === passwordReEnter
 
