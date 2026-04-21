@@ -362,6 +362,43 @@ const GoalsComponent = () => {
 
     // Kanban tasks state
     const [kanbanTasks, setKanbanTasks] = useState<Record<string, Task[]>>({});
+
+    // Keep kanban/table task arrays in sync with mutations that happen inside modals
+    // (e.g. TasksList opened from GoalCard/GoalKanbanCard dispatching 'task:updated')
+    useEffect(() => {
+        const applyUpdate = (arr: Task[], taskId: string, status?: string, updates?: Partial<Task>) =>
+            arr.map(t =>
+                t.id === taskId
+                    ? { ...t, ...(status !== undefined ? { status } : {}), ...(updates ?? {}) }
+                    : t
+            );
+        const handleTaskUpdated = (e: Event) => {
+            const { taskId, goalId, status, updates } = (e as CustomEvent).detail ?? {};
+            if (!goalId) return;
+            setKanbanTasks(prev =>
+                prev[goalId] ? { ...prev, [goalId]: applyUpdate(prev[goalId], taskId, status, updates) } : prev
+            );
+            setTableTasksByGoal(prev =>
+                prev[goalId] ? { ...prev, [goalId]: applyUpdate(prev[goalId], taskId, status, updates) } : prev
+            );
+        };
+        const handleTaskDeleted = (e: Event) => {
+            const { taskId, goalId } = (e as CustomEvent).detail ?? {};
+            if (!goalId) return;
+            setKanbanTasks(prev =>
+                prev[goalId] ? { ...prev, [goalId]: prev[goalId].filter(t => t.id !== taskId) } : prev
+            );
+            setTableTasksByGoal(prev =>
+                prev[goalId] ? { ...prev, [goalId]: prev[goalId].filter(t => t.id !== taskId) } : prev
+            );
+        };
+        window.addEventListener('task:updated', handleTaskUpdated as EventListener);
+        window.addEventListener('task:deleted', handleTaskDeleted as EventListener);
+        return () => {
+            window.removeEventListener('task:updated', handleTaskUpdated as EventListener);
+            window.removeEventListener('task:deleted', handleTaskDeleted as EventListener);
+        };
+    }, []);
     
     // Notification-triggered task edit modal state
     const [notificationTaskModalOpen, setNotificationTaskModalOpen] = useState(false);

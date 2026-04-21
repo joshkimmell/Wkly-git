@@ -431,6 +431,30 @@ const GoalCard: React.FC<GoalCardProps> = ({
   const displayedWinsCount = Math.max(winCountMap[goal.id] ?? 0, wins.length ?? 0);
   const displayedTasksCount = tasksCountMap[goal.id] ?? tasks.length ?? 0;
 
+  // Keep local tasks in sync when TasksList (opened in a modal) mutates them
+  useEffect(() => {
+    const handleTaskUpdated = (e: Event) => {
+      const { taskId, goalId: eventGoalId, status, updates } = (e as CustomEvent).detail ?? {};
+      if (eventGoalId !== goal.id) return;
+      setTasks(prev => prev.map(t =>
+        t.id === taskId
+          ? { ...t, ...(status !== undefined ? { status } : {}), ...(updates ?? {}) }
+          : t
+      ));
+    };
+    const handleTaskDeleted = (e: Event) => {
+      const { taskId, goalId: eventGoalId } = (e as CustomEvent).detail ?? {};
+      if (eventGoalId !== goal.id) return;
+      setTasks(prev => prev.filter(t => t.id !== taskId));
+    };
+    window.addEventListener('task:updated', handleTaskUpdated as EventListener);
+    window.addEventListener('task:deleted', handleTaskDeleted as EventListener);
+    return () => {
+      window.removeEventListener('task:updated', handleTaskUpdated as EventListener);
+      window.removeEventListener('task:deleted', handleTaskDeleted as EventListener);
+    };
+  }, [goal.id]);
+
   // Subscribe to temp-id replacement so this component can proactively fetch
   // wins and notes even if the parent doesn't re-render immediately.
   useEffect(() => {

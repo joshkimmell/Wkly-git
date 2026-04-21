@@ -372,10 +372,36 @@ export default function HomePage() {
     fetchTodayTasks();
   }, [fetchTodayTasks]);
 
+  // Listen for task mutations dispatched by TasksList or other components so that
+  // goal completion donuts (MiniGoalCard) and the today task list reflect changes immediately
+  useEffect(() => {
+    const handleTaskUpdated = (e: Event) => {
+      const { taskId, status, updates } = (e as CustomEvent).detail ?? {};
+      if (!taskId) return;
+      const patch = { ...(status !== undefined ? { status } : {}), ...(updates ?? {}) };
+      setAllGoalTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...patch } : t));
+      setTodayTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...patch } : t));
+    };
+    const handleTaskDeleted = (e: Event) => {
+      const { taskId } = (e as CustomEvent).detail ?? {};
+      if (!taskId) return;
+      setAllGoalTasks(prev => prev.filter(t => t.id !== taskId));
+      setTodayTasks(prev => prev.filter(t => t.id !== taskId));
+    };
+    window.addEventListener('task:updated', handleTaskUpdated as EventListener);
+    window.addEventListener('task:deleted', handleTaskDeleted as EventListener);
+    return () => {
+      window.removeEventListener('task:updated', handleTaskUpdated as EventListener);
+      window.removeEventListener('task:deleted', handleTaskDeleted as EventListener);
+    };
+  }, []);
+
   // ── task status update ─────────────────────────────────────────────────────
   const handleTaskStatusChange = async (taskId: string, newStatus: Task['status'], closingRationale?: string) => {
     const prevTasks = todayTasks;
     setTodayTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+    // Also update the goal-level task list so MiniGoalCard donuts reflect the change immediately
+    setAllGoalTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
     try {
       const token = await getSessionToken();
       const response = await fetch('/.netlify/functions/updateTask', {

@@ -247,6 +247,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
 
       // Optimistic update
       setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+      window.dispatchEvent(new CustomEvent('task:updated', { detail: { taskId, goalId, status: newStatus } }));
 
       const response = await fetch('/.netlify/functions/updateTask', {
         method: 'POST',
@@ -285,6 +286,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
 
       // Optimistic update
       setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+      window.dispatchEvent(new CustomEvent('task:updated', { detail: { taskId, goalId, updates } }));
 
       const response = await fetch('/.netlify/functions/updateTask', {
         method: 'POST',
@@ -319,6 +321,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
     const prevCount = tasks.length;
     // Optimistically remove from UI
     setTasks(prev => prev.filter(t => t.id !== taskId));
+    window.dispatchEvent(new CustomEvent('task:deleted', { detail: { taskId, goalId } }));
     onTaskCountChange?.(prevCount - 1);
     setDeleteConfirmId(null);
     notifyWithUndo(
@@ -667,9 +670,9 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
               <button
                 onClick={generateTasks}
                 disabled={isGenerating}
-                className="btn-secondary gap-1 cursor-pointer"
+                className="btn-primary gap-1 cursor-pointer"
               >
-                {isGenerating ? 'Generating...' : <><Sparkles className="w-4 h-4" /> Generate with AI</>}
+                {isGenerating ? 'Generating...' : <><Sparkles className="w-4 h-4" /> Generate Tasks with AI</>}
               </button>
             ) : (
               <button
