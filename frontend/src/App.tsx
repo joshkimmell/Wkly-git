@@ -152,6 +152,26 @@ const App: React.FC = () => {
     }
   }, [profile]);
 
+  // Identify the authenticated user in Pendo once session + profile are loaded
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    try {
+      window.pendo.initialize({
+        visitor: {
+          id: session.user.id,
+          email: session.user.email ?? '',
+          firstName: profile?.full_name ?? profile?.username ?? '',
+        },
+        account: {
+          id: session.user.id,
+          businessTier: profile?.tier ?? 'free',
+        },
+      });
+    } catch {
+      // Pendo not loaded yet or unavailable — silently ignore
+    }
+  }, [session?.user?.id, profile]);
+
   // Start reminder service when user is authenticated
   const { pendingReminderTask, dismissReminderTask } = useReminderService();
 
