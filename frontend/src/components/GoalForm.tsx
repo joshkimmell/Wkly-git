@@ -325,6 +325,21 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       // Default category to 'General' if not provided
       const category = newGoal.category?.trim() || 'General';
 
+      // Optimistic UI: add a temporary goal to the cache so the skeleton card appears immediately
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const tempGoal = {
+        id: tempId,
+        title: newGoal.title,
+        description: newGoal.description || '',
+        category,
+        week_start: weekStart,
+        user_id: session.user.id,
+        created_at: new Date().toISOString(),
+        status: 'Not started',
+        status_notes: '',
+      } as import('@utils/goalUtils').Goal;
+      addGoalToCache(tempGoal);
+
       // Create the goal via Netlify function (uses service-role to bypass RLS)
       const goalRes = await fetch('/.netlify/functions/createGoal', {
         method: 'POST',
@@ -339,6 +354,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       });
 
       if (!goalRes.ok) {
+        removeGoalFromCache(tempId);
         const errBody = await goalRes.json().catch(() => ({})) as { error?: string; message?: string };
         if (errBody?.error === 'tier_limit') {
           notifyTierLimit(errBody.message || 'Upgrade to create more goals.');
@@ -347,7 +363,10 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         throw new Error(`Failed to create goal: ${errBody.error || goalRes.statusText}`);
       }
 
-      const createdGoal = await goalRes.json() as { id: string };
+      const createdGoal = await goalRes.json() as { id: string; title?: string; description?: string; category?: string; week_start?: string; user_id?: string; created_at?: string; status?: string; status_notes?: string };
+
+      // Replace the temp goal with the real server goal so it's in ctxGoals with the correct id
+      replaceGoalInCache(tempId, createdGoal as unknown as import('@utils/goalUtils').Goal);
 
       // Create tasks for the goal
       const tasksToCreate = generatedTasks.filter((_, index) => selectedTasks.includes(index));
@@ -383,7 +402,9 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         notifySuccess('Goal created!');
       }
 
-      // Reset state and refresh
+      // Reset state and refresh — ctxRefresh first so ctxGoals is up-to-date before
+      // the parent re-indexes, preventing the new goal from being treated as archived.
+      if (ctxRefresh) await ctxRefresh().catch(() => null);
       await refreshGoals();
       handleClose();
       
@@ -466,6 +487,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
   const serverGoal = (insertData as unknown) as Goal;
         // replace temp id with server row so subscribers can react
         replaceGoalInCache(tempId, serverGoal);
+        // track the newly created id so callers can show a pending skeleton until it loads
+        try { if (typeof setLastAddedIds === 'function') setLastAddedIds([insertData.id]); } catch { /* ignore */ }
         // notify and refresh
         try {
           if (ctxRefresh) {

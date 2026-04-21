@@ -58,8 +58,29 @@ const InlineStatus: React.FC<{ tasks?: Task[] }> = ({ tasks = [] }) => {
     );
 };
 
+// Skeleton placeholder shown while a new goal is being created optimistically
+const GoalCardSkeleton: React.FC = () => (
+    <div className="animate-pulse shadow-xl rounded-lg p-4 flex flex-col h-full w-full border-2 border-transparent bg-background-color">
+        <div className="goal-header flex flex-row w-full justify-between items-start mb-4">
+            <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700" />
+            <div className="h-4 rounded bg-gray-200 dark:bg-gray-700 w-1/3" />
+        </div>
+        <div className="flex flex-col gap-2 flex-grow">
+            <div className="h-6 rounded bg-gray-200 dark:bg-gray-700 w-3/4" />
+            <div className="h-4 rounded bg-gray-200 dark:bg-gray-700 w-full" />
+            <div className="h-4 rounded bg-gray-200 dark:bg-gray-700 w-5/6" />
+        </div>
+        <div className="flex gap-2 mt-4">
+            <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700" />
+            <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700" />
+            <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700" />
+        </div>
+    </div>
+);
+
 const GoalsComponent = () => {
     const { canCreateGoal, remainingGoals, isFree } = useTier();
+    const { refreshGoals: ctxRefresh, removeGoalFromCache, updateGoalInCache, lastUpdated, lastAddedIds, setLastAddedIds, goals: ctxGoals } = useGoalsContext();
     // helper to toggle table sorting from header clicks
     const toggleSort = (field: 'date' | 'category' | 'status' | 'title') => {
         if (sortBy === field) {
@@ -728,14 +749,30 @@ const GoalsComponent = () => {
                 fetchGoalsAndCategories();
                 // debug logs removed after fixing mapping race conditions
             // The effect below intentionally only depends on `scope` to control when we fetch
-            // goals. `ctxGoals`, `currentPage`, and `pageByScope` are accessed via refs or
-            // handled in separate effects to avoid refetch loops. If that behavior needs
-            // to change, remove the eslint-disable and add the dependencies.
+            // goals from the server. `ctxGoals`, `currentPage`, and `pageByScope` are accessed
+            // via refs or handled in separate effects to avoid refetch loops. If that behavior
+            // needs to change, remove the eslint-disable and add the dependencies.
             // eslint-disable-next-line react-hooks/exhaustive-deps
             }, [scope]);
 
             // Mirror pageByScope into a ref to avoid re-running the fetch effect on its changes
             useEffect(() => { pageByScopeRef.current = pageByScope; }, [pageByScope]);
+
+            // Keep indexedGoals in sync with the live context cache (ctxGoals) so that goals
+            // added or updated via addGoalToCache / replaceGoalInCache appear immediately in the
+            // UI without waiting for a network refresh. Temp- goals are excluded because they
+            // are rendered as skeleton cards, not as real GoalCards.
+            // No network request is made here — this is a pure in-memory re-index.
+            useEffect(() => {
+                if (!ctxGoals || ctxGoals.length === 0) return;
+                const realGoals = ctxGoals.filter(g => !String(g.id).startsWith('temp-'));
+                if (realGoals.length === 0) return;
+                const withScope = realGoals.map(g => ({ ...g, scope }));
+                const newIndexed = indexDataByScope(withScope, scope);
+                if (Object.keys(newIndexed).length === 0) return;
+                setIndexedGoals(newIndexed);
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+            }, [ctxGoals, scope]);
     const openGoalModal = () => {
         if (!canCreateGoal) {
             notifyTierLimit(`Goal limit reached (${remainingGoals === 0 ? 'max' : remainingGoals} remaining). Upgrade to create more goals.`);
@@ -1293,7 +1330,6 @@ const GoalsComponent = () => {
     //    }
     //};
 // Delete a goal
-    const { refreshGoals: ctxRefresh, removeGoalFromCache, updateGoalInCache, lastUpdated, lastAddedIds, setLastAddedIds, goals: ctxGoals } = useGoalsContext();
 
     // Periodic refresh of fullGoals and refresh on background signals while Kanban is active
     useEffect(() => {
@@ -2963,6 +2999,12 @@ const GoalsComponent = () => {
                 {/* Goals List - render by viewMode */}
                 {viewMode === 'cards' && (
                         <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 3xl:grid-cols-5 gap-4 w-full'>
+                            {ctxGoals.filter(g => String(g.id).startsWith('temp-')).map(g => (
+                                <GoalCardSkeleton key={g.id} />
+                            ))}
+                            {(lastAddedIds || []).filter(id => !sortedAndFilteredGoals.some(g => g.id === id)).map(id => (
+                                <GoalCardSkeleton key={`pending-${id}`} />
+                            ))}
                             {sortedAndFilteredGoals.map((goal) => (
                             <GoalCard
                                 key={goal.id}

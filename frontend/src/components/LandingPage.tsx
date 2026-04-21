@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import supabase from '@lib/supabase';
 import Modal from 'react-modal';
@@ -74,6 +74,22 @@ const LandingPage = () => {
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // ── Parallax scroll ───────────────────────────────────────────────────────
+  const [heroScrollY, setHeroScrollY] = useState(0);
+  const heroRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const hero = heroRef.current;
+      if (!hero) return;
+      const rect = hero.getBoundingClientRect();
+      const progress = Math.max(0, -rect.top);
+      setHeroScrollY(progress);
+    };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
@@ -246,7 +262,7 @@ const LandingPage = () => {
             </header>
 
             {/* ── Hero ── */}
-            <section className="relative flex flex-col justify-center min-h-screen overflow-hidden">
+            <section ref={heroRef} className="relative flex flex-col justify-center min-h-screen overflow-hidden">
               {/* Background */}
               <div
                 className="absolute inset-0"
@@ -263,6 +279,335 @@ const LandingPage = () => {
                 }}
               />
 
+              {/* ── Parallax floating cards (desktop only) ── */}
+              <div className="hidden lg:block pointer-events-none select-none" aria-hidden="true">
+
+                {/* LEFT CLUSTER */}
+
+                {/* Goal card */}
+                <div
+                  className="absolute top-[14%] md:-left-[2%] lg:-left-[8%] xl:left-[4%] 2xl:left-[14%]"
+                  style={{
+                    // top: '14%',
+                    // left: '20%',
+                    width: 270,
+                    transform: `translateY(${heroScrollY * -0.18}px) rotate(-3deg)`,
+                    willChange: 'transform',
+                    transition: 'transform 0.05s linear',
+                    zIndex: 5,
+                  }}
+                >
+                  <div style={{
+                    background: 'rgba(20,0,28,0.82)',
+                    border: '1px solid rgba(180,0,200,0.3)',
+                    borderRadius: 14,
+                    padding: '14px 16px',
+                    backdropFilter: 'blur(12px)',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(180,0,200,0.15)',
+                  }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div style={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: '50%',
+                        border: '3px solid rgba(232,96,248,0.6)',
+                        borderTopColor: 'var(--brand-30)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 10,
+                        color: 'rgba(232,96,248,0.9)',
+                        fontWeight: 700,
+                      }}>50%</div>
+                      <span style={{
+                        fontSize: 10,
+                        padding: '2px 8px',
+                        borderRadius: 20,
+                        background: 'rgba(180,0,200,0.25)',
+                        color: 'var(--brand-20)',
+                        border: '1px solid rgba(180,0,200,0.3)',
+                      }}>Backyard</span>
+                    </div>
+                    <p style={{ color: 'var(--brand-20)', fontSize: 13, fontWeight: 600, marginBottom: 6, lineHeight: 1.3 }}>
+                      Complete Backyard Renovation by May
+                    </p>
+                    <p style={{ color: 'rgba(220,180,230,0.55)', fontSize: 11, lineHeight: 1.45 }}>
+                      Replace the old deck with a smaller one, install stone pathways, and reseed the grass in bare spots.
+                    </p>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                      {[Target, CheckSquare, Timer].map((Icon, i) => (
+                        <Icon key={i} style={{ width: 14, height: 14, color: 'rgba(220,180,230,0.35)' }} />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Task card */}
+                <div
+                  className="absolute top-[42%] md:left-[2%] lg:-left-[4%] xl:left-[4%] 2xl:left-[8%]"
+                  style={{
+                    // top: '42%',
+                    // left: '20%',
+                    width: 240,
+                    transform: `translateY(${heroScrollY * -0.11}px) rotate(2deg)`,
+                    willChange: 'transform',
+                    transition: 'transform 0.05s linear',
+                    zIndex: 6,
+                  }}
+                >
+                  <div style={{
+                    background: 'rgba(18,0,24,0.88)',
+                    border: '1px solid rgba(104,0,118,0.4)',
+                    borderRadius: 12,
+                    padding: '12px 14px',
+                    backdropFilter: 'blur(10px)',
+                    boxShadow: '0 6px 24px rgba(0,0,0,0.45)',
+                  }}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckSquare style={{ width: 13, height: 13, color: 'rgba(200,160,210,0.5)' }} />
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#f0d6f7' }}>Purchase plants</span>
+                    </div>
+                    <p style={{ fontSize: 11, color: 'rgba(220,180,230,0.5)', lineHeight: 1.4, marginBottom: 8 }}>
+                      After receiving the plant list from Leon, purchase plants and stick to the budget.
+                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span style={{
+                        fontSize: 10,
+                        padding: '2px 7px',
+                        borderRadius: 20,
+                        background: 'rgba(104,0,118,0.3)',
+                        color: 'rgba(232,96,248,0.7)',
+                        border: '1px solid rgba(104,0,118,0.4)',
+                      }}>Set Date &amp; Time</span>
+                      <span style={{
+                        fontSize: 10,
+                        padding: '2px 7px',
+                        borderRadius: 20,
+                        background: 'rgba(104,0,118,0.3)',
+                        color: 'rgba(232,96,248,0.7)',
+                        border: '1px solid rgba(104,0,118,0.4)',
+                      }}>Backyard</span>
+                    </div>
+                    <p style={{ fontSize: 10, color: 'rgba(200,160,210,0.4)', marginTop: 6 }}>↩ Complete Backyard Renovation by May</p>
+                  </div>
+                </div>
+
+                {/* Affirmation card */}
+                <div
+                  className="absolute top-[66%] md:-left-1 lg:-left-[8%] xl:left-[4%] 2xl:left-[10%]"
+                  style={{
+                    // top: '66%',
+                    // left: '21%',
+                    width: 250,
+                    transform: `translateY(${heroScrollY * -0.07}px) rotate(-1.5deg)`,
+                    willChange: 'transform',
+                    transition: 'transform 0.05s linear',
+                    zIndex: 5,
+                  }}
+                >
+                  <div style={{
+                    background: 'rgba(16,0,22,0.85)',
+                    border: '1px solid rgba(104,0,118,0.35)',
+                    borderRadius: 12,
+                    padding: '14px 16px',
+                    backdropFilter: 'blur(10px)',
+                    boxShadow: '0 6px 20px rgba(0,0,0,0.4)',
+                  }}>
+                    <p style={{ fontSize: 10, color: 'rgba(200,160,210,0.45)', marginBottom: 8, letterSpacing: '0.05em', textTransform: 'uppercase' }}>April 19, 2026</p>
+                    <p style={{
+                      fontSize: 12,
+                      fontStyle: 'italic',
+                      color: 'rgba(240,210,250,0.8)',
+                      lineHeight: 1.55,
+                      marginBottom: 10,
+                    }}>
+                      "Breathe deeply and remember: even ninjas need to pause and meditate before flipping back into action-packed awesomeness."
+                    </p>
+                    <p style={{ fontSize: 10, color: 'rgba(200,160,210,0.4)' }}>— The Wise Guru</p>
+                    <div className="flex items-center gap-3 mt-3">
+                      <Laugh style={{ width: 13, height: 13, color: 'rgba(232,96,248,0.4)' }} />
+                      <Sparkles style={{ width: 13, height: 13, color: 'rgba(232,96,248,0.4)' }} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* RIGHT CLUSTER */}
+
+                {/* Summary card */}
+                <div
+                  className="absolute top-[12%] md:right-[2%] lg:right-[4%] xl:right-[12%] 2xl:right-[24%]"
+                  style={{
+                    // top: '12%',
+                    // right: '20%',
+                    width: 290,
+                    transform: `translateY(${heroScrollY * -0.14}px) rotate(2.5deg)`,
+                    willChange: 'transform',
+                    transition: 'transform 0.05s linear',
+                    zIndex: 5,
+                  }}
+                >
+                  <div style={{
+                    background: 'rgba(18,0,24,0.85)',
+                    border: '1px solid rgba(104,0,118,0.35)',
+                    borderRadius: 14,
+                    padding: '14px 16px',
+                    backdropFilter: 'blur(12px)',
+                    boxShadow: '0 8px 28px rgba(0,0,0,0.45)',
+                  }}>
+                    <div className="flex items-center justify-between mb-3">
+                      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--brand-30)' }}>Summary for week: April 5, 2026</p>
+                      <Brain style={{ width: 14, height: 14, color: 'rgba(232,96,248,0.5)' }} />
+                    </div>
+                    <p style={{ fontSize: 11, color: 'rgba(230,195,240,0.65)', lineHeight: 1.55 }}>
+                      <strong style={{ color: 'rgba(230,195,240,0.85)' }}>Reflection for week: April 6, 2026.</strong> This week marked significant progress in advancing our backyard renovation goal, a major goal slated for completion by the end of April. The primary focus has b...
+                    </p>
+                    <button style={{
+                      fontSize: 10,
+                      color: 'rgba(232,96,248,0.6)',
+                      marginTop: 8,
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'default',
+                      padding: 0,
+                    }}>Show More ↓</button>
+                    <div className="flex items-center gap-3 mt-3">
+                      {[Award, Sparkles, Target].map((Icon, i) => (
+                        <Icon key={i} style={{ width: 13, height: 13, color: 'rgba(220,180,230,0.3)' }} />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Second goal card */}
+                <div
+                  className="absolute top-[42%]  md:right-0 lg:right-[2%] xl:right-[10%] 2xl:right-[18%]"
+                  style={{
+                    // top: '42%',
+                    // right: '18%',
+                    width: 280,
+                    transform: `translateY(${heroScrollY * -0.09}px) rotate(-2deg)`,
+                    willChange: 'transform',
+                    transition: 'transform 0.05s linear',
+                    zIndex: 6,
+                  }}
+                >
+                  <div style={{
+                    background: 'rgba(20,0,28,0.83)',
+                    border: '1px solid rgba(180,0,200,0.28)',
+                    borderRadius: 14,
+                    padding: '14px 16px',
+                    backdropFilter: 'blur(12px)',
+                    boxShadow: '0 8px 28px rgba(0,0,0,0.45)',
+                  }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: '50%',
+                        border: '3px solid rgba(150,220,150,0.5)',
+                        borderTopColor: 'rgba(100,200,100,0.9)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 10,
+                        color: 'rgba(130,210,130,0.9)',
+                        fontWeight: 700,
+                      }}>17%</div>
+                      <span style={{
+                        fontSize: 10,
+                        padding: '2px 8px',
+                        borderRadius: 20,
+                        background: 'rgba(0,80,0,0.3)',
+                        color: 'rgba(120,220,120,0.8)',
+                        border: '1px solid rgba(0,120,0,0.35)',
+                      }}>General</span>
+                    </div>
+                    <p style={{ color: 'var(--brand-20)', fontSize: 13, fontWeight: 600, marginBottom: 6, lineHeight: 1.3 }}>
+                      Lower Cholesterol Levels Naturally by June 2024
+                    </p>
+                    <p style={{ color: 'rgba(220,180,230,0.55)', fontSize: 11, lineHeight: 1.45 }}>
+                      Achieve a total cholesterol level below 200 mg/dL through diet and exercise by June 2024.
+                    </p>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                      {[Target, CheckSquare, Award].map((Icon, i) => (
+                        <Icon key={i} style={{ width: 14, height: 14, color: 'rgba(220,180,230,0.3)' }} />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Focus Timer card */}
+                <div
+                  className="absolute w-[200px] top-2/3 md:right-[2%] lg:right-[4%] xl:right-[12%] 2xl:right-[24%]"
+                  style={{
+                    // top: '64%',
+                    // right: '24%',
+                    // width: 200,
+                    transform: `translateY(${heroScrollY * -0.05}px) rotate(1deg)`,
+                    willChange: 'transform',
+                    transition: 'transform 0.05s linear',
+                    zIndex: 5,
+                  }}
+                >
+                  <div style={{
+                    background: 'rgba(14,0,18,0.9)',
+                    border: '1px solid rgba(104,0,118,0.4)',
+                    borderRadius: 14,
+                    padding: '16px',
+                    backdropFilter: 'blur(14px)',
+                    boxShadow: '0 10px 32px rgba(0,0,0,0.55)',
+                    textAlign: 'center',
+                  }}>
+                    <p style={{ fontSize: 10, letterSpacing: '0.2em', color: 'rgba(255,80,80,0.85)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 12 }}>FOCUS</p>
+                    {/* Timer ring */}
+                    <div style={{ position: 'relative', width: 88, height: 88, margin: '0 auto 10px' }}>
+                      <svg viewBox="0 0 88 88" style={{ width: 88, height: 88, transform: 'rotate(-90deg)' }}>
+                        <circle cx="44" cy="44" r="38" fill="none" stroke="rgba(104,0,118,0.3)" strokeWidth="5" />
+                        <circle
+                          cx="44" cy="44" r="38" fill="none"
+                          stroke="rgba(255,80,80,0.8)"
+                          strokeWidth="5"
+                          strokeDasharray={`${2 * Math.PI * 38}`}
+                          strokeDashoffset={`${2 * Math.PI * 38 * 0.42}`}
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      <div style={{
+                        position: 'absolute', inset: 0,
+                        display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <span style={{ fontSize: 18, fontWeight: 700, color: '#fff', lineHeight: 1 }}>24:11</span>
+                        <span style={{ fontSize: 9, color: 'rgba(255,120,120,0.7)', marginTop: 2 }}>Running</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <span style={{
+                        fontSize: 11,
+                        padding: '4px 12px',
+                        borderRadius: 20,
+                        background: 'rgba(220,140,0,0.25)',
+                        color: 'rgba(255,190,60,0.9)',
+                        border: '1px solid rgba(220,140,0,0.3)',
+                        fontWeight: 600,
+                      }}>Pause</span>
+                      <Timer style={{ width: 14, height: 14, color: 'rgba(220,180,230,0.4)' }} />
+                    </div>
+                    <div className="flex items-center justify-center gap-1 mt-1">
+                      {[0,1,2,3,4].map(i => (
+                        <div key={i} style={{
+                          width: 6, height: 6, borderRadius: '50%',
+                          background: i < 2 ? 'rgba(255,80,80,0.7)' : 'rgba(104,0,118,0.4)',
+                        }} />
+                      ))}
+                    </div>
+                    <p style={{ fontSize: 9, color: 'rgba(200,160,210,0.4)', marginTop: 6 }}>25:00 min</p>
+                  </div>
+                </div>
+
+              </div>
+              {/* ── End parallax cards ── */}
+
               <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-8 lg:px-16 pt-32 pb-28">
                 <div className="max-w-3xl">
                   {/* Eyebrow badge */}
@@ -275,7 +620,7 @@ const LandingPage = () => {
                     }}
                   >
                     {/* <Sparkles className="w-3.5 h-3.5" /> */}
-                    Beta Launch - Request Access Now
+                    Beta Launch - <a href="#" onClick={() => setIsRequestAccessModalOpen(true)} className="underline">Request Access Now</a>
                   </div>
 
                   {/* Headline */}

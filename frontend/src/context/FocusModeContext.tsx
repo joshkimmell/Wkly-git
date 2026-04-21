@@ -14,10 +14,14 @@ interface FocusModeContextValue {
 
 const FocusModeContext = createContext<FocusModeContextValue | null>(null);
 
+// No-op fallback used when TaskCard renders outside the provider (e.g. react-modal portals
+// that mount to document.body, or during React's error-recovery re-render pass).
+const noop = () => {};
+const fallbackValue: FocusModeContextValue = { openFocusMode: noop };
+
 export const useFocusMode = (): FocusModeContextValue => {
   const ctx = useContext(FocusModeContext);
-  if (!ctx) throw new Error('useFocusMode must be used within FocusModeProvider');
-  return ctx;
+  return ctx ?? fallbackValue;
 };
 
 export const FocusModeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
