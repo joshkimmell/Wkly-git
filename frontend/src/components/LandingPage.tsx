@@ -279,14 +279,14 @@ const LandingPage = () => {
                 }}
               />
 
-              {/* ── Parallax floating cards (desktop only) ── */}
-              <div className="hidden lg:block pointer-events-none select-none" aria-hidden="true">
+              {/* ── Parallax floating cards ── */}
+              <div className="opacity-40 md:opacity-100 flex absolute top-0 left-0 right-0 bottom-0 pointer-events-none select-none w-full h-full max-h-[130vh]  max-w-[2300px] mx-auto" aria-hidden="true">
 
-                {/* LEFT CLUSTER */}
+                {/* LEFT/TOP CLUSTER */}
 
                 {/* Goal card */}
                 <div
-                  className="absolute top-[14%] md:-left-[2%] lg:-left-[8%] xl:left-[4%] 2xl:left-[14%]"
+                  className="opacity-100 blur-[1px] absolute top-[6%] md:top-[14%] md:-left-[20%] lg:-left-[8%] xl:left-[4%] 2xl:left-[14%]"
                   style={{
                     // top: '14%',
                     // left: '20%',
@@ -344,7 +344,7 @@ const LandingPage = () => {
 
                 {/* Task card */}
                 <div
-                  className="absolute top-[42%] md:left-[2%] lg:-left-[4%] xl:left-[4%] 2xl:left-[8%]"
+                  className="opacity-100 blur-[1px] absolute top-[7%] md:top-[42%] left-[40%] md:-left-[20%] lg:-left-[4%] xl:left-[4%] 2xl:left-[8%]"
                   style={{
                     // top: '42%',
                     // left: '20%',
@@ -394,7 +394,7 @@ const LandingPage = () => {
 
                 {/* Affirmation card */}
                 <div
-                  className="absolute top-[66%] md:-left-1 lg:-left-[8%] xl:left-[4%] 2xl:left-[10%]"
+                  className="blur-[2px] absolute top-[8%] md:top-[66%] right-[4%] md:-left-[20%] lg:-left-[8%] xl:left-[4%] 2xl:left-[10%]"
                   style={{
                     // top: '66%',
                     // left: '21%',
@@ -431,11 +431,11 @@ const LandingPage = () => {
                   </div>
                 </div>
 
-                {/* RIGHT CLUSTER */}
+                {/* RIGHT/BOTTOM CLUSTER */}
 
                 {/* Summary card */}
                 <div
-                  className="absolute top-[12%] md:right-[2%] lg:right-[4%] xl:right-[12%] 2xl:right-[24%]"
+                  className="opacity-60 blur-[1px] absolute top-[85%] md:top-[12%] md:-right-[2%] lg:right-[4%] xl:right-[12%] 2xl:right-[24%]"
                   style={{
                     // top: '12%',
                     // right: '20%',
@@ -480,7 +480,7 @@ const LandingPage = () => {
 
                 {/* Second goal card */}
                 <div
-                  className="absolute top-[42%]  md:right-0 lg:right-[2%] xl:right-[10%] 2xl:right-[18%]"
+                  className="blur-[1px] absolute top-[86%] md:top-[42%] right-[36%] md:-right-[22%] lg:right-[2%] xl:right-[10%] 2xl:right-[18%]"
                   style={{
                     // top: '42%',
                     // right: '18%',
@@ -523,10 +523,10 @@ const LandingPage = () => {
                       }}>General</span>
                     </div>
                     <p style={{ color: 'var(--brand-20)', fontSize: 13, fontWeight: 600, marginBottom: 6, lineHeight: 1.3 }}>
-                      Lower Cholesterol Levels Naturally by June 2024
+                      Lower Cholesterol Levels Naturally by June 
                     </p>
                     <p style={{ color: 'rgba(220,180,230,0.55)', fontSize: 11, lineHeight: 1.45 }}>
-                      Achieve a total cholesterol level below 200 mg/dL through diet and exercise by June 2024.
+                      Achieve a total cholesterol level below 200 mg/dL through diet and exercise by June.
                     </p>
                     <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                       {[Target, CheckSquare, Award].map((Icon, i) => (
@@ -538,7 +538,7 @@ const LandingPage = () => {
 
                 {/* Focus Timer card */}
                 <div
-                  className="absolute w-[200px] top-2/3 md:right-[2%] lg:right-[4%] xl:right-[12%] 2xl:right-[24%]"
+                  className="opacity-100 blur-[1.2px] absolute w-[200px] top-[85%] md:top-2/3 right-[4%] md:-right-[2%] lg:right-[4%] xl:right-[12%] 2xl:right-[24%]"
                   style={{
                     // top: '64%',
                     // right: '24%',
@@ -631,7 +631,7 @@ const LandingPage = () => {
                       color: '#ffffff',
                     }}
                   >
-                    Turn your week<br />
+                    Turn your weeks<br />
                     into{' '}
                     <span style={{ color: 'var(--brand-30)' }}>wins.</span>
                   </h1>
@@ -778,7 +778,7 @@ const LandingPage = () => {
                   <h2 className="font-serif text-3xl sm:text-4xl mb-4">
                     Your weekly rhythm, simplified
                   </h2>
-                  <p className="text-lg max-w-xl mx-auto" style={{ color: 'var(--secondary-text)' }}>
+                  <p className="text-lg max-w-lg mx-auto" style={{ color: 'var(--secondary-text)' }}>
                     A repeatable process that keeps you accountable to what matters most.
                   </p>
                 </div>
