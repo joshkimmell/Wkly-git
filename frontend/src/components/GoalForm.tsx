@@ -5,7 +5,7 @@ import { Category, Goal, Task } from '@utils/goalUtils'; // Import Task type
 import supabase from '@lib/supabase'; // Import Supabase client
 import { useGoalsContext } from '@context/GoalsContext';
 import LoadingSpinner from '@components/LoadingSpinner';
-import { SearchIcon, RefreshCw, CheckCircle, Edit2, Calendar, Clock, Bell, Sparkles } from 'lucide-react';
+import { SearchIcon, RefreshCw, CheckCircle, Edit2, Calendar, Clock, Bell, Sparkles, Unlock } from 'lucide-react';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
@@ -756,7 +756,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                   onClick={() => navigate('/pricing')}
                   className="btn-primary mt-4 gap-2"
                 >
-                  <Sparkles className="w-4 h-4" />
+                  <Unlock className="w-4 h-4" />
                   Upgrade to Refine Goal
                 </button>
                 <button
@@ -859,7 +859,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                   onClick={() => navigate('/pricing')}
                   className="btn-primary gap-2"
                 >
-                  <Sparkles className="w-4 h-4" />
+                  <Unlock className="w-4 h-4" />
                   Upgrade to Generate Tasks
                 </button>
               )}

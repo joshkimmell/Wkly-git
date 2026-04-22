@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ToastContainer, toast, type Id } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { Eye, Maximize2, Minimize2, Sparkles, X } from 'lucide-react';
+import { Eye, Maximize2, Minimize2, Sparkles, Unlock, X } from 'lucide-react';
 
 type ToastNotificationProps = {
   theme: 'theme-light' | 'theme-dark';
@@ -157,7 +157,7 @@ export const notifyTierLimit = (message: string) =>
   toast(
     <div className="flex flex-col gap-2 w-full">
       <div className="flex items-center gap-2 text-sm">
-        <Sparkles size={14} className="shrink-0 text-blue-500" />
+        <Unlock size={14} className="shrink-0 text-blue-500" />
         <span>{message}</span>
       </div>
       <button

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, CheckCircle, ChevronRight, Clock, FileText, Zap, AlertCircle, CalendarClock, Timer, Save, Loader2, Sparkles } from 'lucide-react';
+import { X, CheckCircle, ChevronRight, Clock, FileText, Zap, AlertCircle, CalendarClock, Timer, Save, Loader2, Sparkles, Unlock } from 'lucide-react';
 import FocusTimer, { formatTime } from './FocusTimer';
 import PomodoroTimer, { type PomodoroPhase } from './PomodoroTimer';
 import { useFocusTimer } from './FocusTimerContext';
@@ -886,13 +886,13 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-4">
-                  <Sparkles className="w-8 h-8 text-brand-40" />
+                  <Unlock className="w-8 h-8 text-brand-40" />
                   <p className="text-sm text-secondary-text">AI Assistant is available on paid plans.</p>
                   <button
                     onClick={() => { window.location.href = '/pricing'; }}
                     className="btn-primary gap-2"
                   >
-                    <Sparkles className="w-4 h-4" />
+                    <Unlock className="w-4 h-4" />
                     Upgrade to Use AI Chat
                   </button>
                 </div>

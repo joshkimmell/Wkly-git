@@ -4,7 +4,7 @@ import supabase from '@lib/supabase';
 import { Task } from '@utils/goalUtils';
 import { notifySuccess, notifyError, notifyWithUndo, notifyTierLimit } from './ToastyNotification';
 import { TextField, ToggleButtonGroup, ToggleButton, Tooltip, IconButton, Collapse, Badge, Menu, MenuItem, FormControl, InputLabel, Select, FormControlLabel, Switch } from '@mui/material';
-import { List, Calendar as CalendarIcon, Plus, X, CheckSquare2, SquareSlash, Kanban, Bell, Sparkles } from 'lucide-react';
+import { List, Calendar as CalendarIcon, Plus, X, CheckSquare2, SquareSlash, Kanban, Bell, Sparkles, Unlock } from 'lucide-react';
 import { DatePicker, TimePicker, DateTimePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -593,7 +593,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
               onClick={() => navigate('/pricing')}
               className="btn-primary gap-2"
             >
-              <Sparkles className="w-4 h-4" />
+              <Unlock className="w-4 h-4" />
               Upgrade to Generate Tasks
             </button>
           )}
@@ -679,7 +679,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
                 onClick={() => navigate('/pricing')}
                 className="btn-secondary gap-1 cursor-pointer"
               >
-                <Sparkles className="w-4 h-4" /> Upgrade to Generate
+                <Unlock className="w-4 h-4" /> Upgrade to Generate
               </button>
             )}
           

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useGoalsContext } from '@context/GoalsContext';
 import { useTimezone } from '@context/TimezoneContext';
 import useAuth from '@hooks/useAuth';
+import { useTier } from '@hooks/useTier';
 import { getSessionToken, getWeekStartDate } from '@utils/functions';
 import { notifyTierLimit } from '@components/ToastyNotification';
 import { getTodayInTimezone, formatDateInTimezone, convertToUTC } from '@utils/timezone';
@@ -34,6 +35,7 @@ import {
   ListTodo,
   PlusIcon,
   Bell,
+  Unlock,
 } from 'lucide-react';
 import { CircularProgress, MenuItem, Button, TextField, FormControl, InputLabel, Select, IconButton, FormControlLabel, Switch } from '@mui/material';
 import { DatePicker, TimePicker, DateTimePicker } from '@mui/x-date-pickers';
@@ -270,6 +272,7 @@ export default function HomePage() {
   const { profile, session } = useAuth();
   const { timezone } = useTimezone();
   const username: string | undefined = profile?.username || undefined;
+  const { isFree } = useTier();
 
   const [todayTasks, setTodayTasks]     = useState<Task[]>([]);
   const [allGoalTasks, setAllGoalTasks] = useState<Task[]>([]);
@@ -723,6 +726,7 @@ export default function HomePage() {
       </div>
 
       {/* ── quick actions ─────────────────────────────────────────────────── */}
+      
       <section>
         <h2 className="font-normal text-primary-text mb-3 flex items-center gap-2">
           <Zap className="w-4 h-4 text-primary" />
@@ -744,6 +748,15 @@ export default function HomePage() {
             onClick={() => setIsSummaryModalOpen(true)}
             className="w-full md:w-auto"
           />
+          {isFree && (
+            <ActionCard
+              icon={<Unlock className="w-6 h-6" />}
+              label="Upgrade to Pro"
+              description="Unlock unlimited goals, AI features, and more"
+              onClick={() => navigate('/pricing')}
+              className="w-full md:w-auto"
+            />
+          )}
         </div>
       </section>
 

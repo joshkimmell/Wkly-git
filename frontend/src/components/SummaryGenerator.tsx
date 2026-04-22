@@ -14,7 +14,7 @@ import { ARIA_HIDE_APP } from '@lib/modal';
 import SummaryCard from '@components/SummaryCard';
 import { modalClasses, overlayClasses } from '@styles/classes';
 import RichTextEditor from './RichTextEditor';
-import { RefreshCcw, SparklesIcon, ChevronDown } from 'lucide-react';
+import { RefreshCcw, SparklesIcon, ChevronDown, Unlock } from 'lucide-react';
 import { useTier } from '@hooks/useTier';
 
 interface SummaryGeneratorProps {
@@ -44,7 +44,7 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
   onClose: externalOnClose,
 }) => {
   const navigate = useNavigate();
-  const { canCreateSummary } = useTier();
+  const { canCreateSummary, isFree } = useTier();
   const [summary, setSummary] = useState<string | null>(initialContent || null);
   const [localSummaryId, setLocalSummaryId] = useState<string | null>(summaryId || null);
   const [summaryType, setSummaryType] = useState<string>('AI'); // Default to 'AI' if not provided
@@ -380,8 +380,30 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
                   size="small"
                 >
                   <ToggleButton value="week">Week</ToggleButton>
-                  <ToggleButton value="month">Month</ToggleButton>
-                  <ToggleButton value="year">Year</ToggleButton>
+                  <Tooltip title={isFree ? ' Upgrade to Pro to generate monthly summaries' : ''} placement="top" arrow>
+                    {/* <span style={{ flex: 1 }}> */}
+                      <ToggleButton
+                        value="month"
+                        // disabled={isFree}
+                        onClick={isFree ? () => navigate('/pricing') : undefined}
+                        // sx={{ width: '100%' }}
+                      >
+                       <span className='flex flex-wrap items-center justify-center'>Month{isFree ? <span className="text-xs text-nowrap font-semibold pl-2">(Upgrade)</span> : ''}</span>
+                      </ToggleButton>
+                    {/* </span> */}
+                  </Tooltip>
+                  <Tooltip title={isFree ? ' Upgrade to Pro to generate yearly summaries' : ''} placement="top" arrow>
+                    {/* <span style={{ flex: 1 }}> */}
+                      <ToggleButton
+                        value="year"
+                        // disabled={isFree}
+                        onClick={isFree ? () => navigate('/pricing') : undefined}
+                        // sx={{ width: '100%' }}
+                      >
+                        <span className='flex flex-wrap items-center justify-center'>Year{isFree ? <span className="text-xs text-nowrap font-semibold pl-2">(Upgrade)</span> : ''}</span>
+                      </ToggleButton>
+                    {/* </span> */}
+                  </Tooltip>
                 </ToggleButtonGroup>
               </div>
 
@@ -480,7 +502,7 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
                   </button>
                 ) : (
                   <button onClick={() => navigate('/pricing')} className="btn-primary">
-                    <SparklesIcon className="w-4 h-4 mr-2" />
+                    <Unlock className="w-4 h-4 mr-2" />
                     Upgrade to Generate
                   </button>
                 )}
@@ -555,7 +577,7 @@ const SummaryGenerator: React.FC<SummaryGeneratorProps> = ({
           </button>
         ) : (
           <button onClick={() => navigate('/pricing')} className="btn-primary gap-2 flex w-auto">
-            <SparklesIcon className="w-5 h-5" />
+            <Unlock className="w-5 h-5" />
             <span className="hidden md:inline text-nowrap">Upgrade to Generate Summary</span>
           </button>
         )}
