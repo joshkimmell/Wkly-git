@@ -15,6 +15,9 @@ import { FocusTimerProvider } from '@components/focus/FocusTimerContext';
 import { FocusModeProvider } from '@context/FocusModeContext';
 import { FireworksProvider } from '@context/FireworksContext';
 import { TierProvider } from '@context/TierContext';
+const PrivacyPage = lazy(() => import('@components/Privacy'));
+const TermsPage = lazy(() => import('@components/Terms'));
+
 
 // Lazy-loaded authenticated routes — not downloaded until the user logs in
 const AllGoals = lazy(() => import('@components/AllGoals'));
@@ -310,6 +313,9 @@ const App: React.FC = () => {
               <Route path="/auth" element={<Navigate to="/" replace />} />
               <Route path="/profile" element={<ProfileManagement />} />
               <Route path="/pricing" element={<PricingPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+
               <Route path="/admin/access" element={<AdminAccessRequests />} />
               <Route path="/affirmations" element={<AffirmationsLayout />}>
                 <Route index element={<AffirmationToday />} />

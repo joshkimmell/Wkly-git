@@ -3,10 +3,11 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, Button, IconButton }
 import { X } from 'lucide-react';
 import Logo from '@components/Logo';
 
-const EFFECTIVE_DATE = 'April 7, 2026';
+const EFFECTIVE_DATE = 'April 27, 2026';
 
 const TermsContent: React.FC = () => (
   <div className="space-y-4 text-sm text-secondary-text leading-relaxed">
+    <h1 className="text-2xl font-serif text-primary mb-4">Terms &amp; Conditions</h1>
     <p>These Terms and Conditions (&quot;Terms&quot;) govern your access to and use of the Wkly application and website located at wkly.me (collectively, the &quot;Service&quot;), operated by Wkly (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;). By accessing or using the Service, you agree to be bound by these Terms. If you do not agree, do not use the Service.</p>
 
     <h3 className="font-bold text-primary-text">1. Eligibility</h3>
@@ -52,6 +53,7 @@ const TermsContent: React.FC = () => (
 
 const PrivacyContent: React.FC = () => (
   <div className="space-y-4 text-sm text-secondary-text leading-relaxed">
+    <h1 className="text-2xl font-serif text-primary mb-4">Privacy Policy</h1>
     <p>This Privacy Policy (&quot;Policy&quot;) describes how Wkly (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) collects, uses, stores, and protects your personal information when you use the Wkly application and website at wkly.me (the &quot;Service&quot;). By using the Service, you consent to the practices described in this Policy.</p>
 
     <h3 className="font-bold text-primary-text">1. Information We Collect</h3>
@@ -120,13 +122,15 @@ const Footer: React.FC = () => {
 
           <div className="flex items-center gap-4">
             <button
-              onClick={() => setTermsOpen(true)}
+              // onClick={() => setTermsOpen(true)}
+              onClick={() => { window.location.href = '/terms'; }}
               className="btn-link cursor-pointer"
             >
               Terms
             </button>
             <button
-              onClick={() => setPrivacyOpen(true)}
+              // onClick={() => setPrivacyOpen(true)}
+              onClick={() => { window.location.href = '/privacy'; }}
               className="btn-link cursor-pointer"
             >
               Privacy
@@ -173,3 +177,4 @@ const Footer: React.FC = () => {
 };
 
 export default Footer;
+export { TermsContent, PrivacyContent, EFFECTIVE_DATE };
