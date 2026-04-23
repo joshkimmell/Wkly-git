@@ -266,11 +266,12 @@ const App: React.FC = () => {
   
   // Goals are fetched by the GoalsProvider on mount; no need to fetch here.
   
-  if (isLoading && !testing) return 
+  if (isLoading && !testing) return (
     <div className="fixed top-0 mt-0 h-[100vh] w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center">
       <div className="loader"><LoadingSpinner variant="mui" /></div>
       {/* <span className="ml-2">Generating plan...</span> */}
     </div>
+  );
   if (!effectiveSession) {
     return (
       <Routes>

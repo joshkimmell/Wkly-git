@@ -81,7 +81,7 @@ export const handler = withCors(async (event) => {
       headers: {
         'Access-Control-Allow-Origin': '*', // Or specify the allowed origin
         'Content-Type': 'application/json',
-        'Cache-Control': 'public, max-age=10, stale-while-revalidate=30',
+        'Cache-Control': 'private, no-store',
       },
       body: JSON.stringify(responseData),
     };
