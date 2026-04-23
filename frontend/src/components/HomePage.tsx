@@ -450,6 +450,8 @@ export default function HomePage() {
     setTodayTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
     // Also update the goal-level task list so MiniGoalCard donuts reflect the change immediately
     setAllGoalTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+    // Notify FocusTimerContext and FocusModeContext so they can stop if status leaves "In progress"
+    window.dispatchEvent(new CustomEvent('task:updated', { detail: { taskId, status: newStatus } }));
     try {
       const token = await getSessionToken();
       const response = await fetch('/.netlify/functions/updateTask', {

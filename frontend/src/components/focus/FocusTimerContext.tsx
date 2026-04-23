@@ -159,6 +159,23 @@ export function FocusTimerProvider({ children }: { children: React.ReactNode }) 
     return t ? compute(t) : 0;
   }, []);
 
+  // ── Reset timer when the active task's status leaves "In progress" ──────────
+  useEffect(() => {
+    const handleTaskUpdated = (e: Event) => {
+      const { taskId, status, updates } = (e as CustomEvent).detail ?? {};
+      const activeId = timerRef.current?.taskId;
+      if (!activeId || taskId !== activeId) return;
+      const newStatus = status ?? updates?.status;
+      if (newStatus !== undefined && newStatus !== 'In progress') {
+        removeTimer();
+        setTimer(null);
+        setElapsed(0);
+      }
+    };
+    window.addEventListener('task:updated', handleTaskUpdated as EventListener);
+    return () => window.removeEventListener('task:updated', handleTaskUpdated as EventListener);
+  }, []);
+
   // ── Derived timer state ─────────────────────────────────────────────────────
 
   const timerState: TimerState =

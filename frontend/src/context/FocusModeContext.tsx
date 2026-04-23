@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { Task } from '@utils/goalUtils';
 
 interface FocusModeRequest {
@@ -38,6 +38,22 @@ export const FocusModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const handleDone = useCallback(async (taskId: string) => {
     if (active) await active.onDone(taskId);
+  }, [active]);
+
+  // Close focus mode when the active task's status changes away from "In progress"
+  useEffect(() => {
+    if (!active) return;
+    const handleTaskUpdated = (e: Event) => {
+      const { taskId, status, updates } = (e as CustomEvent).detail ?? {};
+      if (taskId !== active.task.id) return;
+      const newStatus = status ?? updates?.status;
+      if (newStatus !== undefined && newStatus !== 'In progress') {
+        active.onClose();
+        setActive(null);
+      }
+    };
+    window.addEventListener('task:updated', handleTaskUpdated as EventListener);
+    return () => window.removeEventListener('task:updated', handleTaskUpdated as EventListener);
   }, [active]);
 
   // Lazy import to avoid circular dep at module load time
