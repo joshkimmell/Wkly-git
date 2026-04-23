@@ -17,6 +17,7 @@ import { FireworksProvider } from '@context/FireworksContext';
 import { TierProvider } from '@context/TierContext';
 const PrivacyPage = lazy(() => import('@components/Privacy'));
 const TermsPage = lazy(() => import('@components/Terms'));
+const CookieConsent = lazy(() => import('@components/CookieConsent'));
 
 
 // Lazy-loaded authenticated routes — not downloaded until the user logs in
@@ -329,6 +330,7 @@ const App: React.FC = () => {
           </main>
           <Footer />
           </PullToRefresh>
+          <Suspense fallback={null}><CookieConsent /></Suspense>
         </GoalsProvider>
         </Suspense>
       </div>
