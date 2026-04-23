@@ -7,7 +7,7 @@ import { useTier } from '@hooks/useTier';
 import { getSessionToken, getWeekStartDate } from '@utils/functions';
 import { notifyTierLimit } from '@components/ToastyNotification';
 import { getTodayInTimezone, formatDateInTimezone, convertToUTC } from '@utils/timezone';
-import { Task, Goal, calculateGoalCompletion } from '@utils/goalUtils';
+import { Task, Goal, Win, calculateGoalCompletion } from '@utils/goalUtils';
 // import LoadingSpinner from '@components/LoadingSpinner';
 import GoalForm from '@components/GoalForm';
 import TasksList from '@components/TasksList';
@@ -301,6 +301,7 @@ export default function HomePage() {
   const [standaloneReminderDatetime, setStandaloneReminderDatetime] = useState('');
   const [standaloneSelectedReminderDatetime, setStandaloneSelectedReminderDatetime] = useState<Dayjs | null>(null);
   const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
+  const [accomplishments, setAccomplishments] = useState<Win[]>([]);
 
   // ── daily affirmation interstitial ────────────────────────────────────────
   const [showAffirmationInterstitial, setShowAffirmationInterstitial] = useState(() => shouldShowInterstitial());
@@ -330,16 +331,58 @@ export default function HomePage() {
     return acc;
   }, {});
 
-  // Filter out 100%-complete goals; sort by completion % ascending (in-progress first)
+  // Filter out 100%-complete goals; sort by completion % descending
   const sortedGoals = [...goals]
-    .filter(goal => calculateGoalCompletion(tasksByGoal[goal.id] ?? []) < 100)
+    .filter(goal => {
+      if (calculateGoalCompletion(tasksByGoal[goal.id] ?? []) >= 100) return false;
+      // Free tier: only show goals that have at least one In-progress task
+      if (isFree) return (tasksByGoal[goal.id] ?? []).some(t => t.status === 'In progress');
+      return true;
+    })
     .sort((a, b) => {
       const pa = calculateGoalCompletion(tasksByGoal[a.id] ?? []);
       const pb = calculateGoalCompletion(tasksByGoal[b.id] ?? []);
       return pb - pa;
     });
-  const latestGoals   = sortedGoals.slice(0, goalsExpanded ? 10 : 3);
+  // Free tier is capped at 3 active goals; paid can expand up to 10
+  const latestGoals = isFree
+    ? sortedGoals.slice(0, 3)
+    : sortedGoals.slice(0, goalsExpanded ? 10 : 3);
   const hasGoals      = goals.length > 0;
+
+  // ── fetch accomplishments (user-logged wins) ─────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await getSessionToken();
+        if (!token) return;
+        const res = await fetch('/.netlify/functions/getAllAccomplishments', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data: Win[] = await res.json();
+        if (!cancelled) setAccomplishments(data);
+      } catch { /* silent */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Wins: user-logged accomplishments + done tasks, newest first
+  const loggedWins = accomplishments
+    .map(w => ({ id: `win-${w.id}`, type: 'win' as const, title: w.title, impact: w.impact,  date: w.created_at }));
+
+  const doneTaskWins = allGoalTasks
+    .filter(t => t.status === 'Done')
+    .map(t => ({ id: `task-${t.id}`, type: 'task' as const, title: t.title, goal: t.goal?.title, date: t.updated_at || t.scheduled_date || t.created_at }));
+
+  const latestWins = [...loggedWins, ...doneTaskWins]
+    .sort((a, b) => {
+      const da = a.date ? new Date(a.date).getTime() : 0;
+      const db = b.date ? new Date(b.date).getTime() : 0;
+      return db - da;
+    })
+    .slice(0, 5);
 
   // ── fetch today's tasks ───────────────────────────────────────────────────
   const fetchTodayTasks = useCallback(async () => {
@@ -762,42 +805,7 @@ export default function HomePage() {
 
       {/* two-column grid on md+ */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-        {/* ── latest goals ─────────────────────────────────────────────── */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-normal text-primary-text flex items-center gap-2">
-              <Target className="w-4 h-4 text-primary" />
-              Latest goals
-              {goalsExpanded && sortedGoals.length > 3 && (
-                <span className="text-xs font-normal text-gray-50 dark:text-gray-40">
-                  showing {latestGoals.length} of {sortedGoals.length}
-                </span>
-              )}
-            </h2>
-            <button
-              onClick={goToGoals}
-              className="btn-primary hover:underline flex items-center gap-0.5"
-            >
-              View all <ChevronRight className="w-3 h-3" />
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {latestGoals.map(goal => (
-              <MiniGoalCard key={goal.id} goal={goal} tasks={tasksByGoal[goal.id] ?? []} onClick={() => openTasksModal(goal)} />
-            ))}
-            {sortedGoals.length > 3 && (
-              <button
-                onClick={() => setGoalsExpanded(e => !e)}
-                className="btn-ghost w-full text-xs text-primary-link underline text-center pt-1"
-              >
-                {goalsExpanded ? 'View less' : `+${sortedGoals.length - 3} more`}
-              </button>
-            )}
-          </div>
-        </section>
-
+        
         {/* ── today's tasks ─────────────────────────────────────────────── */}
         <section>
           <div className="flex items-center justify-between mb-3">
@@ -858,6 +866,69 @@ export default function HomePage() {
             )}
           </div>
         </section>
+        
+        {/* ── latest goals ─────────────────────────────────────────────── */}
+        <section>
+          
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-normal text-primary-text flex items-center gap-2">
+              <Target className="w-4 h-4 text-primary" />
+              {isFree ? 'Active goals' : 'Latest goals'}
+              {!isFree && goalsExpanded && sortedGoals.length > 3 && (
+                <span className="text-xs font-normal text-gray-50 dark:text-gray-40">
+                  showing {latestGoals.length} of {sortedGoals.length}
+                </span>
+              )}
+            </h2>
+            <button
+              onClick={goToGoals}
+              className="btn-primary hover:underline flex items-center gap-0.5"
+            >
+              View all <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {latestGoals.map(goal => (
+              <MiniGoalCard key={goal.id} goal={goal} tasks={tasksByGoal[goal.id] ?? []} onClick={() => openTasksModal(goal)} />
+            ))}
+            {!isFree && sortedGoals.length > 3 && (
+              <button
+                onClick={() => setGoalsExpanded(e => !e)}
+                className="btn-ghost w-full text-xs text-primary-link underline text-center pt-1"
+              >
+                {goalsExpanded ? 'View less' : `+${sortedGoals.length - 3} more`}
+              </button>
+            )}
+          </div>
+
+          {latestWins.length > 0 && (
+            <div className="mt-8 pt-4 border-t border-gray-20 dark:border-gray-80">
+              <h2 className="font-normal text-primary-text flex items-center gap-2">
+                <Award className="w-4 h-4 text-primary" />
+                Latest wins
+              </h2>
+              <ul className="mt-4 space-y-1.5">
+                {latestWins.map(win => (
+                  <li key={win.id} className="flex items-start gap-2 text-sm pl-6">
+                    {win.type === 'win' ? (
+                      <Award className="mt-1 w-3.5 h-3.5 text-amber-500 dark:text-amber-400 shrink-0" />
+                    ) : (
+                      <CheckSquare className="mt-1 w-3.5 h-3.5 text-green-500 dark:text-green-400 shrink-0" />
+                    )}
+                    <span className="mt-0 truncate text-primary-text">{win.title} <br />
+                      {win.type === 'win' ? <span className='text-xs text-secondary-text'>{win.impact}</span> : <span className='text-xs text-secondary-text'>{win.goal}</span>}</span>
+                    {/* {win.type === 'win' && (
+                      <span className="ml-auto text-xs text-amber-600 dark:text-amber-400 shrink-0 font-medium">Win</span>
+                    )} */}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+
+        
       </div>
 
       {/* ── daily affirmation (inline) ───────────────────────────────────── */}
