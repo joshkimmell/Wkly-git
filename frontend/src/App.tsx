@@ -203,6 +203,8 @@ const App: React.FC = () => {
         const dbSessions: Array<{
           task_id: string;
           elapsed_seconds: number;
+          accumulated_seconds?: number;
+          started_at?: string | null;
           timer_state: string;
           chat_messages: unknown[];
           suggested_tasks: unknown[];

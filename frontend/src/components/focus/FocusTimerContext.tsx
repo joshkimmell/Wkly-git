@@ -4,11 +4,23 @@
  * A global timer that outlives the TaskFocusMode overlay.
  * Uses a stored start-timestamp so elapsed is accurate after
  * component unmount, navigation, or page refresh.
+ *
+ * Cross-device sync strategy:
+ *  - On every mutation (start/pause/resume/reset), the timer state is
+ *    immediately pushed to the DB via updateTimerState.
+ *  - On mount, if no local running timer exists, the DB is queried for
+ *    any running session and it is restored — so opening the same task
+ *    on a second device shows the same live timer.
+ *  - A 30-second poll checks for remote changes (start/pause from another
+ *    device) and adopts them if the DB row is newer than our last local
+ *    mutation.
  */
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
+import supabase from '@lib/supabase';
 export type TimerState = 'idle' | 'running' | 'paused';
 
 const BG_TIMER_KEY = 'wkly_bg_timer';
+const POLL_INTERVAL_MS = 30_000;
 
 interface StoredTimer {
   taskId: string;
@@ -75,6 +87,17 @@ function compute(t: StoredTimer): number {
   return t.accumulatedSeconds;
 }
 
+// ── DB session type (subset returned by getAllFocusSessions / getFocusSession) ─
+
+interface DbTimerRow {
+  task_id: string;
+  timer_state: string;
+  accumulated_seconds?: number;
+  elapsed_seconds: number;
+  started_at: string | null;
+  updated_at: string;
+}
+
 // ── Provider ─────────────────────────────────────────────────────────────────
 
 export function FocusTimerProvider({ children }: { children: React.ReactNode }) {
@@ -90,6 +113,9 @@ export function FocusTimerProvider({ children }: { children: React.ReactNode }) 
     timerRef.current = timer;
   }, [timer]);
 
+  // Track when we last mutated locally so the poll doesn't clobber fresh changes
+  const lastLocalMutationRef = useRef<number>(0);
+
   // Single always-on interval – only updates state when timer is running
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -101,6 +127,118 @@ export function FocusTimerProvider({ children }: { children: React.ReactNode }) 
     return () => clearInterval(id);
   }, []);
 
+  // ── DB sync helper ────────────────────────────────────────────────────────
+
+  const syncTimerToDb = useCallback(async (payload: {
+    task_id: string;
+    timer_state: 'running' | 'paused' | 'idle';
+    accumulated_seconds: number;
+    started_at: string | null;
+  }) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+      fetch('/.netlify/functions/updateTimerState', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify(payload),
+      }).catch(() => {});
+    } catch { /* non-critical */ }
+  }, []);
+
+  // ── On mount: restore running timer from DB if none is running locally ────
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const localTimer = loadTimer();
+        if (localTimer?.startedAt != null) return; // Already running locally — trust it
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
+
+        const res = await fetch('/.netlify/functions/getAllFocusSessions', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (!res.ok) return;
+        const sessions: DbTimerRow[] = await res.json();
+
+        const running = sessions.find(s => s.timer_state === 'running' && s.started_at);
+        if (!running) return;
+
+        // Don't overwrite a local paused timer for a different task
+        if (localTimer && localTimer.taskId !== running.task_id) return;
+
+        const startedAtMs = new Date(running.started_at!).getTime();
+        const t: StoredTimer = {
+          taskId: running.task_id,
+          accumulatedSeconds: running.accumulated_seconds ?? 0,
+          startedAt: startedAtMs,
+        };
+        saveTimer(t);
+        setTimer(t);
+        setElapsed(compute(t));
+      } catch { /* non-critical */ }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Poll every 30s to adopt changes made on another device ───────────────
+
+  useEffect(() => {
+    const poll = async () => {
+      const t = timerRef.current;
+      if (!t) return;
+      // Skip if we mutated recently (our local state is authoritative)
+      if (Date.now() - lastLocalMutationRef.current < POLL_INTERVAL_MS) return;
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
+
+        const res = await fetch(
+          `/.netlify/functions/getFocusSession?task_id=${t.taskId}`,
+          { headers: { Authorization: `Bearer ${session.access_token}` } },
+        );
+        if (!res.ok) return;
+        const db: DbTimerRow | null = await res.json();
+        if (!db) return;
+
+        const dbUpdatedMs = new Date(db.updated_at).getTime();
+        if (dbUpdatedMs <= lastLocalMutationRef.current) return; // Our state is newer
+
+        if (db.timer_state === 'running' && db.started_at && t.startedAt == null) {
+          // Another device started the timer
+          const updated: StoredTimer = {
+            taskId: t.taskId,
+            accumulatedSeconds: db.accumulated_seconds ?? 0,
+            startedAt: new Date(db.started_at).getTime(),
+          };
+          saveTimer(updated);
+          setTimer(updated);
+          setElapsed(compute(updated));
+        } else if (db.timer_state !== 'running' && t.startedAt != null) {
+          // Another device paused or stopped the timer
+          const acc = db.accumulated_seconds ?? db.elapsed_seconds;
+          if (db.timer_state === 'idle') {
+            removeTimer();
+            setTimer(null);
+            setElapsed(0);
+          } else {
+            const updated: StoredTimer = { taskId: t.taskId, accumulatedSeconds: acc, startedAt: null };
+            saveTimer(updated);
+            setTimer(updated);
+            setElapsed(acc);
+          }
+        }
+      } catch { /* non-critical */ }
+    };
+
+    const id = window.setInterval(poll, POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Timer mutators ──────────────────────────────────────────────────────────
 
   const initTimer = useCallback((taskId: string, accumulatedSeconds: number) => {
@@ -108,46 +246,75 @@ export function FocusTimerProvider({ children }: { children: React.ReactNode }) 
     saveTimer(t);
     setTimer(t);
     setElapsed(accumulatedSeconds);
+    // initTimer is used for restoring a paused session; no DB push needed
+    // (the DB already has the paused state from when it was saved)
   }, []);
 
   const startTimer = useCallback((taskId: string, accumulatedSeconds = 0) => {
-    const t: StoredTimer = { taskId, accumulatedSeconds, startedAt: Date.now() };
+    const startedAt = Date.now();
+    const t: StoredTimer = { taskId, accumulatedSeconds, startedAt };
     saveTimer(t);
     setTimer(t);
     setElapsed(accumulatedSeconds);
-  }, []);
+    lastLocalMutationRef.current = startedAt;
+    syncTimerToDb({
+      task_id: taskId,
+      timer_state: 'running',
+      accumulated_seconds: accumulatedSeconds,
+      started_at: new Date(startedAt).toISOString(),
+    });
+  }, [syncTimerToDb]);
 
   const pauseTimer = useCallback(() => {
-    setTimer((prev) => {
-      if (!prev) return prev;
-      const acc = compute(prev);
-      const updated: StoredTimer = { ...prev, accumulatedSeconds: acc, startedAt: null };
-      saveTimer(updated);
-      setElapsed(acc);
-      return updated;
+    const prev = timerRef.current;
+    if (!prev) return;
+    const acc = compute(prev);
+    const updated: StoredTimer = { ...prev, accumulatedSeconds: acc, startedAt: null };
+    saveTimer(updated);
+    setTimer(updated);
+    setElapsed(acc);
+    lastLocalMutationRef.current = Date.now();
+    syncTimerToDb({
+      task_id: updated.taskId,
+      timer_state: 'paused',
+      accumulated_seconds: acc,
+      started_at: null,
     });
-  }, []);
+  }, [syncTimerToDb]);
 
   const resumeTimer = useCallback(() => {
-    setTimer((prev) => {
-      if (!prev) return prev;
-      const updated: StoredTimer = { ...prev, startedAt: Date.now() };
-      saveTimer(updated);
-      return updated;
+    const prev = timerRef.current;
+    if (!prev) return;
+    const startedAt = Date.now();
+    const updated: StoredTimer = { ...prev, startedAt };
+    saveTimer(updated);
+    setTimer(updated);
+    lastLocalMutationRef.current = startedAt;
+    syncTimerToDb({
+      task_id: updated.taskId,
+      timer_state: 'running',
+      accumulated_seconds: updated.accumulatedSeconds,
+      started_at: new Date(startedAt).toISOString(),
     });
-  }, []);
+  }, [syncTimerToDb]);
 
   const resetTimer = useCallback(() => {
+    const taskId = timerRef.current?.taskId;
     removeTimer();
     setTimer(null);
     setElapsed(0);
-  }, []);
+    lastLocalMutationRef.current = Date.now();
+    if (taskId) syncTimerToDb({ task_id: taskId, timer_state: 'idle', accumulated_seconds: 0, started_at: null });
+  }, [syncTimerToDb]);
 
   const clearTimer = useCallback(() => {
+    const taskId = timerRef.current?.taskId;
     removeTimer();
     setTimer(null);
     setElapsed(0);
-  }, []);
+    lastLocalMutationRef.current = Date.now();
+    if (taskId) syncTimerToDb({ task_id: taskId, timer_state: 'idle', accumulated_seconds: 0, started_at: null });
+  }, [syncTimerToDb]);
 
   const isActiveFor = useCallback(
     (taskId: string) => timer?.taskId === taskId,
@@ -170,11 +337,13 @@ export function FocusTimerProvider({ children }: { children: React.ReactNode }) 
         removeTimer();
         setTimer(null);
         setElapsed(0);
+        lastLocalMutationRef.current = Date.now();
+        syncTimerToDb({ task_id: activeId, timer_state: 'idle', accumulated_seconds: 0, started_at: null });
       }
     };
     window.addEventListener('task:updated', handleTaskUpdated as EventListener);
     return () => window.removeEventListener('task:updated', handleTaskUpdated as EventListener);
-  }, []);
+  }, [syncTimerToDb]);
 
   // ── Derived timer state ─────────────────────────────────────────────────────
 
@@ -207,3 +376,4 @@ export function FocusTimerProvider({ children }: { children: React.ReactNode }) 
     </FocusTimerContext.Provider>
   );
 }
+
