@@ -1,6 +1,6 @@
 import React from 'react';
 // import { useSearchParams, useNavigate } from 'react-router-dom';
-import { PrivacyContent } from './Footer';
+import { EFFECTIVE_DATE, PrivacyContent } from './Footer';
 
 
 
@@ -11,6 +11,7 @@ const PrivacyPage: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">
+      <p className="text-xs text-secondary-text">{EFFECTIVE_DATE}</p>
       <PrivacyContent />
     </div>
   );
