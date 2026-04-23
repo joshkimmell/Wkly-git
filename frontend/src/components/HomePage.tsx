@@ -376,7 +376,9 @@ export default function HomePage() {
     .filter(t => t.status === 'Done')
     .map(t => ({ id: `task-${t.id}`, type: 'task' as const, title: t.title, goal: t.goal?.title, date: t.updated_at || t.scheduled_date || t.created_at }));
 
+  const twoWeeksAgo = Date.now() - 14 * 24 * 60 * 60 * 1000;
   const latestWins = [...loggedWins, ...doneTaskWins]
+    .filter(w => w.date ? new Date(w.date).getTime() >= twoWeeksAgo : false)
     .sort((a, b) => {
       const da = a.date ? new Date(a.date).getTime() : 0;
       const db = b.date ? new Date(b.date).getTime() : 0;
@@ -866,7 +868,7 @@ export default function HomePage() {
             )}
           </div>
         </section>
-        
+
         {/* ── latest goals ─────────────────────────────────────────────── */}
         <section>
           
@@ -902,7 +904,7 @@ export default function HomePage() {
             )}
           </div>
 
-          {latestWins.length > 0 && (
+          {(latestWins.length > 0) && (
             <div className="mt-8 pt-4 border-t border-gray-20 dark:border-gray-80">
               <h2 className="font-normal text-primary-text flex items-center gap-2">
                 <Award className="w-4 h-4 text-primary" />
