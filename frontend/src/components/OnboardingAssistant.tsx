@@ -25,6 +25,10 @@ import {
   User2,
   Sparkles,
 } from 'lucide-react';
+import { TimePicker } from '@mui/x-date-pickers';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs, { type Dayjs } from 'dayjs';
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
@@ -90,7 +94,7 @@ const OnboardingAssistant: React.FC<OnboardingAssistantProps> = ({ onComplete })
 
   // ── Affirmations state ──
   const [affirmationEnabled, setAffirmationEnabled] = useState(true);
-  const [affirmationTime, setAffirmationTime] = useState('09:00');
+  const [affirmationTime, setAffirmationTime] = useState<Dayjs | null>(dayjs().hour(9).minute(0).second(0));
   const [affirmationCategories, setAffirmationCategories] = useState<string[]>([
     'General',
     'Productivity',
@@ -187,7 +191,7 @@ const OnboardingAssistant: React.FC<OnboardingAssistantProps> = ({ onComplete })
       // 3. Save affirmation preferences
       await updateAffirmationPreferences({
         daily_notification: affirmationEnabled,
-        notification_time: affirmationTime,
+        notification_time: affirmationTime?.format('HH:mm') ?? '09:00',
         preferred_categories: affirmationCategories,
       });
 
@@ -507,8 +511,8 @@ const OnboardingAssistant: React.FC<OnboardingAssistantProps> = ({ onComplete })
           {/* ── Step 4: Affirmations ───────────────────────────────── */}
           {currentStep.id === 'affirmations' && (
             <div className="space-y-5">
-              <div className="flex items-center gap-3 mb-1">
-                <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-brand-10 dark:bg-brand-90">
+              <div className="flex items-start gap-3 mb-1">
+                <div className="flex items-start justify-center w-9 h-9 rounded-xl bg-brand-10 dark:bg-brand-90">
                   <Sparkles className="w-5 h-5 text-primary" />
                 </div>
                 <div>
@@ -534,12 +538,13 @@ const OnboardingAssistant: React.FC<OnboardingAssistantProps> = ({ onComplete })
               {affirmationEnabled && (
                 <div className="flex items-center gap-3 p-4 rounded-xl bg-brand-0/60 dark:bg-gray-80/30">
                   <span className="text-sm text-secondary-text">Deliver at</span>
-                  <input
-                    type="time"
-                    value={affirmationTime}
-                    onChange={(e) => setAffirmationTime(e.target.value)}
-                    className="rounded-lg border border-gray-20 dark:border-gray-70 bg-transparent px-3 py-1.5 text-sm text-primary-text focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
+                  <LocalizationProvider dateAdapter={AdapterDayjs}>
+                    <TimePicker
+                      value={affirmationTime}
+                      onChange={(newValue) => setAffirmationTime(newValue)}
+                      className="rounded-lg border border-gray-20 dark:border-gray-70 bg-transparent px-3 py-1.5 text-sm text-primary-text focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </LocalizationProvider>
                 </div>
               )}
 
@@ -601,6 +606,16 @@ const OnboardingAssistant: React.FC<OnboardingAssistantProps> = ({ onComplete })
           {/* ── Navigation (all steps except last) ─────────────────── */}
           {!isLastStep && (
             <div className="flex items-center justify-between mt-8">
+                <button
+                    type="button"
+                    onClick={() => {
+                        localStorage.setItem(ONBOARDING_KEY, '1');
+                        onComplete(false);
+                    }}
+                    className="text-xs btn-ghost hover:underline"
+                >
+                    Skip setup
+                </button>
               {stepIndex > 0 ? (
                 <button
                   type="button"
