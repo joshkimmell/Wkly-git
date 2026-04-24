@@ -38,6 +38,7 @@ const AffirmationArchive = lazy(() => import('@components/affirmations/Affirmati
 const AffirmationSubmit = lazy(() => import('@components/affirmations/AffirmationSubmit'));
 const AffirmationSaved = lazy(() => import('@components/affirmations/AffirmationSaved'));
 const AffirmationSettings = lazy(() => import('@components/affirmations/AffirmationSettings'));
+const OnboardingAssistant = lazy(() => import('@components/OnboardingAssistant'));
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Chip } from '@mui/material';
 import { Bell, Calendar, FileText } from 'lucide-react';
 import { loadSession, saveSession } from '@components/focus/useFocusSession';
@@ -66,6 +67,7 @@ const App: React.FC = () => {
     return 'theme-dark';
   });
   const [isOpen, /*setIsOpen*/] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const toggleTheme = () => setTheme(prev => {
     const next = prev === 'theme-dark' ? 'theme-light' : 'theme-dark';
@@ -155,6 +157,27 @@ const App: React.FC = () => {
       // ignore
     }
   }, [profile]);
+
+  // Show onboarding wizard for first-time users (no meaningful username set and
+  // no completion flag in localStorage).
+  useEffect(() => {
+    if (testing || !profile || !session) return;
+    try {
+      const completed = localStorage.getItem('wkly_onboarding_complete');
+      if (completed) return;
+      const hasUsername = profile.username && !profile.username.includes('@');
+      if (!hasUsername) {
+        setShowOnboarding(true);
+      }
+    } catch { /* ignore */ }
+  }, [profile, session, testing]);
+
+  const handleOnboardingComplete = (createGoal: boolean) => {
+    setShowOnboarding(false);
+    if (createGoal) {
+      navigate('/goals');
+    }
+  };
 
   // Identify the authenticated user in Pendo once session + profile are loaded
   useEffect(() => {
@@ -333,6 +356,11 @@ const App: React.FC = () => {
           <Footer />
           </PullToRefresh>
           <Suspense fallback={null}><CookieConsent /></Suspense>
+          {showOnboarding && (
+            <Suspense fallback={null}>
+              <OnboardingAssistant onComplete={handleOnboardingComplete} />
+            </Suspense>
+          )}
         </GoalsProvider>
         </Suspense>
       </div>
