@@ -182,13 +182,13 @@ const PricingPage: React.FC = () => {
           <div className="inline-flex rounded-full border border-gray-20 dark:border-gray-70 p-1 bg-gray-10 dark:bg-gray-80">
             <button
               onClick={() => setBillingCycle('monthly')}
-              className={`px-4 py-2 rounded-l-full text-sm font-medium transition-all ${billingCycle !== 'monthly' ? 'text-primary hover:text-primary bg-background hover:bg-background-color shadow-sm hover:underline' : 'bg-primary hover:bg-primary text-inverse-text hover:text-inverse-text cursor-default'}`}
+              className={`px-4 py-2 rounded-l-full text-sm font-medium transition-all ${billingCycle !== 'monthly' ? 'text-primary hover:text-primary bg-background hover:bg-background-color shadow-sm hover:underline' : 'bg-primary hover:bg-primary text-inverse-text hover:text-white cursor-default'}`}
             >
               Monthly
             </button>
             <button
               onClick={() => setBillingCycle('yearly')}
-              className={`px-4 py-2 rounded-r-full text-sm font-medium transition-all ${billingCycle !== 'yearly' ? 'text-primary hover:text-primary bg-background hover:bg-background-color shadow-sm hover:underline' : 'bg-primary hover:bg-primary text-inverse-text hover:text-inverse-text cursor-default'}`}
+              className={`px-4 py-2 rounded-r-full text-sm font-medium transition-all ${billingCycle !== 'yearly' ? 'text-primary hover:text-primary bg-background hover:bg-background-color shadow-sm hover:underline' : 'bg-primary hover:bg-primary text-inverse-text hover:text-white cursor-default'}`}
             >
               Yearly <span className="text-xs opacity-75">&nbsp;– Save 33%</span>
             </button>

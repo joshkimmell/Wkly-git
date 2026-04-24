@@ -407,6 +407,7 @@ const buildTheme = (mode: 'theme-dark' | 'theme-light') => {
           root: {
             backgroundColor: 'var(--brand-30)',
             border: `2px solid ${primaryIcon || 'transparent'}`,
+            color: 'var(--brand-80)',
           },
         },
       },
