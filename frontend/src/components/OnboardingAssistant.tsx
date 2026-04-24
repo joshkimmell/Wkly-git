@@ -32,7 +32,7 @@ export const ONBOARDING_KEY = 'wkly_onboarding_complete';
 
 const PALETTE_KEYS: PaletteKey[] = ['gray', 'red', 'teal', 'green', 'blue', 'indigo', 'purple'];
 
-const PALETTE_NAMES: Record<PaletteKey, string> = {
+const PALETTE_NAMES: Partial<Record<PaletteKey, string>> = {
   gray: 'Slate',
   red: 'Crimson',
   teal: 'Teal',
@@ -192,12 +192,18 @@ const OnboardingAssistant: React.FC<OnboardingAssistantProps> = ({ onComplete })
       });
 
       localStorage.setItem(ONBOARDING_KEY, '1');
+      if (createGoal) {
+        try { sessionStorage.setItem('wkly_open_goal_modal', '1'); } catch { /* ignore */ }
+      }
       onComplete(createGoal);
     } catch (err) {
       console.error('[OnboardingAssistant] Save error:', err);
       notifyError('Could not save all preferences — you can update them in Settings later.');
       // Don't block the user; still mark complete
       localStorage.setItem(ONBOARDING_KEY, '1');
+      if (createGoal) {
+        try { sessionStorage.setItem('wkly_open_goal_modal', '1'); } catch { /* ignore */ }
+      }
       onComplete(createGoal);
     } finally {
       setSaving(false);
@@ -231,7 +237,7 @@ const OnboardingAssistant: React.FC<OnboardingAssistantProps> = ({ onComplete })
       aria-modal="true"
       aria-label="Account setup wizard"
     >
-      <div className="bg-gray-10 dark:bg-gray-90 rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+      <div className="bg-background-color rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
         {/* Top progress bar */}
         <div className="h-1 bg-gray-20 dark:bg-gray-80">
           <div
@@ -265,17 +271,17 @@ const OnboardingAssistant: React.FC<OnboardingAssistantProps> = ({ onComplete })
           {/* ── Step 0: Welcome ────────────────────────────────────── */}
           {currentStep.id === 'welcome' && (
             <div className="text-center space-y-4">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-10 dark:bg-brand-90 mb-2">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-brand-10 dark:bg-brand-90 border border-primary mb-2">
                 <Rocket className="w-8 h-8 text-primary" />
               </div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-primary-text">
+              <h1 className="text-2xl sm:text-3xl font-serif text-primary-text">
                 Welcome to Wkly!
               </h1>
               <p className="text-secondary-text text-sm leading-relaxed max-w-xs mx-auto">
-                Let's take 2 minutes to personalize your experience — profile, theme, focus style, and daily motivation.
+                Let's take a minute to personalize your experience — profile, theme, focus style, and daily motivation.
               </p>
               <p className="text-xs text-secondary-text/60 mt-1">
-                Everything can be changed later in Settings.
+                Everything can be changed later in Preferences.
               </p>
             </div>
           )}
@@ -283,8 +289,8 @@ const OnboardingAssistant: React.FC<OnboardingAssistantProps> = ({ onComplete })
           {/* ── Step 1: Profile ────────────────────────────────────── */}
           {currentStep.id === 'profile' && (
             <div className="space-y-5">
-              <div className="flex items-center gap-3 mb-1">
-                <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-brand-10 dark:bg-brand-90">
+              <div className="flex items-start gap-3 mt-1">
+                <div className="flex items-start justify-center w-9 h-9 rounded-xl bg-brand-10 dark:bg-brand-90">
                   <User2 className="w-5 h-5 text-primary" />
                 </div>
                 <div>
@@ -310,7 +316,7 @@ const OnboardingAssistant: React.FC<OnboardingAssistantProps> = ({ onComplete })
                 onChange={(e) => setUsername(e.target.value)}
                 fullWidth
                 size="small"
-                placeholder="How should we call you?"
+                placeholder="What should we call you?"
                 autoFocus
                 inputProps={{ maxLength: 40 }}
               />
@@ -336,8 +342,8 @@ const OnboardingAssistant: React.FC<OnboardingAssistantProps> = ({ onComplete })
           {/* ── Step 2: Appearance ─────────────────────────────────── */}
           {currentStep.id === 'appearance' && (
             <div className="space-y-5">
-              <div className="flex items-center gap-3 mb-1">
-                <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-brand-10 dark:bg-brand-90">
+              <div className="flex items-start gap-3 mt-1">
+                <div className="flex items-start justify-center w-9 h-9 rounded-xl bg-brand-10 dark:bg-brand-90">
                   <Palette className="w-5 h-5 text-primary" />
                 </div>
                 <div>
@@ -401,12 +407,12 @@ const OnboardingAssistant: React.FC<OnboardingAssistantProps> = ({ onComplete })
           {/* ── Step 3: Focus ──────────────────────────────────────── */}
           {currentStep.id === 'focus' && (
             <div className="space-y-5">
-              <div className="flex items-center gap-3 mb-1">
-                <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-brand-10 dark:bg-brand-90">
+              <div className="flex items-start gap-3 mt-1">
+                <div className="flex items-start justify-center w-9 h-9 rounded-xl bg-brand-10 dark:bg-brand-90">
                   <Timer className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-primary-text leading-tight">Focus Style</h2>
+                  <h2 className="text-lg font-bold text-primary-text leading-tight">Focus Timer</h2>
                   <p className="text-xs text-secondary-text">Choose how you like to time your work sessions</p>
                 </div>
               </div>
@@ -432,18 +438,18 @@ const OnboardingAssistant: React.FC<OnboardingAssistantProps> = ({ onComplete })
                     onClick={() => updatePomodoroSettings({ timerMode: value })}
                     className={`text-left w-full rounded-xl border-2 px-4 py-3 transition-all ${
                       pomodoroSettings.timerMode === value
-                        ? 'border-primary bg-brand-10 dark:bg-brand-90'
+                        ? 'border-brand-70 dark:border-brand-20 bg-brand-10 dark:bg-brand-90'
                         : 'border-gray-20 dark:border-gray-70 hover:border-primary'
                     }`}
                   >
                     <p className="text-sm font-semibold text-primary-text flex items-center gap-2">
                       <Timer className="w-4 h-4 text-primary flex-shrink-0" />
                       {label}
-                      {pomodoroSettings.timerMode === value && (
-                        <span className="ml-auto text-[10px] font-bold uppercase tracking-wider text-primary">
+                      {/* {pomodoroSettings.timerMode === value && (
+                        <span className="inline-block ml-auto text-[10px] font-bold uppercase tracking-wider text-primary">
                           Selected
                         </span>
-                      )}
+                      )} */}
                     </p>
                     <p className="text-xs text-secondary-text mt-0.5 ml-6">{desc}</p>
                   </button>
@@ -506,8 +512,8 @@ const OnboardingAssistant: React.FC<OnboardingAssistantProps> = ({ onComplete })
                   <Sparkles className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-primary-text leading-tight">Daily Dose</h2>
-                  <p className="text-xs text-secondary-text">A daily affirmation — funny, warm, and slightly unhinged</p>
+                  <h2 className="text-lg font-bold text-primary-text leading-tight">Daily Motivation</h2>
+                  <p className="text-xs text-secondary-text">A funny, warm, and slightly unhinged affirmation</p>
                 </div>
               </div>
 
@@ -564,7 +570,7 @@ const OnboardingAssistant: React.FC<OnboardingAssistantProps> = ({ onComplete })
           {/* ── Step 5: First Goal ─────────────────────────────────── */}
           {currentStep.id === 'goal' && (
             <div className="text-center space-y-4">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-10 dark:bg-brand-90 mb-2">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full border border-primary bg-brand-10 dark:bg-brand-90 mb-2">
                 <Target className="w-8 h-8 text-primary" />
               </div>
               <h2 className="text-2xl font-bold text-primary-text">You're all set!</h2>
@@ -584,9 +590,9 @@ const OnboardingAssistant: React.FC<OnboardingAssistantProps> = ({ onComplete })
                 <button
                   onClick={() => saveAll(false)}
                   disabled={saving}
-                  className="btn-ghost text-sm w-full py-2"
+                  className="btn-ghost items-center justify-center text-sm w-full py-2"
                 >
-                  I'll explore first
+                  I'll explore on my own for now
                 </button>
               </div>
             </div>

@@ -19,14 +19,22 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 
 export interface AddGoalProps {
-  newGoal: Goal; // Updated to use the full Goal type
-  setNewGoal: React.Dispatch<React.SetStateAction<Goal>>; // Updated to match the full Goal type
-  handleClose: () => void; // Added handleClose prop to allow closing the modal
+  newGoal: Goal;
+  setNewGoal: React.Dispatch<React.SetStateAction<Goal>>;
+  handleClose: () => void;
   categories: string[];
-  refreshGoals: () => Promise<void>; // Added refreshGoals prop to refresh the goals
+  refreshGoals: () => Promise<void>;
+  onProgressChange?: (percent: number) => void;
 }
 
-const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, refreshGoals }) => {
+const GOAL_STEPS = [
+  { id: 1, label: 'Describe' },
+  { id: 2, label: 'Review' },
+  { id: 3, label: 'Tasks' },
+  { id: 4, label: 'Schedule' },
+];
+
+const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, refreshGoals, onProgressChange }) => {
   const [categories, setCategories] = useState<Category[]>([]);
   const navigate = useNavigate();
   const { canCreateGoal, canGeneratePlan, canRefineGoal, isFree } = useTier();
@@ -43,6 +51,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
   const [selectedSteps, setSelectedSteps] = useState<number[]>([]);
   
   const [currentStep, setCurrentStep] = useState(1); // 1: Draft, 2: Refine, 3: Tasks, 4: Schedule, 5: Review
+  const [isManualMode, setIsManualMode] = useState(false); // true when user chose 'Continue manually'
   const [showWizard, setShowWizard] = useState(true); // State to toggle between wizard and manual form
   const [isGenerating, setIsGenerating] = useState(false); // State to track loading
   const [error, setError] = useState<string | null>(null); // State to track errors
@@ -413,6 +422,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       setRefinedGoal(null);
       setGeneratedTasks([]);
       setSelectedTasks([]);
+      setIsManualMode(false);
       setCurrentStep(1);
       setNewGoal({
         id: '',
@@ -655,8 +665,20 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
     }
   };
 
-  const goToNextStep = () => setCurrentStep((prev) => prev + 1);
-  const goToPreviousStep = () => setCurrentStep((prev) => prev - 1);
+  const handleNext = () => setCurrentStep((prev) => typeof prev === 'number' ? Math.min(prev + 1, GOAL_STEPS.length) : 2);
+  const handleBack = () => setCurrentStep((prev) => typeof prev === 'number' ? Math.max(prev - 1, 1) : 1);
+  // Keep legacy aliases so existing call sites don't need updating
+  const goToNextStep = handleNext;
+  const goToPreviousStep = handleBack;
+
+  const stepIndex = (typeof currentStep === 'number' ? currentStep : 2) - 1;
+  const activeStepCount = isManualMode ? 2 : GOAL_STEPS.length;
+  const progressPercent = activeStepCount > 1 ? (stepIndex / (activeStepCount - 1)) * 100 : 100;
+
+  // Notify parent whenever progress changes
+  useEffect(() => {
+    onProgressChange?.(progressPercent);
+  }, [progressPercent, onProgressChange]);
 
   // Ensure goal is only added when 'Add Goal(s)' is clicked
   const handleAddGoal = async (event: React.FormEvent) => {
@@ -722,8 +744,41 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
     {/* Wizard steps */}
     {showWizard ? (
       <form onSubmit={handleBulkAddGoals} className="space-y-4">
+        {/* Progress bar */}
+        <div className="mb-4">
+          <div className="flex items-center justify-end mb-2 gap-1.5">
+            {(isManualMode ? GOAL_STEPS.slice(0, 2) : GOAL_STEPS).map((s, i) => (
+              <div key={s.id} className={`rounded-full transition-all duration-300 ${
+                i === stepIndex
+                  ? 'w-5 h-2 bg-primary'
+                  : i < stepIndex
+                  ? 'w-2 h-2 bg-primary opacity-40'
+                  : 'w-2 h-2 bg-gray-30 dark:bg-gray-70'
+              }`}>
+                {/* <div className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold transition-colors ${
+                  i < stepIndex ? 'bg-primary text-white opacity-60' :
+                  i === stepIndex ? 'bg-primary text-white' :
+                  'bg-gray-20 dark:bg-gray-70 text-secondary-text'
+                }`}>{s.id}</div>
+                <span className={`hidden sm:inline text-xs ${
+                  i === stepIndex ? 'text-primary font-medium' : 'text-secondary-text'
+                }`}>{s.label}</span> */}
+                
+                {/* {i < GOAL_STEPS.length - 1 && (
+                  <div className="w-8 sm:w-16 h-0.5 mx-1 bg-gray-20 dark:bg-gray-70">
+                    <div className="h-full bg-primary transition-all duration-300" style={{ width: i < stepIndex ? '100%' : '0%' }} />
+                  </div>
+                )} */}
+              </div>
+            ))}
+          </div>
+          {/* <div className="h-1 bg-gray-20 dark:bg-gray-70 rounded-full">
+            <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${progressPercent}%` }} />
+          </div> */}
+        </div>
+
         {/* Step 1: Draft Goal Input */}
-        {currentStep === 1 && (
+        {(currentStep === 1) && (
           <div>
             <h3 className="text-lg font-medium mb-4">Step 1: Describe Your Goal</h3>
             <TextField
@@ -737,8 +792,8 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
               minRows={6}
               fullWidth
             />
-            <div className="mt-4 space-x-4 w-full justify-end ">
-              <button type="button" onClick={handleClose} className="btn-secondary">
+            <div className="mt-4 space-x-4 w-full justify-end items-center ">
+              <button type="button" onClick={handleClose} className="btn-ghost text-sm">
                 Cancel
               </button>
               {canRefineGoal ? (
@@ -751,23 +806,26 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
                   {isGenerating ? 'Refining...' : 'Refine Goal'}
                 </button>
               ) : (
-                <><button
-                  type="button"
-                  onClick={() => navigate('/pricing')}
-                  className="btn-primary mt-4 gap-2"
-                >
-                  <Unlock className="w-4 h-4" />
-                  Upgrade to Refine Goal
-                </button>
+                <>
                 <button
                   type="button"
                   onClick={() => {
                     setRefinedGoal({ title: draftGoal, description: '', feedback: 'Refining is an AI-powered feature that provides suggestions to make your goal clearer and more actionable. Upgrade to access this feature!' });
+                    setNewGoal(prev => ({ ...prev, title: draftGoal }));
+                    setIsManualMode(true);
                     setCurrentStep(2);
                   }}
                   className="btn-secondary mt-4 gap-2"
                 >
-                  Continue without Refinement
+                  Continue manually
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/pricing')}
+                  className="btn-primary gap-2"
+                >
+                  <Unlock className="w-4 h-4" />
+                  Upgrade to Refine Goal
                 </button>
                 </>
               )}
@@ -776,7 +834,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         )}
 
         {/* Step 2: Review Refined Goal */}
-        {currentStep === 2 && (
+        {(currentStep === 2) && (
           <div>
             <h3 className="text-lg font-medium mb-4">Step 2: Review & Edit Your Goal</h3>
             
@@ -838,7 +896,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
             </div> */}
 
             <div className="mt-4 space-x-4 flex justify-end">
-              <button type="button" onClick={goToPreviousStep} className="btn-secondary">
+              <button type="button" onClick={() => { setIsManualMode(false); goToPreviousStep(); }} className="btn-secondary">
                 Back
               </button>
               <button type="button" onClick={createGoalWithTasks} disabled={isGenerating} className="btn-secondary">
@@ -868,7 +926,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         )}
 
         {/* Step 3: Review & Select Tasks */}
-        {currentStep === 3 && (
+        {currentStep === 3 && !isManualMode && (
           <div>
             <h3 className="text-lg font-medium mb-4">Step 3: Review Tasks for Your Goal</h3>
 
@@ -979,7 +1037,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
         )}
 
         {/* Step 4: Schedule & Configure Reminders */}
-        {currentStep === 4 && (
+        {currentStep === 4 && !isManualMode && (
           <div>
             <h3 className="text-lg font-medium mb-4">Step 4: Schedule Tasks & Set Reminders</h3>
             

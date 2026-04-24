@@ -109,6 +109,7 @@ const GoalsComponent = () => {
     const [sortBy, setSortBy] = useState<'date' | 'category' | 'status' | 'title'>('status');
     const [sortAnchorEl, setSortAnchorEl] = useState<HTMLElement | null>(null);
     const [isGoalModalOpen, setIsGoalModalOpen] = useState(false); // Modal state
+    const [goalFormProgress, setGoalFormProgress] = useState(0);
     const [isEditorOpen, setIsEditorOpen] = useState(false); // Editor modal state
     // Add menu (goal vs task choice)
     const [addMenuAnchorEl, setAddMenuAnchorEl] = useState<HTMLElement | null>(null);
@@ -169,6 +170,7 @@ const GoalsComponent = () => {
     // shared wins/notes hook
     const goalExtras = useGoalExtras();
     const { timezone } = useTimezone();
+    
     const {
     wins,
     winCountMap,
@@ -787,9 +789,22 @@ const GoalsComponent = () => {
         console.debug('Opening Goal Modal' );
         }
     };
+
+    // Auto-open goal modal when navigating here from onboarding
+    useEffect(() => {
+      try {
+        const flag = sessionStorage.getItem('wkly_open_goal_modal');
+        if (flag) {
+          sessionStorage.removeItem('wkly_open_goal_modal');
+          openGoalModal();
+        }
+      } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
   
     const closeGoalModal = () => {
       setIsGoalModalOpen(false);
+      setGoalFormProgress(0);
     };
 
     const closeAddTaskModal = () => {
@@ -2098,7 +2113,6 @@ const GoalsComponent = () => {
         }
     }, [filterStatus, fetchTasksForAllGoals]);
 
-    
 
   return (
   
@@ -4345,19 +4359,32 @@ const GoalsComponent = () => {
                     shouldCloseOnOverlayClick={true}
                     ariaHideApp={ARIA_HIDE_APP}
                     // parentSelector={() => document.getElementById('app')!}
-                    className={`fixed inset-0 flex md:items-center justify-center z-50`}
+                    className={`fixed inset-0 flex  md:items-center justify-center z-50`}
                     overlayClassName={`${overlayClasses}`}
                     >
-                    <div className={`${modalClasses}`}>
-                        {isGoalModalOpen && (
-                            <GoalForm
-                            newGoal={newGoal}
-                            setNewGoal={setNewGoal}
-                            handleClose={closeGoalModal}
-                                            categories={UserCategories.map((cat: unknown) => typeof cat === 'string' ? (cat as string) : ((cat as { name?: string })?.name || ''))}
-                                            refreshGoals={() => refreshGoals().then(() => {})}
+                    <div className="bg-background-color rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+                        {/* Top progress bar — value driven by GoalForm via onProgressChange */}
+                        <div className="h-1 bg-gray-20 dark:bg-gray-80">
+                            <div
+                                className="h-full bg-primary transition-all duration-500 ease-out"
+                                style={{ width: `${goalFormProgress}%` }}
                             />
-                        )}
+                        </div>
+
+                        <div className="p-6 sm:p-8">
+                        <div className={`w-full`}>
+                            {isGoalModalOpen && (
+                                <GoalForm
+                                newGoal={newGoal}
+                                setNewGoal={setNewGoal}
+                                handleClose={closeGoalModal}
+                                                categories={UserCategories.map((cat: unknown) => typeof cat === 'string' ? (cat as string) : ((cat as { name?: string })?.name || ''))}
+                                                refreshGoals={() => refreshGoals().then(() => {})}
+                                                onProgressChange={(pct) => setGoalFormProgress(pct)}
+                                />
+                            )}
+                        </div>
+                        </div>
                     </div>
                 </Modal>
 
