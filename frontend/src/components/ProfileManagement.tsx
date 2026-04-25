@@ -30,7 +30,7 @@ import { notifySuccess, notifyError } from '@components/ToastyNotification';
 import supabase from '@lib/supabase';
 import useAuth from '@hooks/useAuth';
 // import { sendPasswordReset } from '@lib/authHelpers';
-import { Bell, Calendar, CreditCard, Eye, EyeOff, Palette, ThumbsUp, User2, Zap } from 'lucide-react';
+import { Bell, Calendar, CreditCard, Eye, EyeOff, Palette, ThumbsUp, Trash, User2, Zap } from 'lucide-react';
 import appColors, { PaletteKey } from '@styles/appColors';
 import NotificationsSettings from './NotificationsSettings';
 import CalendarIntegration from './CalendarIntegration';
@@ -156,6 +156,7 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) 
   const [loading, setLoading] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [previewSrc, setPreviewSrc] = useState<string | undefined>(undefined);
+  const [removeAvatar, setRemoveAvatar] = useState(false);
 
   // Appearance state
   // selectedPalette and savingColor are intentionally managed only when saved
@@ -194,7 +195,10 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) 
       setUsername(profile.username || profile.email || session?.user?.email || '');
       setEmail(profile.email || '');
       setTimezone(profile.timezone || getBrowserTimezone());
-      setPreviewSrc(profile.avatar_url || undefined);
+      // Don't overwrite removeAvatar state if the user has explicitly removed their avatar
+      if (!removeAvatar) {
+        setPreviewSrc(profile.avatar_url || undefined);
+      }
       try {
         const pref: PaletteKey | undefined = profile.primary_color;
         if (pref) setSelectedPalette(pref);
@@ -208,7 +212,7 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) 
         // ignore
       }
     }
-  }, [profile]);
+  }, [profile, removeAvatar]);
 
   const passwordsMatch = !!password && !!passwordReEnter && password === passwordReEnter
 
@@ -239,6 +243,16 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) 
 
       let avatarFilePath: string | null = null;
       let avatarPublicUrl: string | null = null;
+
+      // Handle avatar removal
+      if (removeAvatar) {
+        const { error: removeErr } = await supabase.from('profiles').upsert(
+          { id: session.user.id, avatar_url: null },
+          { onConflict: 'id' }
+        );
+        if (removeErr) throw removeErr;
+        window.dispatchEvent(new CustomEvent('avatar:updated', { detail: { avatarUrl: null } }));
+      }
 
       if (avatarFile) {
         const allowedTypes = ['image/png', 'image/jpeg', 'image/svg+xml'];
@@ -279,10 +293,12 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) 
         username,
         email,
         timezone,
-        avatar_url: avatarPublicUrl || profile?.avatar_url,
+        avatar_url: removeAvatar ? null : (avatarPublicUrl || profile?.avatar_url),
       }, { onConflict: 'id' });
 
       if (error) throw error;
+
+      if (removeAvatar) setRemoveAvatar(false);
 
       // Dispatch event to notify all Avatar components to update
       if (avatarPublicUrl) {
@@ -393,7 +409,21 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) 
         {active === 'profile' && (
           <form onSubmit={handleUpdateProfile} className="space-y-6">
             <div className="flex flex-col items-center gap-4 mb-4">
-              <Avatar isEdit onChange={handleAvatarChange} src={previewSrc} uploading={loading} size="lg" showLabel />
+              <Avatar isEdit onChange={handleAvatarChange} src={removeAvatar ? undefined : previewSrc} uploading={loading} size="lg" showLabel />
+              {(previewSrc || profile?.avatar_url) && !removeAvatar && (
+                <button
+                  type="button"
+                  className="text-xs text-secondary-text hover:text-red-500 underline transition-colors"
+                  onClick={() => {
+                    setRemoveAvatar(true);
+                    setPreviewSrc(undefined);
+                    setAvatarFile(null);
+                  }}
+                >
+                  <Trash className="w-3 h-3 inline-block mr-1" />
+                  Remove image
+                </button>
+              )}
               <TextField label="Username" value={username} onChange={(e) => setUsername(e.target.value)} fullWidth />
               <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth />
               

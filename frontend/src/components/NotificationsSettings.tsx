@@ -74,10 +74,15 @@ export default function NotificationsSettings({ registerSave }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Check OS notification permission status
+  // Check OS notification permission status; correct the saved flag if permission was revoked
   useEffect(() => {
     if ('Notification' in window) {
-      setOsNotificationPermission(Notification.permission);
+      const perm = Notification.permission;
+      setOsNotificationPermission(perm);
+      // If saved as enabled but browser permission is no longer granted, turn it off
+      if (perm !== 'granted') {
+        setSettings((s) => s.enableOsNotifications ? { ...s, enableOsNotifications: false } : s);
+      }
     }
   }, []);
 
@@ -283,7 +288,8 @@ export default function NotificationsSettings({ registerSave }: Props) {
         <div className='flex flex-col gap-2'>
           <p className="text-sm text-secondary-text">
             {osNotificationPermission === 'default' && 'Enable to receive notifications for task reminders'}
-            {osNotificationPermission === 'granted' && 'OS notifications are enabled ✓'}
+            {osNotificationPermission === 'granted' && settings.enableOsNotifications && 'OS notifications are enabled ✓'}
+            {osNotificationPermission === 'granted' && !settings.enableOsNotifications && 'Toggle on to receive OS notifications'}
             {osNotificationPermission === 'denied' && 'Notifications were blocked. Please enable them in your browser settings.'}
           </p>
         </div>

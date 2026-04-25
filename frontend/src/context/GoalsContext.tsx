@@ -26,7 +26,7 @@ const GoalsContext = createContext<GoalsContextProps | undefined>(undefined);
 
 export const GoalsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(true);
   const [lastUpdated, setLastUpdated] = useState<number | undefined>(undefined);
   const [lastAddedIds, setLastAddedIds] = useState<string[] | undefined>(undefined);
   const { session } = useAuth();
@@ -65,6 +65,7 @@ export const GoalsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     // Only fetch goals if user is logged in
     if (!session?.user?.id) {
+      setIsRefreshing(false);
       return;
     }
 

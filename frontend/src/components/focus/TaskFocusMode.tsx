@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, CheckCircle, ChevronRight, Clock, FileText, Zap, AlertCircle, CalendarClock, Timer, Save, Loader2, Sparkles } from 'lucide-react';
+import { X, CheckCircle, ChevronRight, Clock, FileText, Zap, AlertCircle, CalendarClock, Timer, Save, Loader2, Sparkles, Unlock } from 'lucide-react';
 import FocusTimer, { formatTime } from './FocusTimer';
 import PomodoroTimer, { type PomodoroPhase } from './PomodoroTimer';
 import { useFocusTimer } from './FocusTimerContext';
@@ -727,7 +727,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
           <button
             onClick={handleMarkDone}
             disabled={markingDone}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-60 hover:bg-green-70 disabled:opacity-50 text-white text-sm font-medium transition-colors shrink-0"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-60 hover:bg-green-70 disabled:opacity-50 text-primary-icon text-sm font-medium transition-colors shrink-0"
           >
             <CheckCircle className="w-4 h-4" />
             <span className="hidden sm:inline">{markingDone ? 'Completing…' : 'Mark Done'}</span>
@@ -761,7 +761,7 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
               onClick={() => setActivePanel(tab.id)}
               className={`bg-brand-10 dark:bg-brand-90 border-l-0 border-t-1 border-r-1 last:border-r-0 rounded-none flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm transition-colors focus:outline-none focus:shadow-none focus:ring-0 focus:ring-offset-0 ${
                 activePanel === tab.id
-                  ? '!text-brand-30 !border-b !border-b-2 !border-b-interactive-icon !bg-brand-10 dark:!bg-brand-80'
+                  ? '!text-brand-60 dark:!text-brand-30 !border-b !border-b-2 !border-b-interactive-icon !bg-brand-10 dark:!bg-brand-80 cursor-default'
                   : 'text-secondary-text hover:text-primary-text'
               }`}
             >
@@ -886,13 +886,13 @@ const TaskFocusMode: React.FC<Props> = ({ task, goalTitle, onClose, onMarkDone }
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-4">
-                  <Sparkles className="w-8 h-8 text-brand-40" />
+                  <Unlock className="w-8 h-8 text-brand-40" />
                   <p className="text-sm text-secondary-text">AI Assistant is available on paid plans.</p>
                   <button
                     onClick={() => { window.location.href = '/pricing'; }}
                     className="btn-primary gap-2"
                   >
-                    <Sparkles className="w-4 h-4" />
+                    <Unlock className="w-4 h-4" />
                     Upgrade to Use AI Chat
                   </button>
                 </div>

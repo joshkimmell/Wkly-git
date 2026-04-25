@@ -1,38 +1,44 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { GoalsProvider } from '@context/GoalsContext';
 import { TimezoneProvider } from '@context/TimezoneContext';
 import ToastNotification, { notifySuccess, notifyError, notifyReminder } from '@components/ToastyNotification';
-import AllGoals from '@components/AllGoals';
-import HomePage from '@components/HomePage';
-import Header from '@components/Header';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import supabase from '@lib/supabase';
 import useAuth from '@hooks/useAuth';
 import { useReminderService } from '@hooks/useReminderService';
-import Auth from '@components/Auth';
-import AllSummaries from '@components/AllSummaries';
-// import AllWins from '@components/AllWins';
+import LandingPage from '@components/LandingPage';
 import LoadingSpinner from '@components/LoadingSpinner';
-import ProfileManagement from '@components/ProfileManagement';
-import NotificationsSettings from '@components/NotificationsSettings';
 import AppMuiThemeProvider from './mui/muiTheme';
 import appColors from '@styles/appColors';
 import { FocusTimerProvider } from '@components/focus/FocusTimerContext';
 import { FocusModeProvider } from '@context/FocusModeContext';
 import { FireworksProvider } from '@context/FireworksContext';
-import MuiCompareDemo from '@components/MuiCompareDemo';
-import AdminAccessRequests from '@components/AdminAccessRequests';
-import Footer from '@components/Footer';
-import PullToRefresh from '@components/PullToRefresh';
-import AffirmationsLayout from '@components/affirmations/AffirmationsLayout';
-import AffirmationToday from '@components/affirmations/AffirmationToday';
-import AffirmationArchive from '@components/affirmations/AffirmationArchive';
-import AffirmationSubmit from '@components/affirmations/AffirmationSubmit';
-import AffirmationSaved from '@components/affirmations/AffirmationSaved';
-import AffirmationSettings from '@components/affirmations/AffirmationSettings';
 import { TierProvider } from '@context/TierContext';
-import PricingPage from '@components/PricingPage';
+const PrivacyPage = lazy(() => import('@components/Privacy'));
+const TermsPage = lazy(() => import('@components/Terms'));
+const CookieConsent = lazy(() => import('@components/CookieConsent'));
+
+
+// Lazy-loaded authenticated routes — not downloaded until the user logs in
+const AllGoals = lazy(() => import('@components/AllGoals'));
+const HomePage = lazy(() => import('@components/HomePage'));
+const Header = lazy(() => import('@components/Header'));
+const AllSummaries = lazy(() => import('@components/AllSummaries'));
+const ProfileManagement = lazy(() => import('@components/ProfileManagement'));
+const NotificationsSettings = lazy(() => import('@components/NotificationsSettings'));
+const MuiCompareDemo = lazy(() => import('@components/MuiCompareDemo'));
+const AdminAccessRequests = lazy(() => import('@components/AdminAccessRequests'));
+const Footer = lazy(() => import('@components/Footer'));
+const PullToRefresh = lazy(() => import('@components/PullToRefresh'));
+const PricingPage = lazy(() => import('@components/PricingPage'));
+const AffirmationsLayout = lazy(() => import('@components/affirmations/AffirmationsLayout'));
+const AffirmationToday = lazy(() => import('@components/affirmations/AffirmationToday'));
+const AffirmationArchive = lazy(() => import('@components/affirmations/AffirmationArchive'));
+const AffirmationSubmit = lazy(() => import('@components/affirmations/AffirmationSubmit'));
+const AffirmationSaved = lazy(() => import('@components/affirmations/AffirmationSaved'));
+const AffirmationSettings = lazy(() => import('@components/affirmations/AffirmationSettings'));
+const OnboardingAssistant = lazy(() => import('@components/OnboardingAssistant'));
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Chip } from '@mui/material';
 import { Bell, Calendar, FileText } from 'lucide-react';
 import { loadSession, saveSession } from '@components/focus/useFocusSession';
@@ -61,6 +67,7 @@ const App: React.FC = () => {
     return 'theme-dark';
   });
   const [isOpen, /*setIsOpen*/] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const toggleTheme = () => setTheme(prev => {
     const next = prev === 'theme-dark' ? 'theme-light' : 'theme-dark';
@@ -86,14 +93,15 @@ const App: React.FC = () => {
         return;
       }
 
-      // Clear all localStorage except theme and palette preferences
+      // Clear all localStorage except theme preference
       const themePreference = localStorage.getItem('theme');
-      const palettePreference = localStorage.getItem('wkly:primary_palette');
       
-      // Clear localStorage (preserving theme/palette)
+      // Clear localStorage (preserving only theme, not palette — reset to default on logout)
       localStorage.clear();
       if (themePreference) localStorage.setItem('theme', themePreference);
-      if (palettePreference) localStorage.setItem('wkly:primary_palette', palettePreference);
+
+      // Reset brand colour to default
+      appColors.applyPaletteToRoot('purple');
 
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
@@ -150,6 +158,47 @@ const App: React.FC = () => {
     }
   }, [profile]);
 
+  // Show onboarding wizard for first-time users (no meaningful username set and
+  // no completion flag in localStorage).
+  useEffect(() => {
+    if (testing || !profile || !session) return;
+    try {
+      const completed = localStorage.getItem('wkly_onboarding_complete');
+      if (completed) return;
+      const hasUsername = profile.username && !profile.username.includes('@');
+      if (!hasUsername) {
+        setShowOnboarding(true);
+      }
+    } catch { /* ignore */ }
+  }, [profile, session, testing]);
+
+  const handleOnboardingComplete = (createGoal: boolean) => {
+    setShowOnboarding(false);
+    if (createGoal) {
+      navigate('/goals');
+    }
+  };
+
+  // Identify the authenticated user in Pendo once session + profile are loaded
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    try {
+      window.pendo.initialize({
+        visitor: {
+          id: session.user.id,
+          email: session.user.email ?? '',
+          firstName: profile?.full_name ?? profile?.username ?? '',
+        },
+        account: {
+          id: session.user.id,
+          businessTier: profile?.tier ?? 'free',
+        },
+      });
+    } catch {
+      // Pendo not loaded yet or unavailable — silently ignore
+    }
+  }, [session?.user?.id, profile]);
+
   // Start reminder service when user is authenticated
   const { pendingReminderTask, dismissReminderTask } = useReminderService();
 
@@ -177,6 +226,8 @@ const App: React.FC = () => {
         const dbSessions: Array<{
           task_id: string;
           elapsed_seconds: number;
+          accumulated_seconds?: number;
+          started_at?: string | null;
           timer_state: string;
           chat_messages: unknown[];
           suggested_tasks: unknown[];
@@ -238,16 +289,19 @@ const App: React.FC = () => {
   
   // Goals are fetched by the GoalsProvider on mount; no need to fetch here.
   
-  if (isLoading && !testing) return 
+  if (isLoading && !testing) return (
     <div className="fixed top-0 mt-0 h-[100vh] w-full bg-gray-10 dark:bg-gray-90 flex justify-center items-center">
       <div className="loader"><LoadingSpinner variant="mui" /></div>
       {/* <span className="ml-2">Generating plan...</span> */}
     </div>
+  );
   if (!effectiveSession) {
     return (
       <Routes>
-        <Route path="/auth" element={<Auth />} />
-        <Route path="*" element={<Auth />} />
+        {/* <Route path="/auth" element={<Auth />} />
+        <Route path="*" element={<Auth />} /> */}
+        <Route path="/auth" element={<LandingPage />} />
++        <Route path="*" element={<LandingPage />} />
       </Routes>
     );
   }
@@ -264,6 +318,7 @@ const App: React.FC = () => {
     <FireworksProvider>
     <div className={`${current}`}>
       <div className={`min-h-screen bg-background text-primary-text ${current}`}>
+        <Suspense fallback={null}>
         <Header   
           theme={theme}
           toggleTheme={toggleTheme}
@@ -274,6 +329,7 @@ const App: React.FC = () => {
           <PullToRefresh>
           <main className="max-w-8xl min-h-[100vh] mx-auto px-4 sm:px-8 lg:px-16 py-8">
 
+            <Suspense fallback={<div className="flex justify-center items-center h-64"><LoadingSpinner variant="mui" /></div>}>
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/goals" element={<AllGoals />} />
@@ -284,6 +340,9 @@ const App: React.FC = () => {
               <Route path="/auth" element={<Navigate to="/" replace />} />
               <Route path="/profile" element={<ProfileManagement />} />
               <Route path="/pricing" element={<PricingPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+
               <Route path="/admin/access" element={<AdminAccessRequests />} />
               <Route path="/affirmations" element={<AffirmationsLayout />}>
                 <Route index element={<AffirmationToday />} />
@@ -293,10 +352,18 @@ const App: React.FC = () => {
                 <Route path="settings" element={<AffirmationSettings />} />
               </Route>
             </Routes>
+            </Suspense>
           </main>
           <Footer />
           </PullToRefresh>
+          <Suspense fallback={null}><CookieConsent /></Suspense>
+          {showOnboarding && (
+            <Suspense fallback={null}>
+              <OnboardingAssistant onComplete={handleOnboardingComplete} />
+            </Suspense>
+          )}
         </GoalsProvider>
+        </Suspense>
       </div>
     </div>
     </FireworksProvider>

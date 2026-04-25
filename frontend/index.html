@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-  <meta name="viewport" content="initial-scale=1, width=device-width" />
+    <meta name="viewport" content="initial-scale=1, width=device-width" />
     <link rel="icon" href="/favicon.ico" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#4d0057" />
@@ -13,13 +13,11 @@
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="/fonts/merakitrial-regular.otf" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Buenard:wght@400..700&family=Raleway:ital,wght@0,100..900;1,100..900&family=Zilla+Slab:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet">
-    <!-- <link href="https://fonts.googleapis.com/css2?family=Gentium+Plus:wght@400;700&display=swap" rel="stylesheet"> -->
-    <!-- <link href="https://fonts.googleapis.com/css2?family=Neuton:wght@400;500;600;700&display=swap" rel="stylesheet"> -->
+    <!-- All Google Fonts in a single request to avoid render-blocking round-trips -->
+    <link href="https://fonts.googleapis.com/css2?family=Buenard:wght@400;700&family=Inter:wght@400;500;600;700&family=Raleway:ital,wght@0,100..900;1,100..900&family=Zilla+Slab:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet">
     
-    <title>Wkly</title>
+    <title>Wkly — Turn your weeks into wins</title>
+    <meta name="description" content="Wkly is your focused command center for weekly goals, daily tasks, and AI-powered progress summaries — designed around the rhythm that actually drives results." />
     <!-- Apply theme before React mounts to prevent flash of wrong theme -->
     <script>
       (function () {
@@ -33,6 +31,15 @@
           }
         } catch (e) {}
       })();
+
+      (function(apiKey){
+          (function(p,e,n,d,o){var v,w,x,y,z;o=p[d]=p[d]||{};o._q=o._q||[];
+          v=['initialize','identify','updateOptions','pageLoad','track','trackAgent'];for(w=0,x=v.length;w<x;++w)(function(m){
+              o[m]=o[m]||function(){o._q[m===v[0]?'unshift':'push']([m].concat([].slice.call(arguments,0)));};})(v[w]);
+              y=e.createElement(n);y.async=!0;y.src='https://cdn.pendo.io/agent/static/'+apiKey+'/pendo.js';
+              z=e.getElementsByTagName(n)[0];z.parentNode.insertBefore(y,z);})(window,document,'script','pendo');
+          // Visitor identity is set by the React app once the user authenticates
+      })('f5e8b2fb-a970-4229-9739-788e7259df93');
     </script>
   </head>
   <body>

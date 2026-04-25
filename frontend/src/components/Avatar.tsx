@@ -6,7 +6,7 @@ import supabase from '@lib/supabase';
 
 // Simple in-memory cache for the profile row during a single SPA session.
 // Avoids refetching the profile for multiple Avatar mounts.
-let profileCache: { id: string; avatar_url?: string; full_name?: string; username?: string } | null = null;
+let profileCache: { id: string; email?: string; avatar_url?: string; full_name?: string; username?: string } | null = null;
 
 interface UploadAvatarsProps {
   isEdit?: boolean; // Made optional
@@ -75,6 +75,7 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
         // If we've already fetched the profile for this user in this SPA session, reuse it.
         if (profileCache && profileCache.id === session.user.id) {
           const profile = profileCache;
+          const email = profile?.email || session.user.email || '';
           if (profile?.full_name) setAvatarAlt(profile.full_name);
           else if (profile?.username) setAvatarAlt(profile.username);
           else setAvatarAlt('User avatar');
@@ -83,9 +84,9 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
           if (!src && profile?.avatar_url) setAvatarSrc(profile.avatar_url);
 
           if (!profile?.avatar_url) {
-            if (profile?.full_name) setInitial(profile.full_name[0]?.toUpperCase() || 'U');
-            else if (profile?.username) setInitial(profile.username[0]?.toUpperCase() || 'U');
-            else setInitial('U');
+            if (profile?.full_name) setInitial(profile.full_name[0]?.toUpperCase() || email[0]?.toUpperCase() || '?');
+            else if (profile?.username) setInitial(profile.username[0]?.toUpperCase() || email[0]?.toUpperCase() || '?');
+            else setInitial(email[0]?.toUpperCase() || '?');
           }
           return;
         }
@@ -111,7 +112,7 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
         }
 
         // Cache the profile for subsequent Avatar instances in this SPA session.
-        try { profileCache = { id: session.user.id, ...(profile || {}) }; } catch {}
+        try { profileCache = { id: session.user.id, email: session.user.email || '', ...(profile || {}) }; } catch {}
 
         // Keep storedAvatarUrl so we know whether the profile has a persisted avatar
         setStoredAvatarUrl(profile?.avatar_url || undefined);
@@ -123,12 +124,13 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
 
         // If there is no stored avatar in profile, set the initial (we'll only render it when storedAvatarUrl is falsy)
         if (!profile?.avatar_url) {
+          const email = session.user.email || '';
           if (profile?.full_name) {
-            setInitial(profile.full_name[0]?.toUpperCase() || 'U');
+            setInitial(profile.full_name[0]?.toUpperCase() || email[0]?.toUpperCase() || '?');
           } else if (profile?.username) {
-            setInitial(profile.username[0]?.toUpperCase() || 'U');
+            setInitial(profile.username[0]?.toUpperCase() || email[0]?.toUpperCase() || '?');
           } else {
-            setInitial('U');
+            setInitial(email[0]?.toUpperCase() || '?');
           }
         }
       } catch (err) {
@@ -154,6 +156,16 @@ export default function UploadAvatars({ isEdit, onClick, onChange, src, uploadin
           // Only update the shown avatarSrc when there isn't an active preview prop
           if (!src) setAvatarSrc(avatarUrl);
           setInitial(undefined);
+        } else if (ce?.detail && 'avatarUrl' in ce.detail && !avatarUrl) {
+          // avatarUrl explicitly null/empty — user removed their avatar
+          if (profileCache) profileCache.avatar_url = undefined;
+          setStoredAvatarUrl(undefined);
+          setAvatarSrc(undefined);
+          // Re-derive initial from cache email/name
+          const email = profileCache?.email || '';
+          if (profileCache?.full_name) setInitial(profileCache.full_name[0]?.toUpperCase() || email[0]?.toUpperCase() || '?');
+          else if (profileCache?.username) setInitial(profileCache.username[0]?.toUpperCase() || email[0]?.toUpperCase() || '?');
+          else setInitial(email[0]?.toUpperCase() || '?');
         }
       } catch (err) {
         console.warn('Error handling avatar:updated event', err);

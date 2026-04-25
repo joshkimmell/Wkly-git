@@ -3,10 +3,11 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, Button, IconButton }
 import { X } from 'lucide-react';
 import Logo from '@components/Logo';
 
-const EFFECTIVE_DATE = 'April 7, 2026';
+const EFFECTIVE_DATE = 'April 27, 2026';
 
 const TermsContent: React.FC = () => (
   <div className="space-y-4 text-sm text-secondary-text leading-relaxed">
+    <h1 className="text-2xl font-serif text-primary mb-4">Terms &amp; Conditions</h1>
     <p>These Terms and Conditions (&quot;Terms&quot;) govern your access to and use of the Wkly application and website located at wkly.me (collectively, the &quot;Service&quot;), operated by Wkly (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;). By accessing or using the Service, you agree to be bound by these Terms. If you do not agree, do not use the Service.</p>
 
     <h3 className="font-bold text-primary-text">1. Eligibility</h3>
@@ -45,13 +46,22 @@ const TermsContent: React.FC = () => (
     <h3 className="font-bold text-primary-text">12. Changes to These Terms</h3>
     <p>We may update these Terms from time to time. We will notify you of material changes by posting the updated Terms on the Service with a revised effective date. Your continued use of the Service after such changes constitutes your acceptance of the revised Terms.</p>
 
-    <h3 className="font-bold text-primary-text">13. Contact</h3>
+    <h3 className="font-bold text-primary-text">13. Subscriptions &amp; Refunds</h3>
+    <p><strong>Billing.</strong> Wkly offers a free tier and a paid Pro subscription billed on a monthly or annual basis. Subscription fees are charged in advance at the start of each billing period. All prices are in US dollars unless otherwise stated.</p>
+    <p><strong>Cancellation.</strong> You may cancel your Pro subscription at any time through your account settings or by contacting us at support@wkly.me. Cancellation takes effect at the end of the current billing period; you will retain access to Pro features until that date and will not be charged again thereafter. We do not provide prorated refunds for unused time within a billing period.</p>
+    <p><strong>Refunds — Web (Stripe).</strong> Annual subscriptions purchased directly on wkly.me are eligible for a full refund if requested within 14 days of the initial purchase date, provided you have not made substantial use of paid features during that period. Monthly subscriptions are non-refundable. To request a refund, contact us at support@wkly.me with your account email and reason for the request.</p>
+    <p><strong>Refunds — Apple App Store.</strong> Purchases made through the Apple App Store are subject to Apple&apos;s refund policies. We have no ability to issue refunds for App Store transactions; all such requests must be submitted directly to Apple at <a href="https://reportaproblem.apple.com" className="text-brand-60 dark:text-brand-30 underline" target="_blank" rel="noopener noreferrer">reportaproblem.apple.com</a>.</p>
+    <p><strong>Refunds — Google Play.</strong> Purchases made through Google Play are subject to Google&apos;s refund policies. Refund requests for Google Play transactions must be submitted directly to Google Play support.</p>
+    <p><strong>Price Changes.</strong> We reserve the right to change subscription pricing with at least 30 days&apos; advance notice. Continued use of the Service after a price change takes effect constitutes your acceptance of the new pricing.</p>
+
+    <h3 className="font-bold text-primary-text">14. Contact</h3>
     <p>If you have questions about these Terms, please contact us at <span className="text-brand-60 dark:text-brand-30">support@wkly.me</span>.</p>
   </div>
 );
 
 const PrivacyContent: React.FC = () => (
   <div className="space-y-4 text-sm text-secondary-text leading-relaxed">
+    <h1 className="text-2xl font-serif text-primary mb-4">Privacy Policy</h1>
     <p>This Privacy Policy (&quot;Policy&quot;) describes how Wkly (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) collects, uses, stores, and protects your personal information when you use the Wkly application and website at wkly.me (the &quot;Service&quot;). By using the Service, you consent to the practices described in this Policy.</p>
 
     <h3 className="font-bold text-primary-text">1. Information We Collect</h3>
@@ -87,16 +97,26 @@ const PrivacyContent: React.FC = () => (
     <h3 className="font-bold text-primary-text">8. California Privacy Rights (CCPA)</h3>
     <p>If you are a California resident, you have the right to: (a) know what personal information we collect and how it is used; (b) request deletion of your personal information; (c) opt out of the sale of personal information (we do not sell your data); and (d) not be discriminated against for exercising your privacy rights. To make a verifiable consumer request, contact us at <span className="text-brand-60 dark:text-brand-30">support@wkly.me</span>.</p>
 
-    <h3 className="font-bold text-primary-text">9. Children&apos;s Privacy</h3>
+    <h3 className="font-bold text-primary-text">9. GDPR — European &amp; UK Users</h3>
+    <p>If you are located in the European Economic Area (EEA) or United Kingdom, additional rights apply to you under the General Data Protection Regulation (GDPR) or UK GDPR:</p>
+    <ul className="list-disc pl-6 space-y-1">
+      <li><strong>Legal basis for processing.</strong> We process your personal data on the following legal bases: (a) <em>contract performance</em> — to provide the Service you signed up for; (b) <em>legitimate interests</em> — to maintain security, prevent fraud, and improve the Service; and (c) <em>consent</em> — where you have explicitly opted in (e.g., task reminders).</li>
+      <li><strong>Your rights.</strong> You have the right to access, rectify, erase, restrict, or object to the processing of your personal data, and the right to data portability. To exercise any of these rights, contact us at <span className="text-brand-60 dark:text-brand-30">support@wkly.me</span>. We will respond within 30 days.</li>
+      <li><strong>Data transfers.</strong> Your data is stored and processed in the United States. By using the Service, you acknowledge that your data may be transferred to and processed in the US, which may not provide the same level of data protection as your home country. We rely on standard contractual clauses and our processors&apos; data processing agreements to safeguard such transfers.</li>
+      <li><strong>Cookies &amp; consent.</strong> We do not use advertising or tracking cookies. We use browser local/session storage solely for functional purposes (theme preference, session state). No consent banner is required for strictly necessary storage; however, if we introduce optional analytics cookies in the future, we will obtain your consent before placing them.</li>
+      <li><strong>Right to lodge a complaint.</strong> You have the right to lodge a complaint with your local data protection authority (e.g., the ICO in the UK, or your national supervisory authority in the EEA).</li>
+    </ul>
+
+    <h3 className="font-bold text-primary-text">10. Children&apos;s Privacy</h3>
     <p>The Service is not directed to children under 13 years of age. We do not knowingly collect personal information from children under 13. If we learn that we have collected personal information from a child under 13, we will take steps to delete that information promptly.</p>
 
-    <h3 className="font-bold text-primary-text">10. Cookies &amp; Local Storage</h3>
+    <h3 className="font-bold text-primary-text">11. Cookies &amp; Local Storage</h3>
     <p>We use browser local storage and session storage to maintain your preferences (such as theme selection and session state). We do not use third-party tracking cookies or advertising cookies.</p>
 
-    <h3 className="font-bold text-primary-text">11. Changes to This Policy</h3>
+    <h3 className="font-bold text-primary-text">12. Changes to This Policy</h3>
     <p>We may update this Policy from time to time. We will notify you of material changes by posting the updated Policy on the Service with a revised effective date. Your continued use of the Service after such changes constitutes your acceptance of the revised Policy.</p>
 
-    <h3 className="font-bold text-primary-text">12. Contact</h3>
+    <h3 className="font-bold text-primary-text">13. Contact</h3>
     <p>If you have questions or concerns about this Privacy Policy or our data practices, please contact us at <span className="text-brand-60 dark:text-brand-30">support@wkly.me</span>.</p>
   </div>
 );
@@ -120,13 +140,15 @@ const Footer: React.FC = () => {
 
           <div className="flex items-center gap-4">
             <button
-              onClick={() => setTermsOpen(true)}
+              // onClick={() => setTermsOpen(true)}
+              onClick={() => { window.location.href = '/terms'; }}
               className="btn-link cursor-pointer"
             >
               Terms
             </button>
             <button
-              onClick={() => setPrivacyOpen(true)}
+              // onClick={() => setPrivacyOpen(true)}
+              onClick={() => { window.location.href = '/privacy'; }}
               className="btn-link cursor-pointer"
             >
               Privacy
@@ -173,3 +195,4 @@ const Footer: React.FC = () => {
 };
 
 export default Footer;
+export { TermsContent, PrivacyContent, EFFECTIVE_DATE };

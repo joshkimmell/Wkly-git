@@ -1,7 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { loadStripe } from '@stripe/stripe-js';
+
+// Initialize once at module level — never inside a component or effect
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 import { Button } from '@mui/material';
-import { Check, Sparkles, ArrowLeft, Crown, Zap } from 'lucide-react';
+import { Check, ArrowLeft, Crown, Zap, UnlockKeyhole, X } from 'lucide-react';
 import { useTier } from '@hooks/useTier';
 import supabase from '@lib/supabase';
 import { notifySuccess, notifyError } from '@components/ToastyNotification';
@@ -37,7 +41,7 @@ const PLANS = [
     period: '/mo',
     yearlyPeriod: '/yr',
     description: 'Unlimited access to everything',
-    icon: <Sparkles className="w-6 h-6" />,
+    icon: <Crown className="w-6 h-6" />,
     popular: true,
     features: [
       'Unlimited goals',
@@ -54,17 +58,17 @@ const PLANS = [
   },
   {
     id: 'one_time' as const,
-    name: 'Lifetime',
+    name: 'One-Time',
     price: '$79.99',
     period: 'one-time',
     description: 'Pay once, unlock for 1 year',
-    icon: <Crown className="w-6 h-6" />,
+    icon: <UnlockKeyhole className="w-6 h-6" />,
     features: [
       'Everything in Pro',
       'No recurring charges',
       '1 year of feature updates',
       'Full AI access',
-      'Priority support',
+      'Priority support for 1 year',
     ],
     excluded: [],
   },
@@ -76,18 +80,44 @@ const PricingPage: React.FC = () => {
   const { status, isPaid, isFree, refresh } = useTier();
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null);
+  const [checkoutPlanType, setCheckoutPlanType] = useState<'monthly' | 'yearly' | 'one_time' | null>(null);
+  const checkoutInstanceRef = useRef<{ destroy: () => void } | null>(null);
+  // const [isOneTime, setIsOneTime] = useState<'one_time'> | null>(null);
 
-  const success = searchParams.get('success') === 'true';
   const canceled = searchParams.get('canceled') === 'true';
 
-  // After successful payment, refresh tier status
-  React.useEffect(() => {
-    if (success) {
+  // Handle return from embedded checkout
+  useEffect(() => {
+    const sessionId = searchParams.get('session_id');
+    if (sessionId) {
       refresh();
       notifySuccess('Payment successful! Your plan is now active.');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [success]);
+  }, []);
+
+  // Mount embedded checkout when clientSecret is set
+  useEffect(() => {
+    if (!checkoutClientSecret) return;
+    let active = true;
+
+    (async () => {
+      const stripe = await stripePromise;
+      if (!stripe || !active) return;
+      const checkout = await stripe.createEmbeddedCheckoutPage({
+        fetchClientSecret: () => Promise.resolve(checkoutClientSecret),
+      });
+      checkoutInstanceRef.current = checkout;
+      if (active) checkout.mount('#checkout');
+    })();
+
+    return () => {
+      active = false;
+      checkoutInstanceRef.current?.destroy();
+      checkoutInstanceRef.current = null;
+    };
+  }, [checkoutClientSecret]);
 
   const handleSelectPlan = async (planType: 'monthly' | 'yearly' | 'one_time') => {
     setLoadingPlan(planType);
@@ -108,8 +138,9 @@ const PricingPage: React.FC = () => {
       });
 
       const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
+      if (data.clientSecret) {
+        setCheckoutPlanType(planType);
+        setCheckoutClientSecret(data.clientSecret);
       } else {
         notifyError('Failed to start checkout');
       }
@@ -135,7 +166,7 @@ const PricingPage: React.FC = () => {
       </div>
 
       {/* Success / Canceled banners */}
-      {success && (
+      {searchParams.get('session_id') && (
         <div className="mb-8 rounded-lg border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/30 p-4 text-center text-green-700 dark:text-green-300">
           <Check className="inline w-5 h-5 mr-1" /> Your plan is now active. Welcome aboard!
         </div>
@@ -145,24 +176,26 @@ const PricingPage: React.FC = () => {
           Checkout was canceled. No charge was made.
         </div>
       )}
-
       {/* Billing cycle toggle for subscription */}
-      <div className="flex justify-center mb-8">
-        <div className="inline-flex rounded-full border border-gray-20 dark:border-gray-70 p-1 bg-gray-10 dark:bg-gray-80">
-          <button
-            onClick={() => setBillingCycle('monthly')}
-            className={`px-4 py-2 rounded-l-full text-sm font-medium transition-all ${billingCycle === 'monthly' ? 'opacity-100 text-white bg-primary hover:bg-primary cursor-none shadow-sm' : 'opacity-75 bg-secondary text-white hover:text-primary-text'}`}
-          >
-            Monthly
-          </button>
-          <button
-            onClick={() => setBillingCycle('yearly')}
-            className={`px-4 py-2 rounded-r-full text-sm font-medium transition-all ${billingCycle === 'yearly' ? 'opacity-100 text-white bg-primary hover:bg-primary cursor-none shadow-sm' : 'opacity-75 bg-secondary text-white hover:text-primary-text'}`}
-          >
-            Yearly <span className="text-xs opacity-75">&nbsp;– Save 33%</span>
-          </button>
+      
+        <div className="flex justify-center mb-8">
+          <div className="inline-flex rounded-full border border-gray-20 dark:border-gray-70 p-1 bg-gray-10 dark:bg-gray-80">
+            <button
+              onClick={() => setBillingCycle('monthly')}
+              className={`px-4 py-2 rounded-l-full text-sm font-medium transition-all ${billingCycle !== 'monthly' ? 'text-primary hover:text-primary bg-background hover:bg-background-color shadow-sm hover:underline' : 'bg-primary hover:bg-primary text-inverse-text hover:text-white cursor-default'}`}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setBillingCycle('yearly')}
+              className={`px-4 py-2 rounded-r-full text-sm font-medium transition-all ${billingCycle !== 'yearly' ? 'text-primary hover:text-primary bg-background hover:bg-background-color shadow-sm hover:underline' : 'bg-primary hover:bg-primary text-inverse-text hover:text-white cursor-default'}`}
+            >
+              Yearly <span className="text-xs opacity-75">&nbsp;– Save 33%</span>
+            </button>
+          </div>
         </div>
-      </div>
+      
+
 
       {/* Pricing cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -182,7 +215,7 @@ const PricingPage: React.FC = () => {
             >
               {isPopular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="bg-primary text-white text-xs font-semibold px-3 py-1 rounded-full">
+                  <span className="bg-primary border border-primary text-inverse-text text-xs font-semibold px-3 py-1 rounded-full">
                     Most Popular
                   </span>
                 </div>
@@ -244,7 +277,7 @@ const PricingPage: React.FC = () => {
                   disabled={!!loadingPlan}
                   onClick={() => handleSelectPlan(billingCycle === 'yearly' ? 'yearly' : 'monthly')}
                 >
-                  {loadingPlan === 'monthly' || loadingPlan === 'yearly' ? 'Redirecting...' : `Get ${plan.name}`}
+                  {loadingPlan === 'monthly' || loadingPlan === 'yearly' ? 'Loading...' : `Get ${plan.name}`}
                 </Button>
               ) : (
                 <Button
@@ -253,7 +286,7 @@ const PricingPage: React.FC = () => {
                   disabled={!!loadingPlan}
                   onClick={() => handleSelectPlan('one_time')}
                 >
-                  {loadingPlan === 'one_time' ? 'Redirecting...' : `Get ${plan.name}`}
+                  {loadingPlan === 'one_time' ? 'Loading...' : `Get ${plan.name}`}
                 </Button>
               )}
             </div>
@@ -261,10 +294,58 @@ const PricingPage: React.FC = () => {
         })}
       </div>
 
+      {/* Embedded checkout modal */}
+      {checkoutClientSecret && (
+        <div
+          className="fixed inset-0 z-[50000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setCheckoutClientSecret(null); }}
+        >
+          <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-gray-90 shadow-2xl shadow-black/25 dark:shadow-black/75">
+            <div className="text-center py-4 px-6 border-b border-gray-70">
+              <h2 className="text-xl font-semibold text-white">Complete Your Purchase</h2>
+              <p className="text-sm text-gray-50">Secure checkout powered by Stripe</p>
+              <button
+                onClick={() => setCheckoutClientSecret(null)}
+                className="bg-transparent rounded-full hover:bg-gray-100 text-brand-30 border-0 absolute top-4 right-4 z-10 transition-colors duration-200"
+                aria-label="Close checkout"
+              >
+                <X className="w-5 h-5" />
+              </button>
+             
+              {/* Billing cycle toggle — only for subscription plans */}
+              {checkoutPlanType !== 'one_time' && (
+                 
+                <div className="flex justify-center mt-3">
+                  <div className="inline-flex rounded-full border border-gray-70 p-1 bg-gray-80">
+                    <button
+                      disabled={!!loadingPlan || billingCycle === 'monthly'}
+                      onClick={() => { setBillingCycle('monthly'); setCheckoutClientSecret(null); handleSelectPlan('monthly'); }}
+                      className={`px-4 py-2 rounded-l-full text-sm font-medium transition-all disabled:cursor-not-allowed ${billingCycle !== 'monthly' ? 'text-brand-30 bg-gray-90 hover:bg-gray-80 hover:underline shadow-sm' : 'bg-brand-60 hover:bg-brand-80 text-white hover:text-white'}`}
+                    >
+                      {loadingPlan === 'monthly' ? 'Loading…' : 'Monthly'}
+                    </button>
+                    <button
+                      disabled={!!loadingPlan || billingCycle === 'yearly'}
+                      onClick={() => { setBillingCycle('yearly'); setCheckoutClientSecret(null); handleSelectPlan('yearly'); }}
+                      className={`px-4 py-2 rounded-r-full text-sm font-medium transition-all disabled:cursor-not-allowed ${billingCycle !== 'yearly' ? 'text-brand-30 bg-gray-90 hover:bg-gray-80 hover:underline shadow-sm' : 'bg-brand-60 hover:bg-brand-80 text-white hover:text-white'}`}
+                    >
+                      {loadingPlan === 'yearly' ? 'Loading…' : <span>Yearly <span className="text-xs opacity-75">&nbsp;– Save 33%</span></span>}
+                    </button>
+                  </div>
+                
+                </div>
+              )}
+
+            </div> 
+            <div id="checkout" className="p-2" />
+          </div>
+        </div>
+      )}
+
       {/* FAQ or help text */}
       <div className="text-center mt-10 text-sm text-secondary-text">
         <p>All plans include core features like goal tracking, task management, and weekly reviews.</p>
-        <p className="mt-1">Questions? Reach out at <span className="text-primary">support@wkly.app</span></p>
+        <p className="mt-1">Questions? Reach out at <a href="mailto:support@wkly.me" className="text-primary">support@wkly.me</a></p>
       </div>
     </div>
   );

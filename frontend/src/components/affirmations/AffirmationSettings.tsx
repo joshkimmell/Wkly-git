@@ -86,7 +86,7 @@ const AffirmationSettings: React.FC = () => {
       </div>
 
       {/* Daily Dose Toggle */}
-      <div className="bg-brand-0/60 dark:bg-gray-80/30 rounded-xl px-6 mb-0">
+      <div className="bg-brand-0/60 dark:bg-gray-80/30 rounded-xl p-6 mb-0">
         <div className="flex items-start w-1/2 justify-between">
           <div>
             <Bell className="w-5 h-5 text-brand-60 dark:text-brand-30 mb-2" />

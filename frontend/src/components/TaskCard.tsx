@@ -766,7 +766,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 aria-label="Focus Mode"
                 size="small"
                 onClick={handleOpenFocusMode}
-                className={`btn-ghost px-0 md:!rounded-full ${isTimerRunning ? '!bg-brand-60 transition-all animate-pulse duration-300' : ''}`}
+                className={`btn-ghost p-1.5 md:!rounded-full ${isTimerRunning ? '!bg-brand-60 transition-all animate-pulse duration-300' : ''}`}
               >
               <Tooltip title={`${
                 isTimerActive
