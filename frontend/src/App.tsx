@@ -215,6 +215,16 @@ const App: React.FC = () => {
     }
   }, [session?.user?.id, profile]);
 
+  // Redirect to profile password change when user arrives via a password reset link
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        navigate('/profile?changePassword=true');
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   // Start reminder service when user is authenticated
   const { pendingReminderTask, dismissReminderTask } = useReminderService();
 
