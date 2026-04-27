@@ -1106,7 +1106,7 @@ export default function HomePage() {
                 </Select>
               </FormControl>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-4">
                 <TextField
                   label="New goal title *"
                   value={standaloneNewGoalTitle}

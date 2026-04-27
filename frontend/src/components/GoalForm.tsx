@@ -456,7 +456,7 @@ const AddGoal: React.FC<AddGoalProps> = ({ newGoal, setNewGoal, handleClose, ref
       // Fetch the authenticated user's ID
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) {
-        throw new Error('User not authenticated. Please log in to add a goal.');
+        throw new Error('User not authenticated. Please sign in to add a goal.');
       }
 
       // Add the user_id to the goal object

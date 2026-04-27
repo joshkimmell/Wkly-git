@@ -17,8 +17,8 @@ const buildHtml = ({ type, name, url }: { type: string; name?: string; url?: str
     buttonText = 'Create account';
   } else if (type === 'access_restored') {
     title = 'Your Wkly access has been restored';
-    body = 'Good news! Your access to Wkly has been restored. You can now log in to your account and continue using the app.';
-    buttonText = 'Log in to Wkly';
+    body = 'Good news! Your access to Wkly has been restored. You can now sign in to your account and continue using the app.';
+    buttonText = 'Sign in to Wkly';
   } else {
     title = 'Confirm your Wkly account';
     body = 'Click the button below to confirm your account and finish signing up.';

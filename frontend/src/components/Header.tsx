@@ -495,7 +495,7 @@ const Header = ({ isOpen = false, ...props }: HeaderProps) => {
                                         <label className="px-4 pb-4" htmlFor="profile-menu">{session?.user?.email}</label>
                                         <MenuItem onClick={() => setIsProfileOpen(true)}>Preferences</MenuItem>
                                         {profile?.is_admin === true && <MenuItem onClick={() => window.location.href = '/admin/access'}>Admin Access Requests</MenuItem>}
-                                        <MenuItem onClick={handleLogout}>Log Out</MenuItem>
+                                        <MenuItem onClick={handleLogout}>Sign Out</MenuItem>
                                     </Menu>
                                 </>
                             )}
