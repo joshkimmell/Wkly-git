@@ -81,18 +81,19 @@ export const handler = withCors(async (event) => {
       };
     }
 
-    if (!goalTitle || !goalDescription) {
+    if (!goalTitle) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Both title and description are required.' }),
+        body: JSON.stringify({ error: 'Goal title is required.' }),
       };
     }
 
     // Call OpenAI API to generate tasks for the goal
+    const descriptionLine = goalDescription ? `Goal Description: "${goalDescription}"` : '(No description provided — infer tasks from the title alone.)';
     const prompt = `You are a planning assistant helping a user break down a goal into actionable tasks.
 
 Goal Title: "${goalTitle}"
-Goal Description: "${goalDescription}"
+${descriptionLine}
 
 Your task:
 1. Identify 3-7 specific, actionable tasks needed to achieve this goal
