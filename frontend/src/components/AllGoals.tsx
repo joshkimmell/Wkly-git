@@ -119,6 +119,7 @@ const GoalsComponent = () => {
     const [standaloneTaskGoalId, setStandaloneTaskGoalId] = useState<string>('');
     const [standaloneCreateNewGoal, setStandaloneCreateNewGoal] = useState(false);
     const [standaloneNewGoalTitle, setStandaloneNewGoalTitle] = useState('');
+    const [standaloneNewGoalCategory, setStandaloneNewGoalCategory] = useState('General');
     // Date/time picker + reminder state for standalone Add Task modal
     const [standaloneSelectedDate, setStandaloneSelectedDate] = useState<Dayjs | null>(null);
     const [standaloneSelectedTime, setStandaloneSelectedTime] = useState<Dayjs | null>(null);
@@ -813,6 +814,7 @@ const GoalsComponent = () => {
         setStandaloneTaskGoalId('');
         setStandaloneCreateNewGoal(false);
         setStandaloneNewGoalTitle('');
+        setStandaloneNewGoalCategory('General');
         setStandaloneSelectedDate(null);
         setStandaloneSelectedTime(null);
         setStandaloneReminderEnabled(false);
@@ -839,7 +841,7 @@ const GoalsComponent = () => {
                         week_start: getWeekStartDate(),
                         status: 'Not started',
                         description: '',
-                        category: 'General',
+                        category: standaloneNewGoalCategory || 'General',
                     }),
                 });
                 if (!goalRes.ok) {
@@ -4226,9 +4228,25 @@ const GoalsComponent = () => {
                                         autoFocus
                                         placeholder="Enter goal title"
                                     />
+                                    <FormControl fullWidth size="small">
+                                        <InputLabel id="standalone-goal-category-label">Category *</InputLabel>
+                                        <Select
+                                            labelId="standalone-goal-category-label"
+                                            label="Category *"
+                                            value={standaloneNewGoalCategory}
+                                            onChange={(e) => setStandaloneNewGoalCategory(e.target.value as string)}
+                                        >
+                                            {(UserCategories.length > 0
+                                                ? UserCategories.map((c) => c.name)
+                                                : ['General', 'Work', 'Personal', 'Health', 'Finance', 'Learning']
+                                            ).map((name) => (
+                                                <MenuItem key={name} value={name}>{name}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
                                     <button
                                         className="text-sm text-gray-50 underline"
-                                        onClick={() => { setStandaloneCreateNewGoal(false); setStandaloneNewGoalTitle(''); }}
+                                        onClick={() => { setStandaloneCreateNewGoal(false); setStandaloneNewGoalTitle(''); setStandaloneNewGoalCategory('General'); }}
                                     >
                                         ← Pick an existing goal instead
                                     </button>
