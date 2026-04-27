@@ -154,7 +154,7 @@ const WeeklyReflectionFlow: React.FC<WeeklyReflectionFlowProps> = ({ onDismiss }
         user_id: user.id,
         title,
         content: summaryContent,
-        summary_type: 'reflection',
+        summary_type: 'AI',
         week_start: weekStart,
       });
       setSummarySaved(true);
