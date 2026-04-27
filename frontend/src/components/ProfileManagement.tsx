@@ -366,7 +366,7 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) 
         <nav aria-label="Preferences">
           <List className='profile-nav w-full flex flex-row gap-0 sm:flex-col'>
             <ListItemButton className='flex flex-col items-center justify-center sm:flex-row' selected={active === 'profile'} onClick={() => setActive('profile')}>
-              <ListItemText className='hidden sm:flex sm:flex-col' primary="Profile" secondary="Username, avatar, email" />
+              <ListItemText className='hidden sm:flex sm:flex-col' primary="Profile" secondary="Screen name, avatar, email" />
               <ListItemIcon className='flex justify-center sm:hidden'><User2 /></ListItemIcon>
               <ListItemText className='sm:hidden flex text-[0.65em]' primary="Profile" />
             </ListItemButton>
@@ -424,7 +424,7 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) 
                   Remove image
                 </button>
               )}
-              <TextField label="Username" value={username} onChange={(e) => setUsername(e.target.value)} fullWidth />
+              <TextField label="Screen Name" value={username} onChange={(e) => setUsername(e.target.value)} fullWidth />
               <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth />
               
               <FormControl fullWidth>
