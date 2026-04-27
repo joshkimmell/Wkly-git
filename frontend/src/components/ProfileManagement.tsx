@@ -64,6 +64,10 @@ const SubscriptionPanel: React.FC = () => {
         headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
       });
       const data = await res.json();
+      if (!res.ok) {
+        notifyError(data.error || 'Failed to open billing portal');
+        return;
+      }
       if (data.url) window.location.href = data.url;
     } catch {
       notifyError('Failed to open billing portal');
