@@ -193,7 +193,7 @@ const App: React.FC = () => {
       setShowWeeklyReset(shouldShowWeeklyReset());
       setShowWeeklyReflection(shouldShowWeeklyReflection());
     } catch { /* ignore */ }
-  }, [!!session, testing]);
+  }, [session?.user?.id, testing]);
 
   // Identify the authenticated user in Pendo once session + profile are loaded
   useEffect(() => {

@@ -14,7 +14,6 @@ import { Goal, Task } from '@utils/goalUtils';
 import { getSessionToken } from '@utils/functions';
 import { markWeeklyResetSeen } from '@hooks/useWeeklyFlows';
 import { notifySuccess } from '@components/ToastyNotification';
-import supabase from '@lib/supabase';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

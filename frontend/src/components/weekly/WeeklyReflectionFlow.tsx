@@ -1,10 +1,11 @@
 /**
  * WeeklyReflectionFlow
  *
- * 3-step full-screen interstitial shown at end-of-week (day before reset day):
+ * 4-step full-screen interstitial shown at end-of-week (day before reset day):
  *  1. Celebrate wins from the past week
  *  2. Reframe incomplete goals with prompts
  *  3. Set an intention for next week
+ *  4. Generate (and optionally save) an AI weekly summary
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { Sparkles, ChevronRight, ChevronLeft, X, CheckCircle2, Circle, ArrowRight, BookOpen, Save } from 'lucide-react';
