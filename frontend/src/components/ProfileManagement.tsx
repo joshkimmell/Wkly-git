@@ -36,6 +36,8 @@ import NotificationsSettings from './NotificationsSettings';
 import CalendarIntegration from './CalendarIntegration';
 import { COMMON_TIMEZONES, getBrowserTimezone } from '@utils/timezone';
 import { usePomodoroSettings } from '@hooks/usePomodoroSettings';
+import { useGoalSettings } from '@hooks/useGoalSettings';
+import type { ActiveGoalLimit } from '@hooks/useGoalSettings';
 import AffirmationSettings from '@components/affirmations/AffirmationSettings';
 import { useTier } from '@hooks/useTier';
 
@@ -180,6 +182,8 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) 
   }, []);
 
   const { settings: pomodoroSettings, updateSettings: updatePomodoroSettings } = usePomodoroSettings();
+  const { settings: goalSettings, updateSettings: updateGoalSettings } = useGoalSettings();
+  const { isFree } = useTier();
 
   const [savingAll, setSavingAll] = useState(false);
   // Local password state for optional in-profile password reset UI
@@ -679,14 +683,114 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) 
 
         {active === 'focus' && (
           <section className="space-y-6 p-2">
+
+            {/* ── Goal settings ─────────────────────────────────────────── */}
             <div>
+              <Typography variant="h6" gutterBottom>Goals</Typography>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Manage your active goal limit and weekly workflow.
+              </Typography>
+            </div>
+
+            {/* Active goal limit */}
+            <div className="space-y-2">
+              <Typography variant="subtitle2">Active goal limit</Typography>
+              {isFree ? (
+                <div className="rounded-lg border border-gray-20 dark:border-gray-70 px-4 py-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-primary-text">3 goals</p>
+                    <p className="text-xs text-secondary-text mt-0.5">Free plan is limited to 3 active goals at a time.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActive('subscription')}
+                    className="btn-secondary text-xs px-3 py-1 rounded-full shrink-0 ml-4"
+                  >
+                    Upgrade
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {([
+                    { value: 3,    label: '3 goals',      desc: 'Stay focused on a short list' },
+                    { value: 5,    label: '5 goals',      desc: 'A bit more breathing room' },
+                    { value: null, label: 'No limit',     desc: 'Manage as many goals as you like' },
+                  ] as { value: ActiveGoalLimit; label: string; desc: string }[]).map(({ value, label, desc }) => (
+                    <button
+                      key={String(value)}
+                      type="button"
+                      onClick={() => updateGoalSettings({ activeGoalLimit: value })}
+                      className={`text-left w-full rounded-lg border px-4 py-3 transition-colors ${
+                        goalSettings.activeGoalLimit === value
+                          ? 'border-primary bg-brand-10 dark:bg-brand-90'
+                          : 'border-gray-20 dark:border-gray-70 hover:border-primary'
+                      }`}
+                    >
+                      <p className="text-sm font-semibold text-primary-text">{label}</p>
+                      <p className="text-xs text-secondary-text mt-0.5">{desc}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Weekly reset */}
+            <div className="rounded-lg border border-gray-20 dark:border-gray-70 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Typography variant="subtitle2">Weekly reset</Typography>
+                  <p className="text-xs text-secondary-text mt-0.5">
+                    A guided flow each week to review active goals and set your top priorities.
+                  </p>
+                </div>
+                <Switch
+                  size="small"
+                  checked={goalSettings.weeklyResetEnabled}
+                  onChange={(e) => updateGoalSettings({ weeklyResetEnabled: e.target.checked })}
+                  inputProps={{ 'aria-label': 'Enable weekly reset' }}
+                />
+              </div>
+              {goalSettings.weeklyResetEnabled && (
+                <FormControl fullWidth size="small">
+                  <InputLabel id="weekly-reset-day-label">Reset day</InputLabel>
+                  <Select
+                    labelId="weekly-reset-day-label"
+                    label="Reset day"
+                    value={goalSettings.weeklyResetDay}
+                    onChange={(e) => updateGoalSettings({ weeklyResetDay: Number(e.target.value) })}
+                  >
+                    {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, idx) => (
+                      <MenuItem key={day} value={idx}>{day}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
+            </div>
+
+            {/* Weekly reflection */}
+            <div className="rounded-lg border border-gray-20 dark:border-gray-70 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Typography variant="subtitle2">Weekly reflection</Typography>
+                  <p className="text-xs text-secondary-text mt-0.5">
+                    End-of-week prompts that help you reframe missed goals and celebrate progress.
+                  </p>
+                </div>
+                <Switch
+                  size="small"
+                  checked={goalSettings.weeklyReflectionEnabled}
+                  onChange={(e) => updateGoalSettings({ weeklyReflectionEnabled: e.target.checked })}
+                  inputProps={{ 'aria-label': 'Enable weekly reflection' }}
+                />
+              </div>
+            </div>
+
+            <div className="border-t border-gray-20 dark:border-gray-70 pt-6">
               <Typography variant="h6" gutterBottom>Focus Timer</Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>
                 Choose your timer style and configure Pomodoro intervals.
               </Typography>
             </div>
-
-            {/* Timer mode */}
             <div className="space-y-2">
               <Typography variant="subtitle2">Timer mode</Typography>
               <div className="flex flex-col gap-2">
