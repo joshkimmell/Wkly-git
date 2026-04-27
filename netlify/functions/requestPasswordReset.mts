@@ -45,7 +45,7 @@ const handler: Handler = async (event) => {
           apikey: supabaseServiceKey,
         },
         body: JSON.stringify({
-          type: 'reset_password',
+          type: 'recovery',
           email,
           options: { redirect_to: redirectTo },
         }),
