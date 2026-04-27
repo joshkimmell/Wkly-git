@@ -32,12 +32,12 @@ export const handler = withCors(async (event) => {
     // Handle case where no data is found
     if (!data || data.length === 0) {
       return {
-        statusCode: 404,
+        statusCode: 200,
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ error: 'No accomplishments found for the specified user.' }),
+        body: JSON.stringify([]),
       };
     }
 
