@@ -9,6 +9,9 @@
   "author": "",
   "license": "ISC",
   "description": "",
+  "devDependencies": {
+    "@types/node": "*"
+  },
   "dependencies": {
     "@netlify/functions": "^4.1.5",
     "@supabase/supabase-js": "^2.50.0",
