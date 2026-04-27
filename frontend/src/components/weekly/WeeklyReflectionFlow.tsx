@@ -7,12 +7,13 @@
  *  3. Set an intention for next week
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { Sparkles, ChevronRight, ChevronLeft, X, CheckCircle2, Circle, ArrowRight } from 'lucide-react';
+import { Sparkles, ChevronRight, ChevronLeft, X, CheckCircle2, Circle, ArrowRight, BookOpen, Save } from 'lucide-react';
 import { CircularProgress } from '@mui/material';
 import { Goal, Task } from '@utils/goalUtils';
-import { getSessionToken } from '@utils/functions';
+import { getSessionToken, generateSummary, createSummary, getWeekStartDate } from '@utils/functions';
 import { markWeeklyReflectionSeen } from '@hooks/useWeeklyFlows';
-import { notifySuccess } from '@components/ToastyNotification';
+import { notifySuccess, notifyError } from '@components/ToastyNotification';
+import supabase from '@lib/supabase';
 
 // ── Reframing prompts (rotated by goal index) ─────────────────────────────────
 
@@ -52,7 +53,7 @@ interface WeeklyReflectionFlowProps {
   onDismiss: () => void;
 }
 
-const TOTAL_STEPS = 3;
+const TOTAL_STEPS = 4;
 
 const WeeklyReflectionFlow: React.FC<WeeklyReflectionFlowProps> = ({ onDismiss }) => {
   const [step, setStep] = useState(0);
@@ -62,6 +63,9 @@ const WeeklyReflectionFlow: React.FC<WeeklyReflectionFlowProps> = ({ onDismiss }
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [intention, setIntention] = useState('');
   const [acknowledgedGoals, setAcknowledgedGoals] = useState<Set<string>>(new Set());
+  const [summaryContent, setSummaryContent] = useState('');
+  const [summaryGenerating, setSummaryGenerating] = useState(false);
+  const [summarySaved, setSummarySaved] = useState(false);
 
   // Entrance animation
   useEffect(() => {
@@ -110,6 +114,54 @@ const WeeklyReflectionFlow: React.FC<WeeklyReflectionFlowProps> = ({ onDismiss }
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  };
+
+  const handleGenerateSummary = async () => {
+    setSummaryGenerating(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+      const weekStart = getWeekStartDate();
+      const title = `Weekly Reflection — ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
+      const goalsWithWins = goals
+        .filter(g => !g.is_archived)
+        .map(g => ({
+          title: g.title,
+          description: g.description || '',
+          category: g.category || '',
+          accomplishments: doneTasks
+            .filter(t => t.goal_id === g.id)
+            .map(t => ({ title: t.title, description: t.description || '', impact: '' })),
+        }));
+      const additionalCtx = intention ? `Intention for next week: ${intention}` : undefined;
+      const content = await generateSummary('', 'week', title, user.id, weekStart, goalsWithWins, undefined, additionalCtx);
+      setSummaryContent(content);
+    } catch {
+      notifyError('Failed to generate summary');
+    } finally {
+      setSummaryGenerating(false);
+    }
+  };
+
+  const handleSaveSummary = async () => {
+    if (!summaryContent) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+      const weekStart = getWeekStartDate();
+      const title = `Weekly Reflection — ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
+      await createSummary({
+        user_id: user.id,
+        title,
+        content: summaryContent,
+        summary_type: 'reflection',
+        week_start: weekStart,
+      });
+      setSummarySaved(true);
+      notifySuccess('Summary saved!');
+    } catch {
+      notifyError('Failed to save summary');
+    }
   };
 
   const handleFinish = () => {
@@ -296,6 +348,61 @@ const WeeklyReflectionFlow: React.FC<WeeklyReflectionFlowProps> = ({ onDismiss }
 
                 {intention.length > 0 && (
                   <p className="text-xs text-secondary-text text-right">{intention.length}/280</p>
+                )}
+              </div>
+            )}
+
+            {/* ── Step 3: Generate summary ──────────────────────────────── */}
+            {step === 3 && (
+              <div className="space-y-5">
+                <div>
+                  <h2 className="text-xl font-serif font-normal text-primary-text">
+                    Generate a weekly summary?
+                  </h2>
+                  <p className="text-secondary-text mt-1 text-sm">
+                    Capture this week in writing — saved to your Summaries.
+                  </p>
+                </div>
+
+                {!summaryContent && (
+                  <button
+                    type="button"
+                    onClick={handleGenerateSummary}
+                    disabled={summaryGenerating}
+                    className="btn-primary w-full flex items-center justify-center gap-2"
+                  >
+                    {summaryGenerating
+                      ? <><CircularProgress size={16} color="inherit" /> Generating…</>
+                      : <><BookOpen className="w-4 h-4" /> Generate summary</>}
+                  </button>
+                )}
+
+                {summaryContent && (
+                  <div className="space-y-3">
+                    <div className="rounded-lg border border-gray-20 dark:border-gray-70 bg-brand-10 dark:bg-brand-90 p-4 max-h-52 overflow-y-auto">
+                      <p className="text-sm text-primary-text leading-relaxed whitespace-pre-wrap">{summaryContent}</p>
+                    </div>
+                    {!summarySaved ? (
+                      <button
+                        type="button"
+                        onClick={handleSaveSummary}
+                        className="btn-primary w-full flex items-center justify-center gap-2"
+                      >
+                        <Save className="w-4 h-4" /> Save summary
+                      </button>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2 text-sm text-green-600 dark:text-green-400 py-1">
+                        <CheckCircle2 className="w-4 h-4" /> Summary saved
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setSummaryContent('')}
+                      className="btn-ghost w-full text-sm text-secondary-text"
+                    >
+                      Regenerate
+                    </button>
+                  </div>
                 )}
               </div>
             )}
