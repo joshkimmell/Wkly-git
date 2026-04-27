@@ -47,7 +47,7 @@ const handler: Handler = async (event) => {
         body: JSON.stringify({
           type: 'recovery',
           email,
-          options: { redirect_to: redirectTo },
+          redirect_to: redirectTo,
         }),
       }
     )
