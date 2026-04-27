@@ -181,6 +181,21 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) 
     } catch { /* ignore */ }
   }, []);
 
+  // Auto-open change-password section when redirected from a password reset email
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('changePassword') === 'true') {
+        setActive('profile');
+        setChangePassword(true);
+        // Clean the URL so a refresh doesn't re-trigger this
+        const url = new URL(window.location.href);
+        url.searchParams.delete('changePassword');
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   const { settings: pomodoroSettings, updateSettings: updatePomodoroSettings } = usePomodoroSettings();
   const { settings: goalSettings, updateSettings: updateGoalSettings } = useGoalSettings();
   const { isFree } = useTier();
@@ -366,43 +381,43 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) 
   return (
     <div className="profile-management p-0 m-0 flex flex-col sm:flex-row gap-4">
       {/* Left: vertical menu */}
-      <aside className="w-full sm:w-1/4">
+      <aside className="w-auto">
         <nav aria-label="Preferences">
-          <List className='profile-nav w-full flex flex-row gap-0 sm:flex-col'>
-            <ListItemButton className='flex flex-col items-center justify-center sm:flex-row' selected={active === 'profile'} onClick={() => setActive('profile')}>
-              <ListItemText className='hidden sm:flex sm:flex-col' primary="Profile" secondary="Screen name, avatar, email" />
-              <ListItemIcon className='flex justify-center sm:hidden'><User2 /></ListItemIcon>
-              <ListItemText className='sm:hidden flex text-[0.65em]' primary="Profile" />
+          <List className='profile-nav w-auto flex flex-row gap-0 sm:flex-col'>
+            <ListItemButton className='flex w-full flex-col items-center justify-center px-0 sm:flex-row' selected={active === 'profile'} onClick={() => setActive('profile')}>
+              {/* <ListItemText className='hidden md:flex sm:flex-col' primary="Profile" secondary="Screen name, avatar, email" /> */}
+              <ListItemIcon className='flex justify-center'><User2 /></ListItemIcon>
+              <ListItemText className='hidden sm:flex text-[0.65em]' primary="Profile" />
             </ListItemButton>
-            <ListItemButton className='flex flex-col items-center justify-center sm:flex-row' selected={active === 'appearance'} onClick={() => setActive('appearance')}>
-              <ListItemText className='hidden sm:flex sm:flex-col' primary="Appearance" secondary="Theme & primary color" />
-              <ListItemIcon className='flex justify-center sm:hidden'><Palette /></ListItemIcon>
-              <ListItemText className='sm:hidden flex text-[0.65em]' primary="Appearance" />
+            <ListItemButton className='flex w-full flex-col items-center justify-center px-0 sm:flex-row' selected={active === 'focus'} onClick={() => setActive('focus')}>
+              {/* <ListItemText className='hidden md:flex sm:flex-col' primary="Goal Focus" secondary="Timer mode & Pomodoro" /> */}
+              <ListItemIcon className='flex justify-center '><Zap /></ListItemIcon>
+              <ListItemText className='hidden sm:flex text-[0.65em] text-nowrap' primary="Goal Focus" />
             </ListItemButton>
-            <ListItemButton className='flex flex-col items-center justify-center sm:flex-row' selected={active === 'notifications'} onClick={() => setActive('notifications')}>
-              <ListItemText className='hidden sm:flex sm:flex-col' primary="Notifications" secondary="Slack & Email reminders" />
-              <ListItemIcon className='flex justify-center sm:hidden'><Bell /></ListItemIcon>
-              <ListItemText className='sm:hidden flex text-[0.65em]' primary="Notifications" />
+            <ListItemButton className='flex w-full flex-col items-center justify-center px-0 pr-2 sm:flex-row' selected={active === 'appearance'} onClick={() => setActive('appearance')}>
+              {/* <ListItemText className='hidden md:flex sm:flex-col' primary="Appearance" secondary="Theme & primary color" /> */}
+              <ListItemIcon className='flex justify-center'><Palette /></ListItemIcon>
+              <ListItemText className='hidden sm:flex text-[0.65em]' primary="Appearance" />
             </ListItemButton>
-            <ListItemButton className='flex flex-col items-center justify-center sm:flex-row' selected={active === 'calendar'} onClick={() => setActive('calendar')}>
-              <ListItemText className='hidden sm:flex sm:flex-col' primary="Calendar" secondary="iCal / Google Calendar sync" />
-              <ListItemIcon className='flex justify-center sm:hidden'><Calendar /></ListItemIcon>
-              <ListItemText className='sm:hidden flex text-[0.65em]' primary="Calendar" />
+            <ListItemButton className='flex w-full flex-col items-center justify-center px-0 pr-2 sm:flex-row' selected={active === 'notifications'} onClick={() => setActive('notifications')}>
+              {/* <ListItemText className='hidden md:flex sm:flex-col' primary="Notifications" secondary="Slack & Email reminders" /> */}
+              <ListItemIcon className='flex justify-center'><Bell /></ListItemIcon>
+              <ListItemText className='hidden sm:flex text-[0.65em]' primary="Notifications" />
             </ListItemButton>
-            <ListItemButton className='flex flex-col items-center justify-center sm:flex-row' selected={active === 'focus'} onClick={() => setActive('focus')}>
-              <ListItemText className='hidden sm:flex sm:flex-col' primary="Focus" secondary="Timer mode & Pomodoro" />
-              <ListItemIcon className='flex justify-center sm:hidden'><Zap /></ListItemIcon>
-              <ListItemText className='sm:hidden flex text-[0.65em]' primary="Focus" />
+            <ListItemButton className='flex w-full flex-col items-center justify-center px-0 pr-2 sm:flex-row' selected={active === 'calendar'} onClick={() => setActive('calendar')}>
+              {/* <ListItemText className='hidden md:flex sm:flex-col' primary="Calendar" secondary="iCal / Google Calendar sync" /> */}
+              <ListItemIcon className='flex justify-center'><Calendar /></ListItemIcon>
+              <ListItemText className='hidden sm:flex text-[0.65em]' primary="Calendar" />
             </ListItemButton>
-            <ListItemButton className='flex flex-col items-center justify-center sm:flex-row' selected={active === 'affirmations'} onClick={() => setActive('affirmations')}>
-              <ListItemText className='hidden sm:flex sm:flex-col' primary="Affirmations" secondary="Daily absurdity & submissions" />
-              <ListItemIcon className='flex justify-center sm:hidden'><ThumbsUp /></ListItemIcon>
-              <ListItemText className='sm:hidden flex text-[0.65em]' primary="Affirmations" />
+            <ListItemButton className='flex w-full flex-col items-center justify-center px-0 pr-2 sm:flex-row' selected={active === 'affirmations'} onClick={() => setActive('affirmations')}>
+              {/* <ListItemText className='hidden md:flex sm:flex-col' primary="Affirmations" secondary="Daily absurdity & submissions" /> */}
+              <ListItemIcon className='flex justify-center'><ThumbsUp /></ListItemIcon>
+              <ListItemText className='hidden sm:flex text-[0.65em]' primary="Affirmations" />
             </ListItemButton>
-            <ListItemButton className='flex flex-col items-center justify-center sm:flex-row' selected={active === 'subscription'} onClick={() => setActive('subscription')}>
-              <ListItemText className='hidden sm:flex sm:flex-col' primary="Subscription" secondary="Plan, billing & usage" />
-              <ListItemIcon className='flex justify-center sm:hidden'><CreditCard /></ListItemIcon>
-              <ListItemText className='sm:hidden flex text-[0.65em]' primary="Plan" />
+            <ListItemButton className='flex w-full flex-col items-center justify-center px-0 pr-2 sm:flex-row' selected={active === 'subscription'} onClick={() => setActive('subscription')}>
+              {/* <ListItemText className='hidden md:flex sm:flex-col' primary="Subscription" secondary="Plan, billing & usage" /> */}
+              <ListItemIcon className='flex justify-center'><CreditCard /></ListItemIcon>
+              <ListItemText className='hidden sm:flex text-[0.65em]' primary="Plan" />
             </ListItemButton>
           </List>
         </nav>
@@ -722,12 +737,14 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) 
                       onClick={() => updateGoalSettings({ activeGoalLimit: value })}
                       className={`text-left w-full rounded-lg border px-4 py-3 transition-colors ${
                         goalSettings.activeGoalLimit === value
-                          ? 'border-primary bg-brand-10 dark:bg-brand-90'
+                          ? 'border-brand-60 dark:border-brand-30 bg-brand-10 dark:bg-brand-90'
                           : 'border-gray-20 dark:border-gray-70 hover:border-primary'
                       }`}
                     >
-                      <p className="text-sm font-semibold text-primary-text">{label}</p>
-                      <p className="text-xs text-secondary-text mt-0.5">{desc}</p>
+                      <p className="text-sm font-semibold text-primary-text">
+                        {label}
+                        <span className="block text-xs text-secondary-text mt-0.5">{desc}</span>
+                      </p>
                     </button>
                   ))}
                 </div>
@@ -804,12 +821,14 @@ const Preferences: React.FC<ProfileManagementProps> = ({ onClose, initialTab }) 
                     onClick={() => updatePomodoroSettings({ timerMode: value })}
                     className={`text-left w-full rounded-lg border px-4 py-3 transition-colors ${
                       pomodoroSettings.timerMode === value
-                        ? 'border-primary bg-brand-10 dark:bg-brand-90'
+                        ? 'border-brand-60 dark:border-brand-30 bg-brand-10 dark:bg-brand-90'
                         : 'border-gray-20 dark:border-gray-70 hover:border-primary'
                     }`}
                   >
-                    <p className="text-sm font-semibold text-primary-text">{label}</p>
-                    <p className="text-xs text-secondary-text mt-0.5">{desc}</p>
+                    <p className="text-sm font-semibold text-primary-text">{label}
+                    <span className="block text-xs text-secondary-text mt-0.5">{desc}</span>
+
+                    </p>
                   </button>
                 ))}
               </div>
