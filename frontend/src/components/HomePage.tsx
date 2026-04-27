@@ -36,6 +36,8 @@ import {
   PlusIcon,
   Bell,
   Unlock,
+  BoxIcon,
+  Square,
 } from 'lucide-react';
 import { CircularProgress, MenuItem, Button, TextField, FormControl, InputLabel, Select, IconButton, FormControlLabel, Switch } from '@mui/material';
 import { DatePicker, TimePicker, DateTimePicker } from '@mui/x-date-pickers';
@@ -522,6 +524,11 @@ export default function HomePage() {
     setStandaloneSelectedReminderDatetime(null);
   };
 
+  const openTaskModal = (goalId?: string) => {
+    if (goalId) setStandaloneTaskGoalId(goalId);
+    setIsAddTaskModalOpen(true);
+  };
+
   const createStandaloneTask = async () => {
     if (!standaloneNewTask.title?.trim()) { 
       alert('Task title is required');
@@ -785,6 +792,14 @@ export default function HomePage() {
             label="Create a goal with tasks"
             description="Plan your next objective"
             onClick={openGoalModal}
+            variant='primary'
+            className="w-full md:w-auto"
+          />
+          <ActionCard
+            icon={<ListTodo className="w-6 h-6" />}
+            label="Create a quick task"
+            description="Add a task to a new or existing goal"
+            onClick={() => openTaskModal()}
             variant='primary'
             className="w-full md:w-auto"
           />

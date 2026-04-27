@@ -3038,6 +3038,7 @@ const GoalsComponent = () => {
                                 isSelected={selectedIds.has(goal.id)}
                                 onToggleSelect={(id) => toggleSelect(id, 'goals')}
                                 onRefresh={refreshGoals}
+                                onAddTask={(goalId) => { setStandaloneTaskGoalId(goalId); setIsAddTaskModalOpen(true); }}
                             />
                             ))}
                         </div>
@@ -3325,401 +3326,413 @@ const GoalsComponent = () => {
                                         
                                         return (
                                         <React.Fragment key={goal.id}>
-                                        <TableRow
-                                            selected={selectedIds.has(goal.id)}
-                                        >
-                                            
-                                            <TableCell>
-                                                <div className="flex items-start gap-2">
+                                            <TableRow
+                                                selected={selectedIds.has(goal.id)}
+                                            >
+                                                
+                                                <TableCell>
+                                                    <div className="flex items-start gap-2">
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                toggleRowExpanded(goal.id);
+                                                            }}
+                                                            className="btn-ghost"
+                                                        >
+                                                            {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+                                                        </IconButton>
+                                                        <Checkbox size="small" className="!btn-ghost !p-2" onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            toggleSelect(goal.id, 'goals');
+                                                        }} checked={selectedIds.has(goal.id)} onChange={() => {}} inputProps={{ 'aria-label': `Select goal ${goal.title}` }}
+                                                        />
+                                                    <div>
+                                                            <Typography variant="h6" className='!font-serif !font-semibold'><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></Typography>
+                                                            <Typography variant="body2" className="text-gray-50">
+                                                                <span dangerouslySetInnerHTML={renderHTML(((goal.description || '').substring(0, 100) + ((goal.description || '').length > 200 ? '...' : '')))} />
+                                                            </Typography>
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span className='card-category text-nowrap' dangerouslySetInnerHTML={renderHTML(goal.category)} />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <InlineStatus tasks={goalTasks} />
+                                                </TableCell>
+                                                <TableCell><span className='text-xs' dangerouslySetInnerHTML={renderHTML(goal.week_start)} /></TableCell>
+                                                <TableCell>
+                                                    {/* Single chevron button that opens a per-row actions menu */}
+                                                    
                                                     <IconButton
+                                                        className="btn-ghost"
                                                         size="small"
+                                                        aria-controls={rowActionsAnchorEl && rowActionsTargetId === goal.id ? 'row-actions-menu' : undefined}
+                                                        aria-haspopup="true"
+                                                        aria-expanded={rowActionsAnchorEl && rowActionsTargetId === goal.id ? 'true' : undefined}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            toggleRowExpanded(goal.id);
-                                                        }}
-                                                        className="btn-ghost"
-                                                    >
-                                                        {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-                                                    </IconButton>
-                                                    <Checkbox size="small" className="!btn-ghost !p-2" onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        toggleSelect(goal.id, 'goals');
-                                                    }} checked={selectedIds.has(goal.id)} onChange={() => {}} inputProps={{ 'aria-label': `Select goal ${goal.title}` }}
-                                                    />
-                                                <div>
-                                                        <Typography variant="h6" className='!font-serif !font-semibold'><span dangerouslySetInnerHTML={renderHTML(goal.title)} /></Typography>
-                                                        <Typography variant="body2" className="text-gray-50">
-                                                            <span dangerouslySetInnerHTML={renderHTML(((goal.description || '').substring(0, 100) + ((goal.description || '').length > 200 ? '...' : '')))} />
-                                                        </Typography>
-                                                    </div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <span className='card-category text-nowrap' dangerouslySetInnerHTML={renderHTML(goal.category)} />
-                                            </TableCell>
-                                            <TableCell>
-                                                <InlineStatus tasks={goalTasks} />
-                                            </TableCell>
-                                            <TableCell><span className='text-xs' dangerouslySetInnerHTML={renderHTML(goal.week_start)} /></TableCell>
-                                            <TableCell>
-                                                {/* Single chevron button that opens a per-row actions menu */}
-                                                
-                                                <IconButton
-                                                    className="btn-ghost"
-                                                    size="small"
-                                                    aria-controls={rowActionsAnchorEl && rowActionsTargetId === goal.id ? 'row-actions-menu' : undefined}
-                                                    aria-haspopup="true"
-                                                    aria-expanded={rowActionsAnchorEl && rowActionsTargetId === goal.id ? 'true' : undefined}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        const el = e.currentTarget as HTMLElement;
-                                                        
-                                                        if (rowActionsTargetId === goal.id && rowActionsAnchorEl) {
-                                                            setRowActionsAnchorEl(null);
-                                                            setRowActionsTargetId(null);
-                                                        } else {
-                                                            setRowActionsAnchorEl(el);
-                                                            setRowActionsTargetId(goal.id);
-                                                        }
-                                                    }}
-                                                >
-                                                    {/* Rotate chevron when open to indicate expanded state */}
-                                                { (winCountMap[goal.id] || 0) > 0 || (notesCountMap[goal.id] || 0) > 0 ? (
-                                                    <Badge 
-                                                        badgeContent="" 
-                                                        color="primary"
-                                                        variant='dot'
-                                                        anchorOrigin={{
-                                                            vertical: 'top',
-                                                            horizontal: 'right',
+                                                            const el = e.currentTarget as HTMLElement;
+                                                            
+                                                            if (rowActionsTargetId === goal.id && rowActionsAnchorEl) {
+                                                                setRowActionsAnchorEl(null);
+                                                                setRowActionsTargetId(null);
+                                                            } else {
+                                                                setRowActionsAnchorEl(el);
+                                                                setRowActionsTargetId(goal.id);
+                                                            }
                                                         }}
                                                     >
-                                                        <MoreVertical className={`w-4 h-4 ${rowActionsTargetId === goal.id && rowActionsAnchorEl ? '' : ''}`} />
-                                                    </Badge>
-                                                ) : (
-                                                    <MoreVertical className={`w-4 h-4 ${rowActionsTargetId === goal.id && rowActionsAnchorEl ? '' : ''}`} />
-                                                )}
-                                                </IconButton>
-
-                                                <Menu
-                                                    id="row-actions-menu"
-                                                    anchorEl={rowActionsAnchorEl}
-                                                    open={Boolean(rowActionsAnchorEl) && rowActionsTargetId === goal.id}
-                                                    onClose={() => { setRowActionsAnchorEl(null); setRowActionsTargetId(null); }}
-                                                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                                                    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                                                    // PaperProps={{ sx: { bgcolor: 'var(--color-background)' } }}
-                                                >
-                                                    <MenuItem 
-                                                        aria-label="Wins" 
-                                                        onClick={() => { setSelectedGoal(goal); openWins(goal); }} 
-                                                    >
-                                                    <Badge 
-                                                        badgeContent={winCountMap[goal.id] ?? 0} 
-                                                        color="primary"
-                                                        anchorOrigin={{
-                                                            vertical: 'top',
-                                                            horizontal: 'right',
-                                                        }}
-                                                    >
-                                                        <Award className="w-4 h-4 mr-2" name="Add win" />
-                                                    </Badge>
-                                                    {/* {wins.length > 0 && (
-                                                    <div className={objectCounter}>{wins.length}</div>
-                                                    )} */}
-                                                        Wins
-                                                    </MenuItem>
-                                        
-                                                    <MenuItem 
-                                                        aria-label="Notes" onClick={() => { setSelectedGoal(goal); openNotes(goal); }} 
-                                                        id="openNotes"
+                                                        {/* Rotate chevron when open to indicate expanded state */}
+                                                    { (winCountMap[goal.id] || 0) > 0 || (notesCountMap[goal.id] || 0) > 0 ? (
+                                                        <Badge 
+                                                            badgeContent="" 
+                                                            color="primary"
+                                                            variant='dot'
+                                                            anchorOrigin={{
+                                                                vertical: 'top',
+                                                                horizontal: 'right',
+                                                            }}
                                                         >
-                                                            <Badge 
-                                                                badgeContent={notesCountMap[goal.id] ?? 0} 
-                                                                color="primary"
-                                                                anchorOrigin={{
-                                                                    vertical: 'top',
-                                                                    horizontal: 'right',
-                                                                }}
-                                                            >
-                                                                <NotesIcon className="w-4 h-4 mr-2" />
-                                                            </Badge>
-                                                            {/* {(typeof notesCount === 'number' && notesCount != 0) && (
-                                                            <div className={objectCounter}>{notes.length > 0 ? notes.length : (notesCount ?? 0)}
-                                                            </div>
-                                                            )} */}
-                                                            Notes
-                                                    </MenuItem >
-                                                    {/* <MenuItem
-                                                        aria-label="Tasks"
-                                                        onClick={() => {
-                                                            setSelectedGoal(goal);
-                                                            setTasksGoalId(goal.id);
-                                                            setIsTasksModalOpen(true);
-                                                            setRowActionsAnchorEl(null);
-                                                            setRowActionsTargetId(null);
-                                                        }}
+                                                            <MoreVertical className={`w-4 h-4 ${rowActionsTargetId === goal.id && rowActionsAnchorEl ? '' : ''}`} />
+                                                        </Badge>
+                                                    ) : (
+                                                        <MoreVertical className={`w-4 h-4 ${rowActionsTargetId === goal.id && rowActionsAnchorEl ? '' : ''}`} />
+                                                    )}
+                                                    </IconButton>
+
+                                                    <Menu
+                                                        id="row-actions-menu"
+                                                        anchorEl={rowActionsAnchorEl}
+                                                        open={Boolean(rowActionsAnchorEl) && rowActionsTargetId === goal.id}
+                                                        onClose={() => { setRowActionsAnchorEl(null); setRowActionsTargetId(null); }}
+                                                        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                                                        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                                                        // PaperProps={{ sx: { bgcolor: 'var(--color-background)' } }}
                                                     >
-                                                        <ListTodo className="w-4 h-4 mr-2" />
-                                                        Tasks
-                                                    </MenuItem> */}
-                                                    
-                                                        <MenuItem
+                                                        <MenuItem 
+                                                            aria-label="Wins" 
+                                                            onClick={() => { setSelectedGoal(goal); openWins(goal); }} 
+                                                        >
+                                                        <Badge 
+                                                            badgeContent={winCountMap[goal.id] ?? 0} 
+                                                            color="primary"
+                                                            anchorOrigin={{
+                                                                vertical: 'top',
+                                                                horizontal: 'right',
+                                                            }}
+                                                        >
+                                                            <Award className="w-4 h-4 mr-2" name="Add win" />
+                                                        </Badge>
+                                                        {/* {wins.length > 0 && (
+                                                        <div className={objectCounter}>{wins.length}</div>
+                                                        )} */}
+                                                            Wins
+                                                        </MenuItem>
+                                            
+                                                        <MenuItem 
+                                                            aria-label="Notes" onClick={() => { setSelectedGoal(goal); openNotes(goal); }} 
+                                                            id="openNotes"
+                                                            >
+                                                                <Badge 
+                                                                    badgeContent={notesCountMap[goal.id] ?? 0} 
+                                                                    color="primary"
+                                                                    anchorOrigin={{
+                                                                        vertical: 'top',
+                                                                        horizontal: 'right',
+                                                                    }}
+                                                                >
+                                                                    <NotesIcon className="w-4 h-4 mr-2" />
+                                                                </Badge>
+                                                                {/* {(typeof notesCount === 'number' && notesCount != 0) && (
+                                                                <div className={objectCounter}>{notes.length > 0 ? notes.length : (notesCount ?? 0)}
+                                                                </div>
+                                                                )} */}
+                                                                Notes
+                                                        </MenuItem >
+                                                        {/* <MenuItem
+                                                            aria-label="Tasks"
                                                             onClick={() => {
                                                                 setSelectedGoal(goal);
-                                                                setIsEditorOpen(true);
+                                                                setTasksGoalId(goal.id);
+                                                                setIsTasksModalOpen(true);
                                                                 setRowActionsAnchorEl(null);
                                                                 setRowActionsTargetId(null);
                                                             }}
                                                         >
-                                                            <Edit className="w-4 h-4 mr-2" />
-                                                            Edit goal
-                                                        </MenuItem>
-                                                        <MenuItem
-                                                            onClick={() => {
-                                                                setArchiveTargetGoal(goal);
-                                                                setIsArchiveConfirmOpen(true);
-                                                                setRowActionsAnchorEl(null);
-                                                                setRowActionsTargetId(null);
-                                                            }}
-                                                        >
-                                                            <Archive className="w-4 h-4 mr-2" />
-                                                            {goal.is_archived ? 'Restore goal' : 'Archive goal'}
-                                                        </MenuItem>
-                                                        <MenuItem
-                                                            onClick={() => {
-                                                                setRowActionsAnchorEl(null);
-                                                                setRowActionsTargetId(null);
-                                                                setDeleteTargetId(goal.id);
-                                                                setIsDeleteConfirmOpen(true);
-                                                            }}
-                                                        >
-                                                            <Trash className="w-4 h-4 mr-2" />
-                                                            Delete goal
-                                                        </MenuItem>
-                                                </Menu>
-                                            </TableCell>
-                                        </TableRow>
-                                        {/* Add task row */}
-                                        {isExpanded && (
-                                            <TableRow className="bg-gray-10/60 dark:bg-gray-100/30 border-0" key={`add-task-${goal.id}`}>
-                                                <TableCell colSpan={5} className="pl-16 border-0">
-                                                    {addingTaskForGoal === goal.id ? (
-                                                        <div className="p-3 bg-gray-10/60 dark:bg-gray-100/30 rounded-md border-2 border-dashed border-primary space-y-2">
-                                                            <TextField
-                                                                value={newTaskData.title || ''}
-                                                                onChange={(e) => setNewTaskData(prev => ({ ...prev, title: e.target.value }))}
-                                                                size="small"
-                                                                fullWidth
-                                                                placeholder="Enter task title"
-                                                                label="Title *"
-                                                                autoFocus
-                                                            />
-                                                            <TextField
-                                                                value={newTaskData.description || ''}
-                                                                onChange={(e) => setNewTaskData(prev => ({ ...prev, description: e.target.value }))}
-                                                                size="small"
-                                                                fullWidth
-                                                                multiline
-                                                                rows={2}
-                                                                placeholder="Add description (optional)"
-                                                                label="Description"
-                                                            />
-                                                            <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                                            <div className="flex gap-2 items-end space-y-4">
-                                                                <DatePicker
-                                                                    label="Date"
-                                                                    value={tableSelectedDate}
-                                                                    onChange={(newValue) => setTableSelectedDate(newValue)}
-                                                                    slotProps={{ textField: { fullWidth: true, size: 'small' } }}
-                                                                />
-                                                                <TimePicker
-                                                                    label="Time (optional)"
-                                                                    value={tableSelectedTime}
-                                                                    onChange={(newValue) => setTableSelectedTime(newValue)}
-                                                                    slotProps={{ textField: { fullWidth: true, size: 'small' } }}
-                                                                />
-                                                                <div className="flex flex-row flex-1 px-4 h-full items-end justify-start">
-                                                                    <Tooltip title="Enable reminders" placement="top" arrow>
-                                                                        <FormControlLabel
-                                                                            label={<span className="flex flex-col"><Bell className="inline w-4 h-4 mr-2" /></span>}
-                                                                            control={
-                                                                                <Switch
-                                                                                    checked={newTaskData.reminder_enabled || false}
-                                                                                    onChange={(e) => setNewTaskData(prev => ({ ...prev, reminder_enabled: e.target.checked }))}
-                                                                                    size="small"
-                                                                                />
-                                                                            }
-                                                                        />
-                                                                    </Tooltip>
-                                                                    {newTaskData.reminder_enabled && (
-                                                                        // <TextField
-                                                                        //     type="datetime-local"
-                                                                        //     value={newTaskData.reminder_datetime || ''}
-                                                                        //     onChange={(e) => setNewTaskData(prev => ({ ...prev, reminder_datetime: e.target.value }))}
-                                                                        //     size="small"
-                                                                        //     label="Reminder Date & Time"
-                                                                        //     InputLabelProps={{ shrink: true }}
-                                                                        //     fullWidth
-                                                                        // />
-                                                                        <DateTimePicker
-                                                                            label="Reminder Date & Time"
-                                                                            value={tableReminderDatetime}
-                                                                            onChange={(newValue) => setTableReminderDatetime(newValue)}
+                                                            <ListTodo className="w-4 h-4 mr-2" />
+                                                            Tasks
+                                                        </MenuItem> */}
+                                                        
+                                                            <MenuItem
+                                                                onClick={() => {
+                                                                    setSelectedGoal(goal);
+                                                                    setIsEditorOpen(true);
+                                                                    setRowActionsAnchorEl(null);
+                                                                    setRowActionsTargetId(null);
+                                                                }}
+                                                            >
+                                                                <Edit className="w-4 h-4 mr-2" />
+                                                                Edit goal
+                                                            </MenuItem>
+                                                            <MenuItem
+                                                                onClick={() => {
+                                                                    setArchiveTargetGoal(goal);
+                                                                    setIsArchiveConfirmOpen(true);
+                                                                    setRowActionsAnchorEl(null);
+                                                                    setRowActionsTargetId(null);
+                                                                }}
+                                                            >
+                                                                <Archive className="w-4 h-4 mr-2" />
+                                                                {goal.is_archived ? 'Restore goal' : 'Archive goal'}
+                                                            </MenuItem>
+                                                            <MenuItem
+                                                                onClick={() => {
+                                                                    setRowActionsAnchorEl(null);
+                                                                    setRowActionsTargetId(null);
+                                                                    setDeleteTargetId(goal.id);
+                                                                    setIsDeleteConfirmOpen(true);
+                                                                }}
+                                                            >
+                                                                <Trash className="w-4 h-4 mr-2" />
+                                                                Delete goal
+                                                            </MenuItem>
+                                                    </Menu>
+                                                </TableCell>
+                                            </TableRow>
+                                            {/* Add task row */}
+                                            {isExpanded && (
+                                            <TableRow className="bg-gray-10/60 dark:bg-gray-100/30 border-0">
+                                                <TableCell colSpan={5} className="border-0 p-0">
+                                                    
+                                                    <TableRow key={`add-task-${goal.id}`} className="flex w-full bg-gray-10/60 dark:bg-gray-100/30 !border-none">
+                                                        <TableCell className="pl-16 !border-none w-full">
+                                                            
+                                                            {addingTaskForGoal === goal.id ? (
+                                                                <div className="p-3 bg-gray-10/60 dark:bg-gray-100/30 rounded-md border-2 border-dashed border-primary space-y-2">
+                                                                    <TextField
+                                                                        value={newTaskData.title || ''}
+                                                                        onChange={(e) => setNewTaskData(prev => ({ ...prev, title: e.target.value }))}
+                                                                        size="small"
+                                                                        fullWidth
+                                                                        placeholder="Enter task title"
+                                                                        label="Title *"
+                                                                        autoFocus
+                                                                    />
+                                                                    <TextField
+                                                                        value={newTaskData.description || ''}
+                                                                        onChange={(e) => setNewTaskData(prev => ({ ...prev, description: e.target.value }))}
+                                                                        size="small"
+                                                                        fullWidth
+                                                                        multiline
+                                                                        rows={2}
+                                                                        placeholder="Add description (optional)"
+                                                                        label="Description"
+                                                                    />
+                                                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                                                    <div className="flex gap-2 items-end space-y-4">
+                                                                        <DatePicker
+                                                                            label="Date"
+                                                                            value={tableSelectedDate}
+                                                                            onChange={(newValue) => setTableSelectedDate(newValue)}
                                                                             slotProps={{ textField: { fullWidth: true, size: 'small' } }}
                                                                         />
-                                                                    )}
+                                                                        <TimePicker
+                                                                            label="Time (optional)"
+                                                                            value={tableSelectedTime}
+                                                                            onChange={(newValue) => setTableSelectedTime(newValue)}
+                                                                            slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                                                                        />
+                                                                        <div className="flex flex-row flex-1 px-4 h-full items-end justify-start">
+                                                                            <Tooltip title="Enable reminders" placement="top" arrow>
+                                                                                <FormControlLabel
+                                                                                    label={<span className="flex flex-col"><Bell className="inline w-4 h-4 mr-2" /></span>}
+                                                                                    control={
+                                                                                        <Switch
+                                                                                            checked={newTaskData.reminder_enabled || false}
+                                                                                            onChange={(e) => setNewTaskData(prev => ({ ...prev, reminder_enabled: e.target.checked }))}
+                                                                                            size="small"
+                                                                                        />
+                                                                                    }
+                                                                                />
+                                                                            </Tooltip>
+                                                                            {newTaskData.reminder_enabled && (
+                                                                                // <TextField
+                                                                                //     type="datetime-local"
+                                                                                //     value={newTaskData.reminder_datetime || ''}
+                                                                                //     onChange={(e) => setNewTaskData(prev => ({ ...prev, reminder_datetime: e.target.value }))}
+                                                                                //     size="small"
+                                                                                //     label="Reminder Date & Time"
+                                                                                //     InputLabelProps={{ shrink: true }}
+                                                                                //     fullWidth
+                                                                                // />
+                                                                                <DateTimePicker
+                                                                                    label="Reminder Date & Time"
+                                                                                    value={tableReminderDatetime}
+                                                                                    onChange={(newValue) => setTableReminderDatetime(newValue)}
+                                                                                    slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                                                                                />
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                    </LocalizationProvider>
+                                                                    <div className="pt-4 flex gap-2 justify-end">
+                                                                        <button 
+                                                                            onClick={() => {
+                                                                                setAddingTaskForGoal(null);
+                                                                                setNewTaskData({
+                                                                                    title: '',
+                                                                                    description: '',
+                                                                                    reminder_enabled: false,
+                                                                                });
+                                                                                setTableSelectedDate(null);
+                                                                                setTableSelectedTime(null);
+                                                                                setTableReminderDatetime(null);
+                                                                            }} 
+                                                                            className="btn-secondary btn-sm"
+                                                                        >
+                                                                            Cancel
+                                                                        </button>
+                                                                        <button 
+                                                                            onClick={() => createTaskForGoal(goal.id)} 
+                                                                            className="btn-primary btn-sm"
+                                                                        >
+                                                                            Add Task
+                                                                        </button>
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                            </LocalizationProvider>
-                                                            <div className="pt-4 flex gap-2 justify-end">
-                                                                <button 
-                                                                    onClick={() => {
-                                                                        setAddingTaskForGoal(null);
-                                                                        setNewTaskData({
-                                                                            title: '',
-                                                                            description: '',
-                                                                            reminder_enabled: false,
-                                                                        });
-                                                                        setTableSelectedDate(null);
-                                                                        setTableSelectedTime(null);
-                                                                        setTableReminderDatetime(null);
-                                                                    }} 
-                                                                    className="btn-secondary btn-sm"
-                                                                >
-                                                                    Cancel
-                                                                </button>
-                                                                <button 
-                                                                    onClick={() => createTaskForGoal(goal.id)} 
-                                                                    className="btn-primary btn-sm"
-                                                                >
-                                                                    Add Task
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex gap-2">
-                                                            <button
-                                                                onClick={() => setAddingTaskForGoal(goal.id)}
-                                                                className="btn-ghost p-2 text-sm text-brand-60 dark:text-brand-30 hover:underline hover:bg-background-color rounded border border-dashed border-gray-30 dark:border-gray-60 hover:border-primary transition-colors flex items-center justify-start gap-2"
-                                                            >
-                                                                <PlusIcon className="w-4 h-4" />
-                                                                Add task
-                                                            </button>
-                                                            <button
-                                                                onClick={() => generateTasksForGoal(goal.id)}
-                                                                disabled={isGeneratingTasks}
-                                                                className="btn-ghost p-2 text-sm text-brand-60 dark:text-brand-30 hover:underline hover:bg-background-color rounded border border-dashed border-gray-30 dark:border-gray-60 hover:border-primary transition-colors flex items-center justify-start gap-2"
-                                                            >
-                                                                {isGeneratingTasks ? 'Generating...' : <><Sparkles className="w-4 h-4" /> Generate with AI</>}
-                                                            </button>
-                                                        </div>
-                                                    )}
+                                                            ) : (
+                                                                <div className="flex gap-2">
+                                                                    <button
+                                                                        onClick={() => setAddingTaskForGoal(goal.id)}
+                                                                        className="btn-ghost p-2 text-sm text-brand-60 dark:text-brand-30 hover:underline hover:bg-background-color rounded border border-dashed border-gray-30 dark:border-gray-60 hover:border-primary transition-colors flex items-center justify-start gap-2"
+                                                                    >
+                                                                        <PlusIcon className="w-4 h-4" />
+                                                                        Add task
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => generateTasksForGoal(goal.id)}
+                                                                        disabled={isGeneratingTasks}
+                                                                        className="btn-ghost p-2 text-sm text-brand-60 dark:text-brand-30 hover:underline hover:bg-background-color rounded border border-dashed border-gray-30 dark:border-gray-60 hover:border-primary transition-colors flex items-center justify-start gap-2"
+                                                                    >
+                                                                        {isGeneratingTasks ? 'Generating...' : <><Sparkles className="w-4 h-4" /> Generate with AI</>}
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                    {/* <div className="flex gap-2">…</div> */}
+
+                                                
+                                                    {/* )} */}
+                                                    {/* Task rows when expanded */}
+                                                    {goalTasks.map((task) => (
+                                                        <React.Fragment key={`task-${task.id}`}>
+                                                        
+                                                            <TableRow key={`task-${task.id}`} className="flex w-full bg-gray-10/60 dark:bg-gray-100/30">
+                                                                <TableCell className="pl-0 border-none">
+                                                                    <TaskCard 
+                                                                        task={task}
+                                                                        filter={filter}
+                                                                        className="bg-transparent border-0 shadow-none p-0"
+                                                                        selectable
+                                                                        hideGoalChip
+                                                                        list
+                                                                        isSelected={selectedIds.has(task.id)}
+                                                                        onToggleSelect={(id) => toggleSelect(id, 'tasks')}
+                                                                        onStatusChange={async (taskId, newStatus) => {
+                                                                            try {
+                                                                                const { data: { session } } = await supabase.auth.getSession();
+                                                                                const token = session?.access_token;
+                                                                                if (!token) throw new Error('User not authenticated');
+
+                                                                                const response = await fetch('/.netlify/functions/updateTask', {
+                                                                                    method: 'PUT',
+                                                                                    headers: {
+                                                                                        'Content-Type': 'application/json',
+                                                                                        Authorization: `Bearer ${token}`,
+                                                                                    },
+                                                                                    body: JSON.stringify({ id: taskId, status: newStatus }),
+                                                                                });
+
+                                                                                if (!response.ok) {
+                                                                                    const errBody = await response.json().catch(() => ({}));
+                                                                                    if (errBody?.error === 'tier_limit') {
+                                                                                        notifyTierLimit(errBody.message || 'Upgrade to activate more goals simultaneously.');
+                                                                                        return;
+                                                                                    }
+                                                                                    throw new Error('Failed to update task status');
+                                                                                }
+                                                                                notifySuccess('Task status updated');
+                                                                                await fetchTasksForGoal(goal.id);
+                                                                            } catch (error) {
+                                                                                console.error('Error updating task status:', error);
+                                                                                notifyError('Failed to update task status');
+                                                                            }
+                                                                        }}
+                                                                        onUpdate={async (taskId, updates) => {
+                                                                            try {
+                                                                                const { data: { session } } = await supabase.auth.getSession();
+                                                                                const token = session?.access_token;
+                                                                                if (!token) throw new Error('User not authenticated');
+
+                                                                                const response = await fetch('/.netlify/functions/updateTask', {
+                                                                                    method: 'PUT',
+                                                                                    headers: {
+                                                                                        'Content-Type': 'application/json',
+                                                                                        Authorization: `Bearer ${token}`,
+                                                                                    },
+                                                                                    body: JSON.stringify({ id: taskId, ...updates }),
+                                                                                });
+
+                                                                                if (!response.ok) throw new Error('Failed to update task');
+                                                                                notifySuccess('Task updated');
+                                                                                await fetchTasksForGoal(goal.id);
+                                                                            } catch (error) {
+                                                                                console.error('Error updating task:', error);
+                                                                                notifyError('Failed to update task');
+                                                                            }
+                                                                        }}
+                                                                        onDelete={(taskId) => {
+                                                                            const taskToDelete = (tableTasksByGoal[goal.id] || []).find(t => t.id === taskId);
+                                                                            if (!taskToDelete) return;
+                                                                            setTableTasksByGoal(prev => ({
+                                                                                ...prev,
+                                                                                [goal.id]: (prev[goal.id] || []).filter(t => t.id !== taskId),
+                                                                            }));
+                                                                            notifyWithUndo(
+                                                                                'Task deleted',
+                                                                                async () => {
+                                                                                    const { data: { session } } = await supabase.auth.getSession();
+                                                                                    const token = session?.access_token;
+                                                                                    if (!token) throw new Error('User not authenticated');
+                                                                                    const response = await fetch('/.netlify/functions/deleteTask', {
+                                                                                        method: 'DELETE',
+                                                                                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                                                                        body: JSON.stringify({ id: taskId }),
+                                                                                    });
+                                                                                    if (!response.ok) throw new Error('Failed to delete task');
+                                                                                },
+                                                                                () => {
+                                                                                    setTableTasksByGoal(prev => ({
+                                                                                        ...prev,
+                                                                                        [goal.id]: [...(prev[goal.id] || []), taskToDelete].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)),
+                                                                                    }));
+                                                                                },
+                                                                            );
+                                                                        }}
+                                                                        allowInlineEdit
+                                                                    />
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        </React.Fragment>
+                                                    ))}
                                                 </TableCell>
                                             </TableRow>
-                                        )}
-                                        {/* Task rows when expanded */}
-                                        {isExpanded && goalTasks.map((task) => (
-                                            <TableRow key={`task-${task.id}`} className="flex w-full bg-gray-10/60 dark:bg-gray-100/30 pl-24">
-                                                <TableCell colSpan={5} className="pl-16">
-                                                    <TaskCard 
-                                                        task={task}
-                                                        filter={filter}
-                                                        className="bg-transparent border-0 shadow-none p-0"
-                                                        selectable
-                                                        hideGoalChip
-                                                        list
-                                                        isSelected={selectedIds.has(task.id)}
-                                                        onToggleSelect={(id) => toggleSelect(id, 'tasks')}
-                                                        onStatusChange={async (taskId, newStatus) => {
-                                                            try {
-                                                                const { data: { session } } = await supabase.auth.getSession();
-                                                                const token = session?.access_token;
-                                                                if (!token) throw new Error('User not authenticated');
-
-                                                                const response = await fetch('/.netlify/functions/updateTask', {
-                                                                    method: 'PUT',
-                                                                    headers: {
-                                                                        'Content-Type': 'application/json',
-                                                                        Authorization: `Bearer ${token}`,
-                                                                    },
-                                                                    body: JSON.stringify({ id: taskId, status: newStatus }),
-                                                                });
-
-                                                                if (!response.ok) {
-                                                                    const errBody = await response.json().catch(() => ({}));
-                                                                    if (errBody?.error === 'tier_limit') {
-                                                                        notifyTierLimit(errBody.message || 'Upgrade to activate more goals simultaneously.');
-                                                                        return;
-                                                                    }
-                                                                    throw new Error('Failed to update task status');
-                                                                }
-                                                                notifySuccess('Task status updated');
-                                                                await fetchTasksForGoal(goal.id);
-                                                            } catch (error) {
-                                                                console.error('Error updating task status:', error);
-                                                                notifyError('Failed to update task status');
-                                                            }
-                                                        }}
-                                                        onUpdate={async (taskId, updates) => {
-                                                            try {
-                                                                const { data: { session } } = await supabase.auth.getSession();
-                                                                const token = session?.access_token;
-                                                                if (!token) throw new Error('User not authenticated');
-
-                                                                const response = await fetch('/.netlify/functions/updateTask', {
-                                                                    method: 'PUT',
-                                                                    headers: {
-                                                                        'Content-Type': 'application/json',
-                                                                        Authorization: `Bearer ${token}`,
-                                                                    },
-                                                                    body: JSON.stringify({ id: taskId, ...updates }),
-                                                                });
-
-                                                                if (!response.ok) throw new Error('Failed to update task');
-                                                                notifySuccess('Task updated');
-                                                                await fetchTasksForGoal(goal.id);
-                                                            } catch (error) {
-                                                                console.error('Error updating task:', error);
-                                                                notifyError('Failed to update task');
-                                                            }
-                                                        }}
-                                                        onDelete={(taskId) => {
-                                                            const taskToDelete = (tableTasksByGoal[goal.id] || []).find(t => t.id === taskId);
-                                                            if (!taskToDelete) return;
-                                                            setTableTasksByGoal(prev => ({
-                                                                ...prev,
-                                                                [goal.id]: (prev[goal.id] || []).filter(t => t.id !== taskId),
-                                                            }));
-                                                            notifyWithUndo(
-                                                                'Task deleted',
-                                                                async () => {
-                                                                    const { data: { session } } = await supabase.auth.getSession();
-                                                                    const token = session?.access_token;
-                                                                    if (!token) throw new Error('User not authenticated');
-                                                                    const response = await fetch('/.netlify/functions/deleteTask', {
-                                                                        method: 'DELETE',
-                                                                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                                                                        body: JSON.stringify({ id: taskId }),
-                                                                    });
-                                                                    if (!response.ok) throw new Error('Failed to delete task');
-                                                                },
-                                                                () => {
-                                                                    setTableTasksByGoal(prev => ({
-                                                                        ...prev,
-                                                                        [goal.id]: [...(prev[goal.id] || []), taskToDelete].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)),
-                                                                    }));
-                                                                },
-                                                            );
-                                                        }}
-                                                        allowInlineEdit
-                                                    />
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
+                                            )}
                                         </React.Fragment>
-                                        );
-                                    })}
+                                        )})}
                                 </TableBody>
                             </Table>
                         </Paper>
