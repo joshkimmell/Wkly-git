@@ -1281,16 +1281,30 @@ const GoalsComponent = () => {
     };
 
     const handleTaskDelete = (taskId: string) => {
-        // Find the task across all goal buckets
+        // Find the task across kanban buckets first, then table buckets
         let taskToDelete: Task | undefined;
         for (const gid of Object.keys(kanbanTasks)) {
             taskToDelete = kanbanTasks[gid]?.find(t => t.id === taskId);
             if (taskToDelete) { break; }
         }
+        if (!taskToDelete) {
+            for (const gid of Object.keys(tableTasksByGoal)) {
+                taskToDelete = tableTasksByGoal[gid]?.find(t => t.id === taskId);
+                if (taskToDelete) { break; }
+            }
+        }
         if (!taskToDelete) return;
         const prevKanbanTasks = { ...kanbanTasks };
-        // Optimistically remove from UI
+        const prevTableTasksByGoal = { ...tableTasksByGoal };
+        // Optimistically remove from both stores
         setKanbanTasks((prev) => {
+            const updated: Record<string, Task[]> = {};
+            for (const gid of Object.keys(prev)) {
+                updated[gid] = prev[gid].filter(t => t.id !== taskId);
+            }
+            return updated;
+        });
+        setTableTasksByGoal((prev) => {
             const updated: Record<string, Task[]> = {};
             for (const gid of Object.keys(prev)) {
                 updated[gid] = prev[gid].filter(t => t.id !== taskId);
@@ -1313,6 +1327,7 @@ const GoalsComponent = () => {
             },
             () => {
                 setKanbanTasks(prevKanbanTasks);
+                setTableTasksByGoal(prevTableTasksByGoal);
             },
         );
     };
@@ -3507,7 +3522,8 @@ const GoalsComponent = () => {
                                             {isExpanded && (
                                             <TableRow className="bg-gray-10/60 dark:bg-gray-100/30 border-0">
                                                 <TableCell colSpan={5} className="border-0 p-0">
-                                                    
+                                                <Table className="w-full">
+                                                <TableBody>
                                                     <TableRow key={`add-task-${goal.id}`} className="flex w-full bg-gray-10/60 dark:bg-gray-100/30 !border-none">
                                                         <TableCell className="pl-16 !border-none w-full">
                                                             
@@ -3632,7 +3648,7 @@ const GoalsComponent = () => {
                                                     {goalTasks.map((task) => (
                                                         <React.Fragment key={`task-${task.id}`}>
                                                         
-                                                            <TableRow key={`task-${task.id}`} className="flex w-full bg-gray-10/60 dark:bg-gray-100/30">
+                                                            <TableRow key={`task-${task.id}`} className=" w-full bg-gray-10/60 dark:bg-gray-100/30">
                                                                 <TableCell className="pl-0 border-none">
                                                                     <TaskCard 
                                                                         task={task}
@@ -3730,6 +3746,8 @@ const GoalsComponent = () => {
                                                             </TableRow>
                                                         </React.Fragment>
                                                     ))}
+                                                    </TableBody>
+                                                    </Table>
                                                 </TableCell>
                                             </TableRow>
                                             )}
