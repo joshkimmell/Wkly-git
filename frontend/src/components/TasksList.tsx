@@ -583,7 +583,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
           {canGeneratePlan ? (
             <button
               onClick={generateTasks}
-              disabled={isGenerating}
+              disabled={isGenerating || isAddingTask}
               className="btn-primary"
             >
               {isGenerating ? 'Generating...' : 'Generate Tasks with AI'}
@@ -669,7 +669,7 @@ const TasksList: React.FC<TasksListProps> = ({ goalId, goalTitle, goalDescriptio
             {canGeneratePlan ? (
               <button
                 onClick={generateTasks}
-                disabled={isGenerating}
+                disabled={isGenerating || isAddingTask}
                 className="btn-primary gap-1 cursor-pointer"
               >
                 {isGenerating ? 'Generating...' : <><Sparkles className="w-4 h-4" /> Generate Tasks with AI</>}

@@ -35,7 +35,7 @@ export const handler = withCors(async (event) => {
   const body = JSON.parse(event.body || '{}');
   const { title, description, category, week_start, status, status_notes, status_set_at } = body;
 
-  if (!title || !description || !category || !week_start) {
+  if (!title || !category || !week_start) {
     return {
       statusCode: 400,
       body: JSON.stringify({ error: 'All fields are required.' }),

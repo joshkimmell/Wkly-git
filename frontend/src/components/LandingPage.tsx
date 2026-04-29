@@ -187,7 +187,7 @@ const LandingPage = () => {
         .from('profiles').select('id').eq('email', email.trim().toLowerCase()).maybeSingle();
       if (ep) {
         setIsRegisterModalOpen(false);
-        notifyError('You already have an account! Please log in instead.');
+        notifyError('You already have an account! Please sign in instead.');
         setTimeout(() => setIsLoginModalOpen(true), 500);
         return;
       }

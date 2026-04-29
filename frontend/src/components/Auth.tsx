@@ -211,7 +211,7 @@ const Login = () => {
 
         if (existingProfile) {
           setIsRegisterModalOpen(false);
-          notifyError('You already have an account! Please log in instead.');
+          notifyError('You already have an account! Please sign in instead.');
           setTimeout(() => setIsLoginModalOpen(true), 500);
           return;
         }

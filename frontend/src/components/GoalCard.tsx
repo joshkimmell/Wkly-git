@@ -35,6 +35,7 @@ interface GoalCardProps {
   hideTasks?: boolean; // Hide the Tasks action button (e.g. when viewed from a single task)
   inlineEdit?: boolean; // Open GoalEditor inline instead of calling handleEdit callback
   onRefresh?: () => Promise<unknown>; // Called after archive/unarchive so parent can refresh its local indexed goals
+  onAddTask?: (goalId: string) => void; // Open standalone Add Task modal pre-selected for this goal
 }
 
 // const GoalCard: React.FC<GoalCardProps> = ({ goal }) => {
@@ -49,6 +50,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
   hideTasks = false,
   inlineEdit = false,
   onRefresh,
+  onAddTask,
 }) => {
   // // const handleDeleteGoal = (goalId: string) => {
   //   // Implement the delete logic here
@@ -578,6 +580,15 @@ const GoalCard: React.FC<GoalCardProps> = ({
                     <div data-testid={`tasks-count-${goal.id}`} className={objectCounter}>{displayedTasksCount}</div>
                   )}
                   <ListTodo className="w-5 h-5" />
+                </IconButton>
+              </span>
+            </Tooltip>
+            )}
+            {onAddTask && (
+            <Tooltip title="Add task" placement="top" arrow>
+              <span>
+                <IconButton aria-label="Add task" onClick={(e) => { e.stopPropagation(); onAddTask(goal.id); }} size="small" className="btn-ghost">
+                  <PlusIcon className="w-5 h-5" />
                 </IconButton>
               </span>
             </Tooltip>

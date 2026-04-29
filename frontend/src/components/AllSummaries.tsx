@@ -46,6 +46,8 @@ const AllSummaries = () => {
   
   const [filterCategory, setFilterCategory] = useState<string[]>([]);
   const filterInputRef = useRef<HTMLInputElement | null>(null);
+  const blurTimeoutRef = useRef<number | null>(null);
+  const [searchBarOpen, setSearchBarOpen] = useState<boolean>(false);
   const [filter, setFilter] = useState<string>(''); // For filtering summaries
   const [filterType, setFilterType] = useState<string[]>([]);
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
@@ -305,7 +307,7 @@ const AllSummaries = () => {
     {summaries.length !== 0 ? (
       <>
         {/* Filter and Sort Controls */}
-        <div className="mt-4 h-10 flex items-center space-x-2">
+        <div className="mt-4 h-10 flex items-center space-x-1">
           {/* Filter toggle button */}
           <Tooltip title={filterPanelOpen ? 'Close filters' : 'Open filters'} placement="top" arrow>
             <span>
@@ -404,8 +406,106 @@ const AllSummaries = () => {
             )}
           </div>
 
-          {/* Bulk select toolbar */}
-          <div className="ml-auto flex items-center gap-2">
+          {/* Right-side controls: search, generate, select */}
+          <div className="ml-auto flex items-center space-x-4">
+            {/* Collapsible search bar */}
+            <div className="relative flex items-center">
+              <div
+                style={{
+                  width: (searchBarOpen || filter) ? '0px' : '32px',
+                  opacity: (searchBarOpen || filter) ? 0 : 1,
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                  pointerEvents: (searchBarOpen || filter) ? 'none' : 'auto',
+                  transition: 'width 0.2s ease, opacity 0.15s ease',
+                }}
+              >
+                <Tooltip title="Search" placement="top" arrow>
+                  <IconButton
+                    className="btn-ghost"
+                    size="small"
+                    aria-label="Search"
+                    tabIndex={(searchBarOpen || filter) ? -1 : 0}
+                    onClick={() => {
+                      setSearchBarOpen(true);
+                      setTimeout(() => filterInputRef.current?.focus(), 50);
+                    }}
+                  >
+                    <Search className="w-5 h-5" />
+                  </IconButton>
+                </Tooltip>
+              </div>
+              <div
+                style={{
+                  width: '100%',
+                  maxWidth: (searchBarOpen || filter) ? '2000px' : '0px',
+                  opacity: (searchBarOpen || filter) ? 1 : 0,
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                  transition: 'max-width 0.2s ease, opacity 0.15s ease',
+                }}
+              >
+                <TextField
+                  id="summary-filter"
+                  size="small"
+                  fullWidth
+                  value={filter}
+                  inputRef={(el) => { filterInputRef.current = el; }}
+                  onFocus={() => {
+                    if (blurTimeoutRef.current) window.clearTimeout(blurTimeoutRef.current);
+                  }}
+                  onBlur={() => {
+                    blurTimeoutRef.current = window.setTimeout(() => {
+                      blurTimeoutRef.current = null;
+                      if (!filter) setSearchBarOpen(false);
+                    }, 150);
+                  }}
+                  onChange={(e) => handleFilterChange(e.target.value)}
+                  placeholder="Search..."
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <IconButton
+                          size="small"
+                          aria-label="Close search"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setSearchBarOpen(false);
+                            handleFilterChange('');
+                          }}
+                        >
+                          <CloseButton className="w-5 h-5" />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <Tooltip title={filter ? 'Clear text' : ''} placement="top" arrow>
+                          <span>
+                            <IconButton
+                              size="small"
+                              aria-label="Clear text"
+                              disabled={!filter}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => {
+                                handleFilterChange('');
+                                filterInputRef.current?.focus();
+                              }}
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </div>
+            </div>
+
+            
+
+            {/* Select/deselect */}
             <Tooltip title={selectedCount > 0 ? `Deselect all` : 'Select all visible'} placement="top" arrow>
               <Badge badgeContent={selectedCount} color="primary">
                 <span className="sr-only">{selectedCount} selected</span>
@@ -425,8 +525,19 @@ const AllSummaries = () => {
               </Badge>
             </Tooltip>
             {selectedCount > 0 && (
-              <button className="btn-ghost" onClick={() => setIsBulkDeleteConfirmOpen(true)} title="Delete selected" aria-label="Delete selected">Delete</button>
+              <Button className="btn-ghost text-sm" onClick={() => setIsBulkDeleteConfirmOpen(true)} title="Delete selected" aria-label="Delete selected">Delete</Button>
             )}
+          </div>
+          {/* Generate Summary button */}
+          <div className="flex w-full justify-end">
+            <SummaryGenerator
+              summaryId={''}
+              summaryTitle={`Summary: ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}
+              selectedRange={new Date()}
+              filteredGoals={goals}
+              scope="week"
+              onSummaryCreated={fetchSummariesData}
+            />
           </div>
         </div>
 
@@ -518,24 +629,6 @@ const AllSummaries = () => {
 
           {/* Summaries content */}
           <div className="flex-1 min-w-0">
-            {/* Search field */}
-            <TextField
-              placeholder="Search summaries..."
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              variant="outlined"
-              size="small"
-              fullWidth
-              className="mb-4 bg-white dark:bg-gray-90"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search className="w-4 h-4" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-
             {/* Summaries grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {sortedAndFilteredSummaries.map((summary) => (

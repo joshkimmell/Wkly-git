@@ -217,7 +217,7 @@ const OnboardingAssistant: React.FC<OnboardingAssistantProps> = ({ onComplete })
   // ── Navigation ──
   const handleNext = () => {
     if (stepIndex === 1 && !username.trim()) {
-      notifyError('Please enter a username to continue.');
+      notifyError('Please enter a screen name to continue.');
       return;
     }
     if (stepIndex < STEPS.length - 1) {
@@ -315,7 +315,7 @@ const OnboardingAssistant: React.FC<OnboardingAssistantProps> = ({ onComplete })
               </div>
 
               <TextField
-                label="Username *"
+                label="Screen Name *"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 fullWidth

@@ -760,7 +760,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
               <span className=' md:hidden text-xs text-primary-text px-2 md:px-0'>{`${displayStatus === 'Done' ? 'Reopen' : 'Mark as done'}`}</span>
             </IconButton>
 
-            {/* Start focus */}
+            {/* Start focus — hidden when task is Done */}
+            {displayStatus !== 'Done' && (
             <span className="relative inline-flex flex-col items-center">
               <IconButton
                 aria-label="Focus Mode"
@@ -786,6 +787,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 </span>
               )}
             </span>
+            )}
 
             {/* Pomodoro compact pill — only when pomodoro mode and timer active for this task */}
             {/* {isTimerActive && pomodoroSettings.timerMode === 'pomodoro' && (() => {
@@ -1518,7 +1520,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
         PaperProps={{
           elevation: 24,
           sx: {
-            backgroundColor: 'var(--background)',
+            backgroundColor: 'var(--background-color)',
             backgroundImage: 'none',
           }
         }}

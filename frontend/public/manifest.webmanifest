@@ -1,7 +1,7 @@
 {
   "name": "Wkly — AI-Powered Goal Tracker",
   "short_name": "Wkly",
-  "description": "Your AI-powered command center for motivation andprogress.",
+  "description": "Your AI-powered command center for motivation and progress.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

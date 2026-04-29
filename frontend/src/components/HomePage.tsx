@@ -4,7 +4,7 @@ import { useGoalsContext } from '@context/GoalsContext';
 import { useTimezone } from '@context/TimezoneContext';
 import useAuth from '@hooks/useAuth';
 import { useTier } from '@hooks/useTier';
-import { getSessionToken, getWeekStartDate } from '@utils/functions';
+import { getSessionToken, getWeekStartDate, UserCategories, initializeUserCategories } from '@utils/functions';
 import { notifyTierLimit } from '@components/ToastyNotification';
 import { getTodayInTimezone, formatDateInTimezone, convertToUTC } from '@utils/timezone';
 import { Task, Goal, Win, calculateGoalCompletion } from '@utils/goalUtils';
@@ -16,7 +16,6 @@ import SummaryGenerator from '@components/SummaryGenerator';
 import Modal from 'react-modal';
 import { ARIA_HIDE_APP } from '@lib/modal';
 import { modalClasses, overlayClasses } from '@styles/classes';
-import supabase from '@lib/supabase';
 import {
   Target,
   CheckSquare,
@@ -36,6 +35,8 @@ import {
   PlusIcon,
   Bell,
   Unlock,
+  BoxIcon,
+  Square,
 } from 'lucide-react';
 import { CircularProgress, MenuItem, Button, TextField, FormControl, InputLabel, Select, IconButton, FormControlLabel, Switch } from '@mui/material';
 import { DatePicker, TimePicker, DateTimePicker } from '@mui/x-date-pickers';
@@ -293,6 +294,7 @@ export default function HomePage() {
   const [standaloneTaskGoalId, setStandaloneTaskGoalId] = useState('');
   const [standaloneCreateNewGoal, setStandaloneCreateNewGoal] = useState(false);
   const [standaloneNewGoalTitle, setStandaloneNewGoalTitle] = useState('');
+  const [standaloneNewGoalCategory, setStandaloneNewGoalCategory] = useState('General');
   // Date/time picker + reminder state for standalone Add Task modal
   const [standaloneSelectedDate, setStandaloneSelectedDate] = useState<Dayjs | null>(null);
   const [standaloneSelectedTime, setStandaloneSelectedTime] = useState<Dayjs | null>(null);
@@ -418,6 +420,7 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchTodayTasks();
+    initializeUserCategories().catch(() => { /* ignore */ });
   }, [fetchTodayTasks]);
 
   // Listen for task mutations dispatched by TasksList or other components so that
@@ -514,12 +517,18 @@ export default function HomePage() {
     setStandaloneTaskGoalId('');
     setStandaloneCreateNewGoal(false);
     setStandaloneNewGoalTitle('');
+    setStandaloneNewGoalCategory('General');
     setStandaloneSelectedDate(null);
     setStandaloneSelectedTime(null);
     setStandaloneReminderEnabled(false);
     setStandaloneReminderOffset('30');
     setStandaloneReminderDatetime('');
     setStandaloneSelectedReminderDatetime(null);
+  };
+
+  const openTaskModal = (goalId?: string) => {
+    if (goalId) setStandaloneTaskGoalId(goalId);
+    setIsAddTaskModalOpen(true);
   };
 
   const createStandaloneTask = async () => {
@@ -542,20 +551,26 @@ export default function HomePage() {
       let goalId = standaloneTaskGoalId;
       
       if (standaloneCreateNewGoal) {
-        const { data: { user } } = await supabase.auth.getUser();
-        const { data: createdGoal, error: goalErr } = await supabase
-          .from('goals')
-          .insert({
+        const goalRes = await fetch('/.netlify/functions/createGoal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
             title: standaloneNewGoalTitle.trim(),
             week_start: getWeekStartDate(),
-            user_id: user?.id,
             status: 'Not started',
             description: '',
-            category: '',
-          })
-          .select()
-          .single();
-        if (goalErr || !createdGoal) throw new Error(goalErr?.message || 'Failed to create goal');
+            category: standaloneNewGoalCategory || 'General',
+          }),
+        });
+        if (!goalRes.ok) {
+          const errBody = await goalRes.json().catch(() => ({})) as { error?: string; message?: string };
+          if (errBody?.error === 'tier_limit') {
+            notifyTierLimit(errBody.message || 'Upgrade to create more goals.');
+            throw new Error('tier_limit');
+          }
+          throw new Error(errBody.error || 'Failed to create goal');
+        }
+        const createdGoal = await goalRes.json() as { id: string };
         goalId = createdGoal.id;
         await refreshGoals();
       }
@@ -785,6 +800,14 @@ export default function HomePage() {
             label="Create a goal with tasks"
             description="Plan your next objective"
             onClick={openGoalModal}
+            variant='primary'
+            className="w-full md:w-auto"
+          />
+          <ActionCard
+            icon={<ListTodo className="w-6 h-6" />}
+            label="Create a quick task"
+            description="Add a task to a new or existing goal"
+            onClick={() => openTaskModal()}
             variant='primary'
             className="w-full md:w-auto"
           />
@@ -1083,7 +1106,7 @@ export default function HomePage() {
                 </Select>
               </FormControl>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-4">
                 <TextField
                   label="New goal title *"
                   value={standaloneNewGoalTitle}
@@ -1093,9 +1116,25 @@ export default function HomePage() {
                   autoFocus
                   placeholder="Enter goal title"
                 />
+                <FormControl fullWidth size="small">
+                  <InputLabel id="hp-standalone-goal-category-label">Category *</InputLabel>
+                  <Select
+                    labelId="hp-standalone-goal-category-label"
+                    label="Category *"
+                    value={standaloneNewGoalCategory}
+                    onChange={(e) => setStandaloneNewGoalCategory(e.target.value as string)}
+                  >
+                    {(UserCategories.length > 0
+                      ? UserCategories.map((c) => c.name)
+                      : ['General', 'Work', 'Personal', 'Health', 'Finance', 'Learning']
+                    ).map((name) => (
+                      <MenuItem key={name} value={name}>{name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
                 <button
                   className="text-sm text-gray-50 underline"
-                  onClick={() => { setStandaloneCreateNewGoal(false); setStandaloneNewGoalTitle(''); }}
+                  onClick={() => { setStandaloneCreateNewGoal(false); setStandaloneNewGoalTitle(''); setStandaloneNewGoalCategory('General'); }}
                 >
                   ← Pick an existing goal instead
                 </button>

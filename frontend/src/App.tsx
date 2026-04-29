@@ -39,7 +39,10 @@ const AffirmationSubmit = lazy(() => import('@components/affirmations/Affirmatio
 const AffirmationSaved = lazy(() => import('@components/affirmations/AffirmationSaved'));
 const AffirmationSettings = lazy(() => import('@components/affirmations/AffirmationSettings'));
 const OnboardingAssistant = lazy(() => import('@components/OnboardingAssistant'));
+const WeeklyResetFlow = lazy(() => import('@components/weekly/WeeklyResetFlow'));
+const WeeklyReflectionFlow = lazy(() => import('@components/weekly/WeeklyReflectionFlow'));
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Chip } from '@mui/material';
+import { shouldShowWeeklyReset, shouldShowWeeklyReflection } from '@hooks/useWeeklyFlows';
 import { Bell, Calendar, FileText } from 'lucide-react';
 import { loadSession, saveSession } from '@components/focus/useFocusSession';
 
@@ -68,6 +71,8 @@ const App: React.FC = () => {
   });
   const [isOpen, /*setIsOpen*/] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showWeeklyReset, setShowWeeklyReset] = useState(false);
+  const [showWeeklyReflection, setShowWeeklyReflection] = useState(false);
 
   const toggleTheme = () => setTheme(prev => {
     const next = prev === 'theme-dark' ? 'theme-light' : 'theme-dark';
@@ -179,6 +184,17 @@ const App: React.FC = () => {
     }
   };
 
+  // Trigger weekly flows only after session is ready and onboarding is done
+  useEffect(() => {
+    if (testing || !session) return;
+    try {
+      const onboardingDone = !!localStorage.getItem('wkly_onboarding_complete');
+      if (!onboardingDone) return;
+      setShowWeeklyReset(shouldShowWeeklyReset());
+      setShowWeeklyReflection(shouldShowWeeklyReflection());
+    } catch { /* ignore */ }
+  }, [session?.user?.id, testing]);
+
   // Identify the authenticated user in Pendo once session + profile are loaded
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -198,6 +214,16 @@ const App: React.FC = () => {
       // Pendo not loaded yet or unavailable — silently ignore
     }
   }, [session?.user?.id, profile]);
+
+  // Redirect to profile password change when user arrives via a password reset link
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        navigate('/profile?changePassword=true');
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Start reminder service when user is authenticated
   const { pendingReminderTask, dismissReminderTask } = useReminderService();
@@ -360,6 +386,16 @@ const App: React.FC = () => {
           {showOnboarding && (
             <Suspense fallback={null}>
               <OnboardingAssistant onComplete={handleOnboardingComplete} />
+            </Suspense>
+          )}
+          {showWeeklyReset && (
+            <Suspense fallback={null}>
+              <WeeklyResetFlow onDismiss={() => setShowWeeklyReset(false)} />
+            </Suspense>
+          )}
+          {showWeeklyReflection && (
+            <Suspense fallback={null}>
+              <WeeklyReflectionFlow onDismiss={() => setShowWeeklyReflection(false)} />
             </Suspense>
           )}
         </GoalsProvider>

@@ -79,6 +79,7 @@ const PricingPage: React.FC = () => {
   const navigate = useNavigate();
   const { status, isPaid, isFree, refresh } = useTier();
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null);
   const [checkoutPlanType, setCheckoutPlanType] = useState<'monthly' | 'yearly' | 'one_time' | null>(null);
@@ -118,6 +119,31 @@ const PricingPage: React.FC = () => {
       checkoutInstanceRef.current = null;
     };
   }, [checkoutClientSecret]);
+
+  const handleDowngrade = async () => {
+    setPortalLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        notifyError('Please sign in to manage your subscription');
+        return;
+      }
+      const res = await fetch('/.netlify/functions/createPortalSession', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        notifyError(data.error || 'Failed to open billing portal');
+        return;
+      }
+      if (data.url) window.location.href = data.url;
+    } catch {
+      notifyError('Failed to open billing portal');
+    } finally {
+      setPortalLoading(false);
+    }
+  };
 
   const handleSelectPlan = async (planType: 'monthly' | 'yearly' | 'one_time') => {
     setLoadingPlan(planType);
@@ -267,8 +293,13 @@ const PricingPage: React.FC = () => {
                   Current Plan
                 </Button>
               ) : plan.id === 'free' ? (
-                <Button variant="outlined" disabled={isFree} className="!normal-case w-full" onClick={() => navigate('/')}>
-                  {isFree ? 'Current Plan' : 'Downgrade'}
+                <Button
+                  variant="outlined"
+                  disabled={isFree || portalLoading}
+                  className="!normal-case w-full"
+                  onClick={handleDowngrade}
+                >
+                  {portalLoading ? 'Loading...' : isFree ? 'Current Plan' : 'Cancel Subscription'}
                 </Button>
               ) : plan.id === 'subscription' ? (
                 <Button
