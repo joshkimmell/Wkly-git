@@ -5,6 +5,8 @@ import { TimezoneProvider } from '@context/TimezoneContext';
 import ToastNotification, { notifySuccess, notifyError, notifyReminder } from '@components/ToastyNotification';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import supabase from '@lib/supabase';
+import { App as CapApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 import useAuth from '@hooks/useAuth';
 import { useReminderService } from '@hooks/useReminderService';
 import LandingPage from '@components/LandingPage';
@@ -73,6 +75,23 @@ const App: React.FC = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showWeeklyReset, setShowWeeklyReset] = useState(false);
   const [showWeeklyReflection, setShowWeeklyReflection] = useState(false);
+
+  // Refresh the Supabase session when the Android/iOS app comes back from background.
+  // Without this, the 1-hour access token can expire while backgrounded and all
+  // API calls return 401 until the user manually signs out and back in.
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    let listener: Awaited<ReturnType<typeof CapApp.addListener>> | null = null;
+    CapApp.addListener('appStateChange', async ({ isActive }) => {
+      if (!isActive) return;
+      const { error } = await supabase.auth.refreshSession();
+      if (error) {
+        // Refresh token expired — sign out so the user is prompted to log in again
+        await supabase.auth.signOut();
+      }
+    }).then(l => { listener = l; });
+    return () => { listener?.remove(); };
+  }, []);
 
   const toggleTheme = () => setTheme(prev => {
     const next = prev === 'theme-dark' ? 'theme-light' : 'theme-dark';

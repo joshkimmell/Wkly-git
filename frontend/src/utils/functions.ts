@@ -37,6 +37,18 @@ export const fetchWithAuth = async (url: string): Promise<unknown> => {
 export const getSessionToken = async (): Promise<string> => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error('User is not authenticated');
+
+  // If the token is expired or within 60 seconds of expiry, force a refresh
+  // before making a request. This is especially important on Android where
+  // the app can be backgrounded for longer than the 1-hour token lifetime.
+  const expiresAt = session.expires_at; // unix seconds
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (expiresAt && expiresAt - nowSec < 60) {
+    const { data, error } = await supabase.auth.refreshSession();
+    if (error || !data.session?.access_token) throw new Error('Session refresh failed');
+    return data.session.access_token;
+  }
+
   return session.access_token;
 };
 
